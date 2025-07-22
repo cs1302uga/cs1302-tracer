@@ -78,7 +78,7 @@ public class App {
       };
 
       for (ExecutionSnapshot s : snapshot.values()) {
-        System.out.println(PyTutorSerializer.serialize(source, s));
+        System.out.println(PyTutorSerializer.serialize(source, s, true));
       }
     }
   }

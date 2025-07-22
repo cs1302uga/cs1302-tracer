@@ -2,6 +2,7 @@ package cs1302.tracer.serialize;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -11,13 +12,13 @@ import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.TraceValue;
 
 public class PyTutorSerializer {
-  public static String serialize(String javaSource, ExecutionSnapshot snapshot) {
+  public static String serialize(String javaSource, ExecutionSnapshot snapshot, boolean inlineStrings) {
     String currentMethod = snapshot.stack().getLast().methodName();
     long currentLine = snapshot.stack().getLast().methodLine();
 
     String serializedStatics = snapshot.statics().stream()
         .map(f -> String.format("\"%s\": %s", StringEscapeUtils.escapeJson(f.identifier()),
-            serializeTraceValue(f.value())))
+            serializeTraceValue(f.value(), snapshot.heap(), inlineStrings)))
         .collect(Collectors.joining(", ", "{", "}"));
 
     String orderedStatics = snapshot.statics().stream()
@@ -25,12 +26,15 @@ public class PyTutorSerializer {
         .collect(Collectors.joining(", ", "[", "]"));
 
     String serializedHeap = snapshot.heap().entrySet().stream()
-        .map(e -> String.format("\"%d\": %s", e.getKey(), serializeTraceValue(e.getValue())))
+        .filter(e -> !(inlineStrings && e.getValue() instanceof TraceValue.String))
+        .map(e -> String.format("\"%d\": %s", e.getKey(),
+            serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings)))
         .collect(Collectors.joining(", ", "{", "}"));
 
     List<String> encodedStacks = new ArrayList<>();
     for (int i = 0; i < snapshot.stack().size(); i++) {
-      encodedStacks.add(serializeStackSnapshot(snapshot.stack().get(i), i));
+      encodedStacks.add(
+          serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings));
     }
 
     String serializedStackToRender = encodedStacks.stream().collect(Collectors.joining(", ", "[", "]"));
@@ -60,7 +64,8 @@ public class PyTutorSerializer {
         serializedHeap);
   }
 
-  private static String serializeStackSnapshot(StackSnapshot stackSnapshot, int uniqueFrameId) {
+  private static String serializeStackSnapshot(StackSnapshot stackSnapshot, int uniqueFrameId,
+      Map<Long, TraceValue> heap, boolean inlineStrings) {
     return String.format("""
         {
           "func_name": "%s:%d",
@@ -76,7 +81,7 @@ public class PyTutorSerializer {
         """, stackSnapshot.methodName(), stackSnapshot.methodLine(),
         stackSnapshot.visibleVariables().stream()
             .map(v -> String.format("\"%s\": %s", StringEscapeUtils.escapeJson(v.identifier()),
-                serializeTraceValue(v.value())))
+                serializeTraceValue(v.value(), heap, inlineStrings)))
             .collect(Collectors.joining(", ", "{", "}")),
         stackSnapshot.visibleVariables().stream()
             .map(v -> String.format("\"%s\"", StringEscapeUtils.escapeJson(v.identifier())))
@@ -85,7 +90,7 @@ public class PyTutorSerializer {
         uniqueFrameId);
   }
 
-  private static String serializeTraceValue(TraceValue value) {
+  private static String serializeTraceValue(TraceValue value, Map<Long, TraceValue> heap, boolean inlineStrings) {
     return switch (value) {
       case TraceValue.Primitive.Float f -> {
         if (f.value() == Float.POSITIVE_INFINITY) {
@@ -110,15 +115,28 @@ public class PyTutorSerializer {
         }
       }
       case TraceValue.Primitive tp -> tp.valueToString();
-      case TraceValue.Reference tr -> String.format("[\"REF\", %d]", tr.uniqueId());
+      case TraceValue.Reference tr -> {
+        TraceValue referencedValue = heap.get(tr.uniqueId());
+        if (referencedValue instanceof TraceValue.String && inlineStrings) {
+          yield serializeTraceValue(referencedValue, heap, inlineStrings);
+        } else {
+          yield String.format("[\"REF\", %d]", tr.uniqueId());
+        }
+      }
       case TraceValue.Null n -> "null";
-      case TraceValue.String s -> String.format("\"%s\"", StringEscapeUtils.escapeJson(s.value()));
+      case TraceValue.String s -> {
+        if (inlineStrings) {
+          yield String.format("\"%s\"", StringEscapeUtils.escapeJson(s.value()));
+        } else {
+          yield String.format("[\"HEAP_PRIMITIVE\", \"String\", \"%s\"]", StringEscapeUtils.escapeJson(s.value()));
+        }
+      }
       case TraceValue.List l -> {
         if (l.value().isEmpty()) {
           yield "[\"LIST\"]";
         } else {
           yield l.value().stream()
-              .map(PyTutorSerializer::serializeTraceValue)
+              .map(e -> serializeTraceValue(e, heap, inlineStrings))
               .collect(Collectors.joining(", ", "[\"LIST\", ", "]"));
         }
       }
@@ -127,7 +145,7 @@ public class PyTutorSerializer {
           yield "[\"SET\"]";
         } else {
           yield c.value().stream()
-              .map(PyTutorSerializer::serializeTraceValue)
+              .map(e -> serializeTraceValue(e, heap, inlineStrings))
               .collect(Collectors.joining(", ", "[\"SET\", ", "]"));
         }
       }
@@ -136,7 +154,9 @@ public class PyTutorSerializer {
           yield "[\"DICT\"]";
         } else {
           yield m.value().entrySet().stream()
-              .map(e -> String.format("[%s, %s]", serializeTraceValue(e.getKey()), serializeTraceValue(e.getValue())))
+              .map(e -> String.format("[%s, %s]",
+                  serializeTraceValue(e.getKey(), heap, inlineStrings),
+                  serializeTraceValue(e.getValue(), heap, inlineStrings)))
               .collect(Collectors.joining(", ", "[\"DICT\", ", "]"));
         }
       }
@@ -146,7 +166,7 @@ public class PyTutorSerializer {
         } else {
           yield o.fields().stream()
               .map(f -> String.format("[\"%s\", %s]", StringEscapeUtils.escapeJson(f.identifier()),
-                  serializeTraceValue(f.value())))
+                  serializeTraceValue(f.value(), heap, inlineStrings)))
               .collect(Collectors.joining(", ",
                   String.format("[\"INSTANCE\", \"%s\", ", StringEscapeUtils.escapeJson(o.classFqn())), "]"));
         }
