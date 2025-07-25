@@ -7,10 +7,16 @@ To run:
 ```console
 $ java -jar target/code-tracer-1.0-SNAPSHOT-jar-with-dependencies.jar -h
 usage: code-tracer
- -b,--breakpoint <arg>             breakpoint at which to take a snapshot
-                                   (defaults to after main if none are
-                                   provided)
- -h,--help                         print this help message
+ -b,--breakpoint <arg>             breakpoint at which to take a snapshot.
+                                   the snapshot taken will represent the
+                                   state of memory immediately before this
+                                   line is executed. multiple instances of
+                                   this option can be provided. if none
+                                   are provided, the default behavior is
+                                   to
+                                   take one snapshot at the end of the
+                                   program's main method.
+ -h,--help                         print this help message and then exit
  -i,--input <arg>                  input path to Java source file
                                    (defaults to stdin if omitted)
  -l,--list-available-breakpoints   instead of running a trace, list the

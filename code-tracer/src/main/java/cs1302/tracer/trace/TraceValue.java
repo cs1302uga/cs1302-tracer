@@ -6,53 +6,53 @@ import com.sun.jdi.*;
 public sealed interface TraceValue {
 
   public static sealed interface Primitive extends TraceValue {
-    java.lang.String valueToString();
+    java.lang.Object toWrapperObject();
 
     public static final record Boolean(boolean value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Byte(byte value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Character(char value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Short(short value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Integer(int value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Long(long value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Float(float value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
     public static final record Double(double value) implements Primitive {
-      public java.lang.String valueToString() {
-        return java.lang.String.valueOf(value);
+      public java.lang.Object toWrapperObject() {
+        return value;
       }
     }
 
@@ -244,8 +244,7 @@ public sealed interface TraceValue {
               throw new IllegalStateException("The previous exception should not have been able to occur.", e);
             } catch (InvocationException e) {
               // the collection object threw an exception while we were examining its state,
-              // so we
-              // can't parse it
+              // so we can't parse it
             } catch (IncompatibleThreadStateException e) {
               // rethrow as an unchecked exception so we don't have to clutter siguatures up
               // the calling chain
@@ -304,7 +303,14 @@ public sealed interface TraceValue {
     java.util.List<TraceValue> tvs = new ArrayList<>(arrayReference.length());
 
     for (int i = 0; i < arrayReference.length(); i++) {
-      tvs.add(fromJdiValue(mainThread, arrayReference.getValue(i), outEncounteredReferences));
+      switch (arrayReference.getValue(i)) {
+        case PrimitiveValue pv -> tvs.add(Primitive.fromJdiPrimitive(pv));
+        case ObjectReference or -> {
+          outEncounteredReferences.ifPresent(l -> l.add(or));
+          tvs.add(new Reference(or.uniqueID()));
+        }
+        case Value v -> tvs.add(fromJdiValue(mainThread, v, outEncounteredReferences));
+      }
     }
 
     return tvs;

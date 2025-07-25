@@ -78,7 +78,7 @@ public class App {
       };
 
       for (ExecutionSnapshot s : snapshot.values()) {
-        System.out.println(PyTutorSerializer.serialize(source, s, true));
+        System.out.println(PyTutorSerializer.serialize(source, s, opts.hasOption("inline-strings")));
       }
     }
   }
@@ -129,6 +129,12 @@ public class App {
         Option.builder("l")
             .longOpt("list-available-breakpoints")
             .desc("instead of running a trace, list the breakpoints available in provided source file")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder("s")
+            .longOpt("inline-strings")
+            .desc("if provided, strings are inlined into fields instead of going through a reference")
             .required(false)
             .build());
     options.addOption(

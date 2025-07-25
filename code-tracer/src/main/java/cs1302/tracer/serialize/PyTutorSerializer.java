@@ -1,176 +1,129 @@
 package cs1302.tracer.serialize;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import org.apache.commons.text.StringEscapeUtils;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.TraceValue;
 
 public class PyTutorSerializer {
-  public static String serialize(String javaSource, ExecutionSnapshot snapshot, boolean inlineStrings) {
+  public static JSONObject serialize(String javaSource, ExecutionSnapshot snapshot, boolean inlineStrings) {
     String currentMethod = snapshot.stack().getLast().methodName();
     long currentLine = snapshot.stack().getLast().methodLine();
 
-    String serializedStatics = snapshot.statics().stream()
-        .map(f -> String.format("\"%s\": %s", StringEscapeUtils.escapeJson(f.identifier()),
-            serializeTraceValue(f.value(), snapshot.heap(), inlineStrings)))
-        .collect(Collectors.joining(", ", "{", "}"));
+    JSONObject serializedStatics = new JSONObject(snapshot.statics().stream()
+        .collect(Collectors.toMap(ExecutionSnapshot.Field::identifier,
+            s -> serializeTraceValue(s.value(), snapshot.heap(), inlineStrings))));
 
-    String orderedStatics = snapshot.statics().stream()
-        .map(s -> String.format("\"%s\"", StringEscapeUtils.escapeJson(s.identifier())))
-        .collect(Collectors.joining(", ", "[", "]"));
+    JSONArray orderedStatics = new JSONArray(snapshot.statics().stream()
+        .map(ExecutionSnapshot.Field::identifier)
+        .toArray());
 
-    String serializedHeap = snapshot.heap().entrySet().stream()
+    JSONObject serializedHeap = new JSONObject(snapshot.heap().entrySet().stream()
         .filter(e -> !(inlineStrings && e.getValue() instanceof TraceValue.String))
-        .map(e -> String.format("\"%d\": %s", e.getKey(),
-            serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings)))
-        .collect(Collectors.joining(", ", "{", "}"));
+        .collect(Collectors.toMap(Entry::getKey,
+            e -> serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings))));
 
-    List<String> encodedStacks = new ArrayList<>();
-    for (int i = 0; i < snapshot.stack().size(); i++) {
-      encodedStacks.add(
-          serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings));
-    }
+    JSONArray serializedStackToRender = new JSONArray(IntStream.range(0, snapshot.stack().size()).boxed()
+        .map(i -> serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings))
+        .toArray());
 
-    String serializedStackToRender = encodedStacks.stream().collect(Collectors.joining(", ", "[", "]"));
-
-    return String.format("""
-        {
-          "code": "%s",
-          "stdin": "",
-          "trace": [{
-            "stdout": "",
-            "event": "step_line",
-            "func_name": "%s",
-            "line": %d,
-            "stack_to_render": %s,
-            "globals": %s,
-            "ordered_globals": %s,
-            "heap": %s
-          }],
-          "userlog": ""
-        }""",
-        StringEscapeUtils.escapeJson(javaSource),
-        currentMethod,
-        currentLine,
-        serializedStackToRender,
-        serializedStatics,
-        orderedStatics,
-        serializedHeap);
+    return new JSONObject()
+        .put("code", javaSource)
+        .put("stdin", "")
+        .put("trace", new JSONArray()
+            .put(new JSONObject()
+                .put("stdout", "")
+                .put("event", "step_line")
+                .put("func_name", currentMethod)
+                .put("line", currentLine)
+                .put("stack_to_render", serializedStackToRender)
+                .put("globals", serializedStatics)
+                .put("ordered_globals", orderedStatics)
+                .put("heap", serializedHeap)))
+        .put("userlog", "");
   }
 
-  private static String serializeStackSnapshot(StackSnapshot stackSnapshot, int uniqueFrameId,
+  private static JSONObject serializeStackSnapshot(StackSnapshot stackSnapshot, int uniqueFrameId,
       Map<Long, TraceValue> heap, boolean inlineStrings) {
-    return String.format("""
-        {
-          "func_name": "%s:%d",
-          "encoded_locals": %s,
-          "ordered_varnames": %s,
-          "parent_frame_id_list": [],
-          "is_highlighted": true,
-          "is_zombie": false,
-          "is_parent": false,
-          "unique_hash": "%d",
-          "frame_id": %d
-        }
-        """, stackSnapshot.methodName(), stackSnapshot.methodLine(),
-        stackSnapshot.visibleVariables().stream()
-            .map(v -> String.format("\"%s\": %s", StringEscapeUtils.escapeJson(v.identifier()),
-                serializeTraceValue(v.value(), heap, inlineStrings)))
-            .collect(Collectors.joining(", ", "{", "}")),
-        stackSnapshot.visibleVariables().stream()
-            .map(v -> String.format("\"%s\"", StringEscapeUtils.escapeJson(v.identifier())))
-            .collect(Collectors.joining(", ", "[", "]")),
-        uniqueFrameId,
-        uniqueFrameId);
+    Map<String, Object> encodedLocals = stackSnapshot.visibleVariables().stream()
+        .collect(Collectors.toMap(ExecutionSnapshot.Field::identifier,
+            e -> serializeTraceValue(e.value(), heap, inlineStrings)));
+
+    return new JSONObject()
+        .put("func_name", String.format("%s:%d", stackSnapshot.methodName(), stackSnapshot.methodLine()))
+        .put("encoded_locals", new JSONObject(encodedLocals))
+        .put("ordered_varnames", new JSONArray(encodedLocals.keySet()))
+        .put("parent_frame_id_list", new JSONArray())
+        .put("is_highlighted", true)
+        .put("is_zombie", false)
+        .put("is_parent", false)
+        .put("unique_hash", String.valueOf(uniqueFrameId))
+        .put("frame_id", uniqueFrameId);
   }
 
-  private static String serializeTraceValue(TraceValue value, Map<Long, TraceValue> heap, boolean inlineStrings) {
+  /**
+   * Serialize a TraceValue into a Boolean, Double, Integer, JSONArray,
+   * JSONObject, Long, String, or the JSONObject.NULL object
+   */
+  private static Object serializeTraceValue(TraceValue value, Map<Long, TraceValue> heap, boolean inlineStrings) {
     return switch (value) {
-      case TraceValue.Primitive.Float f -> {
-        if (f.value() == Float.POSITIVE_INFINITY) {
-          yield "[\"SPECIAL_FLOAT\", \"Infinity\"]";
-        } else if (f.value() == Float.NEGATIVE_INFINITY) {
-          yield "[\"SPECIAL_FLOAT\", \"-Infinity\"]";
-        } else if (Float.isNaN(f.value())) {
-          yield "[\"SPECIAL_FLOAT\", \"NaN\"]";
-        } else {
-          yield f.valueToString();
-        }
-      }
+      // TODO does this produce identical results? floating point is weird.
+      case TraceValue.Primitive.Float f ->
+        serializeTraceValue(new TraceValue.Primitive.Double(f.value()), heap, inlineStrings);
       case TraceValue.Primitive.Double d -> {
         if (d.value() == Double.POSITIVE_INFINITY) {
-          yield "[\"SPECIAL_FLOAT\", \"Infinity\"]";
+          yield new JSONArray().put("SPECIAL_FLOAT").put("Infinity");
         } else if (d.value() == Double.NEGATIVE_INFINITY) {
-          yield "[\"SPECIAL_FLOAT\", \"-Infinity\"]";
+          yield new JSONArray().put("SPECIAL_FLOAT").put("-Infinity");
         } else if (Double.isNaN(d.value())) {
-          yield "[\"SPECIAL_FLOAT\", \"NaN\"]";
+          yield new JSONArray().put("SPECIAL_FLOAT").put("NaN");
         } else {
-          yield d.valueToString();
+          yield d.toWrapperObject();
         }
       }
-      case TraceValue.Primitive tp -> tp.valueToString();
+      case TraceValue.Primitive tp -> tp.toWrapperObject();
       case TraceValue.Reference tr -> {
         TraceValue referencedValue = heap.get(tr.uniqueId());
         if (referencedValue instanceof TraceValue.String && inlineStrings) {
           yield serializeTraceValue(referencedValue, heap, inlineStrings);
         } else {
-          yield String.format("[\"REF\", %d]", tr.uniqueId());
+          yield new JSONArray().put("REF").put(tr.uniqueId());
         }
       }
-      case TraceValue.Null n -> "null";
+      case TraceValue.Null n -> JSONObject.NULL;
       case TraceValue.String s -> {
         if (inlineStrings) {
-          yield String.format("\"%s\"", StringEscapeUtils.escapeJson(s.value()));
+          yield s.value();
         } else {
-          yield String.format("[\"HEAP_PRIMITIVE\", \"String\", \"%s\"]", StringEscapeUtils.escapeJson(s.value()));
+          yield new JSONArray().put("HEAP_PRIMITIVE").put("String").put(s.value());
         }
       }
-      case TraceValue.List l -> {
-        if (l.value().isEmpty()) {
-          yield "[\"LIST\"]";
-        } else {
-          yield l.value().stream()
-              .map(e -> serializeTraceValue(e, heap, inlineStrings))
-              .collect(Collectors.joining(", ", "[\"LIST\", ", "]"));
-        }
-      }
-      case TraceValue.Collection c -> {
-        if (c.value().isEmpty()) {
-          yield "[\"SET\"]";
-        } else {
-          yield c.value().stream()
-              .map(e -> serializeTraceValue(e, heap, inlineStrings))
-              .collect(Collectors.joining(", ", "[\"SET\", ", "]"));
-        }
-      }
-      case TraceValue.Map m -> {
-        if (m.value().isEmpty()) {
-          yield "[\"DICT\"]";
-        } else {
-          yield m.value().entrySet().stream()
-              .map(e -> String.format("[%s, %s]",
-                  serializeTraceValue(e.getKey(), heap, inlineStrings),
-                  serializeTraceValue(e.getValue(), heap, inlineStrings)))
-              .collect(Collectors.joining(", ", "[\"DICT\", ", "]"));
-        }
-      }
-      case TraceValue.Object o -> {
-        if (o.fields().isEmpty()) {
-          yield String.format("[\"INSTANCE\", \"%s\"]", StringEscapeUtils.escapeJson(o.classFqn()));
-        } else {
-          yield o.fields().stream()
-              .map(f -> String.format("[\"%s\", %s]", StringEscapeUtils.escapeJson(f.identifier()),
-                  serializeTraceValue(f.value(), heap, inlineStrings)))
-              .collect(Collectors.joining(", ",
-                  String.format("[\"INSTANCE\", \"%s\", ", StringEscapeUtils.escapeJson(o.classFqn())), "]"));
-        }
-      }
+      case TraceValue.List l ->
+        new JSONArray()
+            .put("LIST")
+            .putAll(l.value().stream().map(e -> serializeTraceValue(e, heap, inlineStrings)).toArray());
+      case TraceValue.Collection c ->
+        new JSONArray()
+            .put("SET")
+            .putAll(c.value().stream().map(e -> serializeTraceValue(e, heap, inlineStrings)).toArray());
+      case TraceValue.Map m ->
+        new JSONArray().put("DICT")
+            .putAll(m.value().entrySet().stream()
+                .map(e -> new JSONArray().put(serializeTraceValue(e.getKey(), heap, inlineStrings))
+                    .put(serializeTraceValue(e.getValue(), heap, inlineStrings)))
+                .toArray());
+      case TraceValue.Object o ->
+        new JSONArray().put("INSTANCE").put(o.classFqn())
+            .putAll(o.fields().stream()
+                .map(f -> new JSONArray().put(f.identifier()).put(serializeTraceValue(f.value(), heap, inlineStrings)))
+                .toArray());
     };
 
   }
