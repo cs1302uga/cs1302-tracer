@@ -30,9 +30,10 @@ public class PyTutorSerializer {
         .collect(Collectors.toMap(Entry::getKey,
             e -> serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings))));
 
-    JSONArray serializedStackToRender = new JSONArray(IntStream.range(0, snapshot.stack().size()).boxed()
-        .map(i -> serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings))
-        .toArray());
+    JSONArray serializedStackToRender = new JSONArray(
+        IntStream.range(0, snapshot.stack().size()).map(i -> snapshot.stack().size() - i - 1).boxed()
+            .map(i -> serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings))
+            .toArray());
 
     return new JSONObject()
         .put("code", javaSource)
@@ -61,7 +62,7 @@ public class PyTutorSerializer {
         .put("encoded_locals", new JSONObject(encodedLocals))
         .put("ordered_varnames", new JSONArray(encodedLocals.keySet()))
         .put("parent_frame_id_list", new JSONArray())
-        .put("is_highlighted", true)
+        .put("is_highlighted", uniqueFrameId == 0)
         .put("is_zombie", false)
         .put("is_parent", false)
         .put("unique_hash", String.valueOf(uniqueFrameId))
