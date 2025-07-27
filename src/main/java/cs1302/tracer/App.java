@@ -138,6 +138,12 @@ public class App {
             .required(false)
             .build());
     options.addOption(
+        Option.builder()
+            .longOpt("show-licenses")
+            .desc("show the licenses for projects used in this program and then exit")
+            .required(false)
+            .build());
+    options.addOption(
         Option.builder("h")
             .longOpt("help")
             .desc("print this help message and then exit")
@@ -151,6 +157,18 @@ public class App {
       if (cmd.hasOption("help")) {
         new HelpFormatter().printHelp("code-tracer", options);
 
+        return Optional.empty();
+      } else if (cmd.hasOption("show-licenses")) {
+        System.out.println("""
+            This program includes and uses several open source projects.
+            \tApache Commons CLI (https://commons.apache.org/proper/commons-cli/)
+            \tJansi (https://fusesource.github.io/jansi/)
+            \tJavaParser (https://javaparser.org/),
+            \tJSON-Java (https://github.com/stleary/JSON-java)
+            Apache Commons CLI, Jansi, and JavaParser are licensed under the Apache License
+            2.0, which can be found below this message. JSON-Java has been dedicated to the
+            public domain. Thank you to the authors and contributors of those projects!
+            """ + LicenseHelper.APACHE_2_0);
         return Optional.empty();
       }
 

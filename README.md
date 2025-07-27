@@ -5,7 +5,7 @@ $ mvn clean compile assembly:single
 
 To run:
 ```console
-$ java -jar target/code-tracer-1.0-SNAPSHOT-jar-with-dependencies.jar -h
+$ java -jar code-tracer.jar -h
 usage: code-tracer
  -b,--breakpoint <arg>             breakpoint at which to take a snapshot.
                                    the snapshot taken will represent the
@@ -27,6 +27,8 @@ usage: code-tracer
  -s,--inline-strings               if provided, strings are inlined into
                                    fields instead of going through a
                                    reference
+    --show-licenses                show the licenses for projects used in
+                                   this program and then exit
 ```
 
 References:
