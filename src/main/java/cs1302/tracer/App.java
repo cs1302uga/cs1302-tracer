@@ -5,13 +5,14 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
+import org.json.JSONObject;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.cli.CommandLine;
@@ -30,7 +31,7 @@ import cs1302.tracer.serialize.PyTutorSerializer;
  */
 public class App {
   public static void main(String[] args) throws Exception {
-    CommandLine opts = App.getOptions(args).orElseThrow();
+    CommandLine opts = App.getOptions(args);
 
     // read java source code input to a string (and parse it for later)
     String source;
@@ -72,27 +73,36 @@ public class App {
       System.out.println(annotatedSource.toString());
     } else {
       String[] breakpoints = opts.getOptionValues("breakpoint");
-      Map<Integer, ExecutionSnapshot> snapshot = switch (breakpoints) {
-        case null -> Map.of(-1, DebugTraceHelper.trace(c));
-        default -> DebugTraceHelper.trace(c, Stream.of(breakpoints).map(Integer::parseInt).toList());
-      };
+      if (breakpoints == null) {
+        ExecutionSnapshot trace = DebugTraceHelper.trace(c);
+        JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(source, trace, opts.hasOption("inline-strings"));
+        System.out.println(pyTutorSnapshot);
+      } else {
+        Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
+            c,
+            Stream.of(breakpoints).map(Integer::parseInt).toList());
 
-      for (ExecutionSnapshot s : snapshot.values()) {
-        System.out.println(PyTutorSerializer.serialize(source, s, opts.hasOption("inline-strings")));
+        Map<Integer, JSONObject> pyTutorSnapshots = trace
+            .entrySet().stream()
+            .collect(Collectors.toMap(
+                e -> e.getKey(),
+                e -> PyTutorSerializer.serialize(source, e.getValue(), opts.hasOption("inline-strings"))));
+
+        System.out.println(new JSONObject(pyTutorSnapshots));
       }
+
     }
   }
 
   /**
    * Parse command-line options into a CommandLine instance. If parsing fails or
    * the help option is encountered, a usage message is printed to stdout and the
-   * empty value is returned.
+   * process exits.
    *
    * @param args command-line arguments, usually provided directly from main
-   * @return a constructed CommandLine object, or empty if one could not be
-   *         created
+   * @return a constructed CommandLine object
    */
-  public static Optional<CommandLine> getOptions(String[] args) {
+  public static CommandLine getOptions(String[] args) {
     Options options = new Options();
 
     // TODO add an option for restricting which classes/objects have their full set
@@ -157,7 +167,7 @@ public class App {
       if (cmd.hasOption("help")) {
         new HelpFormatter().printHelp("code-tracer", options);
 
-        return Optional.empty();
+        System.exit(0);
       } else if (cmd.hasOption("show-licenses")) {
         System.out.println("""
             This program includes and uses several open source projects.
@@ -169,15 +179,16 @@ public class App {
             2.0, which can be found below this message. JSON-Java has been dedicated to the
             public domain. Thank you to the authors and contributors of those projects!
             """ + LicenseHelper.APACHE_2_0);
-        return Optional.empty();
+        System.exit(0);
       }
 
-      return Optional.of(cmd);
+      return cmd;
     } catch (ParseException e) {
       System.err.println(e.getMessage());
       new HelpFormatter().printHelp("code-tracer", options);
-
-      return Optional.empty();
+      System.exit(-1);
     }
+
+    throw new IllegalStateException("Unreachable.");
   }
 }
