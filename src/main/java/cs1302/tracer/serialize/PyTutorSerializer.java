@@ -103,7 +103,7 @@ public class PyTutorSerializer {
         if (inlineStrings) {
           yield s.value();
         } else {
-          yield new JSONArray().put("HEAP_PRIMITIVE").put("String").put(s.value());
+          yield new JSONArray().put("INSTANCE").put("String").put(new JSONArray().put("").put(s.value()));
         }
       }
       case TraceValue.List l ->
