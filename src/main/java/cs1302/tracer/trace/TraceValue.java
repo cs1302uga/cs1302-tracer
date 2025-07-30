@@ -304,6 +304,7 @@ public sealed interface TraceValue {
 
     for (int i = 0; i < arrayReference.length(); i++) {
       switch (arrayReference.getValue(i)) {
+        case null -> new Null();
         case PrimitiveValue pv -> tvs.add(Primitive.fromJdiPrimitive(pv));
         case ObjectReference or -> {
           outEncounteredReferences.ifPresent(l -> l.add(or));
