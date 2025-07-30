@@ -11,6 +11,7 @@ import java.util.Set;
 
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Bootstrap;
+import com.sun.jdi.Field;
 import com.sun.jdi.IncompatibleThreadStateException;
 import com.sun.jdi.LocalVariable;
 import com.sun.jdi.Location;
@@ -218,11 +219,24 @@ public class DebugTraceHelper {
     // collect static values that have been loaded
     List<ExecutionSnapshot.Field> statics = new ArrayList<>();
     for (ReferenceType loadedClass : loadedClasses) {
-      statics.addAll(loadedClass.allFields().stream()
-          .filter(f -> f.isStatic())
-          .map(f -> new ExecutionSnapshot.Field(String.join(".", loadedClass.name(), f.name()),
-              TraceValue.fromJdiValue(vm, mainThread, loadedClass.getValue(f), heapReferencesToWalk)))
-          .toList());
+      for (Field f : loadedClass.allFields()) {
+        if (!f.isStatic()) {
+          continue;
+        }
+
+        String fieldName = String.join(".", loadedClass.name(), f.name());
+        switch (loadedClass.getValue(f)) {
+          case PrimitiveValue pv ->
+            statics.add(new ExecutionSnapshot.Field(fieldName, TraceValue.Primitive.fromJdiPrimitive(pv)));
+          case ObjectReference or -> {
+            statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Reference(or.uniqueID())));
+            heapReferencesToWalk.add(or);
+          }
+          case null -> statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Null()));
+          default -> {
+          }
+        }
+      }
     }
 
     // recursively collect heap values reachable from the roots contained in
