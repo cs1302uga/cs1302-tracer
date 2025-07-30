@@ -30,6 +30,9 @@ public class PyTutorSerializer {
         .collect(Collectors.toMap(Entry::getKey,
             e -> serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings))));
 
+    // don't serialize String[] args in main
+    snapshot.stack().getFirst().visibleVariables().removeFirst();
+
     JSONArray serializedStackToRender = new JSONArray(
         IntStream.range(0, snapshot.stack().size()).map(i -> snapshot.stack().size() - i - 1).boxed()
             .map(i -> serializeStackSnapshot(snapshot.stack().get(i), i, snapshot.heap(), inlineStrings))
