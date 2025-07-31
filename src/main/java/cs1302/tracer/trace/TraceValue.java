@@ -258,6 +258,21 @@ public sealed interface TraceValue {
           }
         }
 
+        // only output a stub object (with no fields) for Java builtin types
+        // (https://docs.oracle.com/en/java/javase/21/docs/api/allpackages-index.html)
+        // TODO this should probably be configurable. maybe also whitelist classes
+        // compiled by our program instead of blacklisting java builtins? might make it
+        // unnecessary to change this if java adds new builtins later.
+        java.lang.String[] builtInPackages = {
+            "com.sun.", "java.", "javax.", "jdk.", "netscape.javascript.",
+            "org.ietf.jgss.", "org.w3c.dom.", "org.xml.sax."
+        };
+        for (java.lang.String packagePrefix : builtInPackages) {
+          if (or.referenceType().name().startsWith(packagePrefix)) {
+            yield new Object(or.referenceType().name(), java.util.List.of());
+          }
+        }
+
         // not a terminating object, fall back to simply listing object fields
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields = or.referenceType().allFields().stream()
