@@ -33,7 +33,7 @@ public class App {
   public static void main(String[] args) throws Exception {
     CommandLine opts = App.getOptions(args);
 
-    // read java source code input to a string (and parse it for later)
+    // read java source code input to a string
     String source;
     if (opts.getOptionValue("input") != null) {
       source = Files.readString(Paths.get(opts.getOptionValue("input")));
@@ -52,6 +52,7 @@ public class App {
 
     // and then debug it
     if (opts.hasOption("list-available-breakpoints")) {
+      // show breakpoints
       Collection<Integer> availableBreakpoints = DebugTraceHelper.getValidBreakpointLines(c);
       String[] sourceLines = source.split("\n");
       int digitLength = ((int) Math.log10(sourceLines.length)) + 1;
@@ -72,6 +73,7 @@ public class App {
       AnsiConsole.systemUninstall();
       System.out.println(annotatedSource.toString());
     } else {
+      // run a trace
       String[] breakpoints = opts.getOptionValues("breakpoint");
       if (breakpoints == null) {
         ExecutionSnapshot trace = DebugTraceHelper.trace(c);
@@ -127,11 +129,10 @@ public class App {
         Option.builder("b")
             .longOpt("breakpoint")
             .desc(
-                """
-                    breakpoint at which to take a snapshot. the snapshot taken will represent the
-                    state of memory immediately before this line is executed. multiple instances of
-                    this option can be provided. if none are provided, the default behavior is to
-                    take one snapshot at the end of the program's main method.""")
+                "breakpoint at which to take a snapshot. the snapshot taken will represent the " +
+                "state of memory immediately before this line is executed. multiple instances " +
+                "of this option can be provided. if none are provided, the default behavior is " +
+                "to take one snapshot at the end of the program's main method.")
             .required(false)
             .hasArg()
             .build());

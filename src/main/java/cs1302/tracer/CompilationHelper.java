@@ -28,7 +28,9 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import javax.tools.JavaFileObject.Kind;
 
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
@@ -51,6 +53,7 @@ public class CompilationHelper {
      * Parse source code so we can later identify the main method and top-level
      * class
      */
+    StaticJavaParser.setConfiguration(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
     CompilationUnit sourceCompilationUnit = StaticJavaParser.parse(javaSource);
 
     /*

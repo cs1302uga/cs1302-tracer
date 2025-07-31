@@ -92,7 +92,7 @@ public class DebugTraceHelper {
           case BreakpointEvent bpe -> {
             Location breakLocation = bpe.location();
             if (compilationResult.compiledClassNames().contains(breakLocation.declaringType().name())) {
-              snapshots.put(breakLocation.lineNumber(), snapshotTheWorld(vm, bpe.thread(), loadedClasses));
+              snapshots.put(breakLocation.lineNumber(), snapshotTheWorld(bpe.thread(), loadedClasses));
             }
           }
           case MethodExitEvent mee -> {
@@ -105,7 +105,7 @@ public class DebugTraceHelper {
                 && method.signature().equals(mainJniSignature);
 
             if (isMain && (snapMainEnd || snapshots.isEmpty())) {
-              snapshots.put(-1, snapshotTheWorld(vm, mee.thread(), loadedClasses));
+              snapshots.put(-1, snapshotTheWorld(mee.thread(), loadedClasses));
             }
           }
           case VMDeathEvent vde -> {
@@ -187,7 +187,7 @@ public class DebugTraceHelper {
     return vm;
   }
 
-  private static ExecutionSnapshot snapshotTheWorld(VirtualMachine vm, ThreadReference mainThread,
+  private static ExecutionSnapshot snapshotTheWorld(ThreadReference mainThread,
       Iterable<ReferenceType> loadedClasses)
       throws IncompatibleThreadStateException, AbsentInformationException {
 
@@ -248,7 +248,7 @@ public class DebugTraceHelper {
         continue;
       }
 
-      heap.put(workingObject.uniqueID(), TraceValue.fromJdiValue(vm, mainThread, workingObject, heapReferencesToWalk));
+      heap.put(workingObject.uniqueID(), TraceValue.fromJdiValue(mainThread, workingObject, heapReferencesToWalk));
     }
 
     return new ExecutionSnapshot(stackSnapshots, statics, heap);

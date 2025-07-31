@@ -288,12 +288,12 @@ public sealed interface TraceValue {
     };
   }
 
-  public static TraceValue fromJdiValue(VirtualMachine vm, ThreadReference mainThread, Value value,
+  public static TraceValue fromJdiValue(ThreadReference mainThread, Value value,
       java.util.List<ObjectReference> outEncounteredReferences) {
     return fromJdiValue(mainThread, value, Optional.ofNullable(outEncounteredReferences));
   }
 
-  public static TraceValue fromJdiValue(VirtualMachine vm, ThreadReference mainThread, Value value) {
+  public static TraceValue fromJdiValue(ThreadReference mainThread, Value value) {
     return fromJdiValue(mainThread, value, Optional.empty());
   }
 
