@@ -13,7 +13,8 @@ import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.TraceValue;
 
 public class PyTutorSerializer {
-  public static JSONObject serialize(String javaSource, ExecutionSnapshot snapshot, boolean inlineStrings) {
+  public static JSONObject serialize(String javaSource, ExecutionSnapshot snapshot, boolean inlineStrings,
+      boolean removeMainArgs) {
     String currentMethod = snapshot.stack().getLast().methodName();
     long currentLine = snapshot.stack().getLast().methodLine();
 
@@ -31,7 +32,9 @@ public class PyTutorSerializer {
             e -> serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings))));
 
     // don't serialize String[] args in main
-    snapshot.stack().getFirst().visibleVariables().removeFirst();
+    if (removeMainArgs) {
+      snapshot.stack().getFirst().visibleVariables().removeFirst();
+    }
 
     JSONArray serializedStackToRender = new JSONArray(
         IntStream.range(0, snapshot.stack().size()).map(i -> snapshot.stack().size() - i - 1).boxed()

@@ -27,7 +27,7 @@ import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.serialize.PyTutorSerializer;
 
 /**
- * Hello world!
+ * Entry point for the tracer program
  */
 public class App {
   public static void main(String[] args) throws Exception {
@@ -77,7 +77,7 @@ public class App {
       String[] breakpoints = opts.getOptionValues("breakpoint");
       if (breakpoints == null) {
         ExecutionSnapshot trace = DebugTraceHelper.trace(c);
-        JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(source, trace, opts.hasOption("inline-strings"));
+        JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(source, trace, opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"));
         System.out.println(pyTutorSnapshot);
       } else {
         Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
@@ -88,7 +88,7 @@ public class App {
             .entrySet().stream()
             .collect(Collectors.toMap(
                 e -> e.getKey(),
-                e -> PyTutorSerializer.serialize(source, e.getValue(), opts.hasOption("inline-strings"))));
+                e -> PyTutorSerializer.serialize(source, e.getValue(), opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"))));
 
         System.out.println(new JSONObject(pyTutorSnapshots));
       }
@@ -130,9 +130,9 @@ public class App {
             .longOpt("breakpoint")
             .desc(
                 "breakpoint at which to take a snapshot. the snapshot taken will represent the " +
-                "state of memory immediately before this line is executed. multiple instances " +
-                "of this option can be provided. if none are provided, the default behavior is " +
-                "to take one snapshot at the end of the program's main method.")
+                    "state of memory immediately before this line is executed. multiple instances " +
+                    "of this option can be provided. if none are provided, the default behavior is " +
+                    "to take one snapshot at the end of the program's main method.")
             .required(false)
             .hasArg()
             .build());
@@ -146,6 +146,12 @@ public class App {
         Option.builder("s")
             .longOpt("inline-strings")
             .desc("if provided, strings are inlined into fields instead of going through a reference")
+            .required(false)
+            .build());
+    options.addOption(
+        Option.builder()
+            .longOpt("remove-main-args")
+            .desc("don't include the main method's `args` parameter in the output")
             .required(false)
             .build());
     options.addOption(
