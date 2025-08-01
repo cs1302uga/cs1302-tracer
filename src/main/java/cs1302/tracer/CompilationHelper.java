@@ -192,8 +192,15 @@ public class CompilationHelper {
     Predicate<MethodDeclaration> isMain = m -> {
       boolean isNamedMain = m.getNameAsString().equals("main");
       boolean hasVoidReturn = m.getType().isVoidType();
-      boolean hasStringArrArg = m.getParameterByType(String[].class).isPresent();
-      boolean hasStringVarargsArg = m.getParameterByType(String.class).map(p -> p.isVarArgs()).orElse(false);
+      // we fall back to checking type strings with these param checks because
+      // otherwise they fail when String is given as an fqn (java.lang.String)
+      boolean hasStringArrArg = m.getParameterByType(String[].class)
+          .or(() -> m.getParameterByType("java.lang.String[]"))
+          .isPresent();
+      boolean hasStringVarargsArg = m.getParameterByType(String.class)
+          .or(() -> m.getParameterByType("java.lang.String"))
+          .map(p -> p.isVarArgs())
+          .orElse(false);
       boolean hasOneArg = m.getParameters().size() == 1;
       return m.isPublic() && m.isStatic() && hasVoidReturn && isNamedMain && (hasStringArrArg ^ hasStringVarargsArg)
           && hasOneArg;
