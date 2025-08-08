@@ -95,6 +95,7 @@ public class PyTutorSerializer {
           yield d.toWrapperObject();
         }
       }
+      case TraceValue.Primitive.Character c -> new JSONArray().put("CHAR-LITERAL").put(String.valueOf(c.value()));
       case TraceValue.Primitive tp -> tp.toWrapperObject();
       case TraceValue.Reference tr -> {
         TraceValue referencedValue = heap.get(tr.uniqueId());
