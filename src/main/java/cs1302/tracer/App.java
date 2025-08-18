@@ -26,6 +26,9 @@ import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.serialize.PyTutorSerializer;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 /**
  * Entry point for the tracer program
  */
@@ -51,53 +54,113 @@ public class App {
         }; // switch
 
         // compile the source code
-        CompilationResult c = CompilationHelper.compile(source);
+        CompilationResult compilationResult = CompilationHelper.compile(source);
 
-        // and then debug it
-        if (opts.hasOption("list-available-breakpoints")) {
-            // show breakpoints
-            Collection<Integer> availableBreakpoints = DebugTraceHelper.getValidBreakpointLines(c);
-            String[] sourceLines = source.split("\n");
-            int digitLength = ((int) Math.log10(sourceLines.length)) + 1;
-            StringBuilder annotatedSource = new StringBuilder();
-            AnsiConsole.systemInstall();
-            for (int i = 0; i < sourceLines.length; i++) {
-                if (availableBreakpoints.contains(i + 1)) {
-                    annotatedSource.append(Ansi.ansi().fgGreen().a(String.format("b %" + digitLength + "d | ", i + 1)));
-                } else {
-                    annotatedSource.append(String.format("  %" + digitLength + "d | ", i + 1));
-                }
-                annotatedSource.append(sourceLines[i]);
-                annotatedSource.append(Ansi.ansi().reset());
-                if (i < sourceLines.length - 1) {
-                    annotatedSource.append('\n');
-                }
-            }
-            AnsiConsole.systemUninstall();
-            System.out.println(annotatedSource.toString());
-        } else {
-            // run a trace
+        // list breakpoints if that options is set
+        if (opts.hasOption("list-available-breakpoints")
+            || opts.hasOption("list-available-breakpoints-json")) {
+            App.listBreakpoints(opts, source, compilationResult);
+            System.exit(0);
+        } //
+
+        // generate trace by default
+        generateTrace(opts, source, compilationResult);
+        System.exit(0);
+
+    } // main
+
+    public static void generateTrace(CommandLine opts, String source, CompilationResult compilationResult) {
+        // run a trace
+        try {
             String[] breakpoints = opts.getOptionValues("breakpoint");
             if (breakpoints == null) {
-                ExecutionSnapshot trace = DebugTraceHelper.trace(c);
-                JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(source, trace, opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"));
+                ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult);
+                JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(
+                    source,
+                    trace,
+                    opts.hasOption("inline-strings"),
+                    opts.hasOption("remove-main-args")
+                );
                 System.out.println(pyTutorSnapshot);
             } else {
                 Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
-                    c,
+                    compilationResult,
                     Stream.of(breakpoints).map(Integer::parseInt).toList());
-
-                Map<Integer, JSONObject> pyTutorSnapshots = trace
+                Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
                     .entrySet().stream()
                     .collect(Collectors.toMap(
                         e -> e.getKey(),
-                        e -> PyTutorSerializer.serialize(source, e.getValue(), opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"))));
-
+                        e -> PyTutorSerializer.serialize(
+                            source,
+                            e.getValue(),
+                            opts.hasOption("inline-strings"),
+                            opts.hasOption("remove-main-args")
+                        )));
                 System.out.println(new JSONObject(pyTutorSnapshots));
-            }
+            } // if
+        } catch (Throwable cause) {
+            System.err.println("Unable to generate trace!");
+            if (opts.hasOption("verbose")) {
+                cause.printStackTrace();
+            } // if
+            System.exit(1);
+        } // try
+    } // generateTrace
 
-        }
-    }
+    public static void listBreakpoints(CommandLine opts, String source, CompilationResult compilationResult) {
+        // show breakpoints
+        try {
+            boolean outputJson = opts.hasOption("list-available-breakpoints-json");
+            Collection<Integer> availableBreakpoints = DebugTraceHelper
+                .getValidBreakpointLines(compilationResult);
+            String[] sourceLines = source.split("\n");
+            int digitLength = ((int) Math.log10(sourceLines.length)) + 1;
+
+            if (outputJson) {
+                JSONArray output = new JSONArray();
+                for (int i = 0; i < sourceLines.length; i++) {
+                    int lineNumber = i + 1;
+                    boolean validBreakpoint = availableBreakpoints.contains(lineNumber);
+                    String lineContent = sourceLines[i];
+                    JSONObject lineEntry = new JSONObject()
+                        .put("lineNumber", lineNumber)
+                        .put("validBreakpoint", validBreakpoint)
+                        .put("lineContent", lineContent);
+                    output.put(lineEntry);
+                } // for
+                System.out.println(output);
+            } else {
+                StringBuilder annotatedSource = new StringBuilder();
+                AnsiConsole.systemInstall();
+                for (int i = 0; i < sourceLines.length; i++) {
+
+                    if (availableBreakpoints.contains(i + 1)) {
+                        annotatedSource.append(
+                            Ansi.ansi().fgGreen()
+                                .a(String.format("b %" + digitLength + "d | ", i + 1)));
+                    } else {
+                        annotatedSource.append(String.format("  %" + digitLength + "d | ", i + 1));
+                    }
+
+                    annotatedSource.append(sourceLines[i]);
+                    annotatedSource.append(Ansi.ansi().reset());
+
+                    if (i < sourceLines.length - 1) {
+                        annotatedSource.append('\n');
+                    } // if
+                } // for
+                AnsiConsole.systemUninstall();
+                System.out.println(annotatedSource.toString());
+            } // if
+
+        } catch (Throwable cause) {
+            System.err.println("Unable to list breakpoints!");
+            if (opts.hasOption("verbose")) {
+                cause.printStackTrace();
+            } // if
+            System.exit(1);
+        } // try
+    } // listBreakpoints
 
     /**
      * Parse command-line options into a CommandLine instance. If parsing fails or
@@ -149,7 +212,22 @@ public class App {
         options.addOption(
             Option.builder("l")
                 .longOpt("list-available-breakpoints")
-                .desc("instead of running a trace, list the breakpoints available in provided source file")
+                .desc(
+                    """
+                    instead of running a trace, list the breakpoints available in the provided
+                    source file.
+                    """.strip())
+                .required(false)
+                .build());
+
+        options.addOption(
+            Option.builder("L")
+                .longOpt("list-available-breakpoints-json")
+                .desc(
+                    """
+                    instead of running a trace, list the breakpoints available in the provided
+                    source file in JSON format.
+                    """.strip())
                 .required(false)
                 .build());
 
