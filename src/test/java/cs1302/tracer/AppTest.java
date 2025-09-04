@@ -1,8 +1,8 @@
 package cs1302.tracer;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit test for simple App.
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 public class AppTest {
 
     /**
-     * Rigorous Test :-)
+     * Rigorous Test.
      */
     @Test
     public void shouldAnswerWithTrue() {

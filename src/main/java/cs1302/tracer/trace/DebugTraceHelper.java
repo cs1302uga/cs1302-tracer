@@ -1,64 +1,44 @@
 package cs1302.tracer.trace;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.sun.jdi.AbsentInformationException;
-import com.sun.jdi.Bootstrap;
-import com.sun.jdi.Field;
-import com.sun.jdi.IncompatibleThreadStateException;
-import com.sun.jdi.LocalVariable;
-import com.sun.jdi.Location;
-import com.sun.jdi.Method;
-import com.sun.jdi.ObjectReference;
-import com.sun.jdi.PrimitiveValue;
-import com.sun.jdi.ReferenceType;
-import com.sun.jdi.StackFrame;
-import com.sun.jdi.ThreadReference;
-import com.sun.jdi.VirtualMachine;
+import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
 import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.connect.VMStartException;
-import com.sun.jdi.event.BreakpointEvent;
-import com.sun.jdi.event.ClassPrepareEvent;
-import com.sun.jdi.event.Event;
-import com.sun.jdi.event.MethodExitEvent;
-import com.sun.jdi.event.VMDeathEvent;
+import com.sun.jdi.event.*;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.MethodExitRequest;
-
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 
+import java.io.IOException;
+import java.util.*;
+
+/** A collection of methods that are used to generate a debug trace. */
 public class DebugTraceHelper {
 
     /**
-     * @param compilationResult a properly filled CompilationResult (probably from a
-     *                          call to CompilationHelper.compile())
-     * @param breakPoints       the source line numbers that you want to take
+     * Take snapshots of a program's execution state at the given breakpoints.
+     *
+     * @param compilationResult A properly filled CompilationResult (probably from a
+     *                          call to CompilationHelper.compile()).
+     * @param breakPoints       The source line numbers that you want to take
      *                          snapshots at. if it contains the special value -1,
      *                          is null, or is empty, a snapshot will be taken at
      *                          the time the main method exits.
-     * @return a mapping from line numbers to execution snapshots. if a snapshot was
+     * @return A mapping from line numbers to execution snapshots. if a snapshot was
      *         taken at the end of main (as described above), it is provided under
      *         the special key -1.
      */
     public static Map<Integer, ExecutionSnapshot> trace(
         CompilationResult compilationResult,
-        Collection<Integer> breakPoints
-    ) throws IOException, IllegalConnectorArgumentsException, VMStartException,
-      InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
+        Collection<Integer> breakPoints)
+        throws IOException, IllegalConnectorArgumentsException, VMStartException,
+        InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
 
         boolean snapMainEnd = breakPoints == null
-                              || breakPoints.isEmpty()
-                              || breakPoints.contains(-1);
+            || breakPoints.isEmpty()
+            || breakPoints.contains(-1);
 
         Map<Integer, ExecutionSnapshot> snapshots = new HashMap<>();
 
@@ -69,7 +49,8 @@ public class DebugTraceHelper {
 
         if (snapMainEnd) {
             // fire an event when exiting main
-            MethodExitRequest methodExitRequest = vm.eventRequestManager().createMethodExitRequest();
+            MethodExitRequest methodExitRequest =
+                vm.eventRequestManager().createMethodExitRequest();
             methodExitRequest.addClassFilter(compilationResult.mainClass());
             methodExitRequest.enable();
         }
@@ -80,45 +61,51 @@ public class DebugTraceHelper {
         while (!endEventLoop) {
             for (Event event : vm.eventQueue().remove()) {
                 switch (event) {
-                    case ClassPrepareEvent cpe -> {
-                        if (compilationResult.compiledClassNames().contains(cpe.referenceType().name())) {
-                            if (breakPoints != null) {
-                                for (int breakLine : breakPoints) {
-                                    List<Location> locations = cpe.referenceType().locationsOfLine(breakLine);
-                                    if (locations.isEmpty()) {
-                                        break;
-                                    }
-                                    vm.eventRequestManager().createBreakpointRequest(locations.get(0)).enable();
+                case ClassPrepareEvent cpe -> {
+                    if (compilationResult.compiledClassNames()
+                        .contains(cpe.referenceType().name())) {
+                        if (breakPoints != null) {
+                            for (int breakLine : breakPoints) {
+                                List<Location> locations =
+                                    cpe.referenceType().locationsOfLine(breakLine);
+                                if (locations.isEmpty()) {
+                                    break;
                                 }
+                                vm.eventRequestManager().createBreakpointRequest(locations.get(0))
+                                    .enable();
                             }
-                            loadedClasses.add(cpe.referenceType());
                         }
+                        loadedClasses.add(cpe.referenceType());
                     }
-                    case BreakpointEvent bpe -> {
-                        Location breakLocation = bpe.location();
-                        if (compilationResult.compiledClassNames().contains(breakLocation.declaringType().name())) {
-                            snapshots.put(breakLocation.lineNumber(), snapshotTheWorld(bpe.thread(), loadedClasses));
-                        }
+                }
+                case BreakpointEvent bpe -> {
+                    Location breakLocation = bpe.location();
+                    if (compilationResult.compiledClassNames()
+                        .contains(breakLocation.declaringType().name())) {
+                        snapshots.put(breakLocation.lineNumber(),
+                            snapshotTheWorld(bpe.thread(), loadedClasses));
                     }
-                    case MethodExitEvent mee -> {
-                        Method method = mee.method();
-                        // this is the JNI signature for a method with one string array parameter that
-                        // returns void. for details, see
-                        // https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/types.html#type_signatures
-                        String mainJniSignature = "([Ljava/lang/String;)V";
-                        boolean isMain = method.isPublic() && method.isStatic() && method.name().equals("main")
-                                         && method.signature().equals(mainJniSignature);
+                }
+                case MethodExitEvent mee -> {
+                    Method method = mee.method();
+                    // this is the JNI signature for a method with one string array parameter that
+                    // returns void. for details, see
+                    // https://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/types.html#type_signatures
+                    String mainJniSignature = "([Ljava/lang/String;)V";
+                    boolean isMain =
+                        method.isPublic() && method.isStatic() && method.name().equals("main")
+                            && method.signature().equals(mainJniSignature);
 
-                        if (isMain && (snapMainEnd || snapshots.isEmpty())) {
-                            snapshots.put(-1, snapshotTheWorld(mee.thread(), loadedClasses));
-                        }
+                    if (isMain && (snapMainEnd || snapshots.isEmpty())) {
+                        snapshots.put(-1, snapshotTheWorld(mee.thread(), loadedClasses));
                     }
-                    case VMDeathEvent vde -> {
-                        endEventLoop = true;
-                        break;
-                    }
-                    default -> {
-                    }
+                }
+                case VMDeathEvent vde -> {
+                    endEventLoop = true;
+                    break;
+                }
+                default -> {
+                }
                 }
 
                 vm.resume();
@@ -129,49 +116,56 @@ public class DebugTraceHelper {
     }
 
     /**
-     * @param compilationResult a properly filled CompilationResult (probably from a
-     *                          call to CompilationHelper.compile())
-     * @return an execution snapshot taken at the end of the main method
+     * Take a snapshot of a program's execution state just before the main method returns.
+     *
+     * @param compilationResult A properly filled CompilationResult (probably from a
+     *                          call to CompilationHelper.compile()).
+     * @return An execution snapshot taken at the end of the main method, or null if execution
+     *         terminated before the main method ended.
      */
     public static ExecutionSnapshot trace(
-        CompilationResult compilationResult
-    ) throws IOException, IllegalConnectorArgumentsException, VMStartException,
-      InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
+        CompilationResult compilationResult)
+        throws IOException, IllegalConnectorArgumentsException, VMStartException,
+        InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
         return trace(compilationResult, null).get(-1);
     } // trace
 
-    public static Collection<Integer> getValidBreakpointLines(CompilationResult compilationResult)
-      throws IOException, IllegalConnectorArgumentsException, VMStartException,
-      InterruptedException, AbsentInformationException {
+    /**
+     * Get the lines of a Java program that are valid breakpoint targets.
+     *
+     * @param compilationResult The CompilationResult of the program that you want to find the
+     *                          valid breakpoints for.
+     * @return The lines of compilationResult that are valid breakpoint targets.
+     */
+    public static HashSet<Integer> getValidBreakpointLines(CompilationResult compilationResult)
+        throws IOException, IllegalConnectorArgumentsException, VMStartException,
+        InterruptedException, AbsentInformationException {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
 
-        Set<Integer> validBreakLines = new HashSet<>();
-        Set<String> compiledClasses = new HashSet<>(compilationResult.compiledClassNames());
+        HashSet<Integer> validBreakLines = new HashSet<>();
+        HashSet<String> compiledClasses = new HashSet<>(compilationResult.compiledClassNames());
 
         while (!compiledClasses.isEmpty()) {
             for (Event event : vm.eventQueue().remove()) {
                 switch (event) {
+                case ClassPrepareEvent cpe -> {
+                    validBreakLines.addAll(cpe.referenceType().allLineLocations()
+                        .stream()
+                        .map(ll -> ll.lineNumber())
+                        .toList());
+                    compiledClasses.remove(cpe.referenceType().name());
+                } // case ClassPrepareEvent
 
-                    case ClassPrepareEvent cpe -> {
-                        validBreakLines.addAll(cpe.referenceType().allLineLocations()
-                            .stream()
-                            .map(ll -> ll.lineNumber())
-                            .toList());
-                        compiledClasses.remove(cpe.referenceType().name());
-                    } // case ClassPrepareEvent
+                case VMDeathEvent vde -> {
+                    return validBreakLines;
+                } // case VMDeathEvent
 
-                    case VMDeathEvent vde -> {
-                        return validBreakLines;
-                    } // case VMDeathEvent
-
-                    default -> {
-                        System.err.printf(
-                            "[getValidBreakpointLines] Unused Event: %s\n",
-                            event
-                        );
-                    } // default
-
+                default -> {
+                    System.err.printf(
+                        "[getValidBreakpointLines] Unused Event: %s\n",
+                        event);
+                } // default
                 } // switch
                 vm.resume();
             } // for
@@ -183,10 +177,14 @@ public class DebugTraceHelper {
     /**
      * Start a JDI VM prepopulated with ClassPrepareRequests for the
      * compiledClassNames present in compilationResult.
+     *
+     * @param  compilationResult The CompilationResult that contains the classes for which class
+     *                           preparation requests should be registered.
+     * @return The VirtualMachine for the launched VM.
      */
     private static VirtualMachine startVmWithCprs(
-        CompilationResult compilationResult
-    ) throws IOException, IllegalConnectorArgumentsException, VMStartException {
+        CompilationResult compilationResult)
+        throws IOException, IllegalConnectorArgumentsException, VMStartException {
 
         LaunchingConnector launchingConnector = Bootstrap
             .virtualMachineManager()
@@ -213,10 +211,18 @@ public class DebugTraceHelper {
         return vm;
     } // startVmWithCprs
 
+    /**
+     * Take a snapshot of a thread's memory state at this instant of execution.
+     *
+     * @param mainThread A suspended thread that you want to take a snapshot of.
+     * @param loadedClasses The loaded classes whose static fields you want included in the
+     *                      snapshot.
+     * @return An execution snapshot of the thread's memory state at the time of calling.
+     */
     private static ExecutionSnapshot snapshotTheWorld(
         ThreadReference mainThread,
-        Iterable<ReferenceType> loadedClasses
-    ) throws IncompatibleThreadStateException, AbsentInformationException {
+        Iterable<ReferenceType> loadedClasses)
+        throws IncompatibleThreadStateException, AbsentInformationException {
 
         List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
 
@@ -227,20 +233,26 @@ public class DebugTraceHelper {
 
             for (LocalVariable lv : frame.visibleVariables()) {
                 switch (frame.getValue(lv)) {
-                    case PrimitiveValue pv ->
-                        stackFrameFields.add(new ExecutionSnapshot.Field(lv.name(), TraceValue.Primitive.fromJdiPrimitive(pv)));
-                    case ObjectReference or -> {
-                        stackFrameFields.add(new ExecutionSnapshot.Field(lv.name(), new TraceValue.Reference(or.uniqueID())));
-                        heapReferencesToWalk.add(or);
-                    }
-                    case null -> stackFrameFields.add(new ExecutionSnapshot.Field(lv.name(), new TraceValue.Null()));
-                    default -> {
-                    }
+                case PrimitiveValue pv -> stackFrameFields
+                    .add(new ExecutionSnapshot.Field(lv.name(),
+                        TraceValue.Primitive.fromJdiPrimitive(pv)));
+                case ObjectReference or -> {
+                    stackFrameFields
+                        .add(new ExecutionSnapshot.Field(lv.name(),
+                            new TraceValue.Reference(or.uniqueID())));
+                    heapReferencesToWalk.add(or);
+                }
+                case null -> stackFrameFields.add(
+                    new ExecutionSnapshot.Field(lv.name(), new TraceValue.Null()));
+                default -> {
+                }
                 }
             }
 
             stackSnapshots
-                .add(new StackSnapshot(frame.location().method().name(), frame.location().lineNumber(), stackFrameFields));
+                .add(new StackSnapshot(frame.location().method().name(),
+                    frame.location().lineNumber(),
+                    stackFrameFields));
         }
 
         // collect static values that have been loaded
@@ -253,15 +265,17 @@ public class DebugTraceHelper {
 
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
-                    case PrimitiveValue pv ->
-                        statics.add(new ExecutionSnapshot.Field(fieldName, TraceValue.Primitive.fromJdiPrimitive(pv)));
-                    case ObjectReference or -> {
-                        statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Reference(or.uniqueID())));
-                        heapReferencesToWalk.add(or);
-                    }
-                    case null -> statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Null()));
-                    default -> {
-                    }
+                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(fieldName,
+                    TraceValue.Primitive.fromJdiPrimitive(pv)));
+                case ObjectReference or -> {
+                    statics.add(new ExecutionSnapshot.Field(fieldName,
+                        new TraceValue.Reference(or.uniqueID())));
+                    heapReferencesToWalk.add(or);
+                }
+                case null ->
+                    statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Null()));
+                default -> {
+                }
                 }
             }
         }
@@ -275,7 +289,9 @@ public class DebugTraceHelper {
                 continue;
             }
 
-            heap.put(workingObject.uniqueID(), TraceValue.fromJdiValue(mainThread, workingObject, heapReferencesToWalk));
+            TraceValue convertedObject = TraceValue.fromJdiValue(mainThread, workingObject,
+                Optional.of(heapReferencesToWalk));
+            heap.put(workingObject.uniqueID(), convertedObject);
         }
 
         return new ExecutionSnapshot(stackSnapshots, statics, heap);

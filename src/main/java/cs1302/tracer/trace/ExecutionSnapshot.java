@@ -3,13 +3,34 @@ package cs1302.tracer.trace;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * A snapshot of a program's memory state.
+ *
+ * @param stack The program's stack. Index 0 is the bottommost frame, the last index is the topmost.
+ * @param statics Loaded static variables.
+ * @param heap The program's heap, a mapping of reference IDs to values.
+ */
 public record ExecutionSnapshot(List<StackSnapshot> stack,
-    List<Field> statics, Map<Long, TraceValue> heap) {
+                                List<Field> statics, Map<Long, TraceValue> heap) {
 
-  public static final record StackSnapshot(String methodName, long methodLine,
-      List<Field> visibleVariables) {
-  }
+    /**
+     * A snapshot of the state of a method's stack.
+     *
+     * @param methodName The name of the method this frame is associated with.
+     * @param methodLine The line number this snapshot was taken at.
+     * @param visibleVariables The stack variables that are accessible in this method at line
+     *                         methodLine.
+     */
+    public record StackSnapshot(String methodName, long methodLine,
+                                List<Field> visibleVariables) {
+    }
 
-  public static record Field(String identifier, TraceValue value) {
-  }
+    /**
+     * A key-value pair of identifier to the value it refers to.
+     *
+     * @param identifier The field's identifier.
+     * @param value The field's value.
+     */
+    public record Field(String identifier, TraceValue value) {
+    }
 }

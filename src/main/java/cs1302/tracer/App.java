@@ -1,10 +1,13 @@
 package cs1302.tracer;
 
-import org.apache.commons.cli.Options;
-
-import org.apache.commons.cli.ParseException;
+import cs1302.tracer.CompilationHelper.CompilationResult;
+import cs1302.tracer.serialize.PyTutorSerializer;
+import cs1302.tracer.trace.DebugTraceHelper;
+import cs1302.tracer.trace.ExecutionSnapshot;
+import org.apache.commons.cli.*;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.nio.file.Files;
@@ -15,42 +18,18 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-
-import cs1302.tracer.CompilationHelper.CompilationResult;
-import cs1302.tracer.trace.DebugTraceHelper;
-import cs1302.tracer.trace.ExecutionSnapshot;
-import cs1302.tracer.serialize.PyTutorSerializer;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 /**
- * Entry point for the tracer program
+ * Entry point for the tracer program.
  */
 public class App {
-
-    private static String readStdIn() {
-        StringBuilder sb = new StringBuilder();
-        try (Scanner scan = new Scanner(System.in)) {
-            while (scan.hasNextLine()) {
-                sb.append(scan.nextLine()).append("\n");
-            } // while
-        } // try
-        return sb.toString();
-    } // readStdIn
 
     public static void main(String[] args) throws Exception {
 
         CommandLine opts = App.getOptions(args);
 
         String source = switch (opts.getOptionValue("input")) {
-            case null -> readStdIn();
-            default -> Files.readString(Paths.get(opts.getOptionValue("input")));
+        case null -> readStdIn();
+        default -> Files.readString(Paths.get(opts.getOptionValue("input")));
         }; // switch
 
         // compile the source code
@@ -69,7 +48,15 @@ public class App {
 
     } // main
 
-    public static void generateTrace(CommandLine opts, String source, CompilationResult compilationResult) {
+    /**
+     * Run and trace a compiled Java program and output the resulting trace JSON to stdout.
+     *
+     * @param opts Command-line options to the program, used to tweak trace output.
+     * @param source The source code of the compiled Java program.
+     * @param compilationResult The CompilationResult for the compiled Java program.
+     */
+    public static void generateTrace(CommandLine opts, String source,
+                                     CompilationResult compilationResult) {
         // run a trace
         try {
             String[] breakpoints = opts.getOptionValues("breakpoint");
@@ -89,7 +76,7 @@ public class App {
                 Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
                     .entrySet().stream()
                     .collect(Collectors.toMap(
-                        e -> e.getKey(),
+                        Map.Entry::getKey,
                         e -> PyTutorSerializer.serialize(
                             source,
                             e.getValue(),
@@ -107,7 +94,17 @@ public class App {
         } // try
     } // generateTrace
 
-    public static void listBreakpoints(CommandLine opts, String source, CompilationResult compilationResult) {
+    /**
+     * List the breakpoint lines available for a compiled Java program.
+     *
+     * Can either output to a human-readable format or to JSON depending on command-line arguments.
+     *
+     * @param opts Command-line options to the program, used to tweak output.
+     * @param source The source code of the compiled Java program.
+     * @param compilationResult The CompilationResult for the compiled Java program.
+     */
+    public static void listBreakpoints(CommandLine opts, String source,
+                                       CompilationResult compilationResult) {
         // show breakpoints
         try {
             boolean outputJson = opts.hasOption("list-available-breakpoints-json");
@@ -163,6 +160,21 @@ public class App {
     } // listBreakpoints
 
     /**
+     * Read the entirety of stdin into a string.
+     *
+     * @return The read contents of stdin.
+     */
+    private static String readStdIn() {
+        StringBuilder sb = new StringBuilder();
+        try (Scanner scan = new Scanner(System.in)) {
+            while (scan.hasNextLine()) {
+                sb.append(scan.nextLine()).append("\n");
+            } // while
+        } // try
+        return sb.toString();
+    } // readStdIn
+
+    /**
      * Parse command-line options into a CommandLine instance. If parsing fails or
      * the help option is encountered, a usage message is printed to stdout and the
      * process exits.
@@ -198,12 +210,11 @@ public class App {
             Option.builder("b")
                 .longOpt("breakpoint")
                 .desc(
-                    """
-                    breakpoint at which to take a snapshot. the snapshot taken will represent the
-                    state of memory immediately before this line is executed. multiple instances
-                    "of this option can be provided. if none are provided, the default behavior is
-                    to take one snapshot at the end of the program's main method.
-                    """.strip()
+                    "breakpoint at which to take a snapshot. the snapshot taken will represent "
+                    + "the state of memory immediately before this line is executed. multiple "
+                    + "instances of this option can be provided. if none are provided, the "
+                    + "default behavior is to take one snapshot at the end of the program's "
+                    + "main method."
                 ) // desc
                 .required(false)
                 .hasArg()
@@ -214,9 +225,9 @@ public class App {
                 .longOpt("list-available-breakpoints")
                 .desc(
                     """
-                    instead of running a trace, list the breakpoints available in the provided
-                    source file.
-                    """.strip())
+                        instead of running a trace, list the breakpoints available in the provided
+                        source file.
+                        """.strip())
                 .required(false)
                 .build());
 
@@ -224,17 +235,17 @@ public class App {
             Option.builder("L")
                 .longOpt("list-available-breakpoints-json")
                 .desc(
-                    """
-                    instead of running a trace, list the breakpoints available in the provided
-                    source file in JSON format.
-                    """.strip())
+                   "instead of running a trace, list the breakpoints available in the provided "
+                   + "source file in JSON format.")
                 .required(false)
                 .build());
 
         options.addOption(
             Option.builder("s")
                 .longOpt("inline-strings")
-                .desc("if provided, strings are inlined into fields instead of going through a reference")
+                .desc(
+                    "if provided, strings are inlined into fields "
+                    + "instead of going through a reference")
                 .required(false)
                 .build());
 
@@ -264,14 +275,14 @@ public class App {
                 .longOpt("help")
                 .desc("print this help message and then exit")
                 .required(false)
-                        .build());
+                .build());
 
         CommandLineParser parser = new DefaultParser();
 
         String header =
             """
-            Generate an execution trace for a Java program.
-            """.strip();
+                Generate an execution trace for a Java program.
+                """.strip();
 
         String footer = "";
 
@@ -284,15 +295,16 @@ public class App {
             } else if (cmd.hasOption("show-licenses")) {
                 System.out.println(
                     """
-            This program includes and uses several open source projects.
-            \tApache Commons CLI (https://commons.apache.org/proper/commons-cli/)
-            \tJansi (https://fusesource.github.io/jansi/)
-            \tJavaParser (https://javaparser.org/),
-            \tJSON-Java (https://github.com/stleary/JSON-java)
-            Apache Commons CLI, Jansi, and JavaParser are licensed under the Apache License
-            2.0, which can be found below this message. JSON-Java has been dedicated to the
-            public domain. Thank you to the authors and contributors of those projects!
-            """ + LicenseHelper.APACHE_2_0);
+                        This program includes and uses several open source projects.
+                        \tApache Commons CLI (https://commons.apache.org/proper/commons-cli/)
+                        \tJansi (https://fusesource.github.io/jansi/)
+                        \tJavaParser (https://javaparser.org/),
+                        \tJSON-Java (https://github.com/stleary/JSON-java)
+                        Apache Commons CLI, Jansi, and JavaParser are licensed under the Apache
+                        License 2.0, which can be found below this message. JSON-Java has been
+                        dedicated to the public domain. Thank you to the authors and contributors of
+                        those projects!
+                        """ + LicenseHelper.APACHE_2_0);
                 System.exit(0);
             }
 
