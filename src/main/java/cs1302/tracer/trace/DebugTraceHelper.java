@@ -249,6 +249,14 @@ public class DebugTraceHelper {
                 }
             }
 
+            if (frame.thisObject() instanceof ObjectReference frameThis) {
+              // frameThis is not null, so we're in a nonstatic, nonnative method
+              // TODO make this a toggle
+              stackFrameFields.add(new ExecutionSnapshot.Field(frameThis.referenceType().name(),
+                    "this", new TraceValue.Reference(frameThis.uniqueID())));
+              heapReferencesToWalk.add(frameThis);
+            }
+
             stackSnapshots
                 .addFirst(new StackSnapshot(frame.location().method().name(),
                     frame.location().lineNumber(),
