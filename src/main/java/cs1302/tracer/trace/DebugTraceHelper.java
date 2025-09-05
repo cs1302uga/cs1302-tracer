@@ -234,16 +234,16 @@ public class DebugTraceHelper {
             for (LocalVariable lv : frame.visibleVariables()) {
                 switch (frame.getValue(lv)) {
                 case PrimitiveValue pv -> stackFrameFields
-                    .add(new ExecutionSnapshot.Field(lv.name(),
+                    .add(new ExecutionSnapshot.Field(lv.typeName(), lv.name(),
                         TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or -> {
                     stackFrameFields
-                        .add(new ExecutionSnapshot.Field(lv.name(),
+                        .add(new ExecutionSnapshot.Field(lv.typeName(), lv.name(),
                             new TraceValue.Reference(or.uniqueID())));
                     heapReferencesToWalk.add(or);
                 }
                 case null -> stackFrameFields.add(
-                    new ExecutionSnapshot.Field(lv.name(), new TraceValue.Null()));
+                    new ExecutionSnapshot.Field(lv.typeName(), lv.name(), new TraceValue.Null()));
                 default -> {
                 }
                 }
@@ -265,15 +265,16 @@ public class DebugTraceHelper {
 
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
-                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(fieldName,
-                    TraceValue.Primitive.fromJdiPrimitive(pv)));
+                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(f.typeName(),
+                      fieldName, TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or -> {
-                    statics.add(new ExecutionSnapshot.Field(fieldName,
+                    statics.add(new ExecutionSnapshot.Field(f.typeName(), fieldName,
                         new TraceValue.Reference(or.uniqueID())));
                     heapReferencesToWalk.add(or);
                 }
                 case null ->
-                    statics.add(new ExecutionSnapshot.Field(fieldName, new TraceValue.Null()));
+                    statics.add(new ExecutionSnapshot.Field(f.typeName(), fieldName,
+                          new TraceValue.Null()));
                 default -> {
                 }
                 }

@@ -30,7 +30,9 @@ public record ExecutionSnapshot(List<StackSnapshot> stack,
      *
      * @param identifier The field's identifier.
      * @param value The field's value.
+     * @param typeName The name of this field's type. Note that this may differ from the type
+     *                 of the field's underlying value due to polymorphism.
      */
-    public record Field(String identifier, TraceValue value) {
+    public record Field(String typeName, String identifier, TraceValue value) {
     }
 }
