@@ -227,7 +227,7 @@ public class DebugTraceHelper {
         List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
 
         // collect stack frames and their fields
-        List<StackSnapshot> stackSnapshots = new ArrayList<>();
+        List<StackSnapshot> stackSnapshots = new LinkedList<>();
         for (StackFrame frame : mainThread.frames()) {
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
 
@@ -250,7 +250,7 @@ public class DebugTraceHelper {
             }
 
             stackSnapshots
-                .add(new StackSnapshot(frame.location().method().name(),
+                .addFirst(new StackSnapshot(frame.location().method().name(),
                     frame.location().lineNumber(),
                     stackFrameFields));
         }

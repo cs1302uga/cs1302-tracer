@@ -56,11 +56,11 @@ public class PyTutorSerializer {
             .putAll(
                 IntStream
                     .range(0, snapshot.stack().size())
-                    .map(uniqueFrameId -> snapshot.stack().size() - uniqueFrameId - 1)
                     .boxed()
                     .map(uniqueFrameId -> serializeStackSnapshot(
                         snapshot.stack().get(uniqueFrameId),
                         uniqueFrameId,
+                        uniqueFrameId == snapshot.stack().size() - 1,
                         snapshot.heap(),
                         inlineStrings)) // map
                     .toArray());
@@ -86,6 +86,7 @@ public class PyTutorSerializer {
      *
      * @param stackSnapshot The snapshot to serialize.
      * @param uniqueFrameId A unique ID for the frame.
+     * @param isCurrentFrame True if this is the top-level/executing/current frame, false otherwise.
      * @param heap The program's heap.
      * @param inlineStrings True if strings should be inlined as literals in the serialization,
      *                      otherwise they are serialized as references.
@@ -94,6 +95,7 @@ public class PyTutorSerializer {
     private static JSONObject serializeStackSnapshot(
         StackSnapshot stackSnapshot,
         int uniqueFrameId,
+        boolean isCurrentFrame,
         Map<Long, TraceValue> heap,
         boolean inlineStrings) {
 
@@ -114,7 +116,7 @@ public class PyTutorSerializer {
             .put("encoded_locals", new JSONObject(encodedLocals))
             .put("ordered_varnames", new JSONArray(encodedLocals.keySet()))
             .put("parent_frame_id_list", new JSONArray())
-            .put("is_highlighted", uniqueFrameId == 0)
+            .put("is_highlighted", isCurrentFrame)
             .put("is_zombie", false)
             .put("is_parent", false)
             .put("unique_hash", String.valueOf(uniqueFrameId))
