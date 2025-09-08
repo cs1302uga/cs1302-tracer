@@ -249,18 +249,17 @@ public class DebugTraceHelper {
                 }
             }
 
+            Optional<TraceValue.Reference> thisObject = Optional.empty();
             if (frame.thisObject() instanceof ObjectReference frameThis) {
-              // frameThis is not null, so we're in a nonstatic, nonnative method
-              // TODO make this a toggle
-              stackFrameFields.add(new ExecutionSnapshot.Field(frameThis.referenceType().name(),
-                    "this", new TraceValue.Reference(frameThis.uniqueID())));
-              heapReferencesToWalk.add(frameThis);
+                // frameThis is not null, so we're in a nonstatic, nonnative method
+                thisObject = Optional.of(new TraceValue.Reference(frameThis.uniqueID()));
+                heapReferencesToWalk.add(frameThis);
             }
 
             stackSnapshots
                 .addFirst(new StackSnapshot(frame.location().method().name(),
                     frame.location().lineNumber(),
-                    stackFrameFields));
+                    stackFrameFields, thisObject));
         }
 
         // collect static values that have been loaded

@@ -59,15 +59,14 @@ public class App {
                                      CompilationResult compilationResult) {
         // run a trace
         try {
+            PyTutorSerializer configuredSerializer = new PyTutorSerializer(
+                opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"),
+                opts.hasOption("remove-method-this"));
             String[] breakpoints = opts.getOptionValues("breakpoint");
+
             if (breakpoints == null) {
                 ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult);
-                JSONObject pyTutorSnapshot = PyTutorSerializer.serialize(
-                    source,
-                    trace,
-                    opts.hasOption("inline-strings"),
-                    opts.hasOption("remove-main-args")
-                );
+                JSONObject pyTutorSnapshot = configuredSerializer.serialize(source, trace);
                 System.out.println(pyTutorSnapshot);
             } else {
                 Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
@@ -77,12 +76,7 @@ public class App {
                     .entrySet().stream()
                     .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        e -> PyTutorSerializer.serialize(
-                            source,
-                            e.getValue(),
-                            opts.hasOption("inline-strings"),
-                            opts.hasOption("remove-main-args")
-                        )));
+                        e -> configuredSerializer.serialize(source, e.getValue())));
                 System.out.println(new JSONObject(pyTutorSnapshots));
             } // if
         } catch (Throwable cause) {
@@ -224,10 +218,8 @@ public class App {
             Option.builder("l")
                 .longOpt("list-available-breakpoints")
                 .desc(
-                    """
-                        instead of running a trace, list the breakpoints available in the provided
-                        source file.
-                        """.strip())
+                    "instead of running a trace, list the breakpoints available in the provided "
+                    + "source file.")
                 .required(false)
                 .build());
 
@@ -253,6 +245,13 @@ public class App {
             Option.builder()
                 .longOpt("remove-main-args")
                 .desc("don't include the main method's `args` parameter in the output")
+                .required(false)
+                .build());
+
+        options.addOption(
+            Option.builder()
+                .longOpt("remove-method-this")
+                .desc("don't include the value of `this` for methods in the output")
                 .required(false)
                 .build());
 

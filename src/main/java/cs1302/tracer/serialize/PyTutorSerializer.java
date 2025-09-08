@@ -11,32 +11,33 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/** Container class for methods that help serialize a trace into the OnlinePythonTutor format. */
-public class PyTutorSerializer {
+/**
+ * Container class for methods that help serialize a trace into the OnlinePythonTutor format.
+ *
+ * @param removeMainArgs True if the `args` parameter to main should be excluded from serializations
+ *                       produced by this instance.
+ * @param inlineStrings True if strings should be inlined as literals in serializations produced
+ *                      by this instance, otherwise they are serialized as references.
+ * @param removeMethodThis True if the value of `this` for method invocations should be excluded
+ *                         from serializations produced by this instance.
+ */
+public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
+                                boolean removeMethodThis) {
 
     /**
      * Serialize an execution snapshot into the OnlinePythonTutor trace format.
      *
      * @param javaSource The source code for the program corresponding to the execution snapshot.
      * @param snapshot The snapshot that should be serialized.
-     * @param inlineStrings True if strings should be inlined as literals in the serialization,
-     *                      otherwise they are serialized as references.
-     * @param removeMainArgs True if the `args` parameter to main should be excluded from the
-     *                       serialization.
      * @return The serialized execution snapshot.
      */
-    public static JSONObject serialize(
-        String javaSource,
-        ExecutionSnapshot snapshot,
-        boolean inlineStrings,
-        boolean removeMainArgs) {
-
+    public JSONObject serialize(String javaSource, ExecutionSnapshot snapshot) {
         String currentMethod = snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().getLast().methodLine();
 
         JSONObject serializedStatics = new JSONObject(snapshot.statics().stream()
             .collect(Collectors.toMap(ExecutionSnapshot.Field::identifier,
-                s -> serializeTraceValue(s.value(), snapshot.heap(), inlineStrings))));
+                s -> serializeTraceValue(s.value(), snapshot.heap()))));
 
         JSONArray orderedStatics = new JSONArray(snapshot.statics().stream()
             .map(ExecutionSnapshot.Field::identifier)
@@ -45,7 +46,7 @@ public class PyTutorSerializer {
         JSONObject serializedHeap = new JSONObject(snapshot.heap().entrySet().stream()
             .filter(e -> !(inlineStrings && e.getValue() instanceof TraceValue.String))
             .collect(Collectors.toMap(Entry::getKey,
-                e -> serializeTraceValue(e.getValue(), snapshot.heap(), inlineStrings))));
+                e -> serializeTraceValue(e.getValue(), snapshot.heap()))));
 
         if (removeMainArgs) {
             // don't include String[] args in main
@@ -61,8 +62,7 @@ public class PyTutorSerializer {
                         snapshot.stack().get(uniqueFrameId),
                         uniqueFrameId,
                         uniqueFrameId == snapshot.stack().size() - 1,
-                        snapshot.heap(),
-                        inlineStrings)) // map
+                        snapshot.heap())) // map
                     .toArray());
 
         return new JSONObject()
@@ -88,23 +88,26 @@ public class PyTutorSerializer {
      * @param uniqueFrameId A unique ID for the frame.
      * @param isCurrentFrame True if this is the top-level/executing/current frame, false otherwise.
      * @param heap The program's heap.
-     * @param inlineStrings True if strings should be inlined as literals in the serialization,
-     *                      otherwise they are serialized as references.
      * @return The serialization of the snapshot.
      */
-    private static JSONObject serializeStackSnapshot(
+    private JSONObject serializeStackSnapshot(
         StackSnapshot stackSnapshot,
         int uniqueFrameId,
         boolean isCurrentFrame,
-        Map<Long, TraceValue> heap,
-        boolean inlineStrings) {
+        Map<Long, TraceValue> heap) {
 
         Map<String, Object> encodedLocals = stackSnapshot.visibleVariables().stream()
             .collect(
                 Collectors.toMap(
                     ExecutionSnapshot.Field::identifier,
-                    field -> serializeTraceValue(field.value(), heap, inlineStrings)) // toMap
+                    field -> serializeTraceValue(field.value(), heap)) // toMap
             );
+
+        stackSnapshot.thisObject().ifPresent(t -> {
+            if (!removeMethodThis) {
+                encodedLocals.put("this", serializeTraceValue(t, heap));
+            }
+        });
 
         String funcName = String.format(
             "%s:%d",
@@ -130,14 +133,10 @@ public class PyTutorSerializer {
      * @param value The value to serialize.
      * @param heap A mapping of heap IDs to other TraceValues so that compound data types can be
      *             properly serialized.
-     * @param inlineStrings True if strings should be inlined, false otherwise.
      * @return A Boolean, Double, Integer, JSONArray, JSONObject, Long, String, or JSONObject.NULL
      *         that corresponds to the TraceValue
      */
-    private static Object serializeTraceValue(
-        TraceValue value,
-        Map<Long, TraceValue> heap,
-        boolean inlineStrings) {
+    private Object serializeTraceValue(TraceValue value, Map<Long, TraceValue> heap) {
         return switch (value) {
         case TraceValue.Primitive.Float floatValue -> new JSONArray().put("NUMBER-LITERAL")
             .put(Float.toString(floatValue.value()));
@@ -163,7 +162,7 @@ public class PyTutorSerializer {
         case TraceValue.Reference referenceValue -> {
             TraceValue target = heap.get(referenceValue.uniqueId());
             if (target instanceof TraceValue.String && inlineStrings) {
-                yield serializeTraceValue(target, heap, inlineStrings);
+                yield serializeTraceValue(target, heap);
             } else {
                 yield new JSONArray()
                     .put("REF").put(referenceValue.uniqueId());
@@ -184,7 +183,7 @@ public class PyTutorSerializer {
 
         case TraceValue.List listValue -> {
             Object[] values = listValue.value().stream()
-                .map(e -> serializeTraceValue(e, heap, inlineStrings))
+                .map(e -> serializeTraceValue(e, heap))
                 .toArray();
             yield new JSONArray()
                 .put("LIST")
@@ -193,7 +192,7 @@ public class PyTutorSerializer {
 
         case TraceValue.Collection collectionValue -> {
             Object[] values = collectionValue.value().stream()
-                .map(e -> serializeTraceValue(e, heap, inlineStrings))
+                .map(e -> serializeTraceValue(e, heap))
                 .toArray();
             yield new JSONArray()
                 .put("SET")
@@ -203,8 +202,8 @@ public class PyTutorSerializer {
         case TraceValue.Map mapValue -> {
             Object[] values = mapValue.value().entrySet().stream()
                 .map(entry -> new JSONArray()
-                    .put(serializeTraceValue(entry.getKey(), heap, inlineStrings))
-                    .put(serializeTraceValue(entry.getValue(), heap, inlineStrings)))
+                    .put(serializeTraceValue(entry.getKey(), heap))
+                    .put(serializeTraceValue(entry.getValue(), heap)))
                 .toArray();
             yield new JSONArray()
                 .put("DICT")
@@ -219,7 +218,7 @@ public class PyTutorSerializer {
                 .putAll(objectValue.fields().stream()
                     .map(field -> new JSONArray()
                         .put(field.identifier())
-                        .put(serializeTraceValue(field.value(), heap, inlineStrings)))
+                        .put(serializeTraceValue(field.value(), heap)))
                     .toArray());
         } // case
         };

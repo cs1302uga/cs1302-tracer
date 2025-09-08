@@ -2,6 +2,7 @@ package cs1302.tracer.trace;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * A snapshot of a program's memory state.
@@ -20,9 +21,12 @@ public record ExecutionSnapshot(List<StackSnapshot> stack,
      * @param methodLine The line number this snapshot was taken at.
      * @param visibleVariables The stack variables that are accessible in this method at line
      *                         methodLine.
+     * @param thisObject A reference to the value of {@code this} for the frame, or empty if the
+     *                   method is native or static.
      */
     public record StackSnapshot(String methodName, long methodLine,
-                                List<Field> visibleVariables) {
+                                List<Field> visibleVariables,
+                                Optional<TraceValue.Reference> thisObject) {
     }
 
     /**
