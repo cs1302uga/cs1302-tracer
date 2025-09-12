@@ -6,6 +6,9 @@ import cs1302.tracer.trace.TraceValue;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -65,12 +68,33 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
                         snapshot.heap())) // map
                     .toArray());
 
+        String stdout;
+        try {
+            stdout = Charset.defaultCharset()
+              .newDecoder()
+              .decode(ByteBuffer.wrap(snapshot.stdout()))
+              .toString();
+        } catch (CharacterCodingException cce) {
+            stdout = "";
+        }
+
+        String stderr;
+        try {
+            stderr = Charset.defaultCharset()
+              .newDecoder()
+              .decode(ByteBuffer.wrap(snapshot.stderr()))
+              .toString();
+        } catch (CharacterCodingException cce) {
+            stderr = "";
+        }
+
         return new JSONObject()
             .put("code", javaSource)
             .put("stdin", "")
             .put("trace", new JSONArray()
                 .put(new JSONObject()
-                    .put("stdout", "")
+                    .put("stdout", new String(stdout))
+                    .put("stderr", new String(stderr)) // NOTE this isn't currently used
                     .put("event", "step_line")
                     .put("func_name", currentMethod)
                     .put("line", currentLine)

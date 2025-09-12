@@ -11,7 +11,9 @@ import com.sun.jdi.request.MethodExitRequest;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 /** A collection of methods that are used to generate a debug trace. */
@@ -46,6 +48,46 @@ public class DebugTraceHelper {
 
         // TODO the JVM will crash if output buffers (stdout/err) are filled, so we need
         // to empty them as they're populated during debugging
+        ByteArrayOutputStream vmErrSink = new ByteArrayOutputStream();
+        {
+            InputStream vmErrSource = vm.process().getErrorStream();
+            Thread.ofVirtual().start(() -> {
+                while (true) {
+                    try {
+                        int vmErrData = vmErrSource.read();
+                        if (vmErrData == -1) {
+                            break;
+                        }
+                        synchronized (vmErrSink) {
+                            vmErrSink.write(vmErrData);
+                        }
+                    } catch (IOException ioe) {
+                        break;
+                    }
+                }
+            });
+        }
+
+        ByteArrayOutputStream vmOutSink = new ByteArrayOutputStream();
+        {
+            InputStream vmOutSource = vm.process().getInputStream();
+            Thread.ofVirtual().start(() -> {
+                while (true) {
+                    try {
+                        int vmOutData = vmOutSource.read();
+                        if (vmOutData == -1) {
+                            break;
+                        }
+                        synchronized (vmOutSink) {
+                            vmOutSink.write(vmOutData);
+                        }
+                    } catch (IOException ioe) {
+                        break;
+                    }
+                }
+            });
+        }
+
 
         if (snapMainEnd) {
             // fire an event when exiting main
@@ -83,7 +125,7 @@ public class DebugTraceHelper {
                     if (compilationResult.compiledClassNames()
                         .contains(breakLocation.declaringType().name())) {
                         snapshots.put(breakLocation.lineNumber(),
-                            snapshotTheWorld(bpe.thread(), loadedClasses));
+                            snapshotTheWorld(bpe.thread(), loadedClasses, vmOutSink, vmErrSink));
                     }
                 }
                 case MethodExitEvent mee -> {
@@ -97,7 +139,8 @@ public class DebugTraceHelper {
                             && method.signature().equals(mainJniSignature);
 
                     if (isMain && (snapMainEnd || snapshots.isEmpty())) {
-                        snapshots.put(-1, snapshotTheWorld(mee.thread(), loadedClasses));
+                        snapshots.put(-1,
+                            snapshotTheWorld(mee.thread(), loadedClasses, vmOutSink, vmErrSink));
                     }
                 }
                 case VMDeathEvent vde -> {
@@ -217,11 +260,15 @@ public class DebugTraceHelper {
      * @param mainThread A suspended thread that you want to take a snapshot of.
      * @param loadedClasses The loaded classes whose static fields you want included in the
      *                      snapshot.
+     * @param vmOut An output stream containing the VM's standard output.
+     * @param vmErr An output stream containing the VM's standard error.
      * @return An execution snapshot of the thread's memory state at the time of calling.
      */
     private static ExecutionSnapshot snapshotTheWorld(
         ThreadReference mainThread,
-        Iterable<ReferenceType> loadedClasses)
+        Iterable<ReferenceType> loadedClasses,
+        ByteArrayOutputStream vmOut,
+        ByteArrayOutputStream vmErr)
         throws IncompatibleThreadStateException, AbsentInformationException {
 
         List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
@@ -302,6 +349,16 @@ public class DebugTraceHelper {
             heap.put(workingObject.uniqueID(), convertedObject);
         }
 
-        return new ExecutionSnapshot(stackSnapshots, statics, heap);
+        byte[] vmOutBytes;
+        synchronized (vmOut) {
+            vmOutBytes = vmOut.toByteArray();
+        }
+
+        byte[] vmErrBytes;
+        synchronized (vmErr) {
+            vmErrBytes = vmErr.toByteArray();
+        }
+
+        return new ExecutionSnapshot(stackSnapshots, statics, heap, vmOutBytes, vmErrBytes);
     }
 }

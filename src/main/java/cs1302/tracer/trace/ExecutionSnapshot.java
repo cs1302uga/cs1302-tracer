@@ -10,9 +10,12 @@ import java.util.Optional;
  * @param stack The program's stack. Index 0 is the bottommost frame, the last index is the topmost.
  * @param statics Loaded static variables.
  * @param heap The program's heap, a mapping of reference IDs to values.
+ * @param stdout Bytes that have been output by the program to stdout up to the snapshot point.
+ * @param stderr Bytes that have been output by the program to stderr up to the snapshot point.
  */
 public record ExecutionSnapshot(List<StackSnapshot> stack,
-                                List<Field> statics, Map<Long, TraceValue> heap) {
+                                List<Field> statics, Map<Long, TraceValue> heap,
+                                byte[] stdout, byte[] stderr) {
 
     /**
      * A snapshot of the state of a method's stack.
