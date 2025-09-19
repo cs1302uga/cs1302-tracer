@@ -201,7 +201,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             } else {
                 yield new JSONArray()
                     .put("INSTANCE").put("String")
-                    .put(new JSONArray().put("").put(stringValue.value()));
+                    .put(new JSONArray().put("___NO_LABEL!___").put(stringValue.value()));
             } // if
         } // case
 
