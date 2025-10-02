@@ -60,7 +60,7 @@ public class App {
         // run a trace
         try {
             PyTutorSerializer configuredSerializer = new PyTutorSerializer(
-                opts.hasOption("inline-strings"), opts.hasOption("remove-main-args"),
+                opts.hasOption("remove-main-args"), opts.hasOption("inline-strings"),
                 opts.hasOption("remove-method-this"));
             String[] breakpoints = opts.getOptionValues("breakpoint");
 
