@@ -150,9 +150,23 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             .toList());
 
         stackSnapshot.thisObject().ifPresent(t -> {
-            if (!removeMethodThis) {
-                encodedLocals.put("this", serializeTraceValue(t, heap));
+            if (removeMethodThis) {
+                return;
             }
+
+            JSONArray newOrderedVarnames = new JSONArray()
+                .put("this")
+                .putAll(orderedVarnames);
+            orderedVarnames.clear();
+            orderedVarnames.putAll(newOrderedVarnames);
+
+            JSONArray newOrderedVarnamesTypes = new JSONArray()
+                .put(t.typeName())
+                .putAll(orderedVarnamesTypes);
+            orderedVarnamesTypes.clear();
+            orderedVarnamesTypes.putAll(newOrderedVarnamesTypes);
+
+            encodedLocals.put("this", serializeTraceValue(t.value(), heap));
         });
 
         String funcName = String.format(

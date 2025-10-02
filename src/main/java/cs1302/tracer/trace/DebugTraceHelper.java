@@ -10,6 +10,7 @@ import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.MethodExitRequest;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
+import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -296,10 +297,12 @@ public class DebugTraceHelper {
                 }
             }
 
-            Optional<TraceValue.Reference> thisObject = Optional.empty();
+            Optional<ThisObject> thisObject = Optional.empty();
             if (frame.thisObject() instanceof ObjectReference frameThis) {
                 // frameThis is not null, so we're in a nonstatic, nonnative method
-                thisObject = Optional.of(new TraceValue.Reference(frameThis.uniqueID()));
+                String thisType = frame.location().method().declaringType().name();
+                TraceValue.Reference thisReference = new TraceValue.Reference(frameThis.uniqueID());
+                thisObject = Optional.of(new ThisObject(thisType, thisReference));
                 heapReferencesToWalk.add(frameThis);
             }
 

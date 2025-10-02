@@ -29,16 +29,26 @@ public record ExecutionSnapshot(List<StackSnapshot> stack,
      */
     public record StackSnapshot(String methodName, long methodLine,
                                 List<Field> visibleVariables,
-                                Optional<TraceValue.Reference> thisObject) {
+                                Optional<ThisObject> thisObject) {
+
+        /**
+         * A pair that includes the type name of and a reference to the value of {@code this}.
+         *
+         * @param typeName The name of type of {@code this}. Note that the name may differ from the
+         *                 type of the object's underlying value due to polymorphism.
+         * @param value A reference to the value of {@code this}.
+         */
+        public record ThisObject(String typeName, TraceValue.Reference value) {
+        }
     }
 
     /**
      * A key-value pair of identifier to the value it refers to.
      *
-     * @param identifier The field's identifier.
-     * @param value The field's value.
      * @param typeName The name of this field's type. Note that this may differ from the type
      *                 of the field's underlying value due to polymorphism.
+     * @param identifier The field's identifier.
+     * @param value The field's value.
      */
     public record Field(String typeName, String identifier, TraceValue value) {
     }
