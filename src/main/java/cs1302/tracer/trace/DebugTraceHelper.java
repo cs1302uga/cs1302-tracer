@@ -200,16 +200,10 @@ public class DebugTraceHelper {
                         .toList());
                     compiledClasses.remove(cpe.referenceType().name());
                 } // case ClassPrepareEvent
-
                 case VMDeathEvent vde -> {
                     return validBreakLines;
                 } // case VMDeathEvent
-
-                default -> {
-                    System.err.printf(
-                        "[getValidBreakpointLines] Unused Event: %s\n",
-                        event);
-                } // default
+                default -> {} // default
                 } // switch
                 vm.resume();
             } // for
