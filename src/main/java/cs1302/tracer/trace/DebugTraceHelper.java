@@ -203,7 +203,8 @@ public class DebugTraceHelper {
                 case VMDeathEvent vde -> {
                     return validBreakLines;
                 } // case VMDeathEvent
-                default -> {} // default
+                default -> {
+                } // default
                 } // switch
                 vm.resume();
             } // for

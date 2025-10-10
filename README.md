@@ -106,28 +106,31 @@ of what this message looks like is provided below.
 
 ```console
 $ java -jar target/code-tracer-1.0.0-jar-with-dependencies.jar -h
-usage: code-tracer
- -b,--breakpoint <arg>             breakpoint at which to take a snapshot.
-                                   the snapshot taken will represent the
-                                   state of memory immediately before this
-                                   line is executed. multiple instances of
-                                   this option can be provided. if none
-                                   are provided, the default behavior is
-                                   to take one snapshot at the end of the
-                                   program's main method.
- -h,--help                         print this help message and then exit
- -i,--input <arg>                  input path to Java source file
-                                   (defaults to stdin if omitted)
- -l,--list-available-breakpoints   instead of running a trace, list the
-                                   breakpoints available in provided
-                                   source file
- -o,--output <arg>                 output path (defaults to stdout if
-                                   omitted)
- -s,--inline-strings               if provided, strings are inlined into
-                                   fields instead of going through a
-                                   reference
-    --show-licenses                show the licenses for projects used in
-                                   this program and then exit
+Usage: code-tracer [-hsvV] [--remove-main-args] [--remove-method-this]
+                   [-i=<input>] [-b=<breakpoints>]... [COMMAND]
+generate an execution trace for a Java program
+  -b, --breakpoints=<breakpoints>
+                             breakpoints at which to take snapshots. the
+                               snapshots taken will represent the state of
+                               memory immediately before each line is executed.
+                               if no breakpoints are provided, the default
+                               behavior is to takeone snapshot at the end of
+                               the program's main method.
+  -h, --help                 Show this help message and exit.
+  -i, --input=<input>        input path to Java source file (defaults to stdin
+                               if omitted)
+      --remove-main-args     don't include the main method's `args` parameter
+                               in the output
+      --remove-method-this   don't include the value of `this` for methods in
+                               the output
+  -s, --inline-strings       if provided, strings are inlined into fields
+                               instead of going through a reference
+  -v, --verbose              output messages about what the tracer is doing
+  -V, --version              Print version information and exit.
+Commands:
+  list-breakpoints  list the breakpoints available in the provided source file
+  show-licenses     show the licenses for projects used in this program and
+                      then exit
 ```
 
 ## Known issues/TODOs

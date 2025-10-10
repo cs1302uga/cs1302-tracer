@@ -4,65 +4,81 @@ import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
-import org.apache.commons.cli.*;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Entry point for the tracer program.
  */
-public class App {
+@Command(name = "code-tracer",
+         description = "generate an execution trace for a Java program",
+         mixinStandardHelpOptions = true)
+public class App implements Runnable {
+    @Option(names = { "--verbose", "-v" },
+            description = "output messages about what the tracer is doing")
+    boolean verbose = false;
 
-    public static void main(String[] args) throws Exception {
+    @Option(names = { "--remove-main-args" },
+           description = "don't include the main method's `args` parameter in the output")
+    boolean removeMainArgs = false;
 
-        CommandLine opts = App.getOptions(args);
+    @Option(names = { "--inline-strings", "-s" },
+            description = "if provided, strings are inlined into fields instead "
+                          + "of going through a reference")
+    boolean inlineStrings = false;
 
-        String source = switch (opts.getOptionValue("input")) {
-        case null -> readStdIn();
-        default -> Files.readString(Paths.get(opts.getOptionValue("input")));
-        }; // switch
+    @Option(names = { "--remove-method-this" },
+            description = "don't include the value of `this` for methods in the output")
+    boolean removeMethodThis = false;
 
-        // compile the source code
-        CompilationResult compilationResult = CompilationHelper.compile(source);
+    @Option(names = { "--breakpoints", "-b" },
+            description = "breakpoints at which to take snapshots. the snapshots taken will "
+                    + "represent the state of memory immediately before each line is executed. "
+                    + "if no breakpoints are provided, the default behavior is to take"
+                    + "one snapshot at the end of the program's main method.")
+    List<Integer> breakpoints = null;
 
-        // list breakpoints if that options is set
-        if (opts.hasOption("list-available-breakpoints")
-            || opts.hasOption("list-available-breakpoints-json")) {
-            App.listBreakpoints(opts, source, compilationResult);
-            System.exit(0);
-        } //
-
-        // generate trace by default
-        generateTrace(opts, source, compilationResult);
-        System.exit(0);
-
-    } // main
+    @Option(names = { "--input", "-i" },
+            description = "input path to Java source file (defaults to stdin if omitted)")
+    File input = null;
 
     /**
-     * Run and trace a compiled Java program and output the resulting trace JSON to stdout.
-     *
-     * @param opts Command-line options to the program, used to tweak trace output.
-     * @param source The source code of the compiled Java program.
-     * @param compilationResult The CompilationResult for the compiled Java program.
+     * Run and trace a compiled Java program and output the resulting trace JSON to
+     * stdout.
      */
-    public static void generateTrace(CommandLine opts, String source,
-                                     CompilationResult compilationResult) {
+    @Override
+    public void run() {
+        String source = switch (input) {
+        case null -> readStdIn();
+        default -> {
+            try {
+                yield Files.readString(input.toPath());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        }; // switch
+
         // run a trace
         try {
+            CompilationResult compilationResult = CompilationHelper.compile(source);
+
             PyTutorSerializer configuredSerializer = new PyTutorSerializer(
-                opts.hasOption("remove-main-args"), opts.hasOption("inline-strings"),
-                opts.hasOption("remove-method-this"));
-            String[] breakpoints = opts.getOptionValues("breakpoint");
+                    removeMainArgs, inlineStrings, removeMethodThis);
 
             if (breakpoints == null) {
                 ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult);
@@ -70,88 +86,140 @@ public class App {
                 System.out.println(pyTutorSnapshot);
             } else {
                 Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
-                    compilationResult,
-                    Stream.of(breakpoints).map(Integer::parseInt).toList());
+                        compilationResult,
+                        breakpoints);
                 Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
-                    .entrySet().stream()
-                    .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> configuredSerializer.serialize(source, e.getValue())));
+                        .entrySet().stream()
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> configuredSerializer.serialize(source, e.getValue())));
                 System.out.println(new JSONObject(pyTutorSnapshots));
             } // if
         } catch (Throwable cause) {
             System.err.println("Unable to generate trace!");
-            if (opts.hasOption("verbose")) {
+            if (verbose) {
                 cause.printStackTrace();
             } // if
             System.exit(1);
         } // try
-    } // generateTrace
+    }
 
-    /**
-     * List the breakpoint lines available for a compiled Java program.
-     *
-     * Can either output to a human-readable format or to JSON depending on command-line arguments.
-     *
-     * @param opts Command-line options to the program, used to tweak output.
-     * @param source The source code of the compiled Java program.
-     * @param compilationResult The CompilationResult for the compiled Java program.
-     */
-    public static void listBreakpoints(CommandLine opts, String source,
-                                       CompilationResult compilationResult) {
-        // show breakpoints
-        try {
-            boolean outputJson = opts.hasOption("list-available-breakpoints-json");
-            Collection<Integer> availableBreakpoints = DebugTraceHelper
-                .getValidBreakpointLines(compilationResult);
-            String[] sourceLines = source.split("\n");
-            int digitLength = ((int) Math.log10(sourceLines.length)) + 1;
+    public static void main(String[] args) throws Exception {
+        int exitCode = new CommandLine(new App())
+                .addSubcommand(new ListBreakpoints())
+                .addSubcommand(new ShowLicenses())
+                .execute(args);
 
-            if (outputJson) {
-                JSONArray output = new JSONArray();
-                for (int i = 0; i < sourceLines.length; i++) {
-                    int lineNumber = i + 1;
-                    boolean validBreakpoint = availableBreakpoints.contains(lineNumber);
-                    String lineContent = sourceLines[i];
-                    JSONObject lineEntry = new JSONObject()
-                        .put("lineNumber", lineNumber)
-                        .put("validBreakpoint", validBreakpoint)
-                        .put("lineContent", lineContent);
-                    output.put(lineEntry);
-                } // for
-                System.out.println(output);
-            } else {
-                StringBuilder annotatedSource = new StringBuilder();
-                AnsiConsole.systemInstall();
-                for (int i = 0; i < sourceLines.length; i++) {
+        System.exit(exitCode);
+    } // main
 
-                    if (availableBreakpoints.contains(i + 1)) {
-                        annotatedSource.append(
-                            Ansi.ansi().fgGreen()
-                                .a(String.format("b %" + digitLength + "d | ", i + 1)));
-                    } else {
-                        annotatedSource.append(String.format("  %" + digitLength + "d | ", i + 1));
-                    }
+    /** List the breakpoint lines available for a compiled Java program. */
+    @Command(name = "list-breakpoints",
+             description = "list the breakpoints available in the provided source file",
+             mixinStandardHelpOptions = true)
+    static class ListBreakpoints implements Runnable {
+        @Option(names = { "--verbose", "-v" },
+                description = "output messages about what the tracer is doing")
+        boolean verbose = false;
 
-                    annotatedSource.append(sourceLines[i]);
-                    annotatedSource.append(Ansi.ansi().reset());
+        @Option(names = { "--json", "-j" },
+                description = "output available breakpoints in JSON format")
+        boolean outputJson = false;
 
-                    if (i < sourceLines.length - 1) {
-                        annotatedSource.append('\n');
-                    } // if
-                } // for
-                AnsiConsole.systemUninstall();
-                System.out.println(annotatedSource.toString());
-            } // if
+        @Option(names = { "--input", "-i" },
+                description = "input path to Java source file (defaults to stdin if omitted)")
+        File input = null;
 
-        } catch (Throwable cause) {
-            System.err.println("Unable to list breakpoints!");
-            if (opts.hasOption("verbose")) {
-                cause.printStackTrace();
-            } // if
-            System.exit(1);
-        } // try
-    } // listBreakpoints
+        @Override
+        public void run() {
+            String source = switch (input) {
+            case null -> readStdIn();
+            default -> {
+                try {
+                    yield Files.readString(input.toPath());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            }; // switch
+
+            // show breakpoints
+            try {
+                CompilationResult compilationResult = CompilationHelper.compile(source);
+
+                Collection<Integer> availableBreakpoints = DebugTraceHelper
+                        .getValidBreakpointLines(compilationResult);
+                String[] sourceLines = source.split("\n");
+                int digitLength = ((int) Math.log10(sourceLines.length)) + 1;
+
+                if (outputJson) {
+                    JSONArray output = new JSONArray();
+                    for (int i = 0; i < sourceLines.length; i++) {
+                        int lineNumber = i + 1;
+                        boolean validBreakpoint = availableBreakpoints.contains(lineNumber);
+                        String lineContent = sourceLines[i];
+                        JSONObject lineEntry = new JSONObject()
+                                .put("lineNumber", lineNumber)
+                                .put("validBreakpoint", validBreakpoint)
+                                .put("lineContent", lineContent);
+                        output.put(lineEntry);
+                    } // for
+                    System.out.println(output);
+                } else {
+                    StringBuilder annotatedSource = new StringBuilder();
+                    AnsiConsole.systemInstall();
+                    for (int i = 0; i < sourceLines.length; i++) {
+
+                        if (availableBreakpoints.contains(i + 1)) {
+                            annotatedSource.append(
+                                    Ansi.ansi().fgGreen()
+                                            .a(String.format("b %" + digitLength + "d | ", i + 1)));
+                        } else {
+                            annotatedSource.append(
+                                    String.format("  %" + digitLength + "d | ", i + 1));
+                        }
+
+                        annotatedSource.append(sourceLines[i]);
+                        annotatedSource.append(Ansi.ansi().reset());
+
+                        if (i < sourceLines.length - 1) {
+                            annotatedSource.append('\n');
+                        } // if
+                    } // for
+                    AnsiConsole.systemUninstall();
+                    System.out.println(annotatedSource.toString());
+                } // if
+
+            } catch (Throwable cause) {
+                System.err.println("Unable to list breakpoints!");
+                if (verbose) {
+                    cause.printStackTrace();
+                } // if
+                System.exit(1);
+            } // try
+        }
+    }
+
+    /** Print dependency licenses to console. */
+    @Command(name = "show-licenses",
+             description = "show the licenses for projects used in this program and then exit",
+             mixinStandardHelpOptions = true)
+    static class ShowLicenses implements Runnable {
+        @Override
+        public void run() {
+            System.out.println("""
+                    This program includes and uses several open source projects.
+                    \tJansi (https://fusesource.github.io/jansi/)
+                    \tJavaParser (https://javaparser.org/),
+                    \tJSON-Java (https://github.com/stleary/JSON-java)
+                    \tPicocli (https://picocli.info/)
+                    Jansi, JavaParser, and picocli are licensed under the Apache
+                    License 2.0, which can be found below this message. JSON-Java has been
+                    dedicated to the public domain. Thank you to the authors and contributors of
+                    those projects!
+                    """ + LicenseHelper.APACHE_2_0);
+        }
+    }
 
     /**
      * Read the entirety of stdin into a string.
@@ -167,153 +235,4 @@ public class App {
         } // try
         return sb.toString();
     } // readStdIn
-
-    /**
-     * Parse command-line options into a CommandLine instance. If parsing fails or
-     * the help option is encountered, a usage message is printed to stdout and the
-     * process exits.
-     *
-     * @param args command-line arguments, usually provided directly from main
-     * @return a constructed CommandLine object
-     */
-    public static CommandLine getOptions(String[] args) {
-
-        Options options = new Options();
-
-        // TODO: add an option for restricting which classes/objects have their full set of fields
-        // dumped vs just a class fqn. would help declutter snapshots containing java builtins like
-        // scanner, stringbuilder, etc
-
-        options.addOption(
-            Option.builder("i")
-                .longOpt("input")
-                .desc("input path to Java source file (defaults to stdin if omitted)")
-                .required(false)
-                .hasArg()
-                .build());
-
-        options.addOption(
-            Option.builder("o")
-                .longOpt("output")
-                .desc("output path (defaults to stdout if omitted)")
-                .required(false)
-                .hasArg()
-                .build());
-
-        options.addOption(
-            Option.builder("b")
-                .longOpt("breakpoint")
-                .desc(
-                    "breakpoint at which to take a snapshot. the snapshot taken will represent "
-                    + "the state of memory immediately before this line is executed. multiple "
-                    + "instances of this option can be provided. if none are provided, the "
-                    + "default behavior is to take one snapshot at the end of the program's "
-                    + "main method."
-                ) // desc
-                .required(false)
-                .hasArg()
-                .build());
-
-        options.addOption(
-            Option.builder("l")
-                .longOpt("list-available-breakpoints")
-                .desc(
-                    "instead of running a trace, list the breakpoints available in the provided "
-                    + "source file.")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder("L")
-                .longOpt("list-available-breakpoints-json")
-                .desc(
-                   "instead of running a trace, list the breakpoints available in the provided "
-                   + "source file in JSON format.")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder("s")
-                .longOpt("inline-strings")
-                .desc(
-                    "if provided, strings are inlined into fields "
-                    + "instead of going through a reference")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder()
-                .longOpt("remove-main-args")
-                .desc("don't include the main method's `args` parameter in the output")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder()
-                .longOpt("remove-method-this")
-                .desc("don't include the value of `this` for methods in the output")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder("v")
-                .longOpt("verbose")
-                .desc("output messages about what the tracer is doing")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder()
-                .longOpt("show-licenses")
-                .desc("show the licenses for projects used in this program and then exit")
-                .required(false)
-                .build());
-
-        options.addOption(
-            Option.builder("h")
-                .longOpt("help")
-                .desc("print this help message and then exit")
-                .required(false)
-                .build());
-
-        CommandLineParser parser = new DefaultParser();
-
-        String header =
-            """
-                Generate an execution trace for a Java program.
-                """.strip();
-
-        String footer = "";
-
-        HelpFormatter helpFormatter = new HelpFormatter();
-        try {
-            CommandLine cmd = parser.parse(options, args);
-            if (cmd.hasOption("help")) {
-                helpFormatter.printHelp("cs1302-tracer", header, options, footer, true);
-                System.exit(0);
-            } else if (cmd.hasOption("show-licenses")) {
-                System.out.println(
-                    """
-                        This program includes and uses several open source projects.
-                        \tApache Commons CLI (https://commons.apache.org/proper/commons-cli/)
-                        \tJansi (https://fusesource.github.io/jansi/)
-                        \tJavaParser (https://javaparser.org/),
-                        \tJSON-Java (https://github.com/stleary/JSON-java)
-                        Apache Commons CLI, Jansi, and JavaParser are licensed under the Apache
-                        License 2.0, which can be found below this message. JSON-Java has been
-                        dedicated to the public domain. Thank you to the authors and contributors of
-                        those projects!
-                        """ + LicenseHelper.APACHE_2_0);
-                System.exit(0);
-            }
-
-            return cmd;
-        } catch (ParseException e) {
-            System.err.println(e.getMessage());
-            new HelpFormatter().printHelp("code-tracer", options);
-            System.exit(-1);
-        }
-
-        throw new IllegalStateException("Unreachable.");
-    }
 }
