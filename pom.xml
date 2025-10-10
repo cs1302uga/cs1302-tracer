@@ -5,7 +5,7 @@
 
   <groupId>cs1302.tracer</groupId>
   <artifactId>code-tracer</artifactId>
-  <version>1.0.5</version>
+  <version>1.0.6</version>
 
   <name>code-tracer</name>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
