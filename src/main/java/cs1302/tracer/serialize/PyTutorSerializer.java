@@ -55,12 +55,22 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             .collect(Collectors.toMap(Entry::getKey,
                 e -> serializeTraceValue(e.getValue(), snapshot.heap()))));
 
-        JSONObject serializedHeapTypes = new JSONObject(snapshot.heap().entrySet().stream()
-            .filter(e -> !(inlineStrings && e.getValue() instanceof TraceValue.String))
-            .filter(e -> e.getValue() instanceof TraceValue.Object)
-            .collect(Collectors.toMap(Entry::getKey,
-                e -> new JSONArray(((TraceValue.Object) e.getValue()).fields().stream()
-                    .map(ExecutionSnapshot.Field::typeName).toList()))));
+        JSONObject serializedHeapTypes = new JSONObject();
+        for (Entry<Long, TraceValue> e: snapshot.heap().entrySet()) {
+            String key = e.getKey().toString();
+            switch (e.getValue()) {
+            case TraceValue.Object o -> {
+                JSONArray objectTypes = new JSONArray(o.fields().stream()
+                      .map(ExecutionSnapshot.Field::typeName).toList());
+                serializedHeapTypes.put(key, objectTypes);
+            }
+            case TraceValue.List a -> {
+                serializedHeapTypes.put(key, a.typeName());
+            }
+            default -> {
+            }
+            }
+        }
 
         if (removeMainArgs) {
             // don't include String[] args in main

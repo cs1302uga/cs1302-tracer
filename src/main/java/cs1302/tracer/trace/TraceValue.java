@@ -36,7 +36,8 @@ public sealed interface TraceValue {
         case null -> new Null();
         case PrimitiveValue pv -> Primitive.fromJdiPrimitive(pv);
         case ArrayReference ar ->
-            new List(arrayReferenceToList(mainThread, ar, outEncounteredReferences));
+            new List(ar.referenceType().name(),
+                arrayReferenceToList(mainThread, ar, outEncounteredReferences));
         case StringReference sr -> new String(sr.value());
         case ObjectReference or -> {
             Optional<Primitive> maybeWrappedPrimitive =
@@ -65,7 +66,7 @@ public sealed interface TraceValue {
                             arrayReferenceToList(mainThread, ar,
                                 outEncounteredReferences);
                         if (isList) {
-                            yield new List(traceArray);
+                            yield new List(or.referenceType().name(), traceArray);
                         } else {
                             yield new Collection(traceArray);
                         }
@@ -454,9 +455,8 @@ public sealed interface TraceValue {
         implements TraceValue {
     }
 
-    /** An object that implements {@link java.util.List}. */
-    record List(java.util.List<? extends TraceValue> value)
+    /** An object that implements {@link java.util.List}, or an array. */
+    record List(java.lang.String typeName, java.util.List<? extends TraceValue> value)
         implements TraceValue {
-
     }
 }
