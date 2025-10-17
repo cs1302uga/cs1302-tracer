@@ -39,11 +39,11 @@ public class App {
     @Command
     abstract static class CommandBase implements Runnable {
         @Option(names = { "--verbose", "-v" },
-                description = "output messages about what the tracer is doing")
+                description = "Output messages about what the tracer is doing.")
         boolean verbose = false;
 
         @Option(names = { "--input", "-i" },
-                description = "input path to Java source file (defaults to stdin if omitted)")
+                description = "Input path to Java source file (defaults to stdin if omitted).")
         File input = null;
 
 
@@ -76,26 +76,26 @@ public class App {
 
     /** Run a trace. */
     @Command(name = "trace",
-             description = "generate an execution trace for a Java program",
+             description = "Generate an execution trace for a Java program.",
              mixinStandardHelpOptions = true)
     static class Trace extends CommandBase {
         @Option(names = { "--remove-main-args" },
-               description = "don't include the main method's `args` parameter in the output")
+               description = "Don't include the main method's `args` parameter in the output.")
         boolean removeMainArgs = false;
 
         @Option(names = { "--inline-strings", "-s" },
-                description = "if provided, strings are inlined into fields instead "
-                              + "of going through a reference")
+                description = "If provided, strings are inlined into fields instead "
+                              + "of going through a reference.")
         boolean inlineStrings = false;
 
         @Option(names = { "--remove-method-this" },
-                description = "don't include the value of `this` for methods in the output")
+                description = "Don't include the value of `this` for methods in the output.")
         boolean removeMethodThis = false;
 
         @Option(names = { "--breakpoints", "-b" },
-                description = "breakpoints at which to take snapshots. the snapshots taken will "
+                description = "Breakpoints at which to take snapshots. The snapshots taken will "
                         + "represent the state of memory immediately before each line is executed. "
-                        + "if no breakpoints are provided, the default behavior is to take"
+                        + "If no breakpoints are provided, the default behavior is to take"
                         + "one snapshot at the end of the program's main method.")
         List<Integer> breakpoints = null;
 
@@ -141,11 +141,11 @@ public class App {
 
     /** List the breakpoint lines available for a compiled Java program. */
     @Command(name = "list-breakpoints",
-             description = "list the breakpoints available in the provided source file",
+             description = "List the breakpoints available in the provided source file.",
              mixinStandardHelpOptions = true)
     static class ListBreakpoints extends CommandBase {
         @Option(names = { "--json", "-j" },
-                description = "output available breakpoints in JSON format")
+                description = "Output available breakpoints in JSON format.")
         boolean outputJson = false;
 
         @Override
@@ -211,7 +211,7 @@ public class App {
 
     /** Print dependency licenses to console. */
     @Command(name = "show-licenses",
-             description = "show the licenses for projects used in this program and then exit",
+             description = "Show the licenses for projects used in this program and then exit.",
              mixinStandardHelpOptions = true)
     static class ShowLicenses implements Runnable {
         @Override
