@@ -21,91 +21,13 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
-/**
- * Entry point for the tracer program.
- */
-@Command(name = "code-tracer",
-         description = "generate an execution trace for a Java program",
-         mixinStandardHelpOptions = true)
-public class App implements Runnable {
-    @Option(names = { "--verbose", "-v" },
-            description = "output messages about what the tracer is doing")
-    boolean verbose = false;
-
-    @Option(names = { "--remove-main-args" },
-           description = "don't include the main method's `args` parameter in the output")
-    boolean removeMainArgs = false;
-
-    @Option(names = { "--inline-strings", "-s" },
-            description = "if provided, strings are inlined into fields instead "
-                          + "of going through a reference")
-    boolean inlineStrings = false;
-
-    @Option(names = { "--remove-method-this" },
-            description = "don't include the value of `this` for methods in the output")
-    boolean removeMethodThis = false;
-
-    @Option(names = { "--breakpoints", "-b" },
-            description = "breakpoints at which to take snapshots. the snapshots taken will "
-                    + "represent the state of memory immediately before each line is executed. "
-                    + "if no breakpoints are provided, the default behavior is to take"
-                    + "one snapshot at the end of the program's main method.")
-    List<Integer> breakpoints = null;
-
-    @Option(names = { "--input", "-i" },
-            description = "input path to Java source file (defaults to stdin if omitted)")
-    File input = null;
-
-    /**
-     * Run and trace a compiled Java program and output the resulting trace JSON to
-     * stdout.
-     */
-    @Override
-    public void run() {
-        String source = switch (input) {
-        case null -> readStdIn();
-        default -> {
-            try {
-                yield Files.readString(input.toPath());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        }; // switch
-
-        // run a trace
-        try {
-            CompilationResult compilationResult = CompilationHelper.compile(source);
-
-            PyTutorSerializer configuredSerializer = new PyTutorSerializer(
-                    removeMainArgs, inlineStrings, removeMethodThis);
-
-            if (breakpoints == null) {
-                ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult);
-                JSONObject pyTutorSnapshot = configuredSerializer.serialize(source, trace);
-                System.out.println(pyTutorSnapshot);
-            } else {
-                Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
-                        compilationResult,
-                        breakpoints);
-                Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
-                        .entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> configuredSerializer.serialize(source, e.getValue())));
-                System.out.println(new JSONObject(pyTutorSnapshots));
-            } // if
-        } catch (Throwable cause) {
-            System.err.println("Unable to generate trace!");
-            if (verbose) {
-                cause.printStackTrace();
-            } // if
-            System.exit(1);
-        } // try
-    }
+/** Entry point for the tracer program. */
+@Command(name = "code-tracer")
+public class App {
 
     public static void main(String[] args) throws Exception {
         int exitCode = new CommandLine(new App())
+                .addSubcommand(new Trace())
                 .addSubcommand(new ListBreakpoints())
                 .addSubcommand(new ShowLicenses())
                 .execute(args);
@@ -113,35 +35,122 @@ public class App implements Runnable {
         System.exit(exitCode);
     } // main
 
-    /** List the breakpoint lines available for a compiled Java program. */
-    @Command(name = "list-breakpoints",
-             description = "list the breakpoints available in the provided source file",
-             mixinStandardHelpOptions = true)
-    static class ListBreakpoints implements Runnable {
+    /** Base class that holds common CLI parameters. */
+    @Command
+    abstract static class CommandBase implements Runnable {
         @Option(names = { "--verbose", "-v" },
                 description = "output messages about what the tracer is doing")
         boolean verbose = false;
-
-        @Option(names = { "--json", "-j" },
-                description = "output available breakpoints in JSON format")
-        boolean outputJson = false;
 
         @Option(names = { "--input", "-i" },
                 description = "input path to Java source file (defaults to stdin if omitted)")
         File input = null;
 
-        @Override
-        public void run() {
-            String source = switch (input) {
-            case null -> readStdIn();
-            default -> {
+
+        /**
+         * Read the entirety of {@code input} into a string. If {@code input} is null,
+         * it reads and returns the content of stdin.
+         *
+         * @return The read contents of the file.
+         * @throws RuntimeException if an IO exception occured
+         */
+        protected String readInputFile() {
+            if (input == null) {
+                // read stdin
+                StringBuilder sb = new StringBuilder();
+                try (Scanner scan = new Scanner(System.in)) {
+                    while (scan.hasNextLine()) {
+                        sb.append(scan.nextLine()).append("\n");
+                    } // while
+                } // try
+                return sb.toString();
+            } else {
                 try {
-                    yield Files.readString(input.toPath());
+                    return Files.readString(input.toPath());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
-            }; // switch
+        } // readInputFile
+    }
+
+    /** Run a trace. */
+    @Command(name = "trace",
+             description = "generate an execution trace for a Java program",
+             mixinStandardHelpOptions = true)
+    static class Trace extends CommandBase {
+        @Option(names = { "--remove-main-args" },
+               description = "don't include the main method's `args` parameter in the output")
+        boolean removeMainArgs = false;
+
+        @Option(names = { "--inline-strings", "-s" },
+                description = "if provided, strings are inlined into fields instead "
+                              + "of going through a reference")
+        boolean inlineStrings = false;
+
+        @Option(names = { "--remove-method-this" },
+                description = "don't include the value of `this` for methods in the output")
+        boolean removeMethodThis = false;
+
+        @Option(names = { "--breakpoints", "-b" },
+                description = "breakpoints at which to take snapshots. the snapshots taken will "
+                        + "represent the state of memory immediately before each line is executed. "
+                        + "if no breakpoints are provided, the default behavior is to take"
+                        + "one snapshot at the end of the program's main method.")
+        List<Integer> breakpoints = null;
+
+        /**
+         * Run and trace a compiled Java program and output the resulting trace JSON to
+         * stdout.
+         */
+        @Override
+        public void run() {
+            String source = readInputFile();
+
+            // run a trace
+            try {
+                CompilationResult compilationResult = CompilationHelper.compile(source);
+
+                PyTutorSerializer configuredSerializer = new PyTutorSerializer(
+                        removeMainArgs, inlineStrings, removeMethodThis);
+
+                if (breakpoints == null) {
+                    ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult);
+                    JSONObject pyTutorSnapshot = configuredSerializer.serialize(source, trace);
+                    System.out.println(pyTutorSnapshot);
+                } else {
+                    Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
+                            compilationResult,
+                            breakpoints);
+                    Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
+                            .entrySet().stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    e -> configuredSerializer.serialize(source, e.getValue())));
+                    System.out.println(new JSONObject(pyTutorSnapshots));
+                } // if
+            } catch (Throwable cause) {
+                System.err.println("Unable to generate trace!");
+                if (verbose) {
+                    cause.printStackTrace();
+                } // if
+                System.exit(1);
+            } // try
+        }
+    }
+
+    /** List the breakpoint lines available for a compiled Java program. */
+    @Command(name = "list-breakpoints",
+             description = "list the breakpoints available in the provided source file",
+             mixinStandardHelpOptions = true)
+    static class ListBreakpoints extends CommandBase {
+        @Option(names = { "--json", "-j" },
+                description = "output available breakpoints in JSON format")
+        boolean outputJson = false;
+
+        @Override
+        public void run() {
+            String source = readInputFile();
 
             // show breakpoints
             try {
@@ -220,19 +229,4 @@ public class App implements Runnable {
                     """ + LicenseHelper.APACHE_2_0);
         }
     }
-
-    /**
-     * Read the entirety of stdin into a string.
-     *
-     * @return The read contents of stdin.
-     */
-    private static String readStdIn() {
-        StringBuilder sb = new StringBuilder();
-        try (Scanner scan = new Scanner(System.in)) {
-            while (scan.hasNextLine()) {
-                sb.append(scan.nextLine()).append("\n");
-            } // while
-        } // try
-        return sb.toString();
-    } // readStdIn
 }
