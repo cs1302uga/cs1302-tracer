@@ -92,6 +92,11 @@ public class App {
                 description = "Don't include the value of `this` for methods in the output.")
         boolean removeMethodThis = false;
 
+        @Option(names = { "--accumulate-breakpoints" },
+                description = "Output an array of snapshots containing each time a breakpoint was "
+                              + "reached instead of just the last time.")
+        boolean accumulateBreakpoints = false;
+
         @Option(names = { "--breakpoints", "-b" },
                 description = "Breakpoints at which to take snapshots. The snapshots taken will "
                         + "represent the state of memory immediately before each line is executed. "
@@ -119,15 +124,27 @@ public class App {
                     JSONObject pyTutorSnapshot = configuredSerializer.serialize(source, trace);
                     System.out.println(pyTutorSnapshot);
                 } else {
-                    Map<Integer, ExecutionSnapshot> trace = DebugTraceHelper.trace(
+                    Map<Integer, List<ExecutionSnapshot>> trace = DebugTraceHelper.trace(
                             compilationResult,
                             breakpoints);
-                    Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
+                    if (accumulateBreakpoints) {
+                        Map<Integer, JSONArray> pyTutorSnapshots = trace
                             .entrySet().stream()
                             .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    e -> configuredSerializer.serialize(source, e.getValue())));
-                    System.out.println(new JSONObject(pyTutorSnapshots));
+                                        Map.Entry::getKey,
+                                        e -> new JSONArray(e.getValue().stream()
+                                            .map(s -> configuredSerializer.serialize(source, s))
+                                            .toList())));
+                        System.out.println(new JSONObject(pyTutorSnapshots));
+                    } else {
+                        Map<Integer, JSONObject> pyTutorSnapshots = (Map<Integer, JSONObject>) trace
+                                .entrySet().stream()
+                                .collect(Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            e -> configuredSerializer
+                                                    .serialize(source, e.getValue().getLast())));
+                        System.out.println(new JSONObject(pyTutorSnapshots));
+                    }
                 } // if
             } catch (Throwable cause) {
                 System.err.println("Unable to generate trace!");

@@ -29,11 +29,13 @@ public class DebugTraceHelper {
      *                          snapshots at. if it contains the special value -1,
      *                          is null, or is empty, a snapshot will be taken at
      *                          the time the main method exits.
-     * @return A mapping from line numbers to execution snapshots. if a snapshot was
-     *         taken at the end of main (as described above), it is provided under
-     *         the special key -1.
+     * @return A mapping from breakpoint line numbers to a list of execution snapshots. If a
+     *         snapshot was taken at the end of main (as described above), it is provided under
+     *         the special key -1. The list contains a snapshot for each time the breakpoint was
+     *         reached, with the first element being the first time and the last element being the
+     *         last time.
      */
-    public static Map<Integer, ExecutionSnapshot> trace(
+    public static Map<Integer, List<ExecutionSnapshot>> trace(
         CompilationResult compilationResult,
         Collection<Integer> breakPoints)
         throws IOException, IllegalConnectorArgumentsException, VMStartException,
@@ -43,7 +45,7 @@ public class DebugTraceHelper {
             || breakPoints.isEmpty()
             || breakPoints.contains(-1);
 
-        Map<Integer, ExecutionSnapshot> snapshots = new HashMap<>();
+        Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
 
@@ -125,8 +127,14 @@ public class DebugTraceHelper {
                     Location breakLocation = bpe.location();
                     if (compilationResult.compiledClassNames()
                         .contains(breakLocation.declaringType().name())) {
-                        snapshots.put(breakLocation.lineNumber(),
-                            snapshotTheWorld(bpe.thread(), loadedClasses, vmOutSink, vmErrSink));
+
+                        Integer line = breakLocation.lineNumber();
+                        ExecutionSnapshot snapshot =
+                            snapshotTheWorld(bpe.thread(), loadedClasses, vmOutSink, vmErrSink);
+
+                        snapshots
+                            .computeIfAbsent(line, ArrayList<ExecutionSnapshot>::new)
+                            .add(snapshot);
                     }
                 }
                 case MethodExitEvent mee -> {
@@ -140,8 +148,10 @@ public class DebugTraceHelper {
                             && method.signature().equals(mainJniSignature);
 
                     if (isMain && (snapMainEnd || snapshots.isEmpty())) {
-                        snapshots.put(-1,
-                            snapshotTheWorld(mee.thread(), loadedClasses, vmOutSink, vmErrSink));
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                mee.thread(), loadedClasses, vmOutSink, vmErrSink);
+
+                        snapshots.put(-1, List.of(snapshot));
                     }
                 }
                 case VMDeathEvent vde -> {
@@ -171,7 +181,7 @@ public class DebugTraceHelper {
         CompilationResult compilationResult)
         throws IOException, IllegalConnectorArgumentsException, VMStartException,
         InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
-        return trace(compilationResult, null).get(-1);
+        return trace(compilationResult, null).get(-1).getLast();
     } // trace
 
     /**
