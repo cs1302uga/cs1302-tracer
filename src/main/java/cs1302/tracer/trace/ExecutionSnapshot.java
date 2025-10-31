@@ -45,11 +45,12 @@ public record ExecutionSnapshot(List<StackSnapshot> stack,
     /**
      * A key-value pair of identifier to the value it refers to.
      *
+     * @param isFinal True if this field is declared as final, false otherwise.
      * @param typeName The name of this field's type. Note that this may differ from the type
      *                 of the field's underlying value due to polymorphism.
      * @param identifier The field's identifier.
      * @param value The field's value.
      */
-    public record Field(String typeName, String identifier, TraceValue value) {
+    public record Field(boolean isFinal, String typeName, String identifier, TraceValue value) {
     }
 }

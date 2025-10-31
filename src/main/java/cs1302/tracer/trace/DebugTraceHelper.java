@@ -1,5 +1,10 @@
 package cs1302.tracer.trace;
 
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
@@ -16,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /** A collection of methods that are used to generate a debug trace. */
 public class DebugTraceHelper {
@@ -29,6 +35,7 @@ public class DebugTraceHelper {
      *                          snapshots at. if it contains the special value -1,
      *                          is null, or is empty, a snapshot will be taken at
      *                          the time the main method exits.
+     * @param parsedSource Parsed source code for the compiled program.
      * @return A mapping from breakpoint line numbers to a list of execution snapshots. If a
      *         snapshot was taken at the end of main (as described above), it is provided under
      *         the special key -1. The list contains a snapshot for each time the breakpoint was
@@ -37,9 +44,11 @@ public class DebugTraceHelper {
      */
     public static Map<Integer, List<ExecutionSnapshot>> trace(
         CompilationResult compilationResult,
-        Collection<Integer> breakPoints)
+        Collection<Integer> breakPoints,
+        CompilationUnit parsedSource)
         throws IOException, IllegalConnectorArgumentsException, VMStartException,
-        InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
+        InterruptedException, IncompatibleThreadStateException, AbsentInformationException,
+        ClassNotLoadedException {
 
         boolean snapMainEnd = breakPoints == null
             || breakPoints.isEmpty()
@@ -130,7 +139,8 @@ public class DebugTraceHelper {
 
                         Integer line = breakLocation.lineNumber();
                         ExecutionSnapshot snapshot =
-                            snapshotTheWorld(bpe.thread(), loadedClasses, vmOutSink, vmErrSink);
+                            snapshotTheWorld(bpe.thread(), loadedClasses, vmOutSink,
+                                    vmErrSink, parsedSource);
 
                         snapshots
                             .computeIfAbsent(line, ArrayList<ExecutionSnapshot>::new)
@@ -149,7 +159,8 @@ public class DebugTraceHelper {
 
                     if (isMain && (snapMainEnd || snapshots.isEmpty())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOutSink, vmErrSink);
+                                mee.thread(), loadedClasses, vmOutSink,
+                                vmErrSink, parsedSource);
 
                         snapshots.put(-1, List.of(snapshot));
                     }
@@ -174,14 +185,17 @@ public class DebugTraceHelper {
      *
      * @param compilationResult A properly filled CompilationResult (probably from a
      *                          call to CompilationHelper.compile()).
+     * @param parsedSource Parsed source code for the compiled program.
      * @return An execution snapshot taken at the end of the main method, or null if execution
      *         terminated before the main method ended.
      */
     public static ExecutionSnapshot trace(
-        CompilationResult compilationResult)
+        CompilationResult compilationResult,
+        CompilationUnit parsedSource)
         throws IOException, IllegalConnectorArgumentsException, VMStartException,
-        InterruptedException, IncompatibleThreadStateException, AbsentInformationException {
-        return trace(compilationResult, null).get(-1).getLast();
+        InterruptedException, IncompatibleThreadStateException, AbsentInformationException,
+        ClassNotLoadedException {
+        return trace(compilationResult, null, parsedSource).get(-1).getLast();
     } // trace
 
     /**
@@ -268,35 +282,63 @@ public class DebugTraceHelper {
      *                      snapshot.
      * @param vmOut An output stream containing the VM's standard output.
      * @param vmErr An output stream containing the VM's standard error.
+     * @param parsedSource Parsed source code for the compiled program.
      * @return An execution snapshot of the thread's memory state at the time of calling.
      */
     private static ExecutionSnapshot snapshotTheWorld(
         ThreadReference mainThread,
         Iterable<ReferenceType> loadedClasses,
         ByteArrayOutputStream vmOut,
-        ByteArrayOutputStream vmErr)
-        throws IncompatibleThreadStateException, AbsentInformationException {
+        ByteArrayOutputStream vmErr,
+        CompilationUnit parsedSource)
+        throws IncompatibleThreadStateException, AbsentInformationException,
+        ClassNotLoadedException {
 
         List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
+
+        Map<String, Set<String>> finalMethodVariables =
+            parsedSource.findAll(MethodDeclaration.class).stream().collect(Collectors.toMap(
+                m -> m.resolve().getQualifiedSignature()
+                            .replaceAll("\\.\\.\\.", "[]")
+                            .replaceAll("\\s", ""),
+                m -> m.findAll(VariableDeclarationExpr.class).stream()
+                             .filter(v -> v.getModifiers().contains(Modifier.finalModifier()))
+                             .map(VariableDeclarationExpr::getVariables)
+                             .flatMap(Collection::stream)
+                             .map(VariableDeclarator::getNameAsString)
+                             .collect(Collectors.toSet())));
 
         // collect stack frames and their fields
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
         for (StackFrame frame : mainThread.frames()) {
+            Method frameMethod = frame.location().method();
+            String frameMethodSignature = String.format(
+                    "%s.%s(%s)",
+                    frameMethod.declaringType().name(),
+                    frameMethod.name(),
+                    frameMethod.argumentTypes().stream()
+                        .map(Type::name).collect(Collectors.joining(",")));
+
+            Set<String> finalVariableNames =
+                finalMethodVariables.getOrDefault(frameMethodSignature, new HashSet<String>());
+
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
 
             for (LocalVariable lv : frame.visibleVariables()) {
+                boolean isFinal = finalVariableNames.contains(lv.name());
+
                 switch (frame.getValue(lv)) {
                 case PrimitiveValue pv -> stackFrameFields
-                    .add(new ExecutionSnapshot.Field(lv.typeName(), lv.name(),
+                    .add(new ExecutionSnapshot.Field(isFinal, lv.typeName(), lv.name(),
                         TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or -> {
                     stackFrameFields
-                        .add(new ExecutionSnapshot.Field(lv.typeName(), lv.name(),
+                        .add(new ExecutionSnapshot.Field(isFinal, lv.typeName(), lv.name(),
                             new TraceValue.Reference(or.uniqueID())));
                     heapReferencesToWalk.add(or);
                 }
-                case null -> stackFrameFields.add(
-                    new ExecutionSnapshot.Field(lv.typeName(), lv.name(), new TraceValue.Null()));
+                case null -> stackFrameFields.add(new ExecutionSnapshot.Field(
+                            isFinal, lv.typeName(), lv.name(), new TraceValue.Null()));
                 default -> {
                 }
                 }
@@ -327,15 +369,15 @@ public class DebugTraceHelper {
 
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
-                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(f.typeName(),
-                      fieldName, TraceValue.Primitive.fromJdiPrimitive(pv)));
+                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(f.isFinal(),
+                            f.typeName(), fieldName, TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or -> {
-                    statics.add(new ExecutionSnapshot.Field(f.typeName(), fieldName,
+                    statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                         new TraceValue.Reference(or.uniqueID())));
                     heapReferencesToWalk.add(or);
                 }
                 case null ->
-                    statics.add(new ExecutionSnapshot.Field(f.typeName(), fieldName,
+                    statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                           new TraceValue.Null()));
                 default -> {
                 }

@@ -1,8 +1,5 @@
 package cs1302.tracer;
 
-import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ParserConfiguration.LanguageLevel;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
@@ -29,18 +26,13 @@ public class CompilationHelper {
      * Compile a Java program.
      *
      * @param javaSource The Java program to compile.
+     * @param sourceCompilationUnit Parsed AST for {@code javaSource}.
      * @return The CompilationResult for this compilation.
      * @throws IllegalArgumentException If the Java program failed to compiled.
      */
-    public static CompilationResult compile(String javaSource) throws IOException {
-        /*
-         * Parse source code so we can later identify the main method and top-level
-         * class
-         */
-        StaticJavaParser.setConfiguration(
-            new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
-        CompilationUnit sourceCompilationUnit = StaticJavaParser.parse(javaSource);
-
+    public static CompilationResult compile(
+        String javaSource, CompilationUnit sourceCompilationUnit
+    ) throws IOException {
         /*
          * Create a working directory tree for compilation
          */

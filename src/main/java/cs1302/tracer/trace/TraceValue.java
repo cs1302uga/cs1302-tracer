@@ -117,15 +117,15 @@ public sealed interface TraceValue {
                 Value fieldValue = or.getValue(objectField);
                 switch (fieldValue) {
                 case null -> objectSnapshotFields.add(
-                    new ExecutionSnapshot.Field(objectField.typeName(), objectField.name(),
-                        new Null()));
+                    new ExecutionSnapshot.Field(objectField.isFinal(), objectField.typeName(),
+                        objectField.name(), new Null()));
                 case PrimitiveValue pf -> objectSnapshotFields
-                    .add(new ExecutionSnapshot.Field(objectField.typeName(), objectField.name(),
-                        Primitive.fromJdiPrimitive(pf)));
+                    .add(new ExecutionSnapshot.Field(objectField.isFinal(), objectField.typeName(),
+                                objectField.name(), Primitive.fromJdiPrimitive(pf)));
                 case ObjectReference of -> {
                     objectSnapshotFields.add(
-                        new ExecutionSnapshot.Field(objectField.typeName(), objectField.name(),
-                            new Reference(of.uniqueID())));
+                        new ExecutionSnapshot.Field(objectField.isFinal(), objectField.typeName(),
+                            objectField.name(), new Reference(of.uniqueID())));
                     outEncounteredReferences.ifPresent(l -> l.add(of));
                 }
                 default -> {

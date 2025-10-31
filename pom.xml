@@ -48,8 +48,8 @@
     <!-- https://github.com/javaparser/javaparser -->
     <dependency>
       <groupId>com.github.javaparser</groupId>
-      <artifactId>javaparser-core</artifactId>
-      <version>3.27.0</version>
+      <artifactId>javaparser-symbol-solver-core</artifactId>
+      <version>3.27.1</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/org.fusesource.jansi/jansi -->
     <dependency>
