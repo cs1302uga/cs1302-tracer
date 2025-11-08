@@ -55,7 +55,7 @@ public record PyTutorSerializer(
         snapshot.statics().stream()
             .collect(
                 Collectors.toMap(
-                    Field::identifier, f -> new JSONObject().put("type", f.typeName())));
+                    Field::identifier, f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
 
     JSONObject serializedHeap =
         new JSONObject(
@@ -72,7 +72,9 @@ public record PyTutorSerializer(
         case TraceValue.Object o -> {
           JSONArray objectTypes =
               new JSONArray(o.fields().stream().map(ExecutionSnapshot.Field::typeName).toList());
-          heapAttrs.put(key, new JSONObject().put("type", objectTypes));
+          JSONArray objectFinals =
+              new JSONArray(o.fields().stream().map(ExecutionSnapshot.Field::isFinal).toList());
+          heapAttrs.put(key, new JSONObject().put("type", objectTypes).put("final", objectFinals));
         }
         case TraceValue.List a -> {
           heapAttrs.put(key, new JSONObject().put("type", a.typeName()));
@@ -177,7 +179,7 @@ public record PyTutorSerializer(
         stackSnapshot.visibleVariables().stream()
             .collect(
                 Collectors.toMap(
-                    Field::identifier, f -> new JSONObject().put("type", f.typeName())));
+                    Field::identifier, f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
 
     stackSnapshot
         .thisObject()
@@ -191,7 +193,7 @@ public record PyTutorSerializer(
               orderedVarnames.clear();
               orderedVarnames.putAll(newOrderedVarnames);
 
-              localsAttrs.put("this", new JSONObject().put("type", t.typeName()));
+              localsAttrs.put("this", new JSONObject().put("type", t.typeName())).put("final", true);
               encodedLocals.put("this", serializeTraceValue(t.value(), heap));
             });
 
