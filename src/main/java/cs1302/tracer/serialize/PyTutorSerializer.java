@@ -1,6 +1,7 @@
 package cs1302.tracer.serialize;
 
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.TraceValue;
 import org.json.JSONArray;
@@ -9,6 +10,7 @@ import org.json.JSONObject;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
@@ -46,26 +48,26 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             .map(ExecutionSnapshot.Field::identifier)
             .toList());
 
-        JSONArray orderedStaticsTypes = new JSONArray(snapshot.statics().stream()
-            .map(ExecutionSnapshot.Field::typeName)
-            .toList());
+        Map<String, JSONObject> globalsAttrs = snapshot.statics().stream()
+            .collect(Collectors.toMap(Field::identifier,
+                                      f -> new JSONObject().put("type", f.typeName())));
 
         JSONObject serializedHeap = new JSONObject(snapshot.heap().entrySet().stream()
             .filter(e -> !(inlineStrings && e.getValue() instanceof TraceValue.String))
             .collect(Collectors.toMap(Entry::getKey,
                 e -> serializeTraceValue(e.getValue(), snapshot.heap()))));
 
-        JSONObject serializedHeapTypes = new JSONObject();
+        Map<String, JSONObject> heapAttrs = new HashMap<>();
         for (Entry<Long, TraceValue> e: snapshot.heap().entrySet()) {
             String key = e.getKey().toString();
             switch (e.getValue()) {
             case TraceValue.Object o -> {
                 JSONArray objectTypes = new JSONArray(o.fields().stream()
                       .map(ExecutionSnapshot.Field::typeName).toList());
-                serializedHeapTypes.put(key, objectTypes);
+                heapAttrs.put(key, new JSONObject().put("type", objectTypes));
             }
             case TraceValue.List a -> {
-                serializedHeapTypes.put(key, a.typeName());
+                heapAttrs.put(key, new JSONObject().put("type", a.typeName()));
             }
             default -> {
             }
@@ -121,10 +123,10 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
                     .put("line", currentLine)
                     .put("stack_to_render", serializedStackToRender)
                     .put("globals", serializedStatics)
+                    .put("globals_attrs", new JSONObject(globalsAttrs))
                     .put("ordered_globals", orderedStatics)
-                    .put("ordered_globals_types", orderedStaticsTypes)
                     .put("heap", serializedHeap)
-                    .put("heap_types", serializedHeapTypes)))
+                    .put("heap_attrs", new JSONObject(heapAttrs))))
             .put("userlog", "");
     }
 
@@ -155,9 +157,11 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             .map(ExecutionSnapshot.Field::identifier)
             .toList());
 
-        JSONArray orderedVarnamesTypes = new JSONArray(stackSnapshot.visibleVariables().stream()
-            .map(ExecutionSnapshot.Field::typeName)
-            .toList());
+        Map<String, JSONObject> localsAttrs = stackSnapshot.visibleVariables().stream()
+                .collect(Collectors.toMap(
+                            Field::identifier,
+                            f -> new JSONObject().put("type", f.typeName())
+                        ));
 
         stackSnapshot.thisObject().ifPresent(t -> {
             if (removeMethodThis) {
@@ -170,12 +174,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
             orderedVarnames.clear();
             orderedVarnames.putAll(newOrderedVarnames);
 
-            JSONArray newOrderedVarnamesTypes = new JSONArray()
-                .put(t.typeName())
-                .putAll(orderedVarnamesTypes);
-            orderedVarnamesTypes.clear();
-            orderedVarnamesTypes.putAll(newOrderedVarnamesTypes);
-
+            localsAttrs.put("this", new JSONObject().put("type", t.typeName()));
             encodedLocals.put("this", serializeTraceValue(t.value(), heap));
         });
 
@@ -187,8 +186,8 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings,
         return new JSONObject()
             .put("func_name", funcName)
             .put("encoded_locals", new JSONObject(encodedLocals))
+            .put("locals_attrs", new JSONObject(localsAttrs))
             .put("ordered_varnames", orderedVarnames)
-            .put("ordered_varnames_types", orderedVarnamesTypes)
             .put("parent_frame_id_list", new JSONArray())
             .put("is_highlighted", isCurrentFrame)
             .put("is_zombie", false)
