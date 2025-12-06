@@ -55,7 +55,8 @@ public record PyTutorSerializer(
         snapshot.statics().stream()
             .collect(
                 Collectors.toMap(
-                    Field::identifier, f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
+                    Field::identifier,
+                    f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
 
     JSONObject serializedHeap =
         new JSONObject(
@@ -179,7 +180,8 @@ public record PyTutorSerializer(
         stackSnapshot.visibleVariables().stream()
             .collect(
                 Collectors.toMap(
-                    Field::identifier, f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
+                    Field::identifier,
+                    f -> new JSONObject().put("type", f.typeName()).put("final", f.isFinal())));
 
     stackSnapshot
         .thisObject()
@@ -193,7 +195,9 @@ public record PyTutorSerializer(
               orderedVarnames.clear();
               orderedVarnames.putAll(newOrderedVarnames);
 
-              localsAttrs.put("this", new JSONObject().put("type", t.typeName())).put("final", true);
+              localsAttrs
+                  .put("this", new JSONObject().put("type", t.typeName()))
+                  .put("final", true);
               encodedLocals.put("this", serializeTraceValue(t.value(), heap));
             });
 
@@ -305,6 +309,9 @@ public record PyTutorSerializer(
                                 .put(serializeTraceValue(field.value(), heap)))
                     .toArray());
       } // case
+      case TraceValue.Lambda lambdaValue -> {
+        yield new JSONArray().put("JAVA_LAMBDA").put(lambdaValue.implementation());
+      }
     };
   }
 }

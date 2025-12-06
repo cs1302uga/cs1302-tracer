@@ -6,6 +6,7 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.serialize.PyTutorSerializer;
@@ -14,9 +15,11 @@ import cs1302.tracer.trace.ExecutionSnapshot;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 import org.fusesource.jansi.Ansi;
@@ -85,12 +88,15 @@ public class App {
      * Parse the given Java source code string.
      *
      * @param source The Java source code to parse.
+     * @param classPath The root directory containing {@code source}'s source tree. If present, will
+     *     be used to get more information when resolving types.
      * @return The parsed Java source code.
      * @throws ParseProblemException If parsing failed.
      */
-    protected CompilationUnit parseSource(String source) {
+    protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
       CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
       combinedTypeSolver.add(new ReflectionTypeSolver());
+      sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
       JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
 
       StaticJavaParser.getParserConfiguration()
@@ -146,11 +152,11 @@ public class App {
     @Override
     public void run() {
       String source = readInputFile();
-      CompilationUnit cu = parseSource(source);
 
       // run a trace
       try {
-        CompilationResult compilationResult = CompilationHelper.compile(source, cu);
+        CompilationResult compilationResult = CompilationHelper.compile(source);
+        CompilationUnit cu = parseSource(source, Optional.of(compilationResult.classPath()));
 
         PyTutorSerializer configuredSerializer =
             new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis);
@@ -211,11 +217,10 @@ public class App {
     @Override
     public void run() {
       String source = readInputFile();
-      CompilationUnit cu = parseSource(source);
 
       // show breakpoints
       try {
-        CompilationResult compilationResult = CompilationHelper.compile(source, cu);
+        CompilationResult compilationResult = CompilationHelper.compile(source);
 
         Collection<Integer> availableBreakpoints =
             DebugTraceHelper.getValidBreakpointLines(compilationResult);

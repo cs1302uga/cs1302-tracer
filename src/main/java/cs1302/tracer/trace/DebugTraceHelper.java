@@ -1,10 +1,22 @@
 package cs1302.tracer.trace;
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.LambdaExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.resolution.MethodUsage;
+import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
+import com.github.javaparser.resolution.types.ResolvedLambdaConstraintType;
+import com.github.javaparser.resolution.types.ResolvedType;
 import com.sun.jdi.*;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
@@ -21,9 +33,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /** A collection of methods that are used to generate a debug trace. */
 public class DebugTraceHelper {
+
+  /** A simple JavaParser object so we don't have to make a new one every time we do parsing. */
+  private static final JavaParser simpleJavaParser =
+      new JavaParser(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
 
   /**
    * Take snapshots of a program's execution state at the given breakpoints.
@@ -57,8 +74,6 @@ public class DebugTraceHelper {
 
     VirtualMachine vm = startVmWithCprs(compilationResult);
 
-    // TODO the JVM will crash if output buffers (stdout/err) are filled, so we need
-    // to empty them as they're populated during debugging
     ByteArrayOutputStream vmErrSink = new ByteArrayOutputStream();
     {
       InputStream vmErrSource = vm.process().getErrorStream();
@@ -110,7 +125,7 @@ public class DebugTraceHelper {
       methodExitRequest.enable();
     }
 
-    List<ReferenceType> loadedClasses = new ArrayList<>();
+    HashSet<ReferenceType> loadedClasses = new HashSet<>();
 
     boolean endEventLoop = false;
     while (!endEventLoop) {
@@ -271,6 +286,67 @@ public class DebugTraceHelper {
   } // startVmWithCprs
 
   /**
+   * Convert a lambda expression in the AST into an implementation of the corresponding functional
+   * interface's single abstract method.
+   *
+   * @param lambda The lambda expression to attempt to convert.
+   * @return A string containing a valid method implementation of this lambda expression, or empty
+   *     if conversion was not possible.
+   */
+  private static Optional<String> tryImplementLambdaSam(LambdaExpr lambda) {
+    Optional<MethodUsage> maybeSam =
+        FunctionalInterfaceLogic.getFunctionalMethod(lambda.calculateResolvedType());
+
+    if (maybeSam.isEmpty()) {
+      return Optional.empty();
+    }
+
+    MethodUsage sam = maybeSam.get();
+    StringBuilder sb = new StringBuilder();
+
+    String resolvedReturnType =
+        lambda.calculateResolvedType().asReferenceType().getTypeParametersMap().stream()
+            .filter(p -> sam.returnType().isTypeVariable())
+            .filter(p -> p.a.getName().equals(sam.returnType().asTypeVariable().describe()))
+            .map(p -> p.b.describe())
+            .findFirst()
+            .orElse(sam.returnType().describe());
+
+    sb.append(resolvedReturnType);
+    sb.append(" ");
+    sb.append(sam.getName());
+
+    // to use the parameter name used in the method declaration, use
+    // m.getDeclaration().getParam(i).getName()
+    sb.append(
+        IntStream.range(0, sam.getDeclaration().getNumberOfParams())
+            .mapToObj(
+                i ->
+                    String.format(
+                        "%s %s",
+                        switch (lambda.getParameter(i).resolve().getType()) {
+                          case ResolvedLambdaConstraintType c -> c.getBound().describe();
+                          case ResolvedType d -> d.describe();
+                        },
+                        lambda.getParameter(i).getName()))
+            .collect(Collectors.joining(", ", "(", ")")));
+
+    if (lambda.getBody() instanceof ExpressionStmt e) {
+      sb.append("{\n");
+      if (!resolvedReturnType.equals("void")) {
+        sb.append("return ");
+      }
+      sb.append(e);
+      sb.append("}");
+    } else if (lambda.getBody() instanceof BlockStmt b) {
+      sb.append(b);
+    }
+
+    // pretty-print constructed method
+    return simpleJavaParser.parseMethodDeclaration(sb.toString()).getResult().map(Object::toString);
+  }
+
+  /**
    * Take a snapshot of a thread's memory state at this instant of execution.
    *
    * @param mainThread A suspended thread that you want to take a snapshot of.
@@ -289,6 +365,34 @@ public class DebugTraceHelper {
       throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
     List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
+    Map<Long, TraceValue> heap = new HashMap<>();
+
+    // methodName -> (lambdaVariableName -> reconstructedLambdaMethod)
+    record VarLambda(String variableName, Optional<String> lambdaImplementation) {}
+
+    Map<String, Map<String, String>> lambdaMethodVariables =
+        parsedSource.findAll(MethodDeclaration.class).stream()
+            .collect(
+                Collectors.toMap(
+                    m ->
+                        m.resolve()
+                            .getQualifiedSignature()
+                            .replaceAll("\\.\\.\\.", "[]")
+                            .replaceAll("\\s", ""),
+                    m ->
+                        m.findAll(VariableDeclarator.class).stream()
+                            .filter(
+                                d -> d.getInitializer().map(Expression::isLambdaExpr).orElse(false))
+                            .map(
+                                d ->
+                                    new VarLambda(
+                                        d.getNameAsString(),
+                                        tryImplementLambdaSam(
+                                            d.getInitializer().get().asLambdaExpr())))
+                            .filter(d -> d.lambdaImplementation.isPresent())
+                            .collect(
+                                Collectors.toMap(
+                                    d -> d.variableName(), d -> d.lambdaImplementation.get()))));
 
     Map<String, Set<String>> finalMethodVariables =
         parsedSource.findAll(MethodDeclaration.class).stream()
@@ -325,8 +429,14 @@ public class DebugTraceHelper {
 
       List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
 
+      Map<String, String> lambdaImplementations =
+          Optional.ofNullable(lambdaMethodVariables.get(frameMethodSignature))
+              .orElseGet(Collections::emptyMap);
+
       for (LocalVariable lv : frame.visibleVariables()) {
         boolean isFinal = finalVariableNames.contains(lv.name());
+        Optional<String> lvLambdaImplementation =
+            Optional.ofNullable(lambdaImplementations.get(lv.name()));
 
         switch (frame.getValue(lv)) {
           case PrimitiveValue pv ->
@@ -336,6 +446,12 @@ public class DebugTraceHelper {
                       lv.typeName(),
                       lv.name(),
                       TraceValue.Primitive.fromJdiPrimitive(pv)));
+          case ObjectReference or when lvLambdaImplementation.isPresent() -> {
+            stackFrameFields.add(
+                new ExecutionSnapshot.Field(
+                    isFinal, lv.typeName(), lv.name(), new TraceValue.Reference(or.uniqueID())));
+            heap.put(or.uniqueID(), new TraceValue.Lambda(lvLambdaImplementation.get()));
+          }
           case ObjectReference or -> {
             stackFrameFields.add(
                 new ExecutionSnapshot.Field(
@@ -370,10 +486,28 @@ public class DebugTraceHelper {
     // collect static values that have been loaded
     List<ExecutionSnapshot.Field> statics = new ArrayList<>();
     for (ReferenceType loadedClass : loadedClasses) {
+      Optional<ClassOrInterfaceDeclaration> loadedClassDeclaration =
+          parsedSource.findFirst(
+              ClassOrInterfaceDeclaration.class,
+              c ->
+                  loadedClass
+                      .name()
+                      .equals(c.getFullyQualifiedName().orElseGet(c::getNameAsString)));
+
       for (Field f : loadedClass.allFields()) {
         if (!f.isStatic()) {
           continue;
         }
+
+        Optional<String> lambdaImplementation =
+            loadedClassDeclaration
+                .flatMap(
+                    d ->
+                        d.findFirst(
+                            VariableDeclarator.class, vd -> vd.getNameAsString().equals(f.name())))
+                .filter(vd -> vd.getInitializer().map(Expression::isLambdaExpr).orElse(false))
+                .map(vd -> vd.getInitializer().get().asLambdaExpr())
+                .flatMap(DebugTraceHelper::tryImplementLambdaSam);
 
         String fieldName = String.join(".", loadedClass.name(), f.name());
         switch (loadedClass.getValue(f)) {
@@ -384,6 +518,12 @@ public class DebugTraceHelper {
                       f.typeName(),
                       fieldName,
                       TraceValue.Primitive.fromJdiPrimitive(pv)));
+          case ObjectReference or when lambdaImplementation.isPresent() -> {
+            heap.put(or.uniqueID(), new TraceValue.Lambda(lambdaImplementation.get()));
+            statics.add(
+                new ExecutionSnapshot.Field(
+                    f.isFinal(), f.typeName(), fieldName, new TraceValue.Reference(or.uniqueID())));
+          }
           case ObjectReference or -> {
             statics.add(
                 new ExecutionSnapshot.Field(
@@ -401,7 +541,6 @@ public class DebugTraceHelper {
 
     // recursively collect heap values reachable from the roots contained in
     // heapReferencesToWalk
-    Map<Long, TraceValue> heap = new HashMap<>();
     while (!heapReferencesToWalk.isEmpty()) {
       ObjectReference workingObject = heapReferencesToWalk.removeFirst();
       if (heap.containsKey(workingObject.uniqueID())) {

@@ -1,5 +1,9 @@
 package cs1302.tracer;
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
@@ -25,12 +29,26 @@ public class CompilationHelper {
    * Compile a Java program.
    *
    * @param javaSource The Java program to compile.
-   * @param sourceCompilationUnit Parsed AST for {@code javaSource}.
    * @return The CompilationResult for this compilation.
-   * @throws IllegalArgumentException If the Java program failed to compiled.
+   * @throws IllegalArgumentException If the Java program failed to compile.
    */
-  public static CompilationResult compile(String javaSource, CompilationUnit sourceCompilationUnit)
-      throws IOException {
+  public static CompilationResult compile(String javaSource) throws IOException {
+    /*
+     * Parse source code
+     */
+    ParseResult<CompilationUnit> parseResult =
+        new JavaParser(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT))
+            .parse(javaSource);
+    if (!parseResult.isSuccessful()) {
+      throw new IllegalArgumentException(
+          "Parsing failed with the following errors: "
+              + parseResult.getProblems().stream()
+                  .map(Object::toString)
+                  .collect(Collectors.joining(", ", "[", "]")));
+    }
+
+    CompilationUnit sourceCompilationUnit = parseResult.getResult().get();
+
     /*
      * Create a working directory tree for compilation
      */

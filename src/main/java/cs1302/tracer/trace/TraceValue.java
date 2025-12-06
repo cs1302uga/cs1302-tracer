@@ -450,4 +450,7 @@ public sealed interface TraceValue {
   /** An object that implements {@link java.util.List}, or an array. */
   record List(java.lang.String typeName, java.util.List<? extends TraceValue> value)
       implements TraceValue {}
+
+  /** A lambda with reconstructed implementation. */
+  record Lambda(java.lang.String implementation) implements TraceValue {}
 }
