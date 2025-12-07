@@ -365,7 +365,7 @@ public sealed interface TraceValue {
     }
   }
 
-  /** A reference. */
+  /** A non-null reference. */
   record Reference(long uniqueId) implements TraceValue {}
 
   /** The null value. */
