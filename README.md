@@ -172,3 +172,5 @@ Some features have limitations that must be taken into account when using this t
 ## Working on this tool
 
 For a quick introduction to this project's structure, see `HACKING.md` in the repository.
+
+I've placed some useful git hooks (for formatting before commit and compiling/testing before push) in the `.githooks` directory.

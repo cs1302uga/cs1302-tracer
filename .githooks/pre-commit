@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+git diff -z --staged --name-only --diff-filter=ACMR | grep -z '.java$' |
+    # run google-java-format on each file and re-stage any new changes
+    xargs -0 -I % echo "google-java-format -i '%'; git add -f '%'" | sh
