@@ -88,8 +88,8 @@ public class App {
      * Parse the given Java source code string.
      *
      * @param source The Java source code to parse.
-     * @param classPath The root directory containing {@code source}'s source tree. If present, will
-     *     be used to get more information when resolving types.
+     * @param sourceRoot The root directory containing {@code source}'s source tree. If present,
+     *     will be used to get more information when resolving types.
      * @return The parsed Java source code.
      * @throws ParseProblemException If parsing failed.
      */

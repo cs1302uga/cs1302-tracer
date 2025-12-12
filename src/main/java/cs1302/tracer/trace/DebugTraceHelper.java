@@ -367,7 +367,7 @@ public class DebugTraceHelper {
     List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
     Map<Long, TraceValue> heap = new HashMap<>();
 
-    // methodName -> (lambdaVariableName -> reconstructedLambdaMethod)
+    /** Mapping from a variable name to a lambda implementation. */
     record VarLambda(String variableName, Optional<String> lambdaImplementation) {}
 
     Map<String, Map<String, String>> lambdaMethodVariables =
@@ -544,6 +544,12 @@ public class DebugTraceHelper {
     while (!heapReferencesToWalk.isEmpty()) {
       ObjectReference workingObject = heapReferencesToWalk.removeFirst();
       if (heap.containsKey(workingObject.uniqueID())) {
+        // don't convert if we've already done so previously, i.e. as in:
+        // A ─┐
+        //    ├─ C
+        // B ─┘
+        // both A and B refer to C, parsing it twice (once when we hit A and
+        // another time when we hit B), would be a waste.
         continue;
       }
 

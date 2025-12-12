@@ -26,6 +26,7 @@ public class AppTest {
    * @param testProgram A string containing the Java input you want to give to the command.
    * @param options The command-line arguments you want to pass to the command. Do not include
    *     -i/--input.
+   * @param <T> The type of the command that you want to run.
    * @return The standard output of the command, or empty if command execution failed.
    */
   static <T extends CommandBase> Optional<String> executeCommand(
