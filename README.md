@@ -159,8 +159,9 @@ Some features have limitations that must be taken into account when using this t
 - Lambda method reconstruction is limited to only variables inside of methods
   (not fields on objects)
 - All lambdas that are to be reconstructed must be final or effectively final
-  (i.e. only assigned once). If they are reassigned, the wrong lambda body may
-  be displayed in the implementation.
+  (i.e. only assigned once) and also must be assigned and declared in the same
+  statement. Otherwise, the wrong lambda body may be displayed as the
+  implementation.
 
 ## TODO
 
