@@ -83,7 +83,7 @@ public class CompilationHelper {
     StandardJavaFileManager standardFileManager =
         javaCompiler.getStandardFileManager(diagnosticCollector, null, null);
     // this file manager is used when outputting class files to disk. it wraps the
-    // standard file manager so that we can record what classes are compiled. this
+    // standard file manager so that we can record which classes are compiled. this
     // is necessary for debugging later.
     JavaFileManager forwardingFileManager =
         new ForwardingJavaFileManager<StandardJavaFileManager>(

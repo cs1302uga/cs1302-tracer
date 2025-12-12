@@ -30,44 +30,53 @@ public class AppTest {
    */
   static <T extends CommandBase> Optional<String> executeCommand(
       Supplier<T> commandSupplier, String testProgram, String... options) {
-    String tempFilePath = null;
+    File tempFile = null;
     try {
-      File tempFile = File.createTempFile("cs1302-tracer", ".java");
+      tempFile = File.createTempFile("cs1302-tracer", ".java");
       tempFile.deleteOnExit();
       Files.writeString(tempFile.toPath(), testProgram);
-      tempFilePath = tempFile.getCanonicalPath();
+
+      T app = commandSupplier.get();
+      CommandLine cmd = new CommandLine(app);
+
+      ArrayList<String> args = new ArrayList<>();
+      args.addAll(Arrays.asList(options));
+      args.add("--input=" + tempFile.getCanonicalPath());
+
+      // NOTE: actually setting the JVM output stream is the only way to do this as far as I know.
+      // picocli's setOut/setErr only set the stdout/stderr that picocli uses internally when
+      // printing
+      // usage and version information. it does not capture general command output with
+      // system.out.println and friends.
+      // WARNING: this is thread-unsafe and requires that tests are run
+      // sequentially, which is the default for junit. this might also mess with stack trace
+      // printing,
+      // but I think that is unlikely.
+      PrintStream originalOut = System.out;
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      boolean ranSuccessfully = false;
+      try {
+        System.setOut(new PrintStream(baos));
+        ranSuccessfully = cmd.execute(args.toArray(String[]::new)) == 0;
+      } finally {
+        System.setOut(originalOut);
+      }
+
+      if (ranSuccessfully) {
+        return Optional.of(baos.toString());
+      } else {
+        return Optional.empty();
+      }
     } catch (IOException e) {
       return Optional.empty();
-    }
-
-    T app = commandSupplier.get();
-    CommandLine cmd = new CommandLine(app);
-
-    ArrayList<String> args = new ArrayList<>();
-    args.addAll(Arrays.asList(options));
-    args.add("--input=" + tempFilePath);
-
-    // NOTE: actually setting the JVM output stream is the only way to do this as far as I know.
-    // picocli's setOut/setErr only set the stdout/stderr that picocli uses internally when printing
-    // usage and version information. it does not capture general command output with
-    // system.out.println and friends.
-    // WARNING: this is thread-unsafe and requires that tests are run
-    // sequentially, which is the default for junit. this might also mess with stack trace printing,
-    // but I think that is unlikely.
-    PrintStream originalOut = System.out;
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    boolean ranSuccessfully = false;
-    try {
-      System.setOut(new PrintStream(baos));
-      ranSuccessfully = cmd.execute(args.toArray(String[]::new)) == 0;
     } finally {
-      System.setOut(originalOut);
-    }
-
-    if (ranSuccessfully) {
-      return Optional.of(baos.toString());
-    } else {
-      return Optional.empty();
+      if (tempFile != null) {
+        try {
+          tempFile.delete();
+        } catch (SecurityException e) {
+          // do nothing, at least we tried
+        }
+      }
     }
   }
 
