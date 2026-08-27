@@ -26,10 +26,12 @@ public sealed interface TraceValue {
       ThreadReference mainThread,
       Value value,
       Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
+    if (value == null) {
+      return new Null();
+    }
     VirtualMachine vm = value.virtualMachine();
 
     return switch (value) {
-      case null -> new Null();
       case PrimitiveValue pv -> Primitive.fromJdiPrimitive(pv);
       case ArrayReference ar ->
           new List(
@@ -60,7 +62,7 @@ public sealed interface TraceValue {
               if (isList) {
                 yield new List(or.referenceType().name(), traceArray);
               } else {
-                yield new Collection(traceArray);
+                yield new Collection(or.referenceType().name(), traceArray);
               }
             } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
               throw new IllegalStateException(
@@ -379,8 +381,17 @@ public sealed interface TraceValue {
   record String(java.lang.String value) implements TraceValue {}
 
   /** An object that implements {@link java.util.Map}. */
-  record Map(java.util.Map<? extends TraceValue, ? extends TraceValue> value)
+  record Map(java.lang.String typeName, java.util.Map<? extends TraceValue, ? extends TraceValue> value)
       implements TraceValue {
+
+    /**
+     * Convenience constructor with default typeName.
+     *
+     * @param value The map contents.
+     */
+    public Map(java.util.Map<? extends TraceValue, ? extends TraceValue> value) {
+      this("java.util.Map", value);
+    }
 
     /**
      * Try to convert a mirrored JDI object into a Map TraceValue.
@@ -427,7 +438,7 @@ public sealed interface TraceValue {
           outEncounteredReferences.ifPresent(l -> l.add(entryValue));
           map.put(new Reference(entryKey.uniqueID()), new Reference(entryValue.uniqueID()));
         }
-        return Optional.of(new Map(map));
+        return Optional.of(new Map(or.referenceType().name(), map));
       } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
         throw new IllegalStateException(
             "The previous exception should not have been able to occur.", e);
@@ -445,7 +456,18 @@ public sealed interface TraceValue {
   }
 
   /** An object that implements {@link java.util.Collection}. */
-  record Collection(java.util.Collection<? extends TraceValue> value) implements TraceValue {}
+  record Collection(java.lang.String typeName, java.util.Collection<? extends TraceValue> value)
+      implements TraceValue {
+
+    /**
+     * Convenience constructor with default typeName.
+     *
+     * @param value The collection contents.
+     */
+    public Collection(java.util.Collection<? extends TraceValue> value) {
+      this("java.util.Collection", value);
+    }
+  }
 
   /** An object that implements {@link java.util.List}, or an array. */
   record List(java.lang.String typeName, java.util.List<? extends TraceValue> value)

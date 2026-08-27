@@ -1,6 +1,9 @@
 package cs1302.tracer;
 
-/** A helper class that contains license text. */
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
+/** A helper class that contains license text and dynamically loads third-party notices. */
 public class LicenseHelper {
 
   static final String APACHE_2_0 =
@@ -208,4 +211,40 @@ public class LicenseHelper {
       See the License for the specific language governing permissions and
       limitations under the License.\
       """;
+
+  /**
+   * Get the dynamic third-party dependency notice from the classpath.
+   *
+   * @return The formatted third-party notices, or a fallback notice if resource is unavailable.
+   */
+  public static String getThirdPartyNotices() {
+    try (InputStream is = LicenseHelper.class.getResourceAsStream("/META-INF/THIRD-PARTY.txt")) {
+      if (is != null) {
+        String content = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
+        if (!content.isEmpty()) {
+          return content;
+        }
+      }
+    } catch (Exception e) {
+      // ignore and return fallback below
+    }
+    return """
+        Lists of third-party dependencies:
+        \t(The Apache Software License, Version 2.0) JavaParser (https://github.com/javaparser)
+        \t(The Apache Software License, Version 2.0) Gson (https://github.com/google/gson)
+        \t(The Apache Software License, Version 2.0) picocli (https://picocli.info)\
+        """;
+  }
+
+  /**
+   * Get the complete license display text including third-party notices and full license texts.
+   *
+   * @return The complete formatted license text.
+   */
+  public static String getLicenseText() {
+    return "This program includes and uses several open source projects:\n\n"
+        + getThirdPartyNotices()
+        + "\n\n"
+        + APACHE_2_0;
+  }
 }

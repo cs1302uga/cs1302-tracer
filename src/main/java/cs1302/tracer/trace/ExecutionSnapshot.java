@@ -12,13 +12,24 @@ import java.util.Optional;
  * @param heap The program's heap, a mapping of reference IDs to values.
  * @param stdout Bytes that have been output by the program to stdout up to the snapshot point.
  * @param stderr Bytes that have been output by the program to stderr up to the snapshot point.
+ * @param sourcePath Optional relative source file path for the currently executing line.
  */
 public record ExecutionSnapshot(
     List<StackSnapshot> stack,
     List<Field> statics,
     Map<Long, TraceValue> heap,
     byte[] stdout,
-    byte[] stderr) {
+    byte[] stderr,
+    Optional<String> sourcePath) {
+
+  public ExecutionSnapshot(
+      List<StackSnapshot> stack,
+      List<Field> statics,
+      Map<Long, TraceValue> heap,
+      byte[] stdout,
+      byte[] stderr) {
+    this(stack, statics, heap, stdout, stderr, Optional.empty());
+  }
 
   /**
    * A snapshot of the state of a method's stack.
@@ -29,12 +40,22 @@ public record ExecutionSnapshot(
    *     methodLine.
    * @param thisObject A reference to the value of {@code this} for the frame, or empty if the
    *     method is native or static.
+   * @param sourcePath Optional relative source file path for this stack frame.
    */
   public record StackSnapshot(
       String methodName,
       long methodLine,
       List<Field> visibleVariables,
-      Optional<ThisObject> thisObject) {
+      Optional<ThisObject> thisObject,
+      Optional<String> sourcePath) {
+
+    public StackSnapshot(
+        String methodName,
+        long methodLine,
+        List<Field> visibleVariables,
+        Optional<ThisObject> thisObject) {
+      this(methodName, methodLine, visibleVariables, thisObject, Optional.empty());
+    }
 
     /**
      * A pair that includes the type name of and a reference to the value of {@code this}.

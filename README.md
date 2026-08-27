@@ -1,15 +1,60 @@
 # Tracer
 
-Tracer is a tool that takes snapshots of a Java program's state. These snapshots
-are then output in a [OnlinePythonTutor](https://pythontutor.com/)-compatible
-JSON format for subsequent visualization with [other tools](https://github.com/cs1302uga/cs1302-code-visualizer/).
+Tracer is a static analysis and execution tracing tool for Java programs. It compiles guest Java source code and inspects JVM runtime memory state using the Java Debug Interface (JDI) to produce structured execution snapshots.
 
-<table>
-<tr>
-<td> Code </td> <td> Output </td>
-</tr>
-<tr>
-<td>
+Tracer supports both [Online Python Tutor](https://pythontutor.com/)-compatible JSON output (for visualizers like [cs1302-code-visualizer](https://github.com/cs1302uga/cs1302-code-visualizer/)) and a **Modern Clean JSON format** designed for IDEs, web visualizers, and automated analysis.
+
+---
+
+## Features
+
+- **Dual Output Formats**: Generate legacy PythonTutor traces or modern object-graph JSON traces with explicit reference pointers.
+- **Reified Generics & Type Resolution**: Recovers erased generic type parameters for Java Collections and Maps (e.g., `ArrayList<String>`, `HashMap<Integer, Double>`) via static AST extraction and dynamic element sampling.
+- **Chronological & Breakpoint Tracing**: Record step-by-step execution across all valid lines (`-a`) or capture memory at specific line numbers (`-b`).
+- **Multi-File & Streaming Support**: Trace multi-file Java packages from the filesystem or stream multiple sources via `stdin` using comment delimiters (`// --- path/to/File.java ---`).
+- **Lambda Reconstruction**: Extracts lambda expression bodies and creates concrete representations of functional interface implementations.
+- **Immutability & Final Tracking**: Automatically tags and distinguishes `final` variables, record components, and object fields.
+- **Breakpoint Introspection**: List all valid executable breakpoint lines per file in colorized console format or machine-readable JSON.
+
+---
+
+## Advanced Type Capabilities
+
+### Reified Generics for Collections & Maps
+
+In standard Java execution, generic type parameters are erased at runtime due to JVM type erasure. Tracer reconstructs and preserves generic type information across traces:
+
+1. **Static AST Analysis**: Extracts declared type arguments (e.g. `List<Person>`, `Map<String, Integer>`) from local variable, parameter, and field declarations.
+2. **Dynamic Runtime Heap Sampling**: For raw collections or generic instances where declarations are absent, Tracer samples the runtime types of items in the collection to reconstruct type signatures (e.g., `ArrayList<java.lang.String>`, `HashMap<java.lang.Integer, java.lang.Double>`).
+
+#### Example
+
+```java
+List<String> names = new ArrayList<>();
+names.add("Ada");
+```
+
+In the output trace metadata (`heap_attrs`), Tracer emits the full reified generic type:
+
+```json
+{
+  "heap_attrs": {
+    "42": {
+      "type": "java.util.ArrayList<java.lang.String>"
+    }
+  }
+}
+```
+
+---
+
+## Output Formats
+
+### 1. PythonTutor Format (`--format=pytutor`, default)
+
+Generates Online Python Tutor JSON snapshots using nested tuple structures (`["INSTANCE", "ClassName", ["field", value]]` and `["REF", id]`):
+
+#### Java Input
 
 ```java
 public class Main {
@@ -18,160 +63,238 @@ public class Main {
   }
 }
 
-record Person(String name, int age) { };
+record Person(String name, int age) { }
 ```
 
-</td>
-<td>
+#### PythonTutor JSON Output
 
 ```json
 {
-  "stdin": "",
+  "code": "public class Main {\n ... }",
   "trace": [
     {
-      "globals_attrs": {},
-      "ordered_globals": [],
+      "event": "step_line",
+      "line": 4,
+      "func_name": "main",
       "stack_to_render": [
         {
-          "unique_hash": "0",
-          "parent_frame_id_list": [],
-          "is_highlighted": true,
-          "encoded_locals": {
-            "alice": ["REF", 65]
-          },
-          "ordered_varnames": ["alice"],
-          "is_zombie": false,
-          "is_parent": false,
-          "locals_attrs": {
-            "alice": {
-              "final": false,
-              "type": "Person"
-            }
-          },
           "frame_id": 0,
-          "func_name": "main:4"
+          "func_name": "main:4",
+          "ordered_varnames": ["alice"],
+          "encoded_locals": { "alice": ["REF", 65] },
+          "locals_attrs": { "alice": { "type": "Person", "final": false } }
         }
       ],
-      "heap_attrs": {
-        "65": {
-          "final": [true, true],
-          "type": ["java.lang.String", "int"]
-        }
-      },
-      "line": 4,
-      "globals": {},
-      "event": "step_line",
       "heap": {
         "65": ["INSTANCE", "Person", ["name", "Alice"], ["age", 42]]
       },
-      "stdout": "",
-      "stderr": "",
-      "func_name": "main"
+      "heap_attrs": {
+        "65": { "type": ["java.lang.String", "int"], "final": [true, true] }
+      }
     }
-  ],
-  "userlog": "",
-  "code": "public class Main {\n  public static void main(String[] args) {\n    Person alice = new Person(\"Alice\", 42);\n  }\n}\n\nrecord Person(String name, int age) { };\n"
+  ]
 }
 ```
 
-</td>
-</tr>
-</table>
+### 2. Modern Clean Format (`--format=modern` or `-f modern`)
 
-Tracer can detect and tag final variables and object fields. It is also able to
-create implementations of a functional interface's single abstract method from
-lambda expressions.
+Produces an explicit, typed object graph with dictionary-backed heaps and pointer references:
 
-## Compiling and Running
-
-To build this project, you'll need to install [Apache
-Maven](https://maven.apache.org/install.html) and a [Java Development
-Kit](https://adoptium.net/temurin/releases) (version 21 or greater).
-
-To compile the program, run
-
-```console
-$ mvn clean compile
+```json
+{
+  "code": "public class Main {\n ... }",
+  "steps": [
+    {
+      "line": 4,
+      "event": "step_line",
+      "file": "Main.java",
+      "stack": [
+        {
+          "methodName": "main",
+          "line": 4,
+          "file": "Main.java",
+          "variables": [
+            {
+              "name": "alice",
+              "type": "Person",
+              "value": { "ref": 65 },
+              "final": false
+            }
+          ]
+        }
+      ],
+      "heap": {
+        "65": {
+          "kind": "object",
+          "type": "Person",
+          "fields": [
+            { 
+              "name": "name", 
+              "type": "java.lang.String", 
+              "value": "Alice", 
+              "final": true 
+            },
+            {  
+              "name": "age", 
+              "type": "int", 
+              "value": 42, 
+              "final": true 
+            }
+          ]
+        }
+      },
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}
 ```
 
-Then, to execute the build you just made with the input file `./Main.java`, run
+---
 
-```console
-$ mvn exec:java -e -Dexec.mainClass="cs1302.tracer.App" -Dexec.args="trace -i ./Main.java"
+## Building and Installation
+
+### Prerequisites
+
+- **Java Development Kit (JDK)**: Version 21 or greater.
+- **Apache Maven**: Version 3.8 or greater.
+
+### Build Executable Fat JAR
+
+```bash
+# Compile and build the self-contained JAR (with all dependencies) and source bundle
+mvn clean package
 ```
 
-If you instead want to create a self-contained Java Archive (JAR) file, you can
-run the following:
+The resulting JAR will be located at:
 
-```console
-$ mvn clean compile assembly:single
+```text
+target/code-tracer-jar-with-dependencies.jar
 ```
 
-This will create a new file in `target/` named something like
-`code-tracer-1.0.0-jar-with-dependencies.jar`, which you can then execute with
-Java.
+---
 
-```console
-$ java -jar target/code-tracer-1.0.0-jar-with-dependencies.jar tracer -i ./Main.java
+## CLI Usage
+
+Run the JAR directly with Java:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar [subcommand] [options]
 ```
 
-## Usage
+### Subcommands
 
-Tracer is split into multiple subcommands. For a list of subcommands, run the
-program without any arguments. For usage information, run a subcommand with the
-`--help` option passed. A sample of what the `trace` subcommand's help message
-looks like is provided below.
+| Subcommand | Description |
+| :--- | :--- |
+| `trace` | Compiles and traces execution of a Java program. |
+| `list-breakpoints` | Lists valid executable breakpoint lines for the source. |
+| `show-licenses` | Displays open-source software license notices. |
 
-```console
-$ java -jar target/code-tracer-1.0.0-jar-with-dependencies.jar trace --help
-Usage: code-tracer trace [-hsvV] [--accumulate-breakpoints]
-                         [--remove-main-args] [--remove-method-this]
-                         [-i=<input>] [-b=<breakpoints>]...
-Generate an execution trace for a Java program.
-      --accumulate-breakpoints
-                             Output an array of snapshots containing each time
-                               a breakpoint was reached instead of just the
-                               last time.
-  -b, --breakpoints=<breakpoints>
-                             Breakpoints at which to take snapshots. The
-                               snapshots taken will represent the state of
-                               memory immediately before each line is executed.
-                               If no breakpoints are provided, the default
-                               behavior is to takeone snapshot at the end of
-                               the program's main method.
-  -h, --help                 Show this help message and exit.
-  -i, --input=<input>        Input path to Java source file (defaults to stdin
-                               if omitted).
-      --remove-main-args     Don't include the main method's `args` parameter
-                               in the output.
-      --remove-method-this   Don't include the value of `this` for methods in
-                               the output.
-  -s, --inline-strings       If provided, strings are inlined into fields
-                               instead of going through a reference.
-  -v, --verbose              Output messages about what the tracer is doing.
-  -V, --version              Print version information and exit.
+---
+
+### Common Workflows
+
+#### 1. Trace End of Execution (Single Snapshot)
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java
 ```
 
-## Limitations
+#### 2. Chronological Line-by-Line Execution Trace (`-a`)
 
-Some features have limitations that must be taken into account when using this tool. They are noted below.
+Record all execution steps in modern format:
 
-- Lambda method reconstruction is limited to only variables inside of methods
-  (not fields on objects)
-- All lambdas that are to be reconstructed must be final or effectively final
-  (i.e. only assigned once) and also must be assigned and declared in the same
-  statement. Otherwise, the wrong lambda body may be displayed as the
-  implementation.
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -a -f modern
+```
 
-## TODO
+#### 3. Breakpoint-Specific Snapshots (`-b`)
 
-- See `TODO` comments left throughout the source tree.
-- Exceptions thrown by the guest code cause tracing to fail transparently. It's
-  probably better to have special output for exceptions so that downstream
-  consumers can do better error handling/provide better messages.
+Capture memory states only before executing lines 12 and 24:
 
-## Working on this tool
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b 12 -b 24 -f modern
+```
 
-For a quick introduction to this project's structure, see `HACKING.md` in the repository.
+#### 4. Multi-File Streaming via Standard Input
 
-I've placed some useful git hooks (for formatting before commit and compiling/testing before push) in the `.githooks` directory.
+Concatenate multiple source files separated by comment headers and stream to tracer:
+
+```bash
+cat << 'EOF' | java -jar target/code-tracer-jar-with-dependencies.jar trace -a -f modern
+// --- cs1302/model/Account.java ---
+package cs1302.model;
+public class Account {
+    private int balance = 100;
+    public int getBalance() { return balance; }
+}
+
+// --- cs1302/app/Driver.java ---
+package cs1302.app;
+import cs1302.model.Account;
+public class Driver {
+    public static void main(String[] args) {
+        Account acc = new Account();
+    }
+}
+EOF
+```
+
+#### 5. Inspect Valid Breakpoints
+
+Show colorized executable lines in the terminal:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java
+```
+
+Or retrieve as structured JSON:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java -j
+```
+
+---
+
+### Command Options Reference
+
+#### `trace` Options
+
+```text
+Usage: code-tracer trace [-ahsvV] [--accumulate-breakpoints] [--remove-main-args]
+                         [--remove-method-this] [-f=<format>] [-i=<input>]
+                         [-b=<breakpoints>]...
+```
+
+| Option | Flag | Description |
+| :--- | :--- | :--- |
+| `--input=<file>` | `-i` | Input path to Java source file (defaults to `stdin`). |
+| `--format=<format>` | `-f` | Output format: `pytutor` (default) or `modern`. |
+| `--all-breakpoints` | `-a` | Record all encountered breakpoints in chronological order. |
+| `--breakpoints=<lines>` | `-b` | Line numbers at which to capture snapshots. |
+| `--accumulate-breakpoints` | | Output an array of snapshots for each breakpoint hit instead of only the last. |
+| `--inline-strings` | `-s` | Inlines string values into fields/variables rather than allocating heap objects. |
+| `--remove-main-args` | | Omit the `args` parameter in the `main` method stack frame. |
+| `--remove-method-this` | | Omit the `this` reference variable from method stack frames. |
+| `--verbose` | `-v` | Output debug diagnostic logs. |
+| `--help` | `-h` | Display help message. |
+
+---
+
+## Development & Testing
+
+- **Run Unit Tests & JaCoCo Coverage**:
+
+  ```bash
+  mvn clean test
+  ```
+
+  *(Enforces 100% line and branch coverage across production classes)*
+
+- **Run Reference Examples**:
+
+  ```bash
+  ./examples/test.sh
+  ```
+
+For detailed architecture diagrams, design decisions, value extraction mechanics, and contribution guidelines, see [HACKING.md](HACKING.md).
