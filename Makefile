@@ -1,11 +1,15 @@
-.PHONY: all clean compile test package install ci help
+.PHONY: all clean clean-all compile test package install ci help
 
 # Default target
 all: package
 
 # Clean build artifacts
 clean:
-	mvn clean
+	./mvnw clean
+
+# Clean all generated and temporary files
+clean-all: clean
+	rm -rf target .cache
 
 # Compile source files
 compile:
