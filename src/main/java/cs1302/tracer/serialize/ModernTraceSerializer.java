@@ -3,6 +3,7 @@ package cs1302.tracer.serialize;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.CompilationHelper;
+import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.modern.HeapObject;
 import cs1302.tracer.model.modern.Reference;
 import cs1302.tracer.model.modern.StackFrame;
@@ -35,9 +36,29 @@ public class ModernTraceSerializer {
     private final boolean removeMainArgs;
     private final boolean inlineStrings;
     private final boolean removeMethodThis;
+    private final TypeStyle typeStyle;
 
     /**
-     * Constructs a ModernTraceSerializer with the specified formatting options.
+     * Constructs a ModernTraceSerializer with the specified formatting options and TypeStyle.
+     *
+     * @param removeMainArgs Whether to remove args from the main stack frame.
+     * @param inlineStrings Whether strings should be inlined.
+     * @param removeMethodThis Whether this references should be omitted from method frames.
+     * @param typeStyle The type qualification style (FQN or SIMPLE).
+     */
+    public ModernTraceSerializer(
+            boolean removeMainArgs,
+            boolean inlineStrings,
+            boolean removeMethodThis,
+            TypeStyle typeStyle) {
+        this.removeMainArgs = removeMainArgs;
+        this.inlineStrings = inlineStrings;
+        this.removeMethodThis = removeMethodThis;
+        this.typeStyle = typeStyle;
+    } // ModernTraceSerializer
+
+    /**
+     * Constructs a ModernTraceSerializer defaulting to fully qualified type names.
      *
      * @param removeMainArgs Whether to remove args from the main stack frame.
      * @param inlineStrings Whether strings should be inlined.
@@ -45,9 +66,7 @@ public class ModernTraceSerializer {
      */
     public ModernTraceSerializer(
             boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
-        this.removeMainArgs = removeMainArgs;
-        this.inlineStrings = inlineStrings;
-        this.removeMethodThis = removeMethodThis;
+        this(removeMainArgs, inlineStrings, removeMethodThis, TypeStyle.FQN);
     } // ModernTraceSerializer
 
     /**
@@ -152,7 +171,10 @@ public class ModernTraceSerializer {
         List<Variable> statics = new ArrayList<>();
         for (Field f : snapshot.statics()) {
             statics.add(new Variable(
-                    f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
+                    f.identifier(),
+                    typeStyle.format(f.typeName()),
+                    serializeValue(f.value()),
+                    f.isFinal()));
         } // for
 
         List<StackFrame> callStack = new ArrayList<>();
@@ -228,7 +250,7 @@ public class ModernTraceSerializer {
             } // if
             locals.add(new Variable(
                     field.identifier(),
-                    field.typeName(),
+                    typeStyle.format(field.typeName()),
                     serializeValue(field.value()),
                     field.isFinal()));
         } // for
@@ -287,20 +309,24 @@ public class ModernTraceSerializer {
                 List<Variable> fields = new ArrayList<>();
                 for (Field f : obj.fields()) {
                     fields.add(new Variable(
-                            f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
+                            f.identifier(),
+                            typeStyle.format(f.typeName()),
+                            serializeValue(f.value()),
+                            f.isFinal()));
                 } // for
-                yield HeapObject.ofObject(id, obj.classFqn(), fields);
+                yield HeapObject.ofObject(id, typeStyle.format(obj.classFqn()), fields);
             } // case
-            case TraceValue.String str -> HeapObject.ofString(id, str.value());
+            case TraceValue.String str ->
+                    HeapObject.ofString(id, typeStyle.format("java.lang.String"), str.value());
             case TraceValue.Lambda lambda ->
                     HeapObject.ofLambda(id, "lambda", lambda.implementation());
             case TraceValue.List list -> {
                 List<Object> elements = list.value().stream().map(this::serializeValue).toList();
-                yield HeapObject.ofArray(id, list.typeName(), elements);
+                yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements);
             } // case
             case TraceValue.Collection col -> {
                 List<Object> elements = col.value().stream().map(this::serializeValue).toList();
-                yield HeapObject.ofArray(id, col.typeName(), elements);
+                yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements);
             } // case
             case TraceValue.Map map -> {
                 List<Variable> entries = new ArrayList<>();
@@ -310,11 +336,13 @@ public class ModernTraceSerializer {
                     Object v = serializeValue(entry.getValue());
                     entries.add(new Variable(String.valueOf(k), "entry", v, false));
                 } // for
-                yield HeapObject.ofObject(id, map.typeName(), entries);
+                yield HeapObject.ofObject(id, typeStyle.format(map.typeName()), entries);
             } // case
             case TraceValue.Primitive prim ->
                     HeapObject.ofBox(
-                            id, prim.toWrapperObject().getClass().getName(), serializeValue(prim));
+                            id,
+                            typeStyle.format(prim.toWrapperObject().getClass().getName()),
+                            serializeValue(prim));
             default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch
     } // serializeHeapObject

@@ -11,6 +11,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeS
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.model.BreakpointEntry;
 import cs1302.tracer.model.TraceFormat;
+import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
@@ -225,6 +226,13 @@ public class App {
         TraceFormat format = TraceFormat.PYTUTOR;
 
         @Option(
+                names = {"--type-style"},
+                description = "Type qualification style: ${COMPLETION-CANDIDATES} "
+                        + "(default: ${DEFAULT-VALUE}).",
+                defaultValue = "fqn")
+        TypeStyle typeStyle = TypeStyle.FQN;
+
+        @Option(
                 names = {"--breakpoints", "-b"},
                 description = "Breakpoints at which to take snapshots.")
         List<Integer> breakpoints = null;
@@ -319,7 +327,8 @@ public class App {
                 CompilationResult compResult,
                 List<CompilationUnit> allCus) throws Exception {
             ModernTraceSerializer serializer =
-                    new ModernTraceSerializer(removeMainArgs, inlineStrings, removeMethodThis);
+                    new ModernTraceSerializer(
+                            removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
                 Collection<Integer> targetLines = breakpoints != null
@@ -366,7 +375,8 @@ public class App {
                 CompilationResult compResult,
                 List<CompilationUnit> allCus) throws Exception {
             PyTutorSerializer serializer =
-                    new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis);
+                    new PyTutorSerializer(
+                            removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
                 Collection<Integer> targetLines = breakpoints != null

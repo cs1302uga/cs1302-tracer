@@ -247,6 +247,18 @@ public class AstTypeResolverTest {
 
         assertThat(foundScoreReified).isTrue();
         assertThat(foundFlagReified).isTrue();
+
+        // Verify that heap objects also have reified generic types in classFqn
+        boolean foundHeapReifiedObject = false;
+        for (ExecutionSnapshot snapshot : snapshots) {
+          for (TraceValue tv : snapshot.heap().values()) {
+            if (tv instanceof TraceValue.Object obj && obj.classFqn().contains("Pair<")) {
+              assertThat(obj.classFqn()).matches(".*Pair<.*, .*>.*");
+              foundHeapReifiedObject = true;
+            }
+          }
+        }
+        assertThat(foundHeapReifiedObject).isTrue();
       }
     }
   }

@@ -48,14 +48,26 @@ public record HeapObject(
     } // ofArray
 
     /**
-     * Factory method for strings.
+     * Factory method for strings with custom type qualification.
+     *
+     * @param id The heap object ID.
+     * @param type The string type name.
+     * @param value The string value.
+     * @return A new HeapObject instance for a string.
+     */
+    public static HeapObject ofString(long id, String type, String value) {
+        return new HeapObject(id, type, "string", null, null, value, null);
+    } // ofString
+
+    /**
+     * Factory method for strings defaulting to java.lang.String.
      *
      * @param id The heap object ID.
      * @param value The string value.
      * @return A new HeapObject instance for a string.
      */
     public static HeapObject ofString(long id, String value) {
-        return new HeapObject(id, "java.lang.String", "string", null, null, value, null);
+        return ofString(id, "java.lang.String", value);
     } // ofString
 
     /**

@@ -3,6 +3,7 @@ package cs1302.tracer.serialize;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.CompilationHelper;
+import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.model.pytutor.RenderStackFrame;
 import cs1302.tracer.model.pytutor.TraceStep;
@@ -34,9 +35,25 @@ import java.util.stream.Collectors;
  * @param removeMainArgs True if the args parameter to main should be excluded.
  * @param inlineStrings True if strings should be inlined as literals.
  * @param removeMethodThis True if this references for method calls should be excluded.
+ * @param typeStyle The type qualification style (FQN or SIMPLE).
  */
 public record PyTutorSerializer(
-        boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
+        boolean removeMainArgs,
+        boolean inlineStrings,
+        boolean removeMethodThis,
+        TypeStyle typeStyle) {
+
+    /**
+     * Constructs a PyTutorSerializer defaulting to fully qualified type names.
+     *
+     * @param removeMainArgs True if the args parameter to main should be excluded.
+     * @param inlineStrings True if strings should be inlined as literals.
+     * @param removeMethodThis True if this references for method calls should be excluded.
+     */
+    public PyTutorSerializer(
+            boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
+        this(removeMainArgs, inlineStrings, removeMethodThis, TypeStyle.FQN);
+    } // PyTutorSerializer
 
     private static final Gson GSON =
             new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
@@ -127,7 +144,9 @@ public record PyTutorSerializer(
         for (Field f : snapshot.statics()) {
             serializedStatics.put(f.identifier(), serializeTraceValue(f.value(), snapshot.heap()));
             orderedStatics.add(f.identifier());
-            globalsAttrs.put(f.identifier(), Map.of("type", f.typeName(), "final", f.isFinal()));
+            globalsAttrs.put(
+                    f.identifier(),
+                    Map.of("type", typeStyle.format(f.typeName()), "final", f.isFinal()));
         } // for
 
         Map<Long, String> declaredTypes = collectDeclaredTypes(snapshot);
@@ -237,38 +256,42 @@ public record PyTutorSerializer(
             switch (val) {
             case TraceValue.Object o -> {
                 List<String> objectTypes =
-                        o.fields().stream().map(Field::typeName).collect(Collectors.toList());
+                        o.fields().stream()
+                                .map(Field::typeName)
+                                .map(typeStyle::format)
+                                .collect(Collectors.toList());
                 heapAttrs.put(key, Map.of("type", objectTypes));
             } // case
             case TraceValue.List a -> {
                 String resolvedType = resolveListType(id, a, declaredTypes, heap);
-                heapAttrs.put(key, Map.of("type", resolvedType));
+                heapAttrs.put(key, Map.of("type", typeStyle.format(resolvedType)));
             } // case
             case TraceValue.Map m -> {
                 String resolvedType = resolveMapType(id, m, declaredTypes, heap);
-                heapAttrs.put(key, Map.of("type", resolvedType));
+                heapAttrs.put(key, Map.of("type", typeStyle.format(resolvedType)));
             } // case
             case TraceValue.Collection c -> {
                 String resolvedType = resolveCollectionType(id, c, declaredTypes, heap);
-                heapAttrs.put(key, Map.of("type", resolvedType));
+                heapAttrs.put(key, Map.of("type", typeStyle.format(resolvedType)));
             } // case
-            case TraceValue.String s -> heapAttrs.put(key, Map.of("type", "java.lang.String"));
+            case TraceValue.String s ->
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.String")));
             case TraceValue.Primitive.Integer i ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Integer"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Integer")));
             case TraceValue.Primitive.Double d ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Double"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Double")));
             case TraceValue.Primitive.Boolean b ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Boolean"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Boolean")));
             case TraceValue.Primitive.Long l ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Long"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Long")));
             case TraceValue.Primitive.Float f ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Float"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Float")));
             case TraceValue.Primitive.Character c ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Character"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Character")));
             case TraceValue.Primitive.Byte b ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Byte"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Byte")));
             case TraceValue.Primitive.Short s ->
-                heapAttrs.put(key, Map.of("type", "java.lang.Short"));
+                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Short")));
             case TraceValue.Lambda l -> heapAttrs.put(key, Map.of("type", "lambda"));
             default -> {
                 // do nothing
@@ -333,7 +356,9 @@ public record PyTutorSerializer(
         stackSnapshot.thisObject().ifPresent(t -> {
             if (!removeMethodThis) {
                 orderedVarnames.add("this");
-                localsAttrs.put("this", Map.of("type", t.typeName(), "final", true));
+                localsAttrs.put(
+                        "this",
+                        Map.of("type", typeStyle.format(t.typeName()), "final", true));
                 encodedLocals.put("this", serializeTraceValue(t.value(), heap));
             } // if
         });
@@ -345,7 +370,7 @@ public record PyTutorSerializer(
             orderedVarnames.add(field.identifier());
             localsAttrs.put(
                     field.identifier(),
-                    Map.of("type", field.typeName(), "final", field.isFinal()));
+                    Map.of("type", typeStyle.format(field.typeName()), "final", field.isFinal()));
             encodedLocals.put(field.identifier(), serializeTraceValue(field.value(), heap));
         } // for
 
@@ -462,7 +487,7 @@ public record PyTutorSerializer(
     private Object serializeObject(TraceValue.Object objectValue, Map<Long, TraceValue> heap) {
         List<Object> list = new ArrayList<>();
         list.add("INSTANCE");
-        list.add(objectValue.classFqn());
+        list.add(typeStyle.format(objectValue.classFqn()));
         for (Field field : objectValue.fields()) {
             list.add(Arrays.asList(
                     field.identifier(), serializeTraceValue(field.value(), heap)));

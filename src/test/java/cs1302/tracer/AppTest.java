@@ -738,4 +738,55 @@ public class AppTest {
     assertThat(outputAccum).contains("\"format\": \"modern\"");
     assertThat(outputAccum).contains("\"breakpoints\":");
   }
+
+  @Test
+  @DisplayName("should trace with --type-style=simple")
+  void shouldTraceWithTypeStyleSimple() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            String msg = "hello";
+          }
+        }
+        """;
+
+    String output = executeCommand(App.Trace::new, testProgram, "--type-style=simple").get();
+    assertThat(output).contains("\"type\":\"String\"");
+    assertThat(output).doesNotContain("\"type\":\"java.lang.String\"");
+  }
+
+  @Test
+  @DisplayName("should trace with --type-style=fqn")
+  void shouldTraceWithTypeStyleFqn() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            String msg = "hello";
+          }
+        }
+        """;
+
+    String output = executeCommand(App.Trace::new, testProgram, "--type-style=fqn").get();
+    assertThat(output).contains("\"type\":\"java.lang.String\"");
+  }
+
+  @Test
+  @DisplayName("should trace modern format with --type-style=simple")
+  void shouldTraceModernWithTypeStyleSimple() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            String msg = "hello";
+          }
+        }
+        """;
+
+    String output =
+        executeCommand(App.Trace::new, testProgram, "-f=modern", "--type-style=simple").get();
+    assertThat(output).contains("\"type\": \"String\"");
+    assertThat(output).doesNotContain("\"type\": \"java.lang.String\"");
+  }
 }

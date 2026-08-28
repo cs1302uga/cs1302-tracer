@@ -262,16 +262,17 @@ public sealed interface TraceValue {
             Optional<java.util.List<ObjectReference>> outEncounteredReferences,
             AstTypeResolver astTypeResolver,
             java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
-        java.lang.String classFqn = or.referenceType().name();
+        java.lang.String rawClassFqn = or.referenceType().name();
         java.lang.String reifiedClassType =
                 (objectTypeMap != null) ? objectTypeMap.get(or.uniqueID()) : null;
+        java.lang.String classFqn = (reifiedClassType != null) ? reifiedClassType : rawClassFqn;
         java.util.Map<java.lang.String, java.lang.String> bindings =
                 (reifiedClassType != null && astTypeResolver != null)
-                        ? astTypeResolver.getTypeBindings(classFqn, reifiedClassType)
+                        ? astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
                         : Collections.emptyMap();
         Optional<AstTypeResolver.ClassGenericInfo> classInfo =
                 astTypeResolver != null
-                        ? astTypeResolver.getClassGenericInfo(classFqn)
+                        ? astTypeResolver.getClassGenericInfo(rawClassFqn)
                         : Optional.empty();
 
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();

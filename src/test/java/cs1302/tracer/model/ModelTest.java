@@ -145,7 +145,12 @@ public class ModelTest {
     cs1302.tracer.model.modern.HeapObject str =
         cs1302.tracer.model.modern.HeapObject.ofString(3L, "hello");
     assertThat(str.kind()).isEqualTo("string");
+    assertThat(str.type()).isEqualTo("java.lang.String");
     assertThat(str.value()).isEqualTo("hello");
+
+    cs1302.tracer.model.modern.HeapObject strSimple =
+        cs1302.tracer.model.modern.HeapObject.ofString(3L, "String", "hello");
+    assertThat(strSimple.type()).isEqualTo("String");
 
     cs1302.tracer.model.modern.HeapObject box =
         cs1302.tracer.model.modern.HeapObject.ofBox(4L, "java.lang.Integer", 42);

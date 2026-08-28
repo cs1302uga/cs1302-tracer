@@ -629,5 +629,44 @@ public class PyTutorSerializerTest {
       PyTutorTrace trace = serializer.createTrace(plainSource, snapshot);
       assertThat(trace.trace().get(0).file()).isEqualTo("cs1302/math/Calculator.java");
     }
+
+    @Test
+    @DisplayName("should format types according to TypeStyle in PyTutorSerializer")
+    void shouldFormatTypesAccordingToTypeStyle() {
+      Field f1 = new Field(false, "java.lang.String", "name", new TraceValue.Reference(101L));
+      TraceValue.Object obj =
+          new TraceValue.Object(
+              "cs1302.generics.Pair<java.lang.String, java.lang.Integer>",
+              List.of(new Field(false, "java.lang.String", "key", new TraceValue.Null())));
+      StackSnapshot frame =
+          new StackSnapshot(
+              "main",
+              10,
+              List.of(f1),
+              Optional.of(
+                  new ThisObject(
+                      "cs1302.generics.Pair<java.lang.String, java.lang.Integer>",
+                      new TraceValue.Reference(101L))));
+      ExecutionSnapshot snapshot =
+          new ExecutionSnapshot(
+              List.of(frame),
+              List.of(new Field(false, "java.lang.String", "GLOBAL", new TraceValue.Null())),
+              Map.of(101L, obj),
+              new byte[0],
+              new byte[0]);
+
+      PyTutorSerializer simpleSerializer =
+          new PyTutorSerializer(false, false, false, cs1302.tracer.model.TypeStyle.SIMPLE);
+      TraceStep simpleStep = simpleSerializer.createTraceStep(snapshot);
+
+      assertThat(simpleStep.globalsAttrs().get("GLOBAL"))
+          .isEqualTo(Map.of("type", "String", "final", false));
+      assertThat(simpleStep.stackToRender().getFirst().localsAttrs().get("this"))
+          .isEqualTo(Map.of("type", "Pair<String, Integer>", "final", true));
+      assertThat(simpleStep.stackToRender().getFirst().localsAttrs().get("name"))
+          .isEqualTo(Map.of("type", "String", "final", false));
+      List<?> instanceList = (List<?>) simpleStep.heap().get("101");
+      assertThat(instanceList.get(1)).isEqualTo("Pair<String, Integer>");
+    }
   }
 }
