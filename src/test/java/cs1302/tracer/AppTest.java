@@ -144,12 +144,11 @@ public class AppTest {
     assertThat(exitCodeShort).isEqualTo(0);
     assertThat(swShort.toString()).contains("Usage: code-tracer");
 
-    // Version option --version
     StringWriter swVersion = new StringWriter();
     cmd.setOut(new PrintWriter(swVersion));
     int exitCodeVersion = cmd.execute("--version");
     assertThat(exitCodeVersion).isEqualTo(0);
-    assertThat(swVersion.toString()).contains("2.0.0");
+    assertThat(swVersion.toString()).contains(new App.PropertiesVersionProvider().getVersion()[0]);
   }
 
   @Test

@@ -20,40 +20,54 @@ import java.util.Map;
  * @param file The optional relative source file path for multi-file programs.
  */
 public record RenderStackFrame(
-    @SerializedName("func_name") String funcName,
-    @SerializedName("encoded_locals") Map<String, Object> encodedLocals,
-    @SerializedName("locals_attrs") Map<String, Object> localsAttrs,
-    @SerializedName("ordered_varnames") List<String> orderedVarnames,
-    @SerializedName("parent_frame_id_list") List<Integer> parentFrameIdList,
-    @SerializedName("is_highlighted") boolean isHighlighted,
-    @SerializedName("is_zombie") boolean isZombie,
-    @SerializedName("is_parent") boolean isParent,
-    @SerializedName("unique_hash") String uniqueHash,
-    @SerializedName("frame_id") int frameId,
-    @SerializedName("file") String file) {
+        @SerializedName("func_name") String funcName,
+        @SerializedName("encoded_locals") Map<String, Object> encodedLocals,
+        @SerializedName("locals_attrs") Map<String, Object> localsAttrs,
+        @SerializedName("ordered_varnames") List<String> orderedVarnames,
+        @SerializedName("parent_frame_id_list") List<Integer> parentFrameIdList,
+        @SerializedName("is_highlighted") boolean isHighlighted,
+        @SerializedName("is_zombie") boolean isZombie,
+        @SerializedName("is_parent") boolean isParent,
+        @SerializedName("unique_hash") String uniqueHash,
+        @SerializedName("frame_id") int frameId,
+        @SerializedName("file") String file) {
 
-  public RenderStackFrame(
-      String funcName,
-      Map<String, Object> encodedLocals,
-      Map<String, Object> localsAttrs,
-      List<String> orderedVarnames,
-      List<Integer> parentFrameIdList,
-      boolean isHighlighted,
-      boolean isZombie,
-      boolean isParent,
-      String uniqueHash,
-      int frameId) {
-    this(
-        funcName,
-        encodedLocals,
-        localsAttrs,
-        orderedVarnames,
-        parentFrameIdList,
-        isHighlighted,
-        isZombie,
-        isParent,
-        uniqueHash,
-        frameId,
-        null);
-  }
-}
+    /**
+     * Constructs a single-file render stack frame without a file path.
+     *
+     * @param funcName The function name.
+     * @param encodedLocals The local variables.
+     * @param localsAttrs The local variable attributes.
+     * @param orderedVarnames The ordered variable names.
+     * @param parentFrameIdList The parent frame ID list.
+     * @param isHighlighted True if highlighted.
+     * @param isZombie True if zombie.
+     * @param isParent True if parent.
+     * @param uniqueHash The unique frame hash.
+     * @param frameId The frame ID.
+     */
+    public RenderStackFrame(
+            String funcName,
+            Map<String, Object> encodedLocals,
+            Map<String, Object> localsAttrs,
+            List<String> orderedVarnames,
+            List<Integer> parentFrameIdList,
+            boolean isHighlighted,
+            boolean isZombie,
+            boolean isParent,
+            String uniqueHash,
+            int frameId) {
+        this(
+                funcName,
+                encodedLocals,
+                localsAttrs,
+                orderedVarnames,
+                parentFrameIdList,
+                isHighlighted,
+                isZombie,
+                isParent,
+                uniqueHash,
+                frameId,
+                null);
+    } // RenderStackFrame
+} // RenderStackFrame

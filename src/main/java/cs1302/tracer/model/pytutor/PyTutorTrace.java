@@ -12,8 +12,8 @@ import java.util.List;
  * @param userlog User log messages, if any.
  */
 public record PyTutorTrace(
-    @SerializedName("code") String code,
-    @SerializedName("stdin") String stdin,
-    @SerializedName("trace") List<TraceStep> trace,
-    @SerializedName("userlog") String userlog
-) {}
+        @SerializedName("code") String code,
+        @SerializedName("stdin") String stdin,
+        @SerializedName("trace") List<TraceStep> trace,
+        @SerializedName("userlog") String userlog) {
+} // PyTutorTrace

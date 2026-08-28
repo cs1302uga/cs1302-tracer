@@ -11,7 +11,8 @@ import com.google.gson.annotations.SerializedName;
  * @param isFinal True if declared as final, false otherwise.
  */
 public record Variable(
-    @SerializedName("name") String name,
-    @SerializedName("type") String type,
-    @SerializedName("value") Object value,
-    @SerializedName("final") boolean isFinal) {}
+        @SerializedName("name") String name,
+        @SerializedName("type") String type,
+        @SerializedName("value") Object value,
+        @SerializedName("final") boolean isFinal) {
+} // Variable

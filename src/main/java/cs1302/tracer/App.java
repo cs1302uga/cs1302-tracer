@@ -1,8 +1,8 @@
 package cs1302.tracer;
 
 import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,437 +40,536 @@ import picocli.CommandLine.Option;
 
 /** Entry point for the tracer program. */
 @Command(
-    name = "code-tracer",
-    description = "Trace Java program execution and inspect memory states.",
-    mixinStandardHelpOptions = true,
-    versionProvider = App.PropertiesVersionProvider.class)
+        name = "code-tracer",
+        description = "Trace Java program execution and inspect memory states.",
+        mixinStandardHelpOptions = true,
+        versionProvider = App.PropertiesVersionProvider.class)
 public class App {
 
-  /** Provides version string resolved from Maven resource filtering at build time. */
-  public static class PropertiesVersionProvider implements CommandLine.IVersionProvider {
-    @Override
-    public String[] getVersion() {
-      try (InputStream is = App.class.getResourceAsStream("/cs1302/tracer/version.properties")) {
-        if (is != null) {
-          Properties props = new Properties();
-          props.load(is);
-          return new String[] {props.getProperty("version", "development")};
-        }
-      } catch (IOException ignored) {
-      }
-      return new String[] {"development"};
-    }
-  }
+    /** Provides version string resolved from Maven resource filtering at build time. */
+    public static class PropertiesVersionProvider implements CommandLine.IVersionProvider {
 
-  static Consumer<Integer> systemExitHandler = System::exit;
+        /** Constructs a new PropertiesVersionProvider. */
+        public PropertiesVersionProvider() {} // PropertiesVersionProvider
 
-  public static int execute(String[] args) {
-    return new CommandLine(new App())
-        .addSubcommand(new Trace())
-        .addSubcommand(new ListBreakpoints())
-        .addSubcommand(new ShowLicenses())
-        .execute(args);
-  }
+        @Override
+        public String[] getVersion() {
+            try (InputStream is = App.class.getResourceAsStream(
+                    "/cs1302/tracer/version.properties")) {
+                if (is != null) {
+                    Properties props = new Properties();
+                    props.load(is);
+                    return new String[] {props.getProperty("version", "development")};
+                } // if
+            } catch (IOException ignored) {
+                // fallback to development
+            } // try
+            return new String[] {"development"};
+        } // getVersion
+    } // PropertiesVersionProvider
 
-  public static void main(String[] args) throws Exception {
-    int exitCode = execute(args);
-    systemExitHandler.accept(exitCode);
-  } // main
-
-  /** Base class that holds common CLI parameters. */
-  @Command
-  abstract static class CommandBase implements Runnable {
-    @Option(
-        names = {"--verbose", "-v"},
-        description = "Output messages about what the tracer is doing.")
-    boolean verbose = false;
-
-    @Option(
-        names = {"--input", "-i"},
-        description = "Input path to Java source file (defaults to stdin if omitted).")
-    File input = null;
-
-    Consumer<Integer> exitHandler = System::exit;
+    static Consumer<Integer> systemExitHandler = System::exit;
 
     /**
-     * Read the entirety of {@code input} into a string. If {@code input} is null, it reads and
-     * returns the content of stdin.
+     * Executes the CLI application with given arguments.
      *
-     * @return The read contents of the file.
-     * @throws RuntimeException if an IO exception occured
+     * @param args Command-line arguments.
+     * @return Process exit code.
      */
-    protected String readInputFile() {
-      if (input == null) {
-        // read stdin
-        StringBuilder sb = new StringBuilder();
-        try (Scanner scan = new Scanner(System.in)) {
-          while (scan.hasNextLine()) {
-            sb.append(scan.nextLine()).append("\n");
-          } // while
-        } // try
-        return sb.toString();
-      } else {
-        try {
-          return Files.readString(input.toPath());
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    } // readInputFile
-
-    protected Optional<Path> getInputPath() {
-      return input != null ? Optional.of(input.toPath().toAbsolutePath()) : Optional.empty();
-    }
+    public static int execute(String[] args) {
+        return new CommandLine(new App())
+                .addSubcommand(new Trace())
+                .addSubcommand(new ListBreakpoints())
+                .addSubcommand(new ShowLicenses())
+                .execute(args);
+    } // execute
 
     /**
-     * Parse the given Java source code string without type solver.
+     * Main entry point of the CLI application.
      *
-     * @param source The Java source code to parse.
-     * @return The parsed Java source code.
+     * @param args Command-line arguments.
+     * @throws Exception If an error occurs.
      */
-    protected CompilationUnit parseSource(String source) {
-      return new com.github.javaparser.JavaParser(
-              new com.github.javaparser.ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT))
-          .parse(source)
-          .getResult()
-          .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source"));
-    }
+    public static void main(String[] args) throws Exception {
+        int exitCode = execute(args);
+        systemExitHandler.accept(exitCode);
+    } // main
 
-    /**
-     * Parse the given Java source code string with optional source root for type resolution.
-     *
-     * @param source The Java source code to parse.
-     * @param sourceRoot The root directory where source files for the program are located. This
-     *     will be used to get more information when resolving types.
-     * @return The parsed Java source code.
-     * @throws ParseProblemException If parsing failed.
-     */
-    protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
-      CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
-      combinedTypeSolver.add(new ReflectionTypeSolver());
-      sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
-      JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
+    /** Base class that holds common CLI parameters. */
+    @Command
+    abstract static class CommandBase implements Runnable {
 
-      com.github.javaparser.ParserConfiguration config =
-          new com.github.javaparser.ParserConfiguration()
-              .setSymbolResolver(symbolSolver)
-              .setLanguageLevel(LanguageLevel.CURRENT);
+        @Option(
+                names = {"--verbose", "-v"},
+                description = "Output messages about what the tracer is doing.")
+        boolean verbose = false;
 
-      return new com.github.javaparser.JavaParser(config)
-          .parse(source)
-          .getResult()
-          .orElseThrow(
-              () -> new IllegalArgumentException("Failed to parse Java source with symbol solver"));
-    }
-  }
+        @Option(
+                names = {"--input", "-i"},
+                description = "Input path to Java source file (defaults to stdin if omitted).")
+        File input = null;
 
-  /** Run a trace. */
-  @Command(
-      name = "trace",
-      description = "Generate an execution trace for a Java program.",
-      mixinStandardHelpOptions = true)
-  static class Trace extends CommandBase {
-    @Option(
-        names = {"--remove-main-args"},
-        description = "Don't include the main method's `args` parameter in the output.")
-    boolean removeMainArgs = false;
+        Consumer<Integer> exitHandler = System::exit;
 
-    @Option(
-        names = {"--inline-strings", "-s"},
-        description =
-            "If provided, strings are inlined into fields instead "
-                + "of going through a reference.")
-    boolean inlineStrings = false;
+        /**
+         * Read the entirety of {@code input} into a string.
+         *
+         * @return The read contents of the file.
+         * @throws RuntimeException if an IO exception occurred.
+         */
+        protected String readInputFile() {
+            if (input == null) {
+                StringBuilder sb = new StringBuilder();
+                try (Scanner scan = new Scanner(System.in)) {
+                    while (scan.hasNextLine()) {
+                        sb.append(scan.nextLine()).append("\n");
+                    } // while
+                } // try
+                return sb.toString();
+            } else {
+                try {
+                    return Files.readString(input.toPath());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } // try
+            } // if
+        } // readInputFile
 
-    @Option(
-        names = {"--remove-method-this"},
-        description = "Don't include the value of `this` for methods in the output.")
-    boolean removeMethodThis = false;
+        /**
+         * Returns the optional absolute Path to the input file.
+         *
+         * @return Optional containing the input Path.
+         */
+        protected Optional<Path> getInputPath() {
+            return input != null ? Optional.of(input.toPath().toAbsolutePath()) : Optional.empty();
+        } // getInputPath
 
-    @Option(
-        names = {"--all-breakpoints", "-a"},
-        description =
-            "Include all encountered breakpoint instances in chronological order in the output trace. "
-                + "If no explicit breakpoints are specified, all valid lines are traced.")
-    boolean allBreakpoints = false;
+        /**
+         * Parse the given Java source code string without type solver.
+         *
+         * @param source The Java source code to parse.
+         * @return The parsed Java source code.
+         */
+        protected CompilationUnit parseSource(String source) {
+            return new com.github.javaparser.JavaParser(
+                    new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT))
+                    .parse(source)
+                    .getResult()
+                    .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source"));
+        } // parseSource
 
-    @Option(
-        names = {"--accumulate-breakpoints"},
-        description =
-            "Output an array of snapshots containing each time a breakpoint was "
-                + "reached instead of just the last time.")
-    boolean accumulateBreakpoints = false;
+        /**
+         * Parse the given Java source code string with optional source root for type resolution.
+         *
+         * @param source The Java source code to parse.
+         * @param sourceRoot The root directory where source files for the program are located.
+         * @return The parsed Java source code.
+         * @throws ParseProblemException If parsing failed.
+         */
+        protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
+            CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
+            combinedTypeSolver.add(new ReflectionTypeSolver());
+            sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
+            JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
 
-    @Option(
-        names = {"--format", "-f"},
-        description = "Output trace format: ${COMPLETION-CANDIDATES} (default: ${DEFAULT-VALUE}).",
-        defaultValue = "pytutor")
-    TraceFormat format = TraceFormat.PYTUTOR;
+            ParserConfiguration config = new ParserConfiguration()
+                    .setSymbolResolver(symbolSolver)
+                    .setLanguageLevel(LanguageLevel.CURRENT);
 
-    @Option(
-        names = {"--breakpoints", "-b"},
-        description =
-            "Breakpoints at which to take snapshots. The snapshots taken will "
-                + "represent the state of memory immediately before each line is executed. "
-                + "If no breakpoints are provided, the default behavior is to take"
-                + "one snapshot at the end of the program's main method.")
-    List<Integer> breakpoints = null;
+            return new com.github.javaparser.JavaParser(config)
+                    .parse(source)
+                    .getResult()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Failed to parse Java source with symbol solver"));
+        } // parseSource
+    } // CommandBase
 
-    /** Run and trace a compiled Java program and output the resulting trace JSON to stdout. */
-    @Override
-    public void run() {
-      String source = readInputFile();
+    /** Run a trace. */
+    @Command(
+        name = "trace",
+        description = "Generate an execution trace for a Java program.",
+        mixinStandardHelpOptions = true)
+    static class Trace extends CommandBase {
 
-      // run a trace
-      try {
-        List<CompilationHelper.SourceFile> sourceFiles =
-            CompilationHelper.parseMultiFileStream(source);
-        CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        CompilationUnit preCu = entryFile.ast();
-        Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(preCu, getInputPath());
+        @Option(
+                names = {"--remove-main-args"},
+                description = "Don't include the main method's args parameter in the output.")
+        boolean removeMainArgs = false;
 
-        try (CompilationResult compilationResult =
-            CompilationHelper.compile(source, sourceRoot)) {
-          Optional<Path> parserSourceRoot =
-              sourceRoot.isPresent() ? sourceRoot : Optional.of(compilationResult.classPath());
-          CompilationUnit cu = parseSource(entryFile.content(), parserSourceRoot);
+        @Option(
+                names = {"--inline-strings", "-s"},
+                description = "If provided, strings are inlined into fields.")
+        boolean inlineStrings = false;
 
-          if (format == TraceFormat.MODERN) {
-            ModernTraceSerializer modernSerializer =
-                new ModernTraceSerializer(removeMainArgs, inlineStrings, removeMethodThis);
+        @Option(
+                names = {"--remove-method-this"},
+                description = "Don't include the value of this for methods in the output.")
+        boolean removeMethodThis = false;
+
+        @Option(
+                names = {"--all-breakpoints", "-a"},
+                description = "Include all encountered breakpoint instances in chronological "
+                        + "order.")
+        boolean allBreakpoints = false;
+
+        @Option(
+                names = {"--accumulate-breakpoints"},
+                description = "Output an array of snapshots containing each reached breakpoint.")
+        boolean accumulateBreakpoints = false;
+
+        @Option(
+                names = {"--format", "-f"},
+                description = "Output trace format: ${COMPLETION-CANDIDATES} "
+                        + "(default: ${DEFAULT-VALUE}).",
+                defaultValue = "pytutor")
+        TraceFormat format = TraceFormat.PYTUTOR;
+
+        @Option(
+                names = {"--breakpoints", "-b"},
+                description = "Breakpoints at which to take snapshots.")
+        List<Integer> breakpoints = null;
+
+        @Override
+        public void run() {
+            String source = readInputFile();
+
+            try {
+                List<CompilationHelper.SourceFile> sourceFiles =
+                        CompilationHelper.parseMultiFileStream(source);
+                CompilationHelper.SourceFile entryFile =
+                        CompilationHelper.findEntryPoint(sourceFiles);
+                CompilationUnit preCu = entryFile.ast();
+                Optional<Path> sourceRoot =
+                        CompilationHelper.findSourceRoot(preCu, getInputPath());
+
+                try (CompilationResult compilationResult =
+                        CompilationHelper.compile(source, sourceRoot)) {
+                    Optional<Path> parserSourceRoot = sourceRoot.isPresent()
+                            ? sourceRoot
+                            : Optional.of(compilationResult.classPath());
+                    List<CompilationUnit> allCus = discoverAllCompilationUnits(
+                            sourceFiles, sourceRoot, parserSourceRoot);
+
+                    if (format == TraceFormat.MODERN) {
+                        runModernTrace(source, compilationResult, allCus);
+                    } else {
+                        runPyTutorTrace(source, compilationResult, allCus);
+                    } // if
+                } // try
+            } catch (Throwable cause) {
+                System.err.println("Unable to generate trace!");
+                if (verbose) {
+                    cause.printStackTrace();
+                } // if
+                exitHandler.accept(1);
+            } // try
+        } // run
+
+        /**
+         * Discovers and parses all compilation units in the source files and source root.
+         *
+         * @param sourceFiles Input source files.
+         * @param sourceRoot Optional source root path.
+         * @param parserSourceRoot Parser type resolution path.
+         * @return List of parsed CompilationUnits.
+         */
+        private List<CompilationUnit> discoverAllCompilationUnits(
+                List<CompilationHelper.SourceFile> sourceFiles,
+                Optional<Path> sourceRoot,
+                Optional<Path> parserSourceRoot) {
+            List<CompilationUnit> allCus = new ArrayList<>();
+            Set<String> parsedPaths = new HashSet<>();
+            for (CompilationHelper.SourceFile sf : sourceFiles) {
+                allCus.add(parseSource(sf.content(), parserSourceRoot));
+                parsedPaths.add(sf.relativePath().replace('\\', '/'));
+            } // for
+            if (sourceRoot.isPresent()) {
+                try (var stream = Files.walk(sourceRoot.get())) {
+                    List<Path> javaFiles = stream
+                            .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
+                            .toList();
+                    for (Path p : javaFiles) {
+                        String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
+                        if (!parsedPaths.contains(rel)) {
+                            try {
+                                allCus.add(parseSource(Files.readString(p), parserSourceRoot));
+                                parsedPaths.add(rel);
+                            } catch (Exception ignored) {
+                                // ignore parse errors on unreferenced files
+                            } // try
+                        } // if
+                    } // for
+                } catch (Exception ignored) {
+                    // ignore file discovery errors
+                } // try
+            } // if
+            return allCus;
+        } // discoverAllCompilationUnits
+
+        /**
+         * Runs and outputs modern JSON trace.
+         *
+         * @param source Source string.
+         * @param compResult Compilation result.
+         * @param allCus Compilation units.
+         * @throws Exception On tracing error.
+         */
+        private void runModernTrace(
+                String source,
+                CompilationResult compResult,
+                List<CompilationUnit> allCus) throws Exception {
+            ModernTraceSerializer serializer =
+                    new ModernTraceSerializer(removeMainArgs, inlineStrings, removeMethodThis);
 
             if (allBreakpoints) {
-              Collection<Integer> targetLines =
-                  breakpoints != null
-                      ? breakpoints
-                      : DebugTraceHelper.getValidBreakpointLines(compilationResult);
-              List<ExecutionSnapshot> chronologicalSnapshots =
-                  DebugTraceHelper.traceChronological(compilationResult, targetLines, cu, true);
-              cs1302.tracer.model.modern.Trace modernTrace =
-                  modernSerializer.createTrace(source, chronologicalSnapshots);
-              System.out.println(ModernTraceSerializer.getGson().toJson(modernTrace));
+                Collection<Integer> targetLines = breakpoints != null
+                        ? breakpoints
+                        : DebugTraceHelper.getValidBreakpointLines(compResult);
+                List<ExecutionSnapshot> chronological =
+                        DebugTraceHelper.traceChronological(compResult, targetLines, allCus, true);
+                cs1302.tracer.model.modern.Trace trace =
+                        serializer.createTrace(source, chronological);
+                System.out.println(ModernTraceSerializer.getGson().toJson(trace));
             } else if (breakpoints == null) {
-              ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult, cu);
-              cs1302.tracer.model.modern.Trace modernTrace = modernSerializer.createTrace(source, trace);
-              System.out.println(ModernTraceSerializer.getGson().toJson(modernTrace));
+                ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus);
+                cs1302.tracer.model.modern.Trace trace =
+                        serializer.createTrace(source, snapshot);
+                System.out.println(ModernTraceSerializer.getGson().toJson(trace));
             } else {
-              Map<Integer, List<ExecutionSnapshot>> trace =
-                  DebugTraceHelper.trace(compilationResult, breakpoints, cu);
-              if (accumulateBreakpoints) {
-                cs1302.tracer.model.modern.Trace modernTrace =
-                    modernSerializer.createBreakpointsTrace(source, trace);
-                System.out.println(ModernTraceSerializer.getGson().toJson(modernTrace));
-              } else {
-                Map<Integer, ExecutionSnapshot> singlePerBp =
-                    trace.entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getLast()));
-                cs1302.tracer.model.modern.Trace modernTrace =
-                    modernSerializer.createBreakpointsTrace(source, singlePerBp);
-                System.out.println(ModernTraceSerializer.getGson().toJson(modernTrace));
-              }
-            }
-          } else {
-            PyTutorSerializer configuredSerializer =
-                new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis);
+                Map<Integer, List<ExecutionSnapshot>> snapshots =
+                        DebugTraceHelper.trace(compResult, breakpoints, allCus);
+                if (accumulateBreakpoints) {
+                    cs1302.tracer.model.modern.Trace trace =
+                            serializer.createBreakpointsTrace(source, snapshots);
+                    System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                } else {
+                    Map<Integer, ExecutionSnapshot> singlePerBp = snapshots.entrySet().stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey, e -> e.getValue().getLast()));
+                    cs1302.tracer.model.modern.Trace trace =
+                            serializer.createBreakpointsTrace(source, singlePerBp);
+                    System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                } // if
+            } // if
+        } // runModernTrace
+
+        /**
+         * Runs and outputs PyTutor JSON trace.
+         *
+         * @param source Source string.
+         * @param compResult Compilation result.
+         * @param allCus Compilation units.
+         * @throws Exception On tracing error.
+         */
+        private void runPyTutorTrace(
+                String source,
+                CompilationResult compResult,
+                List<CompilationUnit> allCus) throws Exception {
+            PyTutorSerializer serializer =
+                    new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis);
 
             if (allBreakpoints) {
-              Collection<Integer> targetLines =
-                  breakpoints != null
-                      ? breakpoints
-                      : DebugTraceHelper.getValidBreakpointLines(compilationResult);
-              List<ExecutionSnapshot> chronologicalSnapshots =
-                  DebugTraceHelper.traceChronological(compilationResult, targetLines, cu, true);
-              PyTutorTrace pyTutorTrace =
-                  configuredSerializer.createTrace(source, chronologicalSnapshots);
-              System.out.println(PyTutorSerializer.getGson().toJson(pyTutorTrace));
+                Collection<Integer> targetLines = breakpoints != null
+                        ? breakpoints
+                        : DebugTraceHelper.getValidBreakpointLines(compResult);
+                List<ExecutionSnapshot> chronological =
+                        DebugTraceHelper.traceChronological(compResult, targetLines, allCus, true);
+                PyTutorTrace trace = serializer.createTrace(source, chronological);
+                System.out.println(PyTutorSerializer.getGson().toJson(trace));
             } else if (breakpoints == null) {
-              ExecutionSnapshot trace = DebugTraceHelper.trace(compilationResult, cu);
-              String pyTutorSnapshot = configuredSerializer.serialize(source, trace);
-              System.out.println(pyTutorSnapshot);
+                ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus);
+                String pyTutorSnapshot = serializer.serialize(source, snapshot);
+                System.out.println(pyTutorSnapshot);
             } else {
-              Map<Integer, List<ExecutionSnapshot>> trace =
-                  DebugTraceHelper.trace(compilationResult, breakpoints, cu);
-              if (accumulateBreakpoints) {
-                Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
-                    trace.entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    e.getValue().stream()
-                                        .map(s -> configuredSerializer.createTrace(source, s))
-                                        .toList()));
-                System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
-              } else {
-                Map<Integer, PyTutorTrace> pyTutorSnapshots =
-                    trace.entrySet().stream()
-                        .collect(
-                            Collectors.toMap(
-                                Map.Entry::getKey,
-                                e ->
-                                    configuredSerializer.createTrace(
-                                        source, e.getValue().getLast())));
-                System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
-              }
-            }
-          } // if format
-        }
-      } catch (Throwable cause) {
-        System.err.println("Unable to generate trace!");
-        if (verbose) {
-          cause.printStackTrace();
-        } // if
-        exitHandler.accept(1);
-      } // try
-    }
-  }
+                Map<Integer, List<ExecutionSnapshot>> snapshots =
+                        DebugTraceHelper.trace(compResult, breakpoints, allCus);
+                if (accumulateBreakpoints) {
+                    Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
+                            snapshots.entrySet().stream()
+                                    .collect(Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            e -> e.getValue().stream()
+                                                    .map(s -> serializer.createTrace(source, s))
+                                                    .toList()));
+                    System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
+                } else {
+                    Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    e -> serializer.createTrace(source, e.getValue().getLast())));
+                    System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
+                } // if
+            } // if
+        } // runPyTutorTrace
+    } // Trace
 
-  /** List the breakpoint lines available for a compiled Java program. */
-  @Command(
-      name = "list-breakpoints",
-      description = "List the breakpoints available in the provided source file.",
-      mixinStandardHelpOptions = true)
-  static class ListBreakpoints extends CommandBase {
-    @Option(
-        names = {"--json", "-j"},
-        description = "Output available breakpoints in JSON format.")
-    boolean outputJson = false;
+    /** List the breakpoint lines available for a compiled Java program. */
+    @Command(
+            name = "list-breakpoints",
+            description = "List the breakpoints available in the provided source file.",
+            mixinStandardHelpOptions = true)
+    static class ListBreakpoints extends CommandBase {
 
-    @Override
-    public void run() {
-      String source = readInputFile();
+        @Option(
+                names = {"--json", "-j"},
+                description = "Output available breakpoints in JSON format.")
+        boolean outputJson = false;
 
-      // show breakpoints
-      try {
-        List<CompilationHelper.SourceFile> sourceFiles =
-            CompilationHelper.parseMultiFileStream(source);
-        CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        CompilationUnit preCu = entryFile.ast();
-        Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(preCu, getInputPath());
+        @Override
+        public void run() {
+            String source = readInputFile();
 
-        try (CompilationResult compilationResult =
-            CompilationHelper.compile(source, sourceRoot)) {
+            try {
+                List<CompilationHelper.SourceFile> sourceFiles =
+                        CompilationHelper.parseMultiFileStream(source);
+                CompilationHelper.SourceFile entryFile =
+                        CompilationHelper.findEntryPoint(sourceFiles);
+                CompilationUnit preCu = entryFile.ast();
+                Optional<Path> sourceRoot =
+                        CompilationHelper.findSourceRoot(preCu, getInputPath());
 
-          Map<String, Set<Integer>> breakpointsByFile =
-              DebugTraceHelper.getValidBreakpointLinesByFile(compilationResult);
+                try (CompilationResult compilationResult =
+                        CompilationHelper.compile(source, sourceRoot)) {
+                    if (sourceFiles.size() > 1) {
+                        Map<String, Set<Integer>> breakpointsByFile =
+                                DebugTraceHelper.getValidBreakpointLinesByFile(compilationResult);
+                        listMultiFileBreakpoints(sourceFiles, breakpointsByFile);
+                    } else {
+                        Collection<Integer> availableBreakpoints =
+                                DebugTraceHelper.getValidBreakpointLines(compilationResult);
+                        listSingleFileBreakpoints(source, availableBreakpoints);
+                    } // if
+                } // try
+            } catch (Throwable cause) {
+                System.err.println("Unable to list breakpoints!");
+                if (verbose) {
+                    cause.printStackTrace();
+                } // if
+                exitHandler.accept(1);
+            } // try
+        } // run
 
-          if (sourceFiles.size() > 1) {
+        /**
+         * Formats and prints breakpoints for multi-file inputs.
+         *
+         * @param sourceFiles Input source files.
+         * @param breakpointsByFile Valid line mappings by file path.
+         */
+        private void listMultiFileBreakpoints(
+                List<CompilationHelper.SourceFile> sourceFiles,
+                Map<String, Set<Integer>> breakpointsByFile) {
             if (outputJson) {
-              List<BreakpointEntry> output = new ArrayList<>();
-              for (CompilationHelper.SourceFile sf : sourceFiles) {
-                String normalizedPath = sf.relativePath().replace(File.separatorChar, '/');
-                Set<Integer> validLines =
-                    breakpointsByFile.getOrDefault(
-                        normalizedPath,
-                        breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
-                if (validLines.isEmpty()) {
-                  String simpleName = Path.of(sf.relativePath()).getFileName().toString();
-                  for (Map.Entry<String, Set<Integer>> entry : breakpointsByFile.entrySet()) {
-                    if (entry.getKey().endsWith(simpleName)) {
-                      validLines = entry.getValue();
-                      break;
-                    }
-                  }
-                }
-
-                String[] fileLines = sf.content().split("\n");
-                for (int i = 0; i < fileLines.length; i++) {
-                  int lineNumber = i + 1;
-                  boolean validBreakpoint = validLines.contains(lineNumber);
-                  output.add(
-                      new BreakpointEntry(lineNumber, validBreakpoint, fileLines[i], normalizedPath));
-                }
-              }
-              System.out.println(PyTutorSerializer.getGson().toJson(output));
+                List<BreakpointEntry> output = new ArrayList<>();
+                for (CompilationHelper.SourceFile sf : sourceFiles) {
+                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
+                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                    String[] fileLines = sf.content().split("\n");
+                    for (int i = 0; i < fileLines.length; i++) {
+                        int lineNum = i + 1;
+                        boolean valid = validLines.contains(lineNum);
+                        output.add(new BreakpointEntry(lineNum, valid, fileLines[i], normPath));
+                    } // for
+                } // for
+                System.out.println(PyTutorSerializer.getGson().toJson(output));
             } else {
-              StringBuilder annotatedSource = new StringBuilder();
-              for (int f = 0; f < sourceFiles.size(); f++) {
-                CompilationHelper.SourceFile sf = sourceFiles.get(f);
-                String normalizedPath = sf.relativePath().replace(File.separatorChar, '/');
-                annotatedSource.append("// --- ").append(normalizedPath).append(" ---\n");
-                Set<Integer> validLines =
-                    breakpointsByFile.getOrDefault(
-                        normalizedPath,
-                        breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
-                if (validLines.isEmpty()) {
-                  String simpleName = Path.of(sf.relativePath()).getFileName().toString();
-                  for (Map.Entry<String, Set<Integer>> entry : breakpointsByFile.entrySet()) {
-                    if (entry.getKey().endsWith(simpleName)) {
-                      validLines = entry.getValue();
-                      break;
-                    }
-                  }
-                }
+                StringBuilder sb = new StringBuilder();
+                for (int f = 0; f < sourceFiles.size(); f++) {
+                    CompilationHelper.SourceFile sf = sourceFiles.get(f);
+                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
+                    sb.append("// --- ").append(normPath).append(" ---\n");
+                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                    String[] fileLines = sf.content().split("\n");
+                    int digitLength = ((int) Math.log10(Math.max(1, fileLines.length))) + 1;
+                    for (int i = 0; i < fileLines.length; i++) {
+                        if (validLines.contains(i + 1)) {
+                            sb.append(Ansi.AUTO.string(String.format(
+                                    "@|green b %" + digitLength + "d | |@", i + 1)));
+                        } else {
+                            sb.append(String.format("  %" + digitLength + "d | ", i + 1));
+                        } // if
+                        sb.append(fileLines[i]);
+                        if (i < fileLines.length - 1 || f < sourceFiles.size() - 1) {
+                            sb.append('\n');
+                        } // if
+                    } // for
+                } // for
+                System.out.println(sb.toString());
+            } // if
+        } // listMultiFileBreakpoints
 
-                String[] fileLines = sf.content().split("\n");
-                int digitLength = ((int) Math.log10(Math.max(1, fileLines.length))) + 1;
-                for (int i = 0; i < fileLines.length; i++) {
-                  if (validLines.contains(i + 1)) {
-                    annotatedSource.append(
-                        Ansi.AUTO.string(String.format("@|green b %" + digitLength + "d | |@", i + 1)));
-                  } else {
-                    annotatedSource.append(String.format("  %" + digitLength + "d | ", i + 1));
-                  }
-                  annotatedSource.append(fileLines[i]);
-                  if (i < fileLines.length - 1 || f < sourceFiles.size() - 1) {
-                    annotatedSource.append('\n');
-                  }
-                }
-              }
-              System.out.println(annotatedSource.toString());
-            }
-          } else {
-            Collection<Integer> availableBreakpoints =
-                DebugTraceHelper.getValidBreakpointLines(compilationResult);
+        /**
+         * Resolves valid breakpoint line numbers for a source file.
+         *
+         * @param breakpointsByFile File line map.
+         * @param sf SourceFile.
+         * @return Set of valid line numbers.
+         */
+        private Set<Integer> findValidLinesForFile(
+                Map<String, Set<Integer>> breakpointsByFile,
+                CompilationHelper.SourceFile sf) {
+            String normPath = sf.relativePath().replace(File.separatorChar, '/');
+            Set<Integer> valid = breakpointsByFile.getOrDefault(
+                    normPath,
+                    breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
+            if (valid.isEmpty()) {
+                String simpleName = Path.of(sf.relativePath()).getFileName().toString();
+                for (Map.Entry<String, Set<Integer>> entry : breakpointsByFile.entrySet()) {
+                    if (entry.getKey().endsWith(simpleName)) {
+                        return entry.getValue();
+                    } // if
+                } // for
+            } // if
+            return valid;
+        } // findValidLinesForFile
+
+        /**
+         * Formats and prints breakpoints for single-file input.
+         *
+         * @param source Source code text.
+         * @param availableBreakpoints Valid line numbers.
+         */
+        private void listSingleFileBreakpoints(
+                String source, Collection<Integer> availableBreakpoints) {
             String[] sourceLines = source.split("\n");
             int digitLength = ((int) Math.log10(Math.max(1, sourceLines.length))) + 1;
 
             if (outputJson) {
-              List<BreakpointEntry> output = new ArrayList<>();
-              for (int i = 0; i < sourceLines.length; i++) {
-                int lineNumber = i + 1;
-                boolean validBreakpoint = availableBreakpoints.contains(lineNumber);
-                String lineContent = sourceLines[i];
-                output.add(new BreakpointEntry(lineNumber, validBreakpoint, lineContent));
-              } // for
-              System.out.println(PyTutorSerializer.getGson().toJson(output));
+                List<BreakpointEntry> output = new ArrayList<>();
+                for (int i = 0; i < sourceLines.length; i++) {
+                    int lineNumber = i + 1;
+                    boolean valid = availableBreakpoints.contains(lineNumber);
+                    output.add(new BreakpointEntry(lineNumber, valid, sourceLines[i]));
+                } // for
+                System.out.println(PyTutorSerializer.getGson().toJson(output));
             } else {
-              StringBuilder annotatedSource = new StringBuilder();
-              for (int i = 0; i < sourceLines.length; i++) {
-                if (availableBreakpoints.contains(i + 1)) {
-                  annotatedSource.append(
-                      Ansi.AUTO.string(String.format("@|green b %" + digitLength + "d | |@", i + 1)));
-                } else {
-                  annotatedSource.append(String.format("  %" + digitLength + "d | ", i + 1));
-                }
-                annotatedSource.append(sourceLines[i]);
-                if (i < sourceLines.length - 1) {
-                  annotatedSource.append('\n');
-                } // if
-              } // for
-              System.out.println(annotatedSource.toString());
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < sourceLines.length; i++) {
+                    if (availableBreakpoints.contains(i + 1)) {
+                        sb.append(Ansi.AUTO.string(String.format(
+                                "@|green b %" + digitLength + "d | |@", i + 1)));
+                    } else {
+                        sb.append(String.format("  %" + digitLength + "d | ", i + 1));
+                    } // if
+                    sb.append(sourceLines[i]);
+                    if (i < sourceLines.length - 1) {
+                        sb.append('\n');
+                    } // if
+                } // for
+                System.out.println(sb.toString());
             } // if
-          }
-        }
-      } catch (Throwable cause) {
-        System.err.println("Unable to list breakpoints!");
-        if (verbose) {
-          cause.printStackTrace();
-        } // if
-        exitHandler.accept(1);
-      } // try
-    }
-  }
+        } // listSingleFileBreakpoints
+    } // ListBreakpoints
 
-  /** Print dependency licenses to console. */
-  @Command(
-      name = "show-licenses",
-      description = "Show the licenses for projects used in this program and then exit.",
-      mixinStandardHelpOptions = true)
-  static class ShowLicenses implements Runnable {
-    @Override
-    public void run() {
-      System.out.println(LicenseHelper.getLicenseText());
-    }
-  }
-}
+    /** Print dependency licenses to console. */
+    @Command(
+            name = "show-licenses",
+            description = "Show the licenses for projects used in this program and then exit.",
+            mixinStandardHelpOptions = true)
+    static class ShowLicenses implements Runnable {
+
+        @Override
+        public void run() {
+            System.out.println(LicenseHelper.getLicenseText());
+        } // run
+    } // ShowLicenses
+} // App

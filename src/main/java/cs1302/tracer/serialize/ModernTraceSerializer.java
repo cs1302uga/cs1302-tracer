@@ -30,235 +30,292 @@ import java.util.Set;
  */
 public class ModernTraceSerializer {
 
-  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-  private final boolean removeMainArgs;
-  private final boolean inlineStrings;
-  private final boolean removeMethodThis;
+    private final boolean removeMainArgs;
+    private final boolean inlineStrings;
+    private final boolean removeMethodThis;
 
-  public ModernTraceSerializer(
-      boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
-    this.removeMainArgs = removeMainArgs;
-    this.inlineStrings = inlineStrings;
-    this.removeMethodThis = removeMethodThis;
-  }
+    /**
+     * Constructs a ModernTraceSerializer with the specified formatting options.
+     *
+     * @param removeMainArgs Whether to remove args from the main stack frame.
+     * @param inlineStrings Whether strings should be inlined.
+     * @param removeMethodThis Whether this references should be omitted from method frames.
+     */
+    public ModernTraceSerializer(
+            boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
+        this.removeMainArgs = removeMainArgs;
+        this.inlineStrings = inlineStrings;
+        this.removeMethodThis = removeMethodThis;
+    } // ModernTraceSerializer
 
-  public static Gson getGson() {
-    return GSON;
-  }
+    /**
+     * Gets the shared Gson serializer instance.
+     *
+     * @return The Gson instance.
+     */
+    public static Gson getGson() {
+        return GSON;
+    } // getGson
 
-  private boolean isMultiFileSource(String javaSource, List<ExecutionSnapshot> snapshots) {
-    if (CompilationHelper.DELIMITER_PATTERN.matcher(javaSource).find()) {
-      return true;
-    }
-    Set<String> distinctFiles = new HashSet<>();
-    for (ExecutionSnapshot snapshot : snapshots) {
-      snapshot.sourcePath().ifPresent(distinctFiles::add);
-      for (StackSnapshot frame : snapshot.stack()) {
-        frame.sourcePath().ifPresent(distinctFiles::add);
-      }
-    }
-    return distinctFiles.size() > 1;
-  }
+    /**
+     * Checks if the source or snapshots represent a multi-file program.
+     *
+     * @param javaSource The source code string.
+     * @param snapshots The execution snapshots.
+     * @return True if multi-file, false otherwise.
+     */
+    private boolean isMultiFileSource(String javaSource, List<ExecutionSnapshot> snapshots) {
+        if (CompilationHelper.DELIMITER_PATTERN.matcher(javaSource).find()) {
+            return true;
+        } // if
+        Set<String> distinctFiles = new HashSet<>();
+        for (ExecutionSnapshot snapshot : snapshots) {
+            snapshot.sourcePath().ifPresent(distinctFiles::add);
+            for (StackSnapshot frame : snapshot.stack()) {
+                frame.sourcePath().ifPresent(distinctFiles::add);
+            } // for
+        } // for
+        return distinctFiles.size() > 1;
+    } // isMultiFileSource
 
-  /**
-   * Create a modern trace for a single execution snapshot.
-   */
-  public Trace createTrace(String javaSource, ExecutionSnapshot snapshot) {
-    boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
-    Step step = createStep(snapshot, 1, isMultiFile);
-    return new Trace(javaSource, List.of(step));
-  }
+    /**
+     * Creates a modern trace for a single execution snapshot.
+     *
+     * @param javaSource The original Java source code.
+     * @param snapshot The single execution snapshot.
+     * @return The generated modern Trace object.
+     */
+    public Trace createTrace(String javaSource, ExecutionSnapshot snapshot) {
+        boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
+        Step step = createStep(snapshot, 1, isMultiFile);
+        return new Trace(javaSource, List.of(step));
+    } // createTrace
 
-  /**
-   * Create a modern trace for a chronological list of snapshots.
-   */
-  public Trace createTrace(String javaSource, List<ExecutionSnapshot> snapshots) {
-    boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
-    List<Step> steps = new ArrayList<>();
-    for (int i = 0; i < snapshots.size(); i++) {
-      steps.add(createStep(snapshots.get(i), i + 1, isMultiFile));
-    }
-    return new Trace(javaSource, steps);
-  }
-
-  /**
-   * Create a modern trace for a breakpoints map.
-   */
-  public Trace createBreakpointsTrace(
-      String javaSource, Map<Integer, ?> breakpointSnapshots) {
-    Map<Integer, Object> converted = new LinkedHashMap<>();
-    for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
-      if (entry.getValue() instanceof ExecutionSnapshot single) {
-        converted.put(entry.getKey(), createStep(single, 1, false));
-      } else if (entry.getValue() instanceof List<?> list) {
+    /**
+     * Creates a modern trace for a chronological list of snapshots.
+     *
+     * @param javaSource The original Java source code.
+     * @param snapshots The list of execution snapshots.
+     * @return The generated modern Trace object.
+     */
+    public Trace createTrace(String javaSource, List<ExecutionSnapshot> snapshots) {
+        boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
         List<Step> steps = new ArrayList<>();
-        for (int i = 0; i < list.size(); i++) {
-          if (list.get(i) instanceof ExecutionSnapshot s) {
-            steps.add(createStep(s, i + 1, false));
-          }
-        }
-        converted.put(entry.getKey(), steps);
-      }
-    }
-    return new Trace(javaSource, converted);
-  }
+        for (int i = 0; i < snapshots.size(); i++) {
+            steps.add(createStep(snapshots.get(i), i + 1, isMultiFile));
+        } // for
+        return new Trace(javaSource, steps);
+    } // createTrace
 
-  /**
-   * Convert an individual {@link ExecutionSnapshot} into a {@link Step}.
-   */
-  public Step createStep(ExecutionSnapshot snapshot, int stepNumber, boolean isMultiFile) {
-    String currentMethod =
-        snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
-    long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();
-    String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
+    /**
+     * Creates a modern trace for a breakpoints map.
+     *
+     * @param javaSource The original Java source code.
+     * @param breakpointSnapshots The mapping of line numbers to snapshots.
+     * @return The generated modern Trace object.
+     */
+    public Trace createBreakpointsTrace(
+            String javaSource, Map<Integer, ?> breakpointSnapshots) {
+        Map<Integer, Object> converted = new LinkedHashMap<>();
+        for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
+            if (entry.getValue() instanceof ExecutionSnapshot single) {
+                converted.put(entry.getKey(), createStep(single, 1, false));
+            } else if (entry.getValue() instanceof List<?> list) {
+                List<Step> steps = new ArrayList<>();
+                for (int i = 0; i < list.size(); i++) {
+                    if (list.get(i) instanceof ExecutionSnapshot s) {
+                        steps.add(createStep(s, i + 1, false));
+                    } // if
+                } // for
+                converted.put(entry.getKey(), steps);
+            } // if
+        } // for
+        return new Trace(javaSource, converted);
+    } // createBreakpointsTrace
 
-    List<Variable> statics = new ArrayList<>();
-    for (Field f : snapshot.statics()) {
-      statics.add(
-          new Variable(
-              f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
-    }
+    /**
+     * Converts an individual {@link ExecutionSnapshot} into a {@link Step}.
+     *
+     * @param snapshot The execution snapshot.
+     * @param stepNumber The 1-based step sequence number.
+     * @param isMultiFile True if file path attributes should be serialized.
+     * @return The converted Step.
+     */
+    public Step createStep(ExecutionSnapshot snapshot, int stepNumber, boolean isMultiFile) {
+        String currentMethod =
+                snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
+        long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();
+        String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
 
-    List<StackFrame> callStack = new ArrayList<>();
-    int stackSize = snapshot.stack().size();
-    for (int i = 0; i < stackSize; i++) {
-      boolean isCurrent = (i == stackSize - 1);
-      boolean isMain = (i == 0);
-      callStack.add(serializeStackFrame(snapshot.stack().get(i), isCurrent, isMain, isMultiFile));
-    }
+        List<Variable> statics = new ArrayList<>();
+        for (Field f : snapshot.statics()) {
+            statics.add(new Variable(
+                    f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
+        } // for
 
-    Map<String, HeapObject> heap = new LinkedHashMap<>();
-    for (Entry<Long, TraceValue> e : snapshot.heap().entrySet()) {
-      long id = e.getKey();
-      TraceValue tv = e.getValue();
-      heap.put(String.valueOf(id), serializeHeapObject(id, tv));
-    }
+        List<StackFrame> callStack = new ArrayList<>();
+        int stackSize = snapshot.stack().size();
+        for (int i = 0; i < stackSize; i++) {
+            boolean isCurrent = (i == stackSize - 1);
+            boolean isMain = (i == 0);
+            callStack.add(serializeStackFrame(
+                    snapshot.stack().get(i), isCurrent, isMain, isMultiFile));
+        } // for
 
-    String stdout;
-    try {
-      stdout =
-          Charset.defaultCharset()
-              .newDecoder()
-              .decode(ByteBuffer.wrap(snapshot.stdout()))
-              .toString();
-    } catch (CharacterCodingException cce) {
-      stdout = "";
-    }
+        Map<String, HeapObject> heap = new LinkedHashMap<>();
+        for (Entry<Long, TraceValue> e : snapshot.heap().entrySet()) {
+            long id = e.getKey();
+            TraceValue tv = e.getValue();
+            heap.put(String.valueOf(id), serializeHeapObject(id, tv));
+        } // for
 
-    String stderr;
-    try {
-      stderr =
-          Charset.defaultCharset()
-              .newDecoder()
-              .decode(ByteBuffer.wrap(snapshot.stderr()))
-              .toString();
-    } catch (CharacterCodingException cce) {
-      stderr = "";
-    }
+        String stdout = decodeOutput(snapshot.stdout());
+        String stderr = decodeOutput(snapshot.stderr());
 
-    return new Step(
-        stepNumber,
-        currentLine,
-        stepFile,
-        "step_line",
-        currentMethod,
-        callStack,
-        statics,
-        heap,
-        stdout,
-        stderr);
-  }
+        return new Step(
+                stepNumber,
+                currentLine,
+                stepFile,
+                "step_line",
+                currentMethod,
+                callStack,
+                statics,
+                heap,
+                stdout,
+                stderr);
+    } // createStep
 
-  private StackFrame serializeStackFrame(
-      StackSnapshot frame, boolean isCurrent, boolean isMain, boolean isMultiFile) {
-    Reference thisRef = null;
-    if (!removeMethodThis && frame.thisObject().isPresent()) {
-      ThisObject to = frame.thisObject().get();
-      thisRef = new Reference(to.value().uniqueId());
-    }
+    /**
+     * Decodes raw stdout or stderr byte arrays into a UTF-8 string.
+     *
+     * @param bytes The raw output bytes.
+     * @return The decoded string, or empty string on decoding failure.
+     */
+    private String decodeOutput(byte[] bytes) {
+        try {
+            return Charset.defaultCharset()
+                    .newDecoder()
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException cce) {
+            return "";
+        } // try
+    } // decodeOutput
 
-    List<Variable> locals = new ArrayList<>();
-    for (Field field : frame.visibleVariables()) {
-      if (removeMainArgs && isMain && "args".equals(field.identifier())) {
-        continue;
-      }
-      locals.add(
-          new Variable(
-              field.identifier(),
-              field.typeName(),
-              serializeValue(field.value()),
-              field.isFinal()));
-    }
+    /**
+     * Serializes a single stack frame snapshot into a modern {@link StackFrame}.
+     *
+     * @param frame The stack frame snapshot.
+     * @param isCurrent True if this is the active topmost frame.
+     * @param isMain True if this is the entry-point main frame.
+     * @param isMultiFile True if relative file paths should be included.
+     * @return The serialized modern StackFrame.
+     */
+    private StackFrame serializeStackFrame(
+            StackSnapshot frame, boolean isCurrent, boolean isMain, boolean isMultiFile) {
+        Reference thisRef = null;
+        if (!removeMethodThis && frame.thisObject().isPresent()) {
+            ThisObject to = frame.thisObject().get();
+            thisRef = new Reference(to.value().uniqueId());
+        } // if
 
-    String frameFile = isMultiFile ? frame.sourcePath().orElse(null) : null;
+        List<Variable> locals = new ArrayList<>();
+        for (Field field : frame.visibleVariables()) {
+            if (removeMainArgs && isMain && "args".equals(field.identifier())) {
+                continue;
+            } // if
+            locals.add(new Variable(
+                    field.identifier(),
+                    field.typeName(),
+                    serializeValue(field.value()),
+                    field.isFinal()));
+        } // for
 
-    return new StackFrame(
-        frame.methodName(),
-        frame.methodLine(),
-        frameFile,
-        isCurrent,
-        thisRef,
-        locals);
-  }
+        String frameFile = isMultiFile ? frame.sourcePath().orElse(null) : null;
 
-  private Object serializeValue(TraceValue value) {
-    return switch (value) {
-      case null -> null;
-      case TraceValue.Primitive.Float f -> f.value();
-      case TraceValue.Primitive.Double d -> {
-        if (Double.isInfinite(d.value())) {
-          yield d.value() > 0 ? "Infinity" : "-Infinity";
-        } else if (Double.isNaN(d.value())) {
-          yield "NaN";
-        }
-        yield d.value();
-      }
-      case TraceValue.Primitive.Character c -> Character.toString(c.value());
-      case TraceValue.Primitive.Byte b -> b.value();
-      case TraceValue.Primitive.Short s -> s.value();
-      case TraceValue.Primitive.Integer i -> i.value();
-      case TraceValue.Primitive.Long l -> l.value();
-      case TraceValue.Primitive.Boolean b -> b.value();
-      case TraceValue.Reference ref -> new Reference(ref.uniqueId());
-      default -> null;
-    };
-  }
+        return new StackFrame(
+                frame.methodName(),
+                frame.methodLine(),
+                frameFile,
+                isCurrent,
+                thisRef,
+                locals);
+    } // serializeStackFrame
 
-  private HeapObject serializeHeapObject(long id, TraceValue value) {
-    return switch (value) {
-      case TraceValue.Object obj -> {
-        List<Variable> fields = new ArrayList<>();
-        for (Field f : obj.fields()) {
-          fields.add(
-              new Variable(
-                  f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
-        }
-        yield HeapObject.ofObject(id, obj.classFqn(), fields);
-      }
-      case TraceValue.String str -> HeapObject.ofString(id, str.value());
-      case TraceValue.Lambda lambda ->
-          HeapObject.ofLambda(id, "lambda", lambda.implementation());
-      case TraceValue.List list -> {
-        List<Object> elements = list.value().stream().map(this::serializeValue).toList();
-        yield HeapObject.ofArray(id, list.typeName(), elements);
-      }
-      case TraceValue.Collection col -> {
-        List<Object> elements = col.value().stream().map(this::serializeValue).toList();
-        yield HeapObject.ofArray(id, col.typeName(), elements);
-      }
-      case TraceValue.Map map -> {
-        List<Variable> entries = new ArrayList<>();
-        for (Entry<? extends TraceValue, ? extends TraceValue> entry : map.value().entrySet()) {
-          Object k = serializeValue(entry.getKey());
-          Object v = serializeValue(entry.getValue());
-          entries.add(new Variable(String.valueOf(k), "entry", v, false));
-        }
-        yield HeapObject.ofObject(id, map.typeName(), entries);
-      }
-      case TraceValue.Primitive prim ->
-          HeapObject.ofBox(id, prim.toWrapperObject().getClass().getName(), serializeValue(prim));
-      default -> HeapObject.ofObject(id, "Object", List.of());
-    };
-  }
-}
+    /**
+     * Serializes a {@link TraceValue} into its JSON-compatible representation.
+     *
+     * @param value The trace value to serialize.
+     * @return The serialized value (primitive, Reference, or null).
+     */
+    private Object serializeValue(TraceValue value) {
+        return switch (value) {
+            case null -> null;
+            case TraceValue.Primitive.Float f -> f.value();
+            case TraceValue.Primitive.Double d -> {
+                if (Double.isInfinite(d.value())) {
+                    yield d.value() > 0 ? "Infinity" : "-Infinity";
+                } // if
+                if (Double.isNaN(d.value())) {
+                    yield "NaN";
+                } // if
+                yield d.value();
+            } // case
+            case TraceValue.Primitive.Character c -> Character.toString(c.value());
+            case TraceValue.Primitive.Byte b -> b.value();
+            case TraceValue.Primitive.Short s -> s.value();
+            case TraceValue.Primitive.Integer i -> i.value();
+            case TraceValue.Primitive.Long l -> l.value();
+            case TraceValue.Primitive.Boolean b -> b.value();
+            case TraceValue.Reference ref -> new Reference(ref.uniqueId());
+            default -> null;
+        }; // switch
+    } // serializeValue
+
+    /**
+     * Serializes a heap object {@link TraceValue} into a {@link HeapObject}.
+     *
+     * @param id The unique reference ID.
+     * @param value The heap object trace value.
+     * @return The serialized modern HeapObject.
+     */
+    private HeapObject serializeHeapObject(long id, TraceValue value) {
+        return switch (value) {
+            case TraceValue.Object obj -> {
+                List<Variable> fields = new ArrayList<>();
+                for (Field f : obj.fields()) {
+                    fields.add(new Variable(
+                            f.identifier(), f.typeName(), serializeValue(f.value()), f.isFinal()));
+                } // for
+                yield HeapObject.ofObject(id, obj.classFqn(), fields);
+            } // case
+            case TraceValue.String str -> HeapObject.ofString(id, str.value());
+            case TraceValue.Lambda lambda ->
+                    HeapObject.ofLambda(id, "lambda", lambda.implementation());
+            case TraceValue.List list -> {
+                List<Object> elements = list.value().stream().map(this::serializeValue).toList();
+                yield HeapObject.ofArray(id, list.typeName(), elements);
+            } // case
+            case TraceValue.Collection col -> {
+                List<Object> elements = col.value().stream().map(this::serializeValue).toList();
+                yield HeapObject.ofArray(id, col.typeName(), elements);
+            } // case
+            case TraceValue.Map map -> {
+                List<Variable> entries = new ArrayList<>();
+                for (Entry<? extends TraceValue, ? extends TraceValue> entry
+                        : map.value().entrySet()) {
+                    Object k = serializeValue(entry.getKey());
+                    Object v = serializeValue(entry.getValue());
+                    entries.add(new Variable(String.valueOf(k), "entry", v, false));
+                } // for
+                yield HeapObject.ofObject(id, map.typeName(), entries);
+            } // case
+            case TraceValue.Primitive prim ->
+                    HeapObject.ofBox(
+                            id, prim.toWrapperObject().getClass().getName(), serializeValue(prim));
+            default -> HeapObject.ofObject(id, "Object", List.of());
+        }; // switch
+    } // serializeHeapObject
+} // ModernTraceSerializer

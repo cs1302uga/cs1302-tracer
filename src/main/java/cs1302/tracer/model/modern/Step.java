@@ -19,13 +19,14 @@ import java.util.Map;
  * @param stderr Standard error captured up to this step.
  */
 public record Step(
-    @SerializedName("step") int step,
-    @SerializedName("line") long line,
-    @SerializedName("file") String file,
-    @SerializedName("event") String event,
-    @SerializedName("method") String method,
-    @SerializedName("callStack") List<StackFrame> callStack,
-    @SerializedName("statics") List<Variable> statics,
-    @SerializedName("heap") Map<String, HeapObject> heap,
-    @SerializedName("stdout") String stdout,
-    @SerializedName("stderr") String stderr) {}
+        @SerializedName("step") int step,
+        @SerializedName("line") long line,
+        @SerializedName("file") String file,
+        @SerializedName("event") String event,
+        @SerializedName("method") String method,
+        @SerializedName("callStack") List<StackFrame> callStack,
+        @SerializedName("statics") List<Variable> statics,
+        @SerializedName("heap") Map<String, HeapObject> heap,
+        @SerializedName("stdout") String stdout,
+        @SerializedName("stderr") String stderr) {
+} // Step

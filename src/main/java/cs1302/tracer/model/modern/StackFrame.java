@@ -14,9 +14,10 @@ import java.util.List;
  * @param locals The ordered list of local variables in this frame.
  */
 public record StackFrame(
-    @SerializedName("methodName") String methodName,
-    @SerializedName("line") long line,
-    @SerializedName("file") String file,
-    @SerializedName("isHighlighted") boolean isHighlighted,
-    @SerializedName("this") Reference thisObject,
-    @SerializedName("locals") List<Variable> locals) {}
+        @SerializedName("methodName") String methodName,
+        @SerializedName("line") long line,
+        @SerializedName("file") String file,
+        @SerializedName("isHighlighted") boolean isHighlighted,
+        @SerializedName("this") Reference thisObject,
+        @SerializedName("locals") List<Variable> locals) {
+} // StackFrame
