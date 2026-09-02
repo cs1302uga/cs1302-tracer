@@ -58,6 +58,9 @@ public record PyTutorSerializer(
     private static final Gson GSON =
             new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
+    private static final Gson PRETTY_GSON =
+            new GsonBuilder().serializeNulls().disableHtmlEscaping().setPrettyPrinting().create();
+
     /**
      * Get the configured Gson instance.
      *
@@ -65,6 +68,16 @@ public record PyTutorSerializer(
      */
     public static Gson getGson() {
         return GSON;
+    } // getGson
+
+    /**
+     * Get the configured Gson instance with optional pretty-printing.
+     *
+     * @param pretty True to enable pretty-printing.
+     * @return The Gson instance.
+     */
+    public static Gson getGson(boolean pretty) {
+        return pretty ? PRETTY_GSON : GSON;
     } // getGson
 
     /**
@@ -326,8 +339,20 @@ public record PyTutorSerializer(
      * @return The serialized execution snapshot as a JSON string.
      */
     public String serialize(String javaSource, ExecutionSnapshot snapshot) {
+        return serialize(javaSource, snapshot, false);
+    } // serialize
+
+    /**
+     * Serialize an execution snapshot into the OnlinePythonTutor JSON trace string.
+     *
+     * @param javaSource The source code for the program corresponding to the execution snapshot.
+     * @param snapshot The snapshot that should be serialized.
+     * @param pretty True to enable pretty-printing.
+     * @return The serialized execution snapshot as a JSON string.
+     */
+    public String serialize(String javaSource, ExecutionSnapshot snapshot, boolean pretty) {
         PyTutorTrace trace = createTrace(javaSource, snapshot);
-        return GSON.toJson(trace);
+        return getGson(pretty).toJson(trace);
     } // serialize
 
     /**

@@ -31,7 +31,8 @@ import java.util.Set;
  */
 public class ModernTraceSerializer {
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson COMPACT_GSON = new GsonBuilder().create();
 
     private final boolean removeMainArgs;
     private final boolean inlineStrings;
@@ -75,7 +76,17 @@ public class ModernTraceSerializer {
      * @return The Gson instance.
      */
     public static Gson getGson() {
-        return GSON;
+        return PRETTY_GSON;
+    } // getGson
+
+    /**
+     * Gets the shared Gson serializer instance with optional pretty-printing.
+     *
+     * @param pretty True to enable pretty-printing.
+     * @return The Gson instance.
+     */
+    public static Gson getGson(boolean pretty) {
+        return pretty ? PRETTY_GSON : COMPACT_GSON;
     } // getGson
 
     /**

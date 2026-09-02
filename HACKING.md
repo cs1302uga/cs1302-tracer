@@ -200,7 +200,7 @@ The build enforces **100% line coverage** and **100% branch coverage** across al
 
 ### Running Example Traces
 
-The `examples/` directory contains 16 reference test cases (`example0` through `example15`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, and pointer aliasing.
+The `examples/` directory contains 23 reference test cases (`example0` through `example22`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, and standard error capture.
 
 To regenerate all example outputs:
 

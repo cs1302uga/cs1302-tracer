@@ -191,4 +191,101 @@ public class DebugTraceHelperComprehensiveTest {
       assertThat(chronologicalSnapshotsNullBps).isEmpty();
     }
   }
+
+  @Test
+  @DisplayName("should capture unbuffered stdout and stderr accurately at each step")
+  void shouldCaptureStdoutAndStderrAccuratelyAtEachStep() throws Exception {
+    String source =
+        """
+        public class StepIoTest {
+            public static void main(String[] args) {
+                System.out.print("A");
+                System.out.print("B");
+                System.err.print("E1");
+                System.out.println("C");
+                System.err.println("E2");
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validBreakpoints = DebugTraceHelper.getValidBreakpointLines(cr);
+      List<Integer> sortedBreakpoints = validBreakpoints.stream().sorted().toList();
+
+      List<ExecutionSnapshot> chronological =
+          DebugTraceHelper.traceChronological(cr, sortedBreakpoints, cu, true);
+
+      // There should be at least 6 snapshots (5 breakpoints + 1 main exit)
+      assertThat(chronological.size()).isGreaterThanOrEqualTo(6);
+
+      // Step 0: before line 3 executes (System.out.print("A"))
+      assertThat(new String(chronological.get(0).stdout())).isEmpty();
+      assertThat(new String(chronological.get(0).stderr())).isEmpty();
+
+      // Step 1: after line 3 executed, before line 4 (System.out.print("B"))
+      assertThat(new String(chronological.get(1).stdout())).isEqualTo("A");
+      assertThat(new String(chronological.get(1).stderr())).isEmpty();
+
+      // Step 2: after line 4 executed, before line 5 (System.err.print("E1"))
+      assertThat(new String(chronological.get(2).stdout())).isEqualTo("AB");
+      assertThat(new String(chronological.get(2).stderr())).isEmpty();
+
+      // Step 3: after line 5 executed, before line 6 (System.out.println("C"))
+      assertThat(new String(chronological.get(3).stdout())).isEqualTo("AB");
+      assertThat(new String(chronological.get(3).stderr())).isEqualTo("E1");
+
+      // Step 4: after line 6 executed, before line 7 (System.err.println("E2"))
+      assertThat(new String(chronological.get(4).stdout())).isEqualTo("ABC\n");
+      assertThat(new String(chronological.get(4).stderr())).isEqualTo("E1");
+
+      // Final step: main exit
+      ExecutionSnapshot finalSnapshot = chronological.get(chronological.size() - 1);
+      assertThat(new String(finalSnapshot.stdout())).isEqualTo("ABC\n");
+      assertThat(new String(finalSnapshot.stderr())).isEqualTo("E1E2\n");
+    }
+  }
+
+  @Test
+  @DisplayName("should capture large output bursts in loops without truncation or race conditions")
+  void shouldCaptureLargeOutputBurstsAndLoopsAccurately() throws Exception {
+    String source =
+        """
+        public class LoopIoTest {
+            public static void main(String[] args) {
+                for (int i = 0; i < 20; i++) {
+                    System.out.print("item" + i + " ");
+                }
+                System.out.println("done");
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validBreakpoints = DebugTraceHelper.getValidBreakpointLines(cr);
+      List<ExecutionSnapshot> chronological =
+          DebugTraceHelper.traceChronological(cr, validBreakpoints, cu, true);
+
+      assertThat(chronological).isNotEmpty();
+      ExecutionSnapshot finalSnapshot = chronological.get(chronological.size() - 1);
+      String out = new String(finalSnapshot.stdout());
+      for (int i = 0; i < 20; i++) {
+        assertThat(out).contains("item" + i + " ");
+      }
+      assertThat(out).contains("done\n");
+    }
+  }
 }

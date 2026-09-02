@@ -789,4 +789,68 @@ public class AppTest {
     assertThat(output).contains("\"type\": \"String\"");
     assertThat(output).doesNotContain("\"type\": \"java.lang.String\"");
   }
+
+  @Test
+  @DisplayName("should format trace output as pretty JSON when --pretty or -p is specified")
+  void shouldTraceWithPrettyPrinting() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            int x = 42;
+          }
+        }
+        """;
+
+    String defaultOutput = executeCommand(App.Trace::new, testProgram).get();
+    assertThat(defaultOutput.trim().lines().count()).isEqualTo(1);
+
+    String prettyOutput = executeCommand(App.Trace::new, testProgram, "--pretty").get();
+    assertThat(prettyOutput.trim().lines().count()).isGreaterThan(1);
+    assertThat(prettyOutput).contains("\n  ");
+
+    String shortFlagOutput = executeCommand(App.Trace::new, testProgram, "-p").get();
+    assertThat(shortFlagOutput.trim().lines().count()).isGreaterThan(1);
+  }
+
+  @Test
+  @DisplayName("should format modern trace output as pretty JSON when --pretty is specified")
+  void shouldTraceModernWithPrettyPrinting() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            int x = 42;
+          }
+        }
+        """;
+
+    String prettyOutput =
+        executeCommand(App.Trace::new, testProgram, "-f=modern", "--pretty").get();
+    assertThat(prettyOutput.trim().lines().count()).isGreaterThan(1);
+    assertThat(prettyOutput).contains("\n  ");
+    assertThat(prettyOutput).contains("\"format\": \"modern\"");
+  }
+
+  @Test
+  @DisplayName("should format list-breakpoints JSON output as pretty JSON when --pretty is specified")
+  void shouldListBreakpointsWithPrettyPrinting() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            int x = 42;
+          }
+        }
+        """;
+
+    String compactOutput =
+        executeCommand(App.ListBreakpoints::new, testProgram, "--json").get();
+    assertThat(compactOutput.trim().lines().count()).isEqualTo(1);
+
+    String prettyOutput =
+        executeCommand(App.ListBreakpoints::new, testProgram, "-j", "-p").get();
+    assertThat(prettyOutput.trim().lines().count()).isGreaterThan(1);
+    assertThat(prettyOutput).contains("\n  ");
+  }
 }

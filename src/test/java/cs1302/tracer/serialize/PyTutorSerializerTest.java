@@ -25,9 +25,24 @@ import org.junit.jupiter.api.Test;
 public class PyTutorSerializerTest {
 
   @Test
-  @DisplayName("should provide access to Gson instance")
+  @DisplayName("should provide access to Gson instance and support pretty printing")
   void shouldProvideGsonInstance() {
     assertThat(PyTutorSerializer.getGson()).isNotNull();
+    assertThat(PyTutorSerializer.getGson(false)).isNotNull();
+    assertThat(PyTutorSerializer.getGson(true)).isNotNull();
+
+    Map<String, String> sample = Map.of("key", "value");
+    String compact = PyTutorSerializer.getGson(false).toJson(sample);
+    String pretty = PyTutorSerializer.getGson(true).toJson(sample);
+
+    assertThat(compact).doesNotContain("\n");
+    assertThat(pretty).contains("\n");
+
+    ExecutionSnapshot snapshot =
+        new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
+    PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
+    assertThat(serializer.serialize("class A {}", snapshot, false)).doesNotContain("\n");
+    assertThat(serializer.serialize("class A {}", snapshot, true)).contains("\n");
   }
 
   @Test

@@ -110,6 +110,11 @@ public class App {
                 description = "Input path to Java source file (defaults to stdin if omitted).")
         File input = null;
 
+        @Option(
+                names = {"--pretty", "-p"},
+                description = "Pretty-print JSON output.")
+        boolean pretty = false;
+
         Consumer<Integer> exitHandler = System::exit;
 
         /**
@@ -385,10 +390,10 @@ public class App {
                 List<ExecutionSnapshot> chronological =
                         DebugTraceHelper.traceChronological(compResult, targetLines, allCus, true);
                 PyTutorTrace trace = serializer.createTrace(source, chronological);
-                System.out.println(PyTutorSerializer.getGson().toJson(trace));
+                System.out.println(PyTutorSerializer.getGson(pretty).toJson(trace));
             } else if (breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus);
-                String pyTutorSnapshot = serializer.serialize(source, snapshot);
+                String pyTutorSnapshot = serializer.serialize(source, snapshot, pretty);
                 System.out.println(pyTutorSnapshot);
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots =
@@ -396,18 +401,18 @@ public class App {
                 if (accumulateBreakpoints) {
                     Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
                             snapshots.entrySet().stream()
-                                    .collect(Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            e -> e.getValue().stream()
-                                                    .map(s -> serializer.createTrace(source, s))
-                                                    .toList()));
-                    System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
+                                     .collect(Collectors.toMap(
+                                             Map.Entry::getKey,
+                                             e -> e.getValue().stream()
+                                                     .map(s -> serializer.createTrace(source, s))
+                                                     .toList()));
+                    System.out.println(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
                     Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
                             .collect(Collectors.toMap(
                                     Map.Entry::getKey,
                                     e -> serializer.createTrace(source, e.getValue().getLast())));
-                    System.out.println(PyTutorSerializer.getGson().toJson(pyTutorSnapshots));
+                    System.out.println(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } // if
             } // if
         } // runPyTutorTrace
@@ -480,7 +485,7 @@ public class App {
                         output.add(new BreakpointEntry(lineNum, valid, fileLines[i], normPath));
                     } // for
                 } // for
-                System.out.println(PyTutorSerializer.getGson().toJson(output));
+                System.out.println(PyTutorSerializer.getGson(pretty).toJson(output));
             } else {
                 StringBuilder sb = new StringBuilder();
                 for (int f = 0; f < sourceFiles.size(); f++) {
@@ -550,7 +555,7 @@ public class App {
                     boolean valid = availableBreakpoints.contains(lineNumber);
                     output.add(new BreakpointEntry(lineNumber, valid, sourceLines[i]));
                 } // for
-                System.out.println(PyTutorSerializer.getGson().toJson(output));
+                System.out.println(PyTutorSerializer.getGson(pretty).toJson(output));
             } else {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < sourceLines.length; i++) {

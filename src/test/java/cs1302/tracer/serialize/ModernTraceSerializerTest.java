@@ -28,6 +28,16 @@ public class ModernTraceSerializerTest {
   @DisplayName("should provide Gson instance and enum toString")
   void testGsonAndEnum() {
     assertThat(ModernTraceSerializer.getGson()).isNotNull();
+    assertThat(ModernTraceSerializer.getGson(false)).isNotNull();
+    assertThat(ModernTraceSerializer.getGson(true)).isNotNull();
+
+    Map<String, String> sample = Map.of("key", "value");
+    String compact = ModernTraceSerializer.getGson(false).toJson(sample);
+    String pretty = ModernTraceSerializer.getGson(true).toJson(sample);
+
+    assertThat(compact).doesNotContain("\n");
+    assertThat(pretty).contains("\n");
+
     assertThat(TraceFormat.PYTUTOR.toString()).isEqualTo("pytutor");
     assertThat(TraceFormat.MODERN.toString()).isEqualTo("modern");
   }

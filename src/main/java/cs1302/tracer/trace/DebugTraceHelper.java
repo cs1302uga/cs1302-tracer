@@ -145,12 +145,10 @@ public class DebugTraceHelper {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
-        try {
-            ByteArrayOutputStream vmErrSink = new ByteArrayOutputStream();
-            drainStream(vm.process().getErrorStream(), vmErrSink);
-
-            ByteArrayOutputStream vmOutSink = new ByteArrayOutputStream();
-            drainStream(vm.process().getInputStream(), vmOutSink);
+        try (StreamDrainer vmErrDrainer =
+                        new StreamDrainer(vm.process().getErrorStream());
+                StreamDrainer vmOutDrainer =
+                        new StreamDrainer(vm.process().getInputStream())) {
 
             if (snapMainEnd) {
                 MethodExitRequest methodExitRequest =
@@ -167,8 +165,8 @@ public class DebugTraceHelper {
                     parsedSources,
                     snapshots,
                     loadedClasses,
-                    vmOutSink,
-                    vmErrSink,
+                    vmOutDrainer,
+                    vmErrDrainer,
                     snapMainEnd);
 
             return snapshots;
@@ -186,8 +184,8 @@ public class DebugTraceHelper {
      * @param parsedSources List of compilation units.
      * @param snapshots Target map to accumulate snapshots.
      * @param loadedClasses Set of loaded reference types.
-     * @param vmOut Output stream for stdout.
-     * @param vmErr Output stream for stderr.
+     * @param vmOut Drainer for stdout.
+     * @param vmErr Drainer for stderr.
      * @param snapMainEnd True if main exit should be captured.
      * @throws InterruptedException On interrupt.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -201,8 +199,8 @@ public class DebugTraceHelper {
             List<CompilationUnit> parsedSources,
             Map<Integer, List<ExecutionSnapshot>> snapshots,
             HashSet<ReferenceType> loadedClasses,
-            ByteArrayOutputStream vmOut,
-            ByteArrayOutputStream vmErr,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
             boolean snapMainEnd)
             throws InterruptedException,
             IncompatibleThreadStateException,
@@ -287,28 +285,58 @@ public class DebugTraceHelper {
     } // isMainMethodExit
 
     /**
-     * Drains an input stream into a byte array output stream asynchronously.
+     * Flushes standard output and standard error in the target VM via JDI method invocation.
      *
-     * @param source The input stream to read.
-     * @param sink The byte array output stream to write to.
+     * @param vm The JDI VirtualMachine.
+     * @param thread The suspended thread on which to invoke flush.
      */
-    private static void drainStream(InputStream source, ByteArrayOutputStream sink) {
-        Thread.ofVirtual().start(() -> {
-            while (true) {
-                try {
-                    int data = source.read();
-                    if (data == -1) {
-                        break;
-                    } // if
-                    synchronized (sink) {
-                        sink.write(data);
-                    }
-                } catch (IOException ioe) {
-                    break;
-                } // try
-            } // while
-        });
-    } // drainStream
+    private static void flushTargetStreams(VirtualMachine vm, ThreadReference thread) {
+        if (vm == null || thread == null || !thread.isSuspended()) {
+            return;
+        } // if
+        try {
+            List<ReferenceType> systemClasses = vm.classesByName("java.lang.System");
+            if (systemClasses.isEmpty()) {
+                return;
+            } // if
+            ReferenceType systemClass = systemClasses.get(0);
+            flushPrintStreamField(systemClass, "out", thread);
+            flushPrintStreamField(systemClass, "err", thread);
+        } catch (Exception e) {
+            // Graceful degradation: do not interrupt tracing if flush invocation fails
+        } // try
+    } // flushTargetStreams
+
+    /**
+     * Flushes a specific PrintStream static field on java.lang.System.
+     *
+     * @param systemClass The java.lang.System reference type.
+     * @param fieldName The name of the field ("out" or "err").
+     * @param thread The suspended thread on which to invoke flush.
+     */
+    private static void flushPrintStreamField(
+            ReferenceType systemClass, String fieldName, ThreadReference thread) {
+        try {
+            Field field = systemClass.fieldByName(fieldName);
+            if (field == null) {
+                return;
+            } // if
+            Value val = systemClass.getValue(field);
+            if (val instanceof ObjectReference printStreamRef) {
+                ReferenceType psType = printStreamRef.referenceType();
+                List<Method> flushMethods = psType.methodsByName("flush", "()V");
+                if (!flushMethods.isEmpty()) {
+                    printStreamRef.invokeMethod(
+                            thread,
+                            flushMethods.get(0),
+                            Collections.emptyList(),
+                            ObjectReference.INVOKE_SINGLE_THREADED);
+                } // if
+            } // if
+        } catch (Exception e) {
+            // Graceful degradation: do not interrupt tracing if flush invocation fails
+        } // try
+    } // flushPrintStreamField
 
     /**
      * Cleans up and disposes the JDI VirtualMachine safely.
@@ -444,12 +472,10 @@ public class DebugTraceHelper {
         VirtualMachine vm = startVmWithCprs(compilationResult);
         List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
 
-        try {
-            ByteArrayOutputStream vmErrSink = new ByteArrayOutputStream();
-            drainStream(vm.process().getErrorStream(), vmErrSink);
-
-            ByteArrayOutputStream vmOutSink = new ByteArrayOutputStream();
-            drainStream(vm.process().getInputStream(), vmOutSink);
+        try (StreamDrainer vmErrDrainer =
+                        new StreamDrainer(vm.process().getErrorStream());
+                StreamDrainer vmOutDrainer =
+                        new StreamDrainer(vm.process().getInputStream())) {
 
             if (includeMainExit) {
                 MethodExitRequest methodExitRequest =
@@ -466,8 +492,8 @@ public class DebugTraceHelper {
                     parsedSources,
                     chronologicalSnapshots,
                     loadedClasses,
-                    vmOutSink,
-                    vmErrSink,
+                    vmOutDrainer,
+                    vmErrDrainer,
                     includeMainExit);
 
             return chronologicalSnapshots;
@@ -485,8 +511,8 @@ public class DebugTraceHelper {
      * @param parsedSources Compilation units.
      * @param chronologicalSnapshots List to accumulate snapshots.
      * @param loadedClasses Set of loaded classes.
-     * @param vmOut Stdout sink.
-     * @param vmErr Stderr sink.
+     * @param vmOut Drainer for stdout.
+     * @param vmErr Drainer for stderr.
      * @param includeMainExit True to include main exit.
      * @throws InterruptedException On interrupt.
      * @throws IncompatibleThreadStateException On thread error.
@@ -500,8 +526,8 @@ public class DebugTraceHelper {
             List<CompilationUnit> parsedSources,
             List<ExecutionSnapshot> chronologicalSnapshots,
             HashSet<ReferenceType> loadedClasses,
-            ByteArrayOutputStream vmOut,
-            ByteArrayOutputStream vmErr,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
             boolean includeMainExit)
             throws InterruptedException,
             IncompatibleThreadStateException,
@@ -750,8 +776,8 @@ public class DebugTraceHelper {
      *
      * @param mainThread A suspended thread.
      * @param loadedClasses The loaded classes.
-     * @param vmOut Output stream for stdout.
-     * @param vmErr Output stream for stderr.
+     * @param vmOut Drainer for stdout.
+     * @param vmErr Drainer for stderr.
      * @param parsedSources Parsed source codes.
      * @return An execution snapshot.
      * @throws IncompatibleThreadStateException If thread state is incompatible.
@@ -761,12 +787,16 @@ public class DebugTraceHelper {
     private static ExecutionSnapshot snapshotTheWorld(
             ThreadReference mainThread,
             Iterable<ReferenceType> loadedClasses,
-            ByteArrayOutputStream vmOut,
-            ByteArrayOutputStream vmErr,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
             List<CompilationUnit> parsedSources)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+
+        flushTargetStreams(mainThread.virtualMachine(), mainThread);
+        vmOut.sync();
+        vmErr.sync();
 
         List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
         Map<Long, TraceValue> heap = new HashMap<>();
@@ -794,14 +824,8 @@ public class DebugTraceHelper {
 
         drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
 
-        byte[] vmOutBytes;
-        synchronized (vmOut) {
-            vmOutBytes = vmOut.toByteArray();
-        }
-        byte[] vmErrBytes;
-        synchronized (vmErr) {
-            vmErrBytes = vmErr.toByteArray();
-        }
+        byte[] vmOutBytes = vmOut.getBytes();
+        byte[] vmErrBytes = vmErr.getBytes();
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
 

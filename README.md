@@ -261,7 +261,7 @@ java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Mai
 #### `trace` Options
 
 ```text
-Usage: code-tracer trace [-ahsvV] [--accumulate-breakpoints] [--remove-main-args]
+Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-args]
                          [--remove-method-this] [-f=<format>] [-i=<input>]
                          [-b=<breakpoints>]...
 ```
@@ -270,6 +270,7 @@ Usage: code-tracer trace [-ahsvV] [--accumulate-breakpoints] [--remove-main-args
 | :--- | :--- | :--- |
 | `--input=<file>` | `-i` | Input path to Java source file (defaults to `stdin`). |
 | `--format=<format>` | `-f` | Output format: `pytutor` (default) or `modern`. |
+| `--pretty` | `-p` | Pretty-print JSON output with indentation. |
 | `--all-breakpoints` | `-a` | Record all encountered breakpoints in chronological order. |
 | `--breakpoints=<lines>` | `-b` | Line numbers at which to capture snapshots. |
 | `--accumulate-breakpoints` | | Output an array of snapshots for each breakpoint hit instead of only the last. |
