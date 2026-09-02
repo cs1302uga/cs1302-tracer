@@ -42,10 +42,12 @@ import com.sun.jdi.connect.VMStartException;
 import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.event.Event;
+import com.sun.jdi.event.ExceptionEvent;
 import com.sun.jdi.event.MethodExitEvent;
 import com.sun.jdi.event.VMDeathEvent;
 import com.sun.jdi.event.VMDisconnectEvent;
 import com.sun.jdi.request.ClassPrepareRequest;
+import com.sun.jdi.request.ExceptionRequest;
 import com.sun.jdi.request.MethodExitRequest;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
@@ -64,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -157,6 +160,10 @@ public class DebugTraceHelper {
                 methodExitRequest.enable();
             } // if
 
+            ExceptionRequest exceptionRequest =
+                    vm.eventRequestManager().createExceptionRequest(null, false, true);
+            exceptionRequest.enable();
+
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
             processBreakpointsEventLoop(
                     vm,
@@ -168,6 +175,15 @@ public class DebugTraceHelper {
                     vmOutDrainer,
                     vmErrDrainer,
                     snapMainEnd);
+
+            try {
+                vm.process().waitFor(200, TimeUnit.MILLISECONDS);
+            } catch (Exception ignored) {
+                // ignore wait error
+            } // try
+            vmErrDrainer.sync();
+            vmOutDrainer.sync();
+            syncTrailingStreamOutput(snapshots, vmOutDrainer, vmErrDrainer);
 
             return snapshots;
         } finally {
@@ -233,10 +249,27 @@ public class DebugTraceHelper {
                     if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 mee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
-                        snapshots.put(-1, List.of(snapshot));
+                        snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
+                    } // if
+                } // case
+                case ExceptionEvent ee -> {
+                    Location loc = ee.location();
+                    if (loc != null && compilationResult.compiledClassNames().contains(
+                            loc.declaringType().name())) {
+                        Integer line = loc.lineNumber();
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                ee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                        snapshots.computeIfAbsent(
+                                line, ArrayList<ExecutionSnapshot>::new).add(snapshot);
+                        if (!snapshots.containsKey(-1)) {
+                            snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
+                        } // if
                     } // if
                 } // case
                 case VMDeathEvent vde -> {
+                    endEventLoop = true;
+                } // case
+                case VMDisconnectEvent vde -> {
                     endEventLoop = true;
                 } // case
                 default -> {
@@ -355,6 +388,90 @@ public class DebugTraceHelper {
             // ignore cleanup error
         } // try
     } // cleanupVm
+
+    /**
+     * Checks whether two execution snapshots have the same top-level call frame.
+     *
+     * @param s1 First snapshot.
+     * @param s2 Second snapshot.
+     * @return True if both have the same method and line number on top.
+     */
+    private static boolean isSameTopFrame(ExecutionSnapshot s1, ExecutionSnapshot s2) {
+        if (s1.stack().isEmpty() || s2.stack().isEmpty()) {
+            return false;
+        } // if
+        ExecutionSnapshot.StackSnapshot f1 = s1.stack().getLast();
+        ExecutionSnapshot.StackSnapshot f2 = s2.stack().getLast();
+        return f1.methodName().equals(f2.methodName()) && f1.methodLine() == f2.methodLine();
+    } // isSameTopFrame
+
+    /**
+     * Synchronizes any trailing standard output or standard error bytes to the final snapshot.
+     *
+     * @param chronologicalSnapshots List of snapshots.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     */
+    private static void syncTrailingStreamOutput(
+            List<ExecutionSnapshot> chronologicalSnapshots,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr) {
+        if (!chronologicalSnapshots.isEmpty()) {
+            byte[] finalErr = vmErr.getBytes();
+            byte[] finalOut = vmOut.getBytes();
+            ExecutionSnapshot last = chronologicalSnapshots.getLast();
+            if (finalErr.length > last.stderr().length || finalOut.length > last.stdout().length) {
+                chronologicalSnapshots.set(
+                        chronologicalSnapshots.size() - 1,
+                        new ExecutionSnapshot(
+                                last.stack(),
+                                last.statics(),
+                                last.heap(),
+                                finalOut,
+                                finalErr,
+                                last.sourcePath()));
+            } // if
+        } // if
+    } // syncTrailingStreamOutput
+
+    /**
+     * Synchronizes any trailing standard output or standard error bytes to the final snapshot.
+     *
+     * @param snapshots Map of line numbers to snapshots.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     */
+    private static void syncTrailingStreamOutput(
+            Map<Integer, List<ExecutionSnapshot>> snapshots,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr) {
+        byte[] finalErr = vmErr.getBytes();
+        byte[] finalOut = vmOut.getBytes();
+        for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
+            List<ExecutionSnapshot> list = entry.getValue();
+            if (list != null && !list.isEmpty()) {
+                ExecutionSnapshot last = list.getLast();
+                if (finalErr.length > last.stderr().length
+                        || finalOut.length > last.stdout().length) {
+                    List<ExecutionSnapshot> mutableList = (list instanceof ArrayList)
+                            ? list
+                            : new ArrayList<>(list);
+                    mutableList.set(
+                            mutableList.size() - 1,
+                            new ExecutionSnapshot(
+                                    last.stack(),
+                                    last.statics(),
+                                    last.heap(),
+                                    finalOut,
+                                    finalErr,
+                                    last.sourcePath()));
+                    if (mutableList != list) {
+                        entry.setValue(mutableList);
+                    } // if
+                } // if
+            } // if
+        } // for
+    } // syncTrailingStreamOutput
 
     /**
      * Take a snapshot of a program's execution state just before the main method returns.
@@ -484,6 +601,10 @@ public class DebugTraceHelper {
                 methodExitRequest.enable();
             } // if
 
+            ExceptionRequest exceptionRequest =
+                    vm.eventRequestManager().createExceptionRequest(null, false, true);
+            exceptionRequest.enable();
+
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
             processChronologicalEventLoop(
                     vm,
@@ -495,6 +616,15 @@ public class DebugTraceHelper {
                     vmOutDrainer,
                     vmErrDrainer,
                     includeMainExit);
+
+            try {
+                vm.process().waitFor(200, TimeUnit.MILLISECONDS);
+            } catch (Exception ignored) {
+                // ignore wait error
+            } // try
+            vmErrDrainer.sync();
+            vmOutDrainer.sync();
+            syncTrailingStreamOutput(chronologicalSnapshots, vmOutDrainer, vmErrDrainer);
 
             return chronologicalSnapshots;
         } finally {
@@ -559,6 +689,18 @@ public class DebugTraceHelper {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 mee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
                         chronologicalSnapshots.add(snapshot);
+                    } // if
+                } // case
+                case ExceptionEvent ee -> {
+                    Location loc = ee.location();
+                    if (loc != null && compilationResult.compiledClassNames().contains(
+                            loc.declaringType().name())) {
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                ee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                        if (chronologicalSnapshots.isEmpty()
+                                || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
+                            chronologicalSnapshots.add(snapshot);
+                        } // if
                     } // if
                 } // case
                 case VMDeathEvent vde -> {

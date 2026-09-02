@@ -288,4 +288,74 @@ public class DebugTraceHelperComprehensiveTest {
       assertThat(out).contains("done\n");
     }
   }
+
+  @Test
+  @DisplayName("should capture uncaught exception standard error in chronological trace")
+  void shouldCaptureUncaughtExceptionStderrChronological() throws Exception {
+    String source =
+        """
+        public class CrashTest {
+            public static void main(String[] args) {
+                System.out.println("Beginning execution");
+                int val = divide(10, 0);
+                System.out.println("Unreachable: " + val);
+            }
+            public static int divide(int a, int b) {
+                return a / b;
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validBreakpoints = DebugTraceHelper.getValidBreakpointLines(cr);
+      List<ExecutionSnapshot> chronological =
+          DebugTraceHelper.traceChronological(cr, validBreakpoints, cu, true);
+
+      assertThat(chronological).isNotEmpty();
+      ExecutionSnapshot finalSnapshot = chronological.get(chronological.size() - 1);
+      String err = new String(finalSnapshot.stderr());
+      assertThat(err).contains("java.lang.ArithmeticException: / by zero");
+      assertThat(err).contains("CrashTest.divide");
+      assertThat(err).contains("CrashTest.main");
+
+      String out = new String(finalSnapshot.stdout());
+      assertThat(out).contains("Beginning execution\n");
+      assertThat(out).doesNotContain("Unreachable");
+    }
+  }
+
+  @Test
+  @DisplayName("should capture uncaught exception standard error in single snapshot trace")
+  void shouldCaptureUncaughtExceptionStderrSingleSnapshot() throws Exception {
+    String source =
+        """
+        public class CrashSingleTest {
+            public static void main(String[] args) {
+                int val = 10 / 0;
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      ExecutionSnapshot snapshot = DebugTraceHelper.trace(cr, cu);
+      assertThat(snapshot).isNotNull();
+      String err = new String(snapshot.stderr());
+      assertThat(err).contains("java.lang.ArithmeticException: / by zero");
+      assertThat(err).contains("CrashSingleTest.main");
+    }
+  }
 }
