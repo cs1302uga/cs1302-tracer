@@ -29,6 +29,18 @@ import java.util.regex.Pattern;
 /**
  * Extracts and indexes static type information from JavaParser ASTs to support generic type
  * reification during runtime tracing.
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.5 (Parameterized Types).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.6 (Type Erasure).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;8.1.2
+ *       (Generic Classes and Type Parameters).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;15.9
+ *       (Class Instance Creation Expressions).
+ *   <li>The Java Virtual Machine Specification (Java SE 21 Edition), &sect;4.7.9
+ *       (The Signature Attribute).
+ * </ul>
  */
 public class AstTypeResolver {
 

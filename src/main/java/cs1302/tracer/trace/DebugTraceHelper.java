@@ -70,8 +70,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-/** A collection of methods that are used to generate a debug trace. */
+/**
+ * A collection of methods that are used to generate a debug trace.
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>The Java Debug Interface (JDI) Specification (Java SE 21 Edition, {@code com.sun.jdi}).
+ *   <li>Java Platform Debugger Architecture (JPDA) Connection and Invocation Architecture.
+ *   <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013).
+ * </ul>
+ */
 public class DebugTraceHelper {
+
+    /**
+     * Private constructor to prevent direct instantiation of utility class.
+     */
+    private DebugTraceHelper() {} // DebugTraceHelper
 
     /** A simple JavaParser object so we don't have to make a new one every time. */
     private static final JavaParser SIMPLE_JAVA_PARSER =

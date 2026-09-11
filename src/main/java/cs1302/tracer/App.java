@@ -39,13 +39,35 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
 import picocli.CommandLine.Option;
 
-/** Entry point for the tracer program. */
+/**
+ * Entry point for the tracer program.
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;12.1.4
+ *       (Invoke {@code void main(String[])}).
+ *   <li>Picocli Specification 4.7 (Command-line parsing and option binding).
+ * </ul>
+ *
+ * <p>Informative References:
+ * <ul>
+ *   <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013).
+ * </ul>
+ */
 @Command(
         name = "code-tracer",
         description = "Trace Java program execution and inspect memory states.",
         mixinStandardHelpOptions = true,
         versionProvider = App.PropertiesVersionProvider.class)
 public class App {
+
+    /**
+     * Constructs a new {@code App} command-line application instance.
+     *
+     * <p>Normative Reference: The Picocli command-line parsing specification requires a public
+     * zero-argument constructor for command dispatch and instantiation.
+     */
+    public App() {} // App
 
     /** Provides version string resolved from Maven resource filtering at build time. */
     public static class PropertiesVersionProvider implements CommandLine.IVersionProvider {

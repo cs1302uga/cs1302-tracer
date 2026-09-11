@@ -29,6 +29,18 @@ import java.util.Optional;
 
 /**
  * A Java value (primitive, null, reference, or object).
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.1
+ *       (The Kinds of Types and Values).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.2
+ *       (Primitive Types and Values).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.3
+ *       (Reference Types and Values).
+ *   <li>The Java Debug Interface (JDI) Specification (Java SE 21 Edition,
+ *       {@code com.sun.jdi.Value}).
+ * </ul>
  */
 public sealed interface TraceValue {
 

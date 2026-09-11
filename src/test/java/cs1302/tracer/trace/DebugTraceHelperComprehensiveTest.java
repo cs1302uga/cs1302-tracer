@@ -20,8 +20,11 @@ public class DebugTraceHelperComprehensiveTest {
 
   @Test
   @DisplayName("LicenseHelper constructor coverage")
-  void testLicenseHelperConstructor() {
-    LicenseHelper helper = new LicenseHelper();
+  void testLicenseHelperConstructor() throws Exception {
+    java.lang.reflect.Constructor<LicenseHelper> constructor =
+        LicenseHelper.class.getDeclaredConstructor();
+    constructor.setAccessible(true);
+    LicenseHelper helper = constructor.newInstance();
     assertThat(helper).isNotNull();
   }
 

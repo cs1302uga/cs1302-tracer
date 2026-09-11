@@ -39,8 +39,22 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
-/** A collection of methods that are used to compile a Java program. */
+/**
+ * A collection of methods that are used to compile a Java program.
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>JSR-199: The Java Compiler API (package {@code javax.tools}).
+ *   <li>The Java Language Specification (Java SE 21 Edition), &sect;7
+ *       (Packages and Compilation Units).
+ * </ul>
+ */
 public class CompilationHelper {
+
+    /**
+     * Private constructor to prevent direct instantiation of utility class.
+     */
+    private CompilationHelper() {} // CompilationHelper
 
     /** Regular expression pattern for matching file delimiters in multi-file source streams. */
     public static final Pattern DELIMITER_PATTERN =

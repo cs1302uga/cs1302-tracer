@@ -5,8 +5,20 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * A helper class that contains license text and dynamically loads third-party notices.
+ *
+ * <p>Normative References:
+ * <ul>
+ *   <li>The SPDX License List and Specification (Version 3.0, ISO/IEC 5962:2021).
+ *   <li>The Apache License, Version 2.0.
+ *   <li>The MIT License specification.
+ * </ul>
  */
 public class LicenseHelper {
+
+    /**
+     * Private constructor to prevent direct instantiation of utility class.
+     */
+    private LicenseHelper() {} // LicenseHelper
 
     static final String APACHE_2_0 =
             """

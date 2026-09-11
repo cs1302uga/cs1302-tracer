@@ -187,9 +187,6 @@ public class AppTest {
   @Test
   @DisplayName("show-licenses subcommand should execute cleanly")
   void shouldExecuteShowLicenses() {
-    LicenseHelper helper = new LicenseHelper();
-    assertThat(helper).isNotNull();
-
     PrintStream originalOut = System.out;
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
