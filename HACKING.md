@@ -200,7 +200,7 @@ The build enforces **100% line coverage** and **100% branch coverage** across al
 
 ### Running Example Traces
 
-The `examples/` directory contains 28 reference test cases (`example0` through `example27`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, and multi-level class inheritance with dynamic dispatch.
+The `examples/` directory contains 29 reference test cases (`example0` through `example28`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, multi-level class inheritance with dynamic dispatch, and empty string and zero-length array instances.
 
 To regenerate all example outputs:
 
