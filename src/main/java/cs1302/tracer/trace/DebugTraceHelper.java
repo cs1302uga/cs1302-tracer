@@ -378,9 +378,12 @@ public class DebugTraceHelper {
      */
     private static void cleanupVm(VirtualMachine vm) {
         try {
-            vm.exit(0);
-        } catch (VMDisconnectedException | IllegalStateException ignored) {
-            // ignore cleanup error
+            Process process = vm.process();
+            if (process != null) {
+                process.destroyForcibly();
+            } // if
+        } catch (Exception ignored) {
+            // ignore process error
         } // try
         try {
             vm.dispose();
@@ -766,7 +769,9 @@ public class DebugTraceHelper {
                         // do nothing
                     } // default
                     } // switch
-                    vm.resume();
+                    if (!compiledClasses.isEmpty()) {
+                        vm.resume();
+                    } // if
                 } // for
             } // while
 
