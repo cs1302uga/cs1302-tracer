@@ -39,20 +39,39 @@ public class AstTypeResolver {
      * @param typeParameters List of generic type parameter names.
      * @param fieldTypes Map of field names to declared type strings.
      * @param fieldIsFinal Map of field names to final modifiers.
-     */
-    /**
-     * Metadata for a class's generic type parameters, fields, and constructors.
-     *
-     * @param classFqn Fully qualified class name.
-     * @param typeParameters List of generic type parameter names.
-     * @param fieldTypes Map of field names to declared type strings.
-     * @param fieldIsFinal Map of field names to final modifiers.
+     * @param implementedTypes List of implemented interface type strings.
+     * @param extendedType Optional extended superclass type string.
      */
     public record ClassGenericInfo(
             String classFqn,
             List<String> typeParameters,
             Map<String, String> fieldTypes,
-            Map<String, Boolean> fieldIsFinal) {} // ClassGenericInfo
+            Map<String, Boolean> fieldIsFinal,
+            List<String> implementedTypes,
+            Optional<String> extendedType) {
+
+        /**
+         * Backward-compatible 4-argument constructor.
+         *
+         * @param classFqn Fully qualified class name.
+         * @param typeParameters List of generic type parameter names.
+         * @param fieldTypes Map of field names to declared type strings.
+         * @param fieldIsFinal Map of field names to final modifiers.
+         */
+        public ClassGenericInfo(
+                String classFqn,
+                List<String> typeParameters,
+                Map<String, String> fieldTypes,
+                Map<String, Boolean> fieldIsFinal) {
+            this(
+                    classFqn,
+                    typeParameters,
+                    fieldTypes,
+                    fieldIsFinal,
+                    Collections.emptyList(),
+                    Optional.empty());
+        } // ClassGenericInfo
+    } // ClassGenericInfo
 
     /**
      * Metadata for a variable or parameter within a method or constructor.
@@ -116,8 +135,18 @@ public class AstTypeResolver {
                 typeDecl.getFullyQualifiedName().orElseGet(typeDecl::getNameAsString);
 
         List<String> typeParams = new ArrayList<>();
+        List<String> implementedTypes = new ArrayList<>();
+        Optional<String> extendedType = Optional.empty();
+
         if (typeDecl instanceof ClassOrInterfaceDeclaration cid) {
             cid.getTypeParameters().forEach(tp -> typeParams.add(tp.getNameAsString()));
+            for (ClassOrInterfaceType it : cid.getImplementedTypes()) {
+                implementedTypes.add(resolveAstTypeWithParams(it, typeParams));
+            } // for
+            if (!cid.getExtendedTypes().isEmpty()) {
+                extendedType = Optional.of(
+                        resolveAstTypeWithParams(cid.getExtendedTypes().get(0), typeParams));
+            } // if
         } // if
 
         Map<String, String> fieldTypes = new HashMap<>();
@@ -134,7 +163,13 @@ public class AstTypeResolver {
 
         classInfoMap.put(
                 classFqn,
-                new ClassGenericInfo(classFqn, typeParams, fieldTypes, fieldIsFinal));
+                new ClassGenericInfo(
+                        classFqn,
+                        typeParams,
+                        fieldTypes,
+                        fieldIsFinal,
+                        implementedTypes,
+                        extendedType));
 
         indexConstructors(classFqn, typeParams, typeDecl);
         indexMethods(classFqn, typeParams, typeDecl);
@@ -343,53 +378,290 @@ public class AstTypeResolver {
     } // resolveAstType
 
     /**
+     * Extracts the raw type name by stripping any generic type arguments.
+     *
+     * @param typeString The type string.
+     * @return Raw type name without angle brackets.
+     */
+    public static String extractRawTypeName(String typeString) {
+        if (typeString == null) {
+            return "";
+        } // if
+        int idx = typeString.indexOf('<');
+        if (idx != -1) {
+            return typeString.substring(0, idx).trim();
+        } // if
+        return typeString.trim();
+    } // extractRawTypeName
+
+    /**
+     * Normalizes wildcard type arguments to their concrete upper bound or Object.
+     *
+     * @param arg The type argument.
+     * @return Normalized type string.
+     */
+    public static String normalizeWildcard(String arg) {
+        if (arg == null) {
+            return "java.lang.Object";
+        } // if
+        String trimmed = arg.trim();
+        if (trimmed.equals("?")) {
+            return "java.lang.Object";
+        } // if
+        if (trimmed.startsWith("? extends ")) {
+            return trimmed.substring("? extends ".length()).trim();
+        } // if
+        if (trimmed.startsWith("? super ")) {
+            return trimmed.substring("? super ".length()).trim();
+        } // if
+        return trimmed;
+    } // normalizeWildcard
+
+    /**
+     * Checks if a class is a standard single-parameter collection class.
+     *
+     * @param classFqn Class FQN.
+     * @return True if single-parameter collection.
+     */
+    /**
+     * Checks if two raw type names match, accounting for package qualification.
+     *
+     * @param raw1 First raw type name.
+     * @param raw2 Second raw type name.
+     * @return True if they match exactly or as suffixes.
+     */
+    private static boolean rawTypeMatches(String raw1, String raw2) {
+        if (raw1 == null || raw2 == null) {
+            return false;
+        } // if
+        if (raw1.equals(raw2)) {
+            return true;
+        } // if
+        return raw1.endsWith("." + raw2) || raw2.endsWith("." + raw1);
+    } // rawTypeMatches
+
+    /**
+     * Checks if a class is a standard single-parameter collection class.
+     *
+     * @param classFqn Class FQN.
+     * @return True if single-parameter collection.
+     */
+    private static boolean isStandardSingleParamCollection(String classFqn) {
+        if (classFqn == null) {
+            return false;
+        } // if
+        return "java.util.ArrayList".equals(classFqn) || "ArrayList".equals(classFqn)
+                || "java.util.LinkedList".equals(classFqn) || "LinkedList".equals(classFqn)
+                || "java.util.Vector".equals(classFqn) || "Vector".equals(classFqn)
+                || "java.util.ArrayDeque".equals(classFqn) || "ArrayDeque".equals(classFqn)
+                || "java.util.PriorityQueue".equals(classFqn) || "PriorityQueue".equals(classFqn)
+                || "java.util.HashSet".equals(classFqn) || "HashSet".equals(classFqn)
+                || "java.util.LinkedHashSet".equals(classFqn) || "LinkedHashSet".equals(classFqn)
+                || "java.util.TreeSet".equals(classFqn) || "TreeSet".equals(classFqn);
+    } // isStandardSingleParamCollection
+
+    /**
+     * Checks if a class is a standard map class.
+     *
+     * @param classFqn Class FQN.
+     * @return True if standard map.
+     */
+    private static boolean isStandardMap(String classFqn) {
+        if (classFqn == null) {
+            return false;
+        } // if
+        return "java.util.HashMap".equals(classFqn) || "HashMap".equals(classFqn)
+                || "java.util.LinkedHashMap".equals(classFqn) || "LinkedHashMap".equals(classFqn)
+                || "java.util.TreeMap".equals(classFqn) || "TreeMap".equals(classFqn)
+                || "java.util.Hashtable".equals(classFqn) || "Hashtable".equals(classFqn)
+                || "java.util.concurrent.ConcurrentHashMap".equals(classFqn)
+                || "ConcurrentHashMap".equals(classFqn);
+    } // isStandardMap
+
+    /**
+     * Looks up {@link ClassGenericInfo} by FQN or simple name.
+     *
+     * @param className Class name or FQN.
+     * @return Found info or null.
+     */
+    private ClassGenericInfo findClassGenericInfo(String className) {
+        if (className == null) {
+            return null;
+        } // if
+        ClassGenericInfo info = classInfoMap.get(className);
+        if (info != null) {
+            return info;
+        } // if
+        for (Map.Entry<String, ClassGenericInfo> entry : classInfoMap.entrySet()) {
+            if (rawTypeMatches(entry.getKey(), className)) {
+                return entry.getValue();
+            } // if
+        } // for
+        return null;
+    } // findClassGenericInfo
+
+    /**
+     * Resolves the concrete subclass's reified type given an interface or superclass type string.
+     *
+     * @param concreteClassFqn The concrete class FQN.
+     * @param interfaceOrSuperTypeString The parameterized interface or superclass type.
+     * @return The parameterized concrete type string, or raw class name.
+     */
+    public String resolveSubclassType(String concreteClassFqn, String interfaceOrSuperTypeString) {
+        if (concreteClassFqn == null) {
+            return "java.lang.Object";
+        } // if
+        if (interfaceOrSuperTypeString == null) {
+            return concreteClassFqn;
+        } // if
+        ClassGenericInfo info = findClassGenericInfo(concreteClassFqn);
+        if (info == null || info.typeParameters().isEmpty()) {
+            return concreteClassFqn;
+        } // if
+
+        String targetRaw = extractRawTypeName(interfaceOrSuperTypeString);
+        List<String> targetArgs = extractTypeArguments(interfaceOrSuperTypeString);
+        if (targetArgs.isEmpty()) {
+            return concreteClassFqn;
+        } // if
+
+        List<String> normalizedTargetArgs = targetArgs.stream()
+                .map(AstTypeResolver::normalizeWildcard)
+                .toList();
+
+        List<String> hierarchy = new ArrayList<>(info.implementedTypes());
+        info.extendedType().ifPresent(hierarchy::add);
+
+        for (String parentType : hierarchy) {
+            String parentRaw = extractRawTypeName(parentType);
+            if (rawTypeMatches(parentRaw, targetRaw)) {
+                List<String> parentArgs = extractTypeArguments(parentType);
+                if (parentArgs.size() == normalizedTargetArgs.size()) {
+                    Map<String, String> bindings = new HashMap<>();
+                    for (int i = 0; i < parentArgs.size(); i++) {
+                        String pArg = parentArgs.get(i);
+                        if (info.typeParameters().contains(pArg)) {
+                            bindings.put(pArg, normalizedTargetArgs.get(i));
+                        } // if
+                    } // for
+                    List<String> resolvedArgs = new ArrayList<>();
+                    for (String tp : info.typeParameters()) {
+                        resolvedArgs.add(bindings.getOrDefault(tp, "java.lang.Object"));
+                    } // for
+                    return concreteClassFqn + "<" + String.join(", ", resolvedArgs) + ">";
+                } // if
+            } // if
+        } // for
+
+        return concreteClassFqn;
+    } // resolveSubclassType
+
+    /**
+     * Reconciles a concrete runtime class with a declared reference type to produce
+     * a fully parameterized concrete type name.
+     *
+     * @param runtimeClassFqn The concrete runtime class FQN.
+     * @param declaredType The declared variable type.
+     * @return Reconciled concrete type name.
+     */
+    public String reconcileRuntimeType(String runtimeClassFqn, String declaredType) {
+        if (runtimeClassFqn == null) {
+            return (declaredType != null) ? declaredType : "java.lang.Object";
+        } // if
+        if (declaredType == null || !declaredType.contains("<")) {
+            return runtimeClassFqn;
+        } // if
+
+        String declaredRaw = extractRawTypeName(declaredType);
+        List<String> declaredArgs = extractTypeArguments(declaredType).stream()
+                .map(AstTypeResolver::normalizeWildcard)
+                .toList();
+        if (declaredArgs.isEmpty()) {
+            return runtimeClassFqn;
+        } // if
+
+        if (rawTypeMatches(runtimeClassFqn, declaredRaw)) {
+            return runtimeClassFqn + "<" + String.join(", ", declaredArgs) + ">";
+        } // if
+
+        ClassGenericInfo info = findClassGenericInfo(runtimeClassFqn);
+        if (info != null) {
+            String subclassType = resolveSubclassType(runtimeClassFqn, declaredType);
+            if (!subclassType.equals(runtimeClassFqn)) {
+                return subclassType;
+            } // if
+            if (info.typeParameters().isEmpty()) {
+                return runtimeClassFqn;
+            } // if
+        } // if
+
+        if (isStandardSingleParamCollection(runtimeClassFqn) && !declaredArgs.isEmpty()) {
+            return runtimeClassFqn + "<" + declaredArgs.get(0) + ">";
+        } // if
+        if (isStandardMap(runtimeClassFqn) && declaredArgs.size() >= 2) {
+            return runtimeClassFqn + "<" + declaredArgs.get(0) + ", " + declaredArgs.get(1) + ">";
+        } // if
+
+        return runtimeClassFqn;
+    } // reconcileRuntimeType
+
+    /**
      * Safely resolve an {@link ObjectCreationExpr} target type.
      *
      * @param oce The object creation expression.
      * @return The resolved type string or raw type string.
      */
-    public static String resolveObjectCreationType(ObjectCreationExpr oce) {
+    public String resolveObjectCreationType(ObjectCreationExpr oce) {
         if (oce == null) {
             return "java.lang.Object";
         } // if
-        if (oce.getParentNode().isPresent()
-                && oce.getParentNode().get() instanceof VariableDeclarator vd) {
-            String varType = resolveAstType(vd.getType());
-            if (varType.contains("<")) {
-                return varType;
-            } // if
+
+        String createdType = resolveAstType(oce.getType());
+        if (createdType.endsWith("<>")) {
+            createdType = createdType.substring(0, createdType.length() - 2).trim();
         } // if
-        if (oce.getParentNode().isPresent()
-                && oce.getParentNode().get() instanceof AssignExpr ae) {
-            try {
-                String targetType = ae.getTarget().calculateResolvedType().describe();
-                if (targetType.contains("<")) {
-                    return targetType;
-                } // if
-            } catch (Throwable ignored) {
-                // fall through
-            } // try
+        if (createdType.contains("<")) {
+            return createdType;
         } // if
+
+        if (oce.getTypeArguments().isPresent() && !oce.getTypeArguments().get().isEmpty()) {
+            List<String> explicitArgs = oce.getTypeArguments().get().stream()
+                    .map(AstTypeResolver::resolveAstType)
+                    .map(AstTypeResolver::normalizeWildcard)
+                    .toList();
+            return createdType + "<" + String.join(", ", explicitArgs) + ">";
+        } // if
+
         try {
             String resolved = oce.calculateResolvedType().describe();
-            if (resolved.contains("<")) {
+            if (resolved.contains("<") && !resolved.contains("<?>")) {
                 return resolved;
             } // if
         } catch (Throwable ignored) {
             // fall through
         } // try
-        if (oce.getTypeArguments().isPresent() && !oce.getTypeArguments().get().isEmpty()) {
-            try {
-                return oce.getType().resolve().describe();
-            } catch (Throwable ignored) {
-                // fall through
-            } // try
+
+        String targetType = null;
+        if (oce.getParentNode().isPresent()) {
+            Node parent = oce.getParentNode().get();
+            if (parent instanceof VariableDeclarator vd) {
+                targetType = resolveAstType(vd.getType());
+            } else {
+                if (parent instanceof AssignExpr ae) {
+                    try {
+                        targetType = ae.getTarget().calculateResolvedType().describe();
+                    } catch (Throwable ignored) {
+                        // fall through
+                    } // try
+                } // if
+            } // if
         } // if
-        try {
-            return oce.getType().resolve().describe();
-        } catch (Throwable t) {
-            return oce.getType().asString();
-        } // try
+
+        if (targetType != null && targetType.contains("<")) {
+            return reconcileRuntimeType(createdType, targetType);
+        } // if
+
+        return createdType;
     } // resolveObjectCreationType
 
     /**

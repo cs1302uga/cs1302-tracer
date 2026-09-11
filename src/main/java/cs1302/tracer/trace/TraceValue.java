@@ -167,6 +167,103 @@ public sealed interface TraceValue {
      * @param objectTypeMap Reified type map.
      * @return Optional containing converted container TraceValue.
      */
+    /**
+     * Propagates reified element types from a parameterized container to element objects.
+     *
+     * @param ar The array of elements.
+     * @param colTypeName The container's reified type name.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Reified type map.
+     */
+    private static void propagateContainerElements(
+            ArrayReference ar,
+            java.lang.String colTypeName,
+            AstTypeResolver astTypeResolver,
+            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+        if (objectTypeMap == null
+                || !colTypeName.contains("<")
+                || ar == null
+                || astTypeResolver == null) {
+            return;
+        } // if
+        java.util.List<java.lang.String> typeArgs =
+                AstTypeResolver.extractTypeArguments(colTypeName);
+        if (typeArgs.isEmpty()) {
+            return;
+        } // if
+        java.lang.String elemType = typeArgs.get(0);
+        for (Value elemVal : ar.getValues()) {
+            if (elemVal instanceof ObjectReference elemOr) {
+                java.lang.String elemRuntime = elemOr.referenceType().name();
+                java.lang.String candidate =
+                        astTypeResolver.reconcileRuntimeType(elemRuntime, elemType);
+                if (!objectTypeMap.containsKey(elemOr.uniqueID())
+                        || DebugTraceHelper.isMoreSpecific(
+                                candidate,
+                                objectTypeMap.get(elemOr.uniqueID()),
+                                elemRuntime)) {
+                    objectTypeMap.put(elemOr.uniqueID(), candidate);
+                } // if
+            } // if
+        } // for
+    } // propagateContainerElements
+
+    /**
+     * Handles collection inspection and element array conversion.
+     *
+     * @param mainThread The thread reference.
+     * @param ct ClassType of the object.
+     * @param or ObjectReference of the collection.
+     * @param outEncounteredReferences Accumulates references.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Reified type map.
+     * @return Converted collection TraceValue.
+     */
+    private static Optional<TraceValue> handleCollection(
+            ThreadReference mainThread,
+            ClassType ct,
+            ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
+            AstTypeResolver astTypeResolver,
+            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+        try {
+            VirtualMachine vm = or.virtualMachine();
+            Method toArray = ct.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
+            ArrayReference ar =
+                    (ArrayReference) or.invokeMethod(
+                            mainThread, toArray, java.util.List.of(), 0);
+            boolean isList =
+                    !Collections.disjoint(
+                            ct.allInterfaces(), vm.classesByName("java.util.List"));
+            java.lang.String colTypeName = or.referenceType().name();
+            if (objectTypeMap != null && objectTypeMap.containsKey(or.uniqueID())) {
+                colTypeName = objectTypeMap.get(or.uniqueID());
+            } // if
+            propagateContainerElements(ar, colTypeName, astTypeResolver, objectTypeMap);
+            java.util.List<TraceValue> traceArray = arrayReferenceToList(
+                    mainThread, ar, outEncounteredReferences, astTypeResolver, objectTypeMap);
+            return Optional.of(isList
+                    ? new List(colTypeName, traceArray)
+                    : new Collection(colTypeName, traceArray));
+        } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
+            throw new IllegalStateException("Failed to inspect collection", e);
+        } catch (InvocationException ignored) {
+            return Optional.empty();
+        } catch (IncompatibleThreadStateException e) {
+            throw new IllegalArgumentException("Expected thread to be suspended", e);
+        } // try
+    } // handleCollection
+
+    /**
+     * Handles collections and maps conversion.
+     *
+     * @param mainThread The thread reference.
+     * @param or The object reference.
+     * @param outEncounteredReferences Accumulates references.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Reified type map.
+     * @return Optional containing converted container TraceValue.
+     */
     private static Optional<TraceValue> handleCollectionOrMap(
             ThreadReference mainThread,
             ObjectReference or,
@@ -181,40 +278,19 @@ public sealed interface TraceValue {
         boolean isCollection =
                 !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.Collection"));
         if (isCollection) {
-            try {
-                Method toArray = ct.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
-                ArrayReference ar =
-                        (ArrayReference) or.invokeMethod(
-                                mainThread, toArray, java.util.List.of(), 0);
-                boolean isList =
-                        !Collections.disjoint(
-                                ct.allInterfaces(), vm.classesByName("java.util.List"));
-                java.util.List<TraceValue> traceArray = arrayReferenceToList(
-                        mainThread, ar, outEncounteredReferences, astTypeResolver, objectTypeMap);
-                java.lang.String colTypeName = or.referenceType().name();
-                if (objectTypeMap != null && objectTypeMap.containsKey(or.uniqueID())) {
-                    colTypeName = objectTypeMap.get(or.uniqueID());
-                } // if
-                return Optional.of(isList
-                        ? new List(colTypeName, traceArray)
-                        : new Collection(colTypeName, traceArray));
-            } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
-                throw new IllegalStateException("Failed to inspect collection", e);
-            } catch (InvocationException ignored) {
-                return Optional.empty();
-            } catch (IncompatibleThreadStateException e) {
-                throw new IllegalArgumentException("Expected thread to be suspended", e);
-            } // try
+            return handleCollection(
+                    mainThread, ct, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
         } // if
 
         Optional<Map> maybeMap =
                 Map.tryFromJdiObjectReference(mainThread, or, outEncounteredReferences);
         if (maybeMap.isPresent()) {
             Map map = maybeMap.get();
+            java.lang.String mapTypeName = or.referenceType().name();
             if (objectTypeMap != null && objectTypeMap.containsKey(or.uniqueID())) {
-                return Optional.of(new Map(objectTypeMap.get(or.uniqueID()), map.value()));
+                mapTypeName = objectTypeMap.get(or.uniqueID());
             } // if
-            return Optional.of(map);
+            return Optional.of(new Map(mapTypeName, map.value()));
         } // if
         return Optional.empty();
     } // handleCollectionOrMap
@@ -293,12 +369,18 @@ public sealed interface TraceValue {
                     objectField.name(),
                     Primitive.fromJdiPrimitive(pf)));
             case ObjectReference of -> {
-                if (objectTypeMap != null
-                        && fieldTypeName != null
-                        && (fieldTypeName.contains("<")
-                        || (classInfo.isPresent()
-                        && classInfo.get().typeParameters().isEmpty()))) {
-                    objectTypeMap.putIfAbsent(of.uniqueID(), fieldTypeName);
+                if (objectTypeMap != null && fieldTypeName != null) {
+                    java.lang.String ofRuntimeFqn = of.referenceType().name();
+                    java.lang.String candidate = (astTypeResolver != null)
+                            ? astTypeResolver.reconcileRuntimeType(ofRuntimeFqn, fieldTypeName)
+                            : fieldTypeName;
+                    if (!objectTypeMap.containsKey(of.uniqueID())
+                            || DebugTraceHelper.isMoreSpecific(
+                                    candidate,
+                                    objectTypeMap.get(of.uniqueID()),
+                                    ofRuntimeFqn)) {
+                        objectTypeMap.put(of.uniqueID(), candidate);
+                    } // if
                 } // if
                 objectSnapshotFields.add(new ExecutionSnapshot.Field(
                         objectField.isFinal(),

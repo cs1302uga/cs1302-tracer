@@ -1164,30 +1164,14 @@ public class DebugTraceHelper {
             Optional<String> allocType =
                     astTypeResolver.getAllocationType(declaringClassFqn, currentLine);
 
-            for (LocalVariable lv : frame.visibleVariables()) {
-                Value val = frame.getValue(lv);
-                if (val instanceof ObjectReference or) {
-                    Optional<String> varType = astTypeResolver.resolveVariableType(
-                            declaringClassFqn, methodName, lv.name(), currentLine);
-                    if (varType.isPresent()) {
-                        String typeStr = varType.get();
-                        if (frame.thisObject() instanceof ObjectReference frameThis
-                                && objectTypeMap.containsKey(frameThis.uniqueID())) {
-                            Map<String, String> bindings = astTypeResolver.getTypeBindings(
-                                    declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
-                            typeStr = AstTypeResolver.substituteType(typeStr, bindings);
-                        } // if
-                        if (typeStr.contains("<")
-                                || astTypeResolver.getClassGenericInfo(typeStr).isPresent()) {
-                            objectTypeMap.putIfAbsent(or.uniqueID(), typeStr);
-                        } // if
-                    } else {
-                        if (allocType.isPresent()) {
-                            objectTypeMap.putIfAbsent(or.uniqueID(), allocType.get());
-                        } // if
-                    } // if
-                } // if
-            } // for
+            prepassFrameVariables(
+                    frame,
+                    declaringClassFqn,
+                    methodName,
+                    currentLine,
+                    allocType,
+                    astTypeResolver,
+                    objectTypeMap);
 
             if (frame.thisObject() instanceof ObjectReference frameThis) {
                 if (!objectTypeMap.containsKey(frameThis.uniqueID())) {
@@ -1200,6 +1184,103 @@ public class DebugTraceHelper {
             } // if
         } // for
     } // prepassObjectTypes
+
+    /**
+     * Prepass inspection of visible variables in a stack frame.
+     *
+     * @param frame Stack frame.
+     * @param declaringClassFqn Declaring class FQN.
+     * @param methodName Method name.
+     * @param currentLine Current line number.
+     * @param allocType Optional allocation type at line.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Target object type map.
+     * @throws AbsentInformationException On absent debug info.
+     */
+    private static void prepassFrameVariables(
+            StackFrame frame,
+            String declaringClassFqn,
+            String methodName,
+            int currentLine,
+            Optional<String> allocType,
+            AstTypeResolver astTypeResolver,
+            Map<Long, String> objectTypeMap)
+            throws AbsentInformationException {
+        for (LocalVariable lv : frame.visibleVariables()) {
+            Value val = frame.getValue(lv);
+            if (val instanceof ObjectReference or) {
+                prepassVariableReference(
+                        frame,
+                        lv,
+                        or,
+                        declaringClassFqn,
+                        methodName,
+                        currentLine,
+                        allocType,
+                        astTypeResolver,
+                        objectTypeMap);
+            } // if
+        } // for
+    } // prepassFrameVariables
+
+    /**
+     * Prepass inspection of a single variable object reference.
+     *
+     * @param frame Stack frame.
+     * @param lv Local variable.
+     * @param or Object reference.
+     * @param declaringClassFqn Declaring class FQN.
+     * @param methodName Method name.
+     * @param currentLine Current line number.
+     * @param allocType Optional allocation type at line.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Target object type map.
+     */
+    private static void prepassVariableReference(
+            StackFrame frame,
+            LocalVariable lv,
+            ObjectReference or,
+            String declaringClassFqn,
+            String methodName,
+            int currentLine,
+            Optional<String> allocType,
+            AstTypeResolver astTypeResolver,
+            Map<Long, String> objectTypeMap) {
+        String runtimeFqn = or.referenceType().name();
+        Optional<String> varType = astTypeResolver.resolveVariableType(
+                declaringClassFqn, methodName, lv.name(), currentLine);
+        String candidateType = null;
+
+        if (allocType.isPresent() && allocType.get().startsWith(runtimeFqn)) {
+            candidateType = allocType.get();
+        } else {
+            if (varType.isPresent()) {
+                String typeStr = varType.get();
+                if (frame.thisObject() instanceof ObjectReference frameThis
+                        && objectTypeMap.containsKey(frameThis.uniqueID())) {
+                    Map<String, String> bindings = astTypeResolver.getTypeBindings(
+                            declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
+                    typeStr = AstTypeResolver.substituteType(typeStr, bindings);
+                } // if
+                candidateType = astTypeResolver.reconcileRuntimeType(runtimeFqn, typeStr);
+            } else {
+                if (allocType.isPresent()) {
+                    candidateType =
+                            astTypeResolver.reconcileRuntimeType(runtimeFqn, allocType.get());
+                } // if
+            } // if
+        } // if
+
+        if (candidateType != null) {
+            if (!objectTypeMap.containsKey(or.uniqueID())
+                    || isMoreSpecific(
+                            candidateType,
+                            objectTypeMap.get(or.uniqueID()),
+                            runtimeFqn)) {
+                objectTypeMap.put(or.uniqueID(), candidateType);
+            } // if
+        } // if
+    } // prepassVariableReference
 
     /**
      * Collects stack frame snapshots for all visible frames on the main thread.
@@ -1261,6 +1342,7 @@ public class DebugTraceHelper {
                         isFinal,
                         resolvedTypeName,
                         lvLambdaImplementation,
+                        astTypeResolver,
                         objectTypeMap,
                         heapReferencesToWalk,
                         heap,
@@ -1354,6 +1436,52 @@ public class DebugTraceHelper {
     } // resolveLocalVariableType
 
     /**
+     * Determines whether a new type candidate is more specific than an existing type string
+     * for a given concrete runtime class.
+     *
+     * @param newType The new type candidate.
+     * @param existingType The existing type string from objectTypeMap.
+     * @param runtimeClassFqn The concrete runtime class FQN.
+     * @return True if newType is more specific.
+     */
+    public static boolean isMoreSpecific(
+            String newType, String existingType, String runtimeClassFqn) {
+        if (newType == null) {
+            return false;
+        } // if
+        if (existingType == null) {
+            return true;
+        } // if
+        if (newType.equals(existingType)) {
+            return false;
+        } // if
+        boolean newMatchesRuntime = newType.startsWith(runtimeClassFqn);
+        boolean existingMatchesRuntime = existingType.startsWith(runtimeClassFqn);
+        if (newMatchesRuntime && !existingMatchesRuntime) {
+            return true;
+        } // if
+        if (!newMatchesRuntime && existingMatchesRuntime) {
+            return false;
+        } // if
+        boolean newHasGenerics = newType.contains("<");
+        boolean existingHasGenerics = existingType.contains("<");
+        if (newHasGenerics && !existingHasGenerics) {
+            return true;
+        } // if
+        if (!newHasGenerics && existingHasGenerics) {
+            return false;
+        } // if
+        if (newHasGenerics && existingHasGenerics) {
+            boolean existingHasWildcard = existingType.contains("?");
+            boolean newHasWildcard = newType.contains("?");
+            if (existingHasWildcard && !newHasWildcard) {
+                return true;
+            } // if
+        } // if
+        return false;
+    } // isMoreSpecific
+
+    /**
      * Appends a stack variable field to the snapshot fields list.
      *
      * @param frame StackFrame.
@@ -1361,6 +1489,7 @@ public class DebugTraceHelper {
      * @param isFinal True if variable is final.
      * @param resolvedTypeName Resolved type name.
      * @param lvLambdaImplementation Optional lambda implementation.
+     * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Reified type map.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap map.
@@ -1372,6 +1501,7 @@ public class DebugTraceHelper {
             boolean isFinal,
             String resolvedTypeName,
             Optional<String> lvLambdaImplementation,
+            AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap,
             List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap,
@@ -1391,8 +1521,17 @@ public class DebugTraceHelper {
             heap.put(or.uniqueID(), new TraceValue.Lambda(lvLambdaImplementation.get()));
         } // case
         case ObjectReference or -> {
-            if (resolvedTypeName != null && resolvedTypeName.contains("<")) {
-                objectTypeMap.putIfAbsent(or.uniqueID(), resolvedTypeName);
+            String runtimeFqn = or.referenceType().name();
+            if (resolvedTypeName != null) {
+                String candidate =
+                        astTypeResolver.reconcileRuntimeType(runtimeFqn, resolvedTypeName);
+                if (!objectTypeMap.containsKey(or.uniqueID())
+                        || isMoreSpecific(
+                                candidate,
+                                objectTypeMap.get(or.uniqueID()),
+                                runtimeFqn)) {
+                    objectTypeMap.put(or.uniqueID(), candidate);
+                } // if
             } // if
             stackFrameFields.add(new ExecutionSnapshot.Field(
                     isFinal,

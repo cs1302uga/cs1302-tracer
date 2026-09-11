@@ -261,5 +261,256 @@ public class AstTypeResolverTest {
         assertThat(foundHeapReifiedObject).isTrue();
       }
     }
+
+    @Test
+    @DisplayName("should trace interface references pointing to concrete ArrayList on heap")
+    void shouldTraceInterfaceReferencesPointingToConcreteArrayList() throws Exception {
+      String source =
+          """
+          package cs1302.list;
+          import java.util.ArrayList;
+          import java.util.List;
+
+          public class Driver {
+              public static void main(String[] args) {
+                  List<Integer> primes = new ArrayList<>();
+                  primes.add(2);
+                  primes.add(3);
+              }
+          }
+          """;
+
+      try (CompilationResult compilationResult = CompilationHelper.compile(source, Optional.empty())) {
+        com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver combinedTypeSolver =
+            new com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver();
+        combinedTypeSolver.add(new com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver());
+        combinedTypeSolver.add(
+            new com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver(
+                compilationResult.classPath()));
+        com.github.javaparser.symbolsolver.JavaSymbolSolver symbolSolver =
+            new com.github.javaparser.symbolsolver.JavaSymbolSolver(combinedTypeSolver);
+        com.github.javaparser.ParserConfiguration config =
+            new com.github.javaparser.ParserConfiguration()
+                .setSymbolResolver(symbolSolver)
+                .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+        com.github.javaparser.JavaParser parser = new com.github.javaparser.JavaParser(config);
+
+        List<CompilationHelper.SourceFile> sourceFiles =
+            CompilationHelper.parseMultiFileStream(source);
+        List<CompilationUnit> allCus =
+            sourceFiles.stream()
+                .map(sf -> parser.parse(sf.content()).getResult().get())
+                .toList();
+        Collection<Integer> breakPoints = DebugTraceHelper.getValidBreakpointLines(compilationResult);
+
+        List<ExecutionSnapshot> snapshots =
+            DebugTraceHelper.traceChronological(compilationResult, breakPoints, allCus, true);
+
+        assertThat(snapshots).isNotEmpty();
+
+        boolean foundPrimesOnStack = false;
+        boolean foundArrayListOnHeap = false;
+
+        for (ExecutionSnapshot snapshot : snapshots) {
+          for (ExecutionSnapshot.StackSnapshot frame : snapshot.stack()) {
+            for (ExecutionSnapshot.Field field : frame.visibleVariables()) {
+              if ("primes".equals(field.identifier())) {
+                assertThat(field.typeName()).contains("List<").contains("Integer");
+                foundPrimesOnStack = true;
+              } // if
+            } // for
+          } // for
+          for (TraceValue tv : snapshot.heap().values()) {
+            if (tv instanceof TraceValue.List lv && lv.typeName().contains("ArrayList<")) {
+              assertThat(lv.typeName()).contains("ArrayList<").contains("Integer");
+              foundArrayListOnHeap = true;
+            } // if
+          } // for
+        } // for
+
+        assertThat(foundPrimesOnStack).isTrue();
+        assertThat(foundArrayListOnHeap).isTrue();
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("Subclass and Hierarchy Resolution Tests")
+  class SubclassAndHierarchyTests {
+
+    @Test
+    @DisplayName("should test raw type name extraction and wildcard normalization")
+    void shouldTestRawAndWildcardHelpers() {
+      assertThat(AstTypeResolver.extractRawTypeName(null)).isEmpty();
+      assertThat(AstTypeResolver.extractRawTypeName("java.util.List<java.lang.String>"))
+          .isEqualTo("java.util.List");
+      assertThat(AstTypeResolver.extractRawTypeName("int")).isEqualTo("int");
+
+      assertThat(AstTypeResolver.normalizeWildcard(null)).isEqualTo("java.lang.Object");
+      assertThat(AstTypeResolver.normalizeWildcard("?")).isEqualTo("java.lang.Object");
+      assertThat(AstTypeResolver.normalizeWildcard("? extends java.lang.Number"))
+          .isEqualTo("java.lang.Number");
+      assertThat(AstTypeResolver.normalizeWildcard("? super java.lang.Integer"))
+          .isEqualTo("java.lang.Integer");
+      assertThat(AstTypeResolver.normalizeWildcard("java.lang.String"))
+          .isEqualTo("java.lang.String");
+    }
+
+    @Test
+    @DisplayName("should resolve subclass types and reconcile runtime types")
+    void shouldResolveSubclassAndReconcile() {
+      String source =
+          """
+          package cs1302.poly;
+          import java.util.Map;
+          public interface Container<T> {}
+          class PairContainer<A, B> implements Container<A> {}
+          class IntContainer implements Container<Integer> {}
+          class IntMap<V> implements Map<String, V> {}
+          """;
+      CompilationUnit cu = StaticJavaParser.parse(source);
+      AstTypeResolver resolver = new AstTypeResolver(cu);
+
+      // Null handling
+      assertThat(resolver.resolveSubclassType(null, "Container<String>"))
+          .isEqualTo("java.lang.Object");
+      assertThat(resolver.resolveSubclassType("cs1302.poly.PairContainer", null))
+          .isEqualTo("cs1302.poly.PairContainer");
+      assertThat(resolver.resolveSubclassType("cs1302.poly.Unknown", "Container<String>"))
+          .isEqualTo("cs1302.poly.Unknown");
+      assertThat(resolver.resolveSubclassType("cs1302.poly.IntContainer", "Container<Integer>"))
+          .isEqualTo("cs1302.poly.IntContainer");
+      assertThat(resolver.resolveSubclassType("cs1302.poly.PairContainer", "Container"))
+          .isEqualTo("cs1302.poly.PairContainer");
+
+      // Custom generic subclass mapping
+      assertThat(resolver.resolveSubclassType(
+              "cs1302.poly.PairContainer", "cs1302.poly.Container<java.lang.String>"))
+          .contains("PairContainer<java.lang.String");
+
+      assertThat(resolver.resolveSubclassType(
+              "cs1302.poly.IntMap", "java.util.Map<java.lang.String, java.lang.Integer>"))
+          .isEqualTo("cs1302.poly.IntMap<java.lang.Integer>");
+
+      // Runtime reconciliation tests
+      assertThat(resolver.reconcileRuntimeType(null, "List<String>"))
+          .isEqualTo("List<String>");
+      assertThat(resolver.reconcileRuntimeType("java.util.ArrayList", null))
+          .isEqualTo("java.util.ArrayList");
+      assertThat(resolver.reconcileRuntimeType("java.util.ArrayList", "int"))
+          .isEqualTo("java.util.ArrayList");
+      assertThat(resolver.reconcileRuntimeType("java.util.ArrayList", "java.util.ArrayList<java.lang.String>"))
+          .isEqualTo("java.util.ArrayList<java.lang.String>");
+      assertThat(resolver.reconcileRuntimeType("java.util.ArrayList", "java.util.List<java.lang.Integer>"))
+          .isEqualTo("java.util.ArrayList<java.lang.Integer>");
+      assertThat(resolver.reconcileRuntimeType("java.util.LinkedList", "java.util.List<java.lang.Double>"))
+          .isEqualTo("java.util.LinkedList<java.lang.Double>");
+      assertThat(resolver.reconcileRuntimeType("java.util.HashMap", "java.util.Map<java.lang.String, java.lang.Integer>"))
+          .isEqualTo("java.util.HashMap<java.lang.String, java.lang.Integer>");
+      assertThat(resolver.reconcileRuntimeType("java.util.HashSet", "java.util.Set<java.lang.Long>"))
+          .isEqualTo("java.util.HashSet<java.lang.Long>");
+      assertThat(resolver.reconcileRuntimeType("java.util.Vector", "java.util.List<java.lang.Float>"))
+          .isEqualTo("java.util.Vector<java.lang.Float>");
+      assertThat(resolver.reconcileRuntimeType("java.util.ArrayDeque", "java.util.Queue<java.lang.Short>"))
+          .isEqualTo("java.util.ArrayDeque<java.lang.Short>");
+      assertThat(resolver.reconcileRuntimeType("java.util.PriorityQueue", "java.util.Queue<java.lang.Byte>"))
+          .isEqualTo("java.util.PriorityQueue<java.lang.Byte>");
+      assertThat(resolver.reconcileRuntimeType("java.util.LinkedHashSet", "java.util.Set<java.lang.Character>"))
+          .isEqualTo("java.util.LinkedHashSet<java.lang.Character>");
+      assertThat(resolver.reconcileRuntimeType("java.util.TreeSet", "java.util.Set<java.lang.Boolean>"))
+          .isEqualTo("java.util.TreeSet<java.lang.Boolean>");
+      assertThat(resolver.reconcileRuntimeType("java.util.LinkedHashMap", "java.util.Map<java.lang.String, java.lang.String>"))
+          .isEqualTo("java.util.LinkedHashMap<java.lang.String, java.lang.String>");
+      assertThat(resolver.reconcileRuntimeType("java.util.TreeMap", "java.util.Map<java.lang.Integer, java.lang.String>"))
+          .isEqualTo("java.util.TreeMap<java.lang.Integer, java.lang.String>");
+      assertThat(resolver.reconcileRuntimeType("java.util.Hashtable", "java.util.Map<java.lang.String, java.lang.Integer>"))
+          .isEqualTo("java.util.Hashtable<java.lang.String, java.lang.Integer>");
+      assertThat(resolver.reconcileRuntimeType("java.util.concurrent.ConcurrentHashMap", "java.util.Map<java.lang.String, java.lang.Integer>"))
+          .isEqualTo("java.util.concurrent.ConcurrentHashMap<java.lang.String, java.lang.Integer>");
+      assertThat(resolver.reconcileRuntimeType("cs1302.poly.IntContainer", "cs1302.poly.Container<java.lang.Integer>"))
+          .isEqualTo("cs1302.poly.IntContainer");
+      assertThat(resolver.reconcileRuntimeType("java.lang.String", "java.lang.Comparable<java.lang.String>"))
+          .isEqualTo("java.lang.String");
+    }
+
+    @Test
+    @DisplayName("should resolve object creation types")
+    void shouldResolveObjectCreationTypes() {
+      String source =
+          """
+          package cs1302.test;
+          import java.util.ArrayList;
+          import java.util.List;
+          public class Test {
+              public static void main(String[] args) {
+                  List<Integer> list = new ArrayList<>();
+                  ArrayList<String> explicit = new ArrayList<String>();
+                  List raw = new ArrayList();
+              }
+          }
+          """;
+      CompilationUnit cu = StaticJavaParser.parse(source);
+      AstTypeResolver resolver = new AstTypeResolver(cu);
+
+      assertThat(resolver.resolveObjectCreationType(null)).isEqualTo("java.lang.Object");
+
+      List<com.github.javaparser.ast.expr.ObjectCreationExpr> oces =
+          cu.findAll(com.github.javaparser.ast.expr.ObjectCreationExpr.class);
+      assertThat(oces).hasSize(3);
+
+      assertThat(resolver.resolveObjectCreationType(oces.get(0))).contains("ArrayList<").contains("Integer");
+      assertThat(resolver.resolveObjectCreationType(oces.get(1))).contains("ArrayList<").contains("String");
+      assertThat(resolver.resolveObjectCreationType(oces.get(2))).isEqualTo("ArrayList");
+
+      // Backward compatibility constructor test
+      AstTypeResolver.ClassGenericInfo info =
+          new AstTypeResolver.ClassGenericInfo("MyClass", List.of("T"), Map.of(), Map.of());
+      assertThat(info.implementedTypes()).isEmpty();
+      assertThat(info.extendedType()).isEmpty();
+    }
+  }
+
+  @Nested
+  @DisplayName("Specificity Scoring Tests")
+  class SpecificityScoringTests {
+
+    @Test
+    @DisplayName("should score type specificity accurately")
+    void shouldScoreTypeSpecificity() {
+      assertThat(DebugTraceHelper.isMoreSpecific(null, "Object", "java.util.ArrayList")).isFalse();
+      assertThat(DebugTraceHelper.isMoreSpecific("java.util.ArrayList<Integer>", null, "java.util.ArrayList")).isTrue();
+      assertThat(DebugTraceHelper.isMoreSpecific("java.util.ArrayList", "java.util.ArrayList", "java.util.ArrayList")).isFalse();
+
+      // Runtime matching beats interface
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.List<java.lang.Integer>",
+              "java.util.ArrayList")).isTrue();
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.List<java.lang.Integer>",
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.ArrayList")).isFalse();
+
+      // Parameterized beats raw
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.ArrayList",
+              "java.util.ArrayList")).isTrue();
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.ArrayList",
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.ArrayList")).isFalse();
+
+      // Concrete beats wildcard
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.ArrayList<? extends java.lang.Number>",
+              "java.util.ArrayList")).isTrue();
+      assertThat(DebugTraceHelper.isMoreSpecific(
+              "java.util.ArrayList<? extends java.lang.Number>",
+              "java.util.ArrayList<java.lang.Integer>",
+              "java.util.ArrayList")).isFalse();
+    }
   }
 }
+
