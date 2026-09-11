@@ -683,5 +683,45 @@ public class PyTutorSerializerTest {
       List<?> instanceList = (List<?>) simpleStep.heap().get("101");
       assertThat(instanceList.get(1)).isEqualTo("Pair<String, Integer>");
     }
+
+    @Test
+    @DisplayName("should not duplicate generic type arguments when typeName already contains generic arguments")
+    void shouldNotDuplicateGenericTypeArgumentsWhenAlreadyParameterized() {
+      TraceValue.List list =
+          new TraceValue.List("java.util.ArrayList<java.lang.Integer>", List.of());
+      TraceValue.Collection col =
+          new TraceValue.Collection("java.util.HashSet<java.lang.Integer>", List.of());
+      TraceValue.Map map =
+          new TraceValue.Map("java.util.HashMap<java.lang.String, java.lang.Integer>", Map.of());
+
+      StackSnapshot frame =
+          new StackSnapshot(
+              "main",
+              1,
+              List.of(
+                  new Field(false, "List<Integer>", "list", new TraceValue.Reference(1L)),
+                  new Field(false, "Set<Integer>", "set", new TraceValue.Reference(2L)),
+                  new Field(false, "Map<String, Integer>", "map", new TraceValue.Reference(3L))),
+              Optional.empty());
+
+      ExecutionSnapshot snapshot =
+          new ExecutionSnapshot(
+              List.of(frame),
+              List.of(),
+              Map.of(1L, list, 2L, col, 3L, map),
+              new byte[0],
+              new byte[0]);
+
+      PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
+      TraceStep step = serializer.createTraceStep(snapshot);
+
+      Map<String, Object> heapAttrs = step.heapAttrs();
+      assertThat(heapAttrs.get("1"))
+          .isEqualTo(Map.of("type", "java.util.ArrayList<java.lang.Integer>"));
+      assertThat(heapAttrs.get("2"))
+          .isEqualTo(Map.of("type", "java.util.HashSet<java.lang.Integer>"));
+      assertThat(heapAttrs.get("3"))
+          .isEqualTo(Map.of("type", "java.util.HashMap<java.lang.String, java.lang.Integer>"));
+    }
   }
 }

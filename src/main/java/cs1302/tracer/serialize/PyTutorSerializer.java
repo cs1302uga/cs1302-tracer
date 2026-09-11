@@ -575,6 +575,9 @@ public record PyTutorSerializer(
         if (typeName.endsWith("[]")) {
             return typeName;
         } // if
+        if (typeName.contains("<")) {
+            return typeName;
+        } // if
         String declared = declaredTypes.get(id);
         Optional<String> genericArgs = extractGenericArguments(declared);
         if (genericArgs.isPresent()) {
@@ -604,6 +607,9 @@ public record PyTutorSerializer(
             Map<Long, String> declaredTypes,
             Map<Long, TraceValue> heap) {
         String typeName = col.typeName();
+        if (typeName.contains("<")) {
+            return typeName;
+        } // if
         String declared = declaredTypes.get(id);
         Optional<String> genericArgs = extractGenericArguments(declared);
         if (genericArgs.isPresent()) {
@@ -633,6 +639,9 @@ public record PyTutorSerializer(
             Map<Long, String> declaredTypes,
             Map<Long, TraceValue> heap) {
         String typeName = map.typeName();
+        if (typeName.contains("<")) {
+            return typeName;
+        } // if
         String declared = declaredTypes.get(id);
         Optional<String> genericArgs = extractGenericArguments(declared);
         if (genericArgs.isPresent()) {
