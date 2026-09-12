@@ -419,7 +419,7 @@ public class App {
                 } else {
                     DebugTraceHelper.trace(compiled, breakpoints, units);
                 } // if
-                session.check();
+                session.finishOutput();
                 return session.snapshots();
             } // try
         } // executeBoundedSource

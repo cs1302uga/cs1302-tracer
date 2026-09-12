@@ -69,6 +69,8 @@ class BoundedExecutionTest {
                 "--max-output-bytes", "64");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("output_limit");
         assertThat(result.getAsJsonObject("counters").get("stdoutBytes").getAsLong()).isEqualTo(64);
+        assertThat(result.get("stdout").getAsString()).hasSize(64);
+        assertThat(result.getAsJsonObject("trace").getAsJsonArray("trace")).isEmpty();
     }
 
     @Test
@@ -108,6 +110,7 @@ class BoundedExecutionTest {
             var result = trace("int x = 42;\nSystem.out.println(x);", "-f", format);
             assertThat(result.get("complete").getAsBoolean()).isTrue();
             assertThat(result.getAsJsonObject("trace")).isNotNull();
+            assertThat(result.get("stdout").getAsString()).isEqualTo("42\n");
         }
     }
 

@@ -15,7 +15,10 @@ import java.util.Map;
  * @param limits Effective trace policy.
  * @param counters Resource accounting and snapshot counters.
  * @param diagnostics Human-readable diagnostics; never an isolation attestation.
+ * @param stdout Bounded guest standard output, decoded as UTF-8.
+ * @param stderr Bounded guest standard error, decoded as UTF-8.
  */
 public record TraceResult(int schemaVersion, String format, String status, String stopReason,
         String phase, boolean complete, Object trace, TraceLimits limits,
-        Map<String, Long> counters, List<String> diagnostics) {} // TraceResult
+        Map<String, Long> counters, List<String> diagnostics,
+        String stdout, String stderr) {} // TraceResult

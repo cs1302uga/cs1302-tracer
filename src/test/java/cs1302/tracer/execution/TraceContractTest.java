@@ -21,12 +21,12 @@ class TraceContractTest {
         JsonObject payload = JsonParser.parseString("{\"code\":\"\",\"trace\":[]}").getAsJsonObject();
         for (String reason : List.of("timeout", "cancelled", "compile_error", "tracer_error")) {
             var result = new TraceResult(1, "pytutor", "stopped", reason, "trace", false,
-                    payload, TraceLimits.unlimited(), Map.of("snapshots", 0L), List.of());
+                    payload, TraceLimits.unlimited(), Map.of("snapshots", 0L), List.of(), "", "");
             var json = gson.toJsonTree(result).getAsJsonObject();
             assertThat(json.get("trace")).isEqualTo(payload);
             assertThat(json.get("complete").getAsBoolean()).isFalse();
             var unavailable = new TraceResult(1, "pytutor", "failed", reason, "compile", false,
-                    null, TraceLimits.unlimited(), Map.of(), List.of());
+                    null, TraceLimits.unlimited(), Map.of(), List.of(), "", "");
             assertThat(gson.toJsonTree(unavailable).getAsJsonObject().get("trace").isJsonNull()).isTrue();
         }
     }

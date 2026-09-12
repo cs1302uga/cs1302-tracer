@@ -316,8 +316,40 @@ public final class TraceSession implements AutoCloseable {
                 : stopped.endsWith("error") || stopped.equals("guest_exception")
                         ? "failed" : "stopped";
         return new TraceResult(1, format, status, stopped, phase, stopped == null,
-                payload, limits, counts, List.copyOf(diagnostics));
+                payload, limits, counts, List.copyOf(diagnostics), output(1), output(0));
     } // result
+
+    /**
+     * Returns bounded guest output even when no snapshot was completed.
+     * @param index Registered drainer index (stderr first).
+     * @return UTF-8 output with replacement for incomplete byte sequences.
+     */
+    private String output(int index) {
+        return index >= drainers.size() ? "" : new String(drainers.get(index).getBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+    } // output
+
+    /** Refreshes final output on the last complete snapshot after successful execution. */
+    public void finishOutput() {
+        check();
+        if (completed.isEmpty() || drainers.size() != 2) {
+            return;
+        } // if
+        ExecutionSnapshot last = completed.getLast();
+        long extra = Math.max(0, drainers.get(0).size() - last.stderr().length)
+                + Math.max(0, drainers.get(1).size() - last.stdout().length);
+        if (extra == 0) {
+            return;
+        } // if
+        // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
+        enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
+        ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
+                drainers.get(1).getBytes(), drainers.get(0).getBytes(), last.sourcePath());
+        completed.set(completed.size() - 1, updated);
+        latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);
+        sizes.put(updated, sizes.remove(last) + extra * 15);
+        retainedBytes += extra * 15;
+    } // finishOutput
 
     @Override
     public void close() {
