@@ -58,7 +58,14 @@ class BoundedExecutionTest {
 
     @Test
     void terminatesLoopWithoutBreakpointHits() throws Exception {
-        var result = trace("while (true) {}", "-b", "999");
+        Path pidFile = directory.resolve("guest.pid");
+        String pidPath = pidFile.toString().replace("\\", "\\\\");
+        var result = trace("try { java.nio.file.Files.writeString(java.nio.file.Path.of(\""
+                + pidPath + "\"), Long.toString(ProcessHandle.current().pid())); }"
+                + " catch (Exception e) { throw new RuntimeException(e); } while (true) {}", "-b", "999");
+        long pid = Long.parseLong(Files.readString(pidFile));
+        assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+                .as("guest must terminate before the CLI finishes").isFalse();
         assertThat(result.get("stopReason").getAsString()).isEqualTo("timeout");
         assertThat(result.get("complete").getAsBoolean()).isFalse();
     }
@@ -91,6 +98,28 @@ class BoundedExecutionTest {
     }
 
     @Test
+    void boundsTotalRetainedTraceAcrossManySmallSnapshots() throws Exception {
+        var result = trace("int x = 0;\nwhile (true) {\nx++;\n}",
+                "-a", "--max-trace-bytes", "12000");
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("trace_limit");
+        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt())
+                .isGreaterThan(1);
+        assertThat(result.getAsJsonObject("counters").get("retainedBytes").getAsLong())
+                .isLessThanOrEqualTo(12000);
+    }
+
+    @Test
+    void latestBreakpointModeDoesNotRetainAllHits() throws Exception {
+        var result = trace("int x = 0;\nfor (int i=0; i<15; i++) {\nx++;\n}",
+                "-b", "5", "--max-trace-bytes", "12000");
+        assertThat(result.get("complete").getAsBoolean()).isTrue();
+        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt())
+                .isEqualTo(15);
+        assertThat(result.getAsJsonObject("counters").get("snapshotsRetained").getAsInt())
+                .isEqualTo(1);
+    }
+
+    @Test
     void returnsCompileDiagnosticsAndUnavailableTrace() throws Exception {
         var result = trace("int x = false;");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("compile_error");
@@ -102,6 +131,14 @@ class BoundedExecutionTest {
     void reportsGuestException() throws Exception {
         var result = trace("throw new IllegalArgumentException(\"guest failure\");");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("guest_exception");
+    }
+
+    @Test
+    void reportsNonzeroGuestExitWithoutClaimingSuccessfulCompletion() throws Exception {
+        var result = trace("System.exit(7);");
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("guest_exit");
+        assertThat(result.get("status").getAsString()).isEqualTo("failed");
+        assertThat(result.getAsJsonObject("counters").get("guestExitCode").getAsInt()).isEqualTo(7);
     }
 
     @Test
@@ -120,6 +157,37 @@ class BoundedExecutionTest {
         assertThat(result.get("stopReason").getAsString()).isEqualTo("source_limit");
         assertThat(result.get("phase").getAsString()).isEqualTo("source");
     }
+    @Test
+    void capsSourceFileCountBeforeParsing() throws Exception {
+        Path source = directory.resolve("stream.java");
+        Files.writeString(source, "// --- A.java ---\ninvalid syntax\n"
+                + "// --- B.java ---\ninvalid syntax\n");
+        var result = run(List.of("cs1302.tracer.App", "trace", "--result-envelope",
+                "--max-source-files", "1", "-i", source.toString()));
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("source_file_limit");
+    }
+
+    @Test
+    void restrictiveInspectionDoesNotInvokeCollectionOverrides() throws Exception {
+        var result = trace("""
+                java.util.ArrayList<String> values = new java.util.ArrayList<>() {
+                    public Object[] toArray() { while (true) {} }
+                };
+                values.add("hello");
+                """);
+        assertThat(result.get("complete").getAsBoolean()).isTrue();
+        assertThat(result.getAsJsonArray("diagnostics").toString()).contains("raw fields");
+    }
+
+    @Test
+    void snapshotFailurePreservesEarlierCompleteStates() throws Exception {
+        var result = trace("int x = 1;\nint[] values = new int[100];\nx++;",
+                "-a", "--max-elements", "20");
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("element_limit");
+        assertThat(result.getAsJsonObject("trace").getAsJsonArray("trace")).isNotEmpty();
+        assertThat(result.getAsJsonObject("counters").get("droppedSnapshots").getAsInt()).isEqualTo(1);
+    }
+
     @Test
     void restrictiveInspectionDoesNotInvokeCustomFlush() throws Exception {
         var result = trace("""

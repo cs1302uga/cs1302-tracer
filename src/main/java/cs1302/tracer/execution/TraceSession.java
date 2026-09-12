@@ -304,6 +304,14 @@ public final class TraceSession implements AutoCloseable {
             stopped = "guest_exception";
         } // if
         Map<String, Long> counts = new LinkedHashMap<>();
+        if (process != null && !process.isAlive()) {
+            int exitCode = process.exitValue();
+            counts.put("guestExitCode", (long) exitCode);
+            if (stopped == null && exitCode != 0) {
+                stopped = "guest_exit";
+                diagnostics.add("Guest process exited with code " + exitCode);
+            } // if
+        } // if
         counts.put("snapshotsCaptured", captured);
         counts.put("snapshotsRetained", (long) completed.size());
         counts.put("retainedBytes", retainedBytes);
@@ -314,6 +322,7 @@ public final class TraceSession implements AutoCloseable {
         } // for
         String status = stopped == null ? "completed"
                 : stopped.endsWith("error") || stopped.equals("guest_exception")
+                        || stopped.equals("guest_exit")
                         ? "failed" : "stopped";
         return new TraceResult(1, format, status, stopped, phase, stopped == null,
                 payload, limits, counts, List.copyOf(diagnostics), output(1), output(0));

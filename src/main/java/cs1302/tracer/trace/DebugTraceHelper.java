@@ -207,6 +207,25 @@ public class DebugTraceHelper {
     } // trace
 
     /**
+     * Captures only the latest state per selected line for non-accumulating CLI output.
+     * @param compilationResult Compiled program.
+     * @param breakPoints Selected line numbers.
+     * @param parsedSources Parsed sources.
+     * @return Latest snapshot mapping in the existing breakpoint shape.
+     * @throws Exception On tracing or cleanup failure.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
+            CompilationResult compilationResult, Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources) throws Exception {
+        try (TraceSession session = new TraceSession(
+                cs1302.tracer.execution.TraceLimits.unlimited(),
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, false)) {
+            session.phase("trace");
+            return trace(compilationResult, breakPoints, parsedSources);
+        } // try
+    } // traceLatest
+
+    /**
      * Runs the event loop for the breakpoint trace.
      *
      * @param vm The JDI VirtualMachine.
@@ -1509,6 +1528,8 @@ public class DebugTraceHelper {
                 resolvedTypeName,
                 lv.name(),
                 new TraceValue.Reference(or.uniqueID())));
+            heapReferencesToWalk.add(or);
+            TraceSession.elements(lvLambdaImplementation.get().length());
             heap.put(or.uniqueID(), new TraceValue.Lambda(lvLambdaImplementation.get()));
         } // case
         case ObjectReference or -> {
@@ -1599,6 +1620,7 @@ public class DebugTraceHelper {
                         TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or when lambdaImplementation.isPresent() -> {
                     heapReferencesToWalk.add(or);
+                    TraceSession.elements(lambdaImplementation.get().length());
                     heap.put(or.uniqueID(), new TraceValue.Lambda(lambdaImplementation.get()));
                     statics.add(new ExecutionSnapshot.Field(
                             f.isFinal(),

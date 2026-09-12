@@ -511,8 +511,9 @@ public class App {
                         serializer.createTrace(source, snapshot);
                 System.out.println(ModernTraceSerializer.getGson().toJson(trace));
             } else {
-                Map<Integer, List<ExecutionSnapshot>> snapshots =
-                        DebugTraceHelper.trace(compResult, breakpoints, allCus);
+                Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
+                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus)
+                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus);
                 if (accumulateBreakpoints) {
                     cs1302.tracer.model.modern.Trace trace =
                             serializer.createBreakpointsTrace(source, snapshots);
@@ -557,8 +558,9 @@ public class App {
                 String pyTutorSnapshot = serializer.serialize(source, snapshot, pretty);
                 System.out.println(pyTutorSnapshot);
             } else {
-                Map<Integer, List<ExecutionSnapshot>> snapshots =
-                        DebugTraceHelper.trace(compResult, breakpoints, allCus);
+                Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
+                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus)
+                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus);
                 if (accumulateBreakpoints) {
                     Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
                             snapshots.entrySet().stream()
