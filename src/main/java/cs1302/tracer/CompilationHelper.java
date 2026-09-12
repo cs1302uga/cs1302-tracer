@@ -299,63 +299,63 @@ public class CompilationHelper {
     public static CompilationResult compile(String javaSource, Optional<Path> sourceRoot)
             throws IOException {
         List<SourceFile> sourceFiles = parseMultiFileStream(javaSource);
-        Path workingDir = createWorkingDir();
-        List<File> allSourceFiles = writeSourceFiles(workingDir, sourceFiles);
-
-        Set<String> compiledClassNames = new HashSet<>();
-        JavaCompiler javaCompiler = Objects.requireNonNull(
-                ToolProvider.getSystemJavaCompiler(), "Could not get Java compiler");
-        DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
-        StandardJavaFileManager standardFileManager =
-                javaCompiler.getStandardFileManager(diagnosticCollector, null, null);
-        JavaFileManager forwardingFileManager =
-                new ForwardingJavaFileManager<StandardJavaFileManager>(
-                        javaCompiler.getStandardFileManager(diagnosticCollector, null, null)) {
-                    @Override
-                    public JavaFileObject getJavaFileForOutput(
-                            Location location, String className, Kind kind, FileObject sibling)
-                            throws IOException {
-                        compiledClassNames.add(className);
-                        return super.getJavaFileForOutput(location, className, kind, sibling);
-                    } // getJavaFileForOutput
-                };
-
-        Iterable<? extends JavaFileObject> compilationUnit =
-                standardFileManager.getJavaFileObjectsFromFiles(allSourceFiles);
-        List<String> compilerOptions = buildCompilerOptions(workingDir, sourceRoot);
-
-        boolean compilationSuccess = javaCompiler.getTask(
-                null,
-                forwardingFileManager,
-                diagnosticCollector,
-                compilerOptions,
-                null,
-                compilationUnit).call();
-
-        if (!compilationSuccess) {
-            StringBuilder message = new StringBuilder(
-                    "Compilation of provided Java source code failed");
-            if (diagnosticCollector.getDiagnostics().isEmpty()) {
-                message.append('.');
-            } else {
-                message.append(" with the following messages:\n");
-                message.append(diagnosticCollector.getDiagnostics().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.joining("\n")));
-            } // if
-            throw new IllegalArgumentException(message.toString());
-        } // if
-
-        SourceFile entryPoint = findEntryPoint(sourceFiles);
-        MethodDeclaration mainMethod = findMain(entryPoint.ast());
-        String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
-
-        return new CompilationResult(
-                workingDir,
-                compiledClassNames,
-                mainClass,
-                sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir));
+        Path workingDir = Files.createTempDirectory("code-tracer");
+        try {
+            List<File> files = writeSourceFiles(workingDir, sourceFiles);
+            Set<String> classes = compileFiles(workingDir, files, sourceRoot);
+            SourceFile entryPoint = findEntryPoint(sourceFiles);
+            MethodDeclaration mainMethod = findMain(entryPoint.ast());
+            String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
+            return new CompilationResult(workingDir, classes, mainClass,
+                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir));
+        } catch (IOException | RuntimeException | Error failure) {
+            try {
+                deleteWorkingDirectory(workingDir);
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            } // try
+            throw failure;
+        } // try
     } // compile
+
+    /**
+     * Compiles source files while owning the compiler's file manager.
+     * @param workingDir Output directory.
+     * @param files Source files.
+     * @param sourceRoot Optional dependency root.
+     * @return Compiled binary names.
+     * @throws IOException On file manager failure.
+     */
+    private static Set<String> compileFiles(
+            Path workingDir, List<File> files, Optional<Path> sourceRoot) throws IOException {
+        Set<String> classes = new HashSet<>();
+        JavaCompiler compiler = Objects.requireNonNull(
+                ToolProvider.getSystemJavaCompiler(), "Could not get Java compiler");
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        try (StandardJavaFileManager standard =
+                compiler.getStandardFileManager(diagnostics, null, null)) {
+            JavaFileManager forwarding = new ForwardingJavaFileManager<>(standard) {
+                @Override
+                public JavaFileObject getJavaFileForOutput(
+                        Location location, String className, Kind kind, FileObject sibling)
+                        throws IOException {
+                    classes.add(className);
+                    return super.getJavaFileForOutput(location, className, kind, sibling);
+                } // getJavaFileForOutput
+            };
+            boolean success = compiler.getTask(null, forwarding, diagnostics,
+                    buildCompilerOptions(workingDir, sourceRoot), null,
+                    standard.getJavaFileObjectsFromFiles(files)).call();
+            if (!success) {
+                throw new IllegalArgumentException(
+                        "Compilation of provided Java source code failed"
+                        + " with the following messages:"
+                        + "\n" + diagnostics.getDiagnostics().stream()
+                        .map(Object::toString).collect(Collectors.joining("\n")));
+            } // if
+        } // try
+        return classes;
+    } // compileFiles
 
     /**
      * Writes source files to a destination directory.
@@ -368,13 +368,24 @@ public class CompilationHelper {
     private static List<File> writeSourceFiles(
             Path workingDir, List<SourceFile> sourceFiles) throws IOException {
         List<File> allSourceFiles = new ArrayList<>();
+        Set<Path> destinations = new HashSet<>();
+        // Validate the complete input before any write into this private directory.
         for (SourceFile sf : sourceFiles) {
-            Path targetPath = workingDir.resolve(sf.relativePath());
-            if (targetPath.getParent() != null) {
-                Files.createDirectories(targetPath.getParent());
+            String path = sf.relativePath().replace('\\', '/');
+            Path relative = Path.of(path).normalize();
+            Path target = workingDir.resolve(relative).normalize();
+            if (relative.isAbsolute() || path.contains(":") || !target.startsWith(workingDir)
+                    || !relative.toString().endsWith(".java")
+                    || !destinations.add(target)) {
+                throw new IllegalArgumentException("Invalid or duplicate source path: " + path);
             } // if
-            Files.writeString(targetPath, sf.content());
-            allSourceFiles.add(targetPath.toFile());
+            allSourceFiles.add(target.toFile());
+        } // for
+        for (int i = 0; i < sourceFiles.size(); i++) {
+            Path target = allSourceFiles.get(i).toPath();
+            Files.createDirectories(target.getParent());
+            Files.writeString(target, sourceFiles.get(i).content(),
+                    java.nio.file.StandardOpenOption.CREATE_NEW);
         } // for
         return allSourceFiles;
     } // writeSourceFiles
@@ -403,23 +414,20 @@ public class CompilationHelper {
     } // buildCompilerOptions
 
     /**
-     * Create a temporary working directory that will be removed at JVM exit.
-     *
-     * @return The path to the created temporary working directory.
-     * @throws IOException On directory creation error.
+     * Deletes owned compilation files without hiding cleanup failures.
+     * @param directory Private working directory.
+     * @throws IOException On cleanup failure.
      */
-    private static Path createWorkingDir() throws IOException {
-        Path workingDir = Files.createTempDirectory("code-tracer");
-        Thread workingDirCleanupHook = new Thread(() -> {
-            try (Stream<Path> paths = Files.walk(workingDir)) {
-                paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
-            } catch (IOException ignored) {
-                // ignore error during cleanup
-            } // try
-        });
-        Runtime.getRuntime().addShutdownHook(workingDirCleanupHook);
-        return workingDir;
-    } // createWorkingDir
+    private static void deleteWorkingDirectory(Path directory) throws IOException {
+        if (directory == null || !Files.exists(directory)) {
+            return;
+        } // if
+        try (Stream<Path> paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            } // for
+        } // try
+    } // deleteWorkingDirectory
 
     /**
      * Find the binary name of the single top-level declaration in a compilation unit.
@@ -571,15 +579,12 @@ public class CompilationHelper {
 
         @Override
         public void close() {
-            if (classPath != null && Files.exists(classPath)) {
-                try (Stream<Path> paths = Files.walk(classPath)) {
-                    paths.sorted(Comparator.reverseOrder())
-                            .map(Path::toFile)
-                            .forEach(File::delete);
-                } catch (IOException ignored) {
-                    // ignore error during cleanup
-                } // try
-            } // if
+            try {
+                deleteWorkingDirectory(classPath);
+            } catch (IOException failure) {
+                throw new java.io.UncheckedIOException(
+                        "Unable to clean compilation files", failure);
+            } // try
         } // close
     } // CompilationResult
 } // CompilationHelper

@@ -752,11 +752,8 @@ public sealed interface TraceValue {
                             entryCt.concreteMethodByName("getValue", "()Ljava/lang/Object;");
                     ObjectReference entryValue = (ObjectReference) entry.invokeMethod(
                             mainThread, entryGetValue, java.util.List.of(), 0);
-                    outEncounteredReferences.ifPresent(l -> l.add(entryKey));
-                    outEncounteredReferences.ifPresent(l -> l.add(entryValue));
-                    map.put(
-                            new Reference(entryKey.uniqueID()),
-                            new Reference(entryValue.uniqueID()));
+                    map.put(mapReference(entryKey, outEncounteredReferences),
+                            mapReference(entryValue, outEncounteredReferences));
                 } // for
                 return Optional.of(new Map(or.referenceType().name(), map));
             } catch (IllegalArgumentException
@@ -769,6 +766,22 @@ public sealed interface TraceValue {
                 throw new IllegalArgumentException("Expected thread to be suspended", e);
             } // try
         } // tryFromJdiObjectReference
+
+        /**
+         * Converts a nullable map entry reference and enqueues only live references.
+         * @param value Nullable entry value.
+         * @param references Encountered references.
+         * @return Null or pointer value.
+         */
+        private static TraceValue mapReference(ObjectReference value,
+                Optional<java.util.List<ObjectReference>> references) {
+            if (value == null) {
+                return new Null();
+            } // if
+            references.ifPresent(list -> list.add(value));
+            return new Reference(value.uniqueID());
+        } // mapReference
+
     } // Map
 
     /**
