@@ -263,3 +263,22 @@ See [bounded tracing](docs/BOUNDED_TRACING.md) for the contract and measured exa
 profile, and the [runner contract](docs/RUNNER_CONTRACT.md) for hosted isolation
 requirements. Existing display-oriented collection decoding remains available in
 TRUSTED mode; FIELDS reports its raw-field presentation in diagnostics.
+
+### Final validation
+
+Validated locally on macOS on September 12, 2026:
+
+| Check | Result |
+| --- | --- |
+| Clean Maven package on JDK 21 | 164 tests passed; Checkstyle and configured JaCoCo gates passed. |
+| Clean Maven package on JDK 25 | 164 tests passed; Checkstyle and configured JaCoCo gates passed. |
+| Final JAR against Python Tutor fixtures on JDK 21 | All 11 cases passed. |
+| Final JAR against Python Tutor fixtures on JDK 25 | All 11 cases passed. |
+| Fixture-normalizer unit tests | All 4 passed. |
+| Whitespace validation | `git diff --check` passed. |
+
+The subprocess regressions verify timeout without breakpoint hits, output caps,
+heap/element/retained-trace caps, snapshot caps, source byte/file caps, cancellation,
+partial-state retention, restrictive inspection, nonzero guest exit reporting, and
+that a timed-out guest process is no longer alive when the CLI exits. Linux CI and
+the separate runner's isolation tests have not been executed in this local session.
