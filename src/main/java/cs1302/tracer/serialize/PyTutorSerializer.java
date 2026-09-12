@@ -245,12 +245,40 @@ public record PyTutorSerializer(
         Map<String, Object> serializedHeap = new LinkedHashMap<>();
         for (Entry<Long, TraceValue> e : heap.entrySet()) {
             if (!(inlineStrings && e.getValue() instanceof TraceValue.String)) {
-                serializedHeap.put(
-                        e.getKey().toString(), serializeTraceValue(e.getValue(), heap));
+                if (e.getValue() instanceof TraceValue.Primitive prim) {
+                    serializedHeap.put(
+                            e.getKey().toString(), serializeHeapPrimitive(prim));
+                } else {
+                    serializedHeap.put(
+                            e.getKey().toString(), serializeTraceValue(e.getValue(), heap));
+                } // if
             } // if
         } // for
         return serializedHeap;
     } // serializeHeap
+
+    /**
+     * Serializes a boxed primitive value residing on the heap into an INSTANCE object.
+     *
+     * @param prim The primitive trace value.
+     * @return Serialized INSTANCE list representation.
+     */
+    private Object serializeHeapPrimitive(TraceValue.Primitive prim) {
+        String boxedFqn = switch (prim) {
+            case TraceValue.Primitive.Integer i -> "java.lang.Integer";
+            case TraceValue.Primitive.Double d -> "java.lang.Double";
+            case TraceValue.Primitive.Boolean b -> "java.lang.Boolean";
+            case TraceValue.Primitive.Long l -> "java.lang.Long";
+            case TraceValue.Primitive.Float f -> "java.lang.Float";
+            case TraceValue.Primitive.Character c -> "java.lang.Character";
+            case TraceValue.Primitive.Byte b -> "java.lang.Byte";
+            case TraceValue.Primitive.Short s -> "java.lang.Short";
+        }; // switch
+        return List.of(
+                "INSTANCE",
+                typeStyle.format(boxedFqn),
+                List.of("value", serializePrimitive(prim)));
+    } // serializeHeapPrimitive
 
     /**
      * Constructs the type attributes map for all heap objects.
@@ -290,21 +318,21 @@ public record PyTutorSerializer(
             case TraceValue.String s ->
                 heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.String")));
             case TraceValue.Primitive.Integer i ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Integer")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("int"))));
             case TraceValue.Primitive.Double d ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Double")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("double"))));
             case TraceValue.Primitive.Boolean b ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Boolean")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("boolean"))));
             case TraceValue.Primitive.Long l ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Long")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("long"))));
             case TraceValue.Primitive.Float f ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Float")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("float"))));
             case TraceValue.Primitive.Character c ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Character")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("char"))));
             case TraceValue.Primitive.Byte b ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Byte")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("byte"))));
             case TraceValue.Primitive.Short s ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.Short")));
+                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("short"))));
             case TraceValue.Lambda l -> heapAttrs.put(key, Map.of("type", "lambda"));
             default -> {
                 // do nothing

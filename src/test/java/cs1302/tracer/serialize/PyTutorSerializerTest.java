@@ -338,18 +338,35 @@ public class PyTutorSerializerTest {
       assertThat(heapAttrs.get("20")).isEqualTo(Map.of("type", "java.lang.String"));
       assertThat(heapAttrs.get("30"))
           .isEqualTo(Map.of("type", "java.util.HashMap<String, Integer>"));
-      assertThat(heapAttrs.get("40")).isEqualTo(Map.of("type", "java.lang.Integer"));
+      assertThat(heapAttrs.get("40")).isEqualTo(Map.of("type", List.of("int")));
       assertThat(heapAttrs.get("50")).isEqualTo(Map.of("type", "java.util.HashSet<String>"));
-      assertThat(heapAttrs.get("60")).isEqualTo(Map.of("type", "java.lang.Double"));
-      assertThat(heapAttrs.get("70")).isEqualTo(Map.of("type", "java.lang.Boolean"));
-      assertThat(heapAttrs.get("80")).isEqualTo(Map.of("type", "java.lang.Long"));
-      assertThat(heapAttrs.get("90")).isEqualTo(Map.of("type", "java.lang.Float"));
-      assertThat(heapAttrs.get("100")).isEqualTo(Map.of("type", "java.lang.Character"));
-      assertThat(heapAttrs.get("110")).isEqualTo(Map.of("type", "java.lang.Byte"));
-      assertThat(heapAttrs.get("120")).isEqualTo(Map.of("type", "java.lang.Short"));
+      assertThat(heapAttrs.get("60")).isEqualTo(Map.of("type", List.of("double")));
+      assertThat(heapAttrs.get("70")).isEqualTo(Map.of("type", List.of("boolean")));
+      assertThat(heapAttrs.get("80")).isEqualTo(Map.of("type", List.of("long")));
+      assertThat(heapAttrs.get("90")).isEqualTo(Map.of("type", List.of("float")));
+      assertThat(heapAttrs.get("100")).isEqualTo(Map.of("type", List.of("char")));
+      assertThat(heapAttrs.get("110")).isEqualTo(Map.of("type", List.of("byte")));
+      assertThat(heapAttrs.get("120")).isEqualTo(Map.of("type", List.of("short")));
       assertThat(heapAttrs.get("130")).isEqualTo(Map.of("type", "lambda"));
       assertThat(heapAttrs.get("140")).isEqualTo(Map.of("type", "int[][]"));
       assertThat(heapAttrs.get("150")).isEqualTo(Map.of("type", "int[]"));
+
+      assertThat(step.heap().get("40"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Integer", List.of("value", 42)));
+      assertThat(step.heap().get("60"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Double", List.of("value", List.of("NUMBER-LITERAL", "3.14"))));
+      assertThat(step.heap().get("70"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Boolean", List.of("value", true)));
+      assertThat(step.heap().get("80"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Long", List.of("value", 999L)));
+      assertThat(step.heap().get("90"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Float", List.of("value", List.of("NUMBER-LITERAL", "1.5"))));
+      assertThat(step.heap().get("100"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Character", List.of("value", List.of("CHAR-LITERAL", "x"))));
+      assertThat(step.heap().get("110"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Byte", List.of("value", (byte) 2)));
+      assertThat(step.heap().get("120"))
+          .isEqualTo(List.of("INSTANCE", "java.lang.Short", List.of("value", (short) 4)));
     }
 
     @Test
@@ -662,11 +679,12 @@ public class PyTutorSerializerTest {
                   new ThisObject(
                       "cs1302.generics.Pair<java.lang.String, java.lang.Integer>",
                       new TraceValue.Reference(101L))));
+      TraceValue.Primitive.Integer boxedInt = new TraceValue.Primitive.Integer(42);
       ExecutionSnapshot snapshot =
           new ExecutionSnapshot(
               List.of(frame),
               List.of(new Field(false, "java.lang.String", "GLOBAL", new TraceValue.Null())),
-              Map.of(101L, obj),
+              Map.of(101L, obj, 102L, boxedInt),
               new byte[0],
               new byte[0]);
 
@@ -682,6 +700,10 @@ public class PyTutorSerializerTest {
           .isEqualTo(Map.of("type", "String", "final", false));
       List<?> instanceList = (List<?>) simpleStep.heap().get("101");
       assertThat(instanceList.get(1)).isEqualTo("Pair<String, Integer>");
+      assertThat(simpleStep.heap().get("102"))
+          .isEqualTo(List.of("INSTANCE", "Integer", List.of("value", 42)));
+      assertThat(simpleStep.heapAttrs().get("102"))
+          .isEqualTo(Map.of("type", List.of("int")));
     }
 
     @Test
