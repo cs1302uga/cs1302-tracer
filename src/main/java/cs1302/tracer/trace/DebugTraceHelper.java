@@ -757,40 +757,7 @@ public class DebugTraceHelper {
             InterruptedException,
             AbsentInformationException {
 
-        VirtualMachine vm = startVmWithCprs(compilationResult);
-        try {
-            Map<String, Set<Integer>> fileLines = new HashMap<>();
-            HashSet<String> compiledClasses =
-                    new HashSet<>(compilationResult.compiledClassNames());
-
-            while (!compiledClasses.isEmpty()) {
-                for (Event event : nextEvents(vm)) {
-                    switch (event) {
-                    case ClassPrepareEvent cpe -> {
-                        for (Location loc : cpe.referenceType().allLineLocations()) {
-                            String path = resolveLocationPath(loc, cpe.referenceType());
-                            fileLines.computeIfAbsent(
-                                    path, k -> new HashSet<>()).add(loc.lineNumber());
-                        } // for
-                        compiledClasses.remove(cpe.referenceType().name());
-                    } // case
-                    case VMDeathEvent vde -> {
-                        return fileLines;
-                    } // case
-                    default -> {
-                        // do nothing
-                    } // default
-                    } // switch
-                    if (!compiledClasses.isEmpty()) {
-                        vm.resume();
-                    } // if
-                } // for
-            } // while
-
-            return fileLines;
-        } finally {
-            cleanupVm(vm);
-        } // try
+        return BreakpointReader.read(compilationResult);
     } // getValidBreakpointLinesByFile
 
     /**
@@ -1336,8 +1303,8 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
+        TraceSession.elements(mainThread.frameCount());
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
             String frameMethodSignature = String.format(
@@ -1347,7 +1314,6 @@ public class DebugTraceHelper {
                     frameMethod.argumentTypes().stream()
                             .map(Type::name)
                             .collect(Collectors.joining(",")));
-
             Set<String> finalVariableNames =
                     finalMap.getOrDefault(frameMethodSignature, Collections.emptySet());
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
@@ -1356,14 +1322,13 @@ public class DebugTraceHelper {
             int currentLine = frame.location().lineNumber();
             String declaringClassFqn = frameMethod.declaringType().name();
             String methodName = frameMethod.name();
-
             for (LocalVariable lv : frame.visibleVariables()) {
+                TraceSession.elements(1);
                 boolean isFinal = finalVariableNames.contains(lv.name());
                 Optional<String> lvLambdaImplementation =
                         findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
                 String resolvedTypeName = resolveLocalVariableType(
                         frame, lv, astTypeResolver, objectTypeMap, declaringClassFqn, methodName);
-
                 appendStackField(
                         frame,
                         lv,
@@ -1376,11 +1341,9 @@ public class DebugTraceHelper {
                         heap,
                         stackFrameFields);
             } // for
-
             Optional<ThisObject> thisObject = resolveThisObject(
                     frame, declaringClassFqn, objectTypeMap, heapReferencesToWalk);
             String frameSourcePath = resolveFrameSourcePath(frame);
-
             stackSnapshots.addFirst(new StackSnapshot(
                     frame.location().method().name(),
                     frame.location().lineNumber(),
@@ -1620,16 +1583,14 @@ public class DebugTraceHelper {
         for (ReferenceType loadedClass : loadedClasses) {
             Optional<ClassOrInterfaceDeclaration> loadedClassDeclaration =
                     findClassDeclaration(parsedSources, loadedClass.name());
-
             for (Field f : loadedClass.allFields()) {
+                TraceSession.elements(1);
                 if (!f.isStatic()) {
                     continue;
                 } // if
-
                 Optional<String> lambdaImplementation =
                         findStaticLambdaImplementation(loadedClassDeclaration, f.name());
                 String fieldName = String.join(".", loadedClass.name(), f.name());
-
                 switch (loadedClass.getValue(f)) {
                 case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(
                         f.isFinal(),
@@ -1637,6 +1598,7 @@ public class DebugTraceHelper {
                         fieldName,
                         TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or when lambdaImplementation.isPresent() -> {
+                    heapReferencesToWalk.add(or);
                     heap.put(or.uniqueID(), new TraceValue.Lambda(lambdaImplementation.get()));
                     statics.add(new ExecutionSnapshot.Field(
                             f.isFinal(),

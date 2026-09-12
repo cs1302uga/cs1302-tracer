@@ -44,6 +44,7 @@ public final class TraceSession implements AutoCloseable {
     private long buildingBytes;
     private long retainedBytes;
     private boolean extracting;
+    private boolean guestFailed;
     private boolean droppedSnapshot;
     private String phase = "source";
     private final List<String> diagnostics = new ArrayList<>();
@@ -60,6 +61,10 @@ public final class TraceSession implements AutoCloseable {
         } // if
         this.limits = limits;
         this.inspection = inspection;
+        if (inspection == InspectionPolicy.FIELDS) {
+            diagnostics.add("FIELDS inspection uses raw fields for collections and wrappers; "
+                    + "guest methods and stream flush are not invoked.");
+        } // if
         this.accumulate = accumulate;
         CURRENT.set(this);
     } // TraceSession
@@ -259,6 +264,7 @@ public final class TraceSession implements AutoCloseable {
      * @param description Exception type and source location.
      */
     public void guestException(String description) {
+        guestFailed = true;
         diagnostics.add(description);
     } // guestException
 
@@ -294,7 +300,7 @@ public final class TraceSession implements AutoCloseable {
                     ? "compile_error" : "tracer_error";
             diagnostics.add(failure.toString());
         } // if
-        if (stopped == null && !diagnostics.isEmpty()) {
+        if (stopped == null && guestFailed) {
             stopped = "guest_exception";
         } // if
         Map<String, Long> counts = new LinkedHashMap<>();
