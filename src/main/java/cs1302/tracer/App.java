@@ -9,6 +9,11 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import cs1302.tracer.CompilationHelper.CompilationResult;
+import cs1302.tracer.execution.JobOptions;
+import cs1302.tracer.execution.TraceLimits;
+import cs1302.tracer.execution.TraceSession;
+import cs1302.tracer.execution.TraceResult;
+import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.model.BreakpointEntry;
 import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.model.TypeStyle;
@@ -219,6 +224,9 @@ public class App {
         mixinStandardHelpOptions = true)
     static class Trace extends CommandBase {
 
+        @picocli.CommandLine.Mixin
+        JobOptions job = new JobOptions();
+
         @Option(
                 names = {"--remove-main-args"},
                 description = "Don't include the main method's args parameter in the output.")
@@ -266,6 +274,21 @@ public class App {
 
         @Override
         public void run() {
+            try {
+                TraceLimits selected = job.limits();
+                if (job.envelope) {
+                    runBounded(selected);
+                    return;
+                } // if
+                if (!selected.equals(TraceLimits.unlimited())
+                        || job.inspection != InspectionPolicy.TRUSTED) {
+                    throw new IllegalArgumentException("Trace controls require --result-envelope");
+                } // if
+            } catch (IllegalArgumentException invalid) {
+                System.err.println(invalid.getMessage());
+                exitHandler.accept(2);
+                return;
+            } // try
             String source = readInputFile();
 
             try {
@@ -299,6 +322,122 @@ public class App {
                 exitHandler.accept(1);
             } // try
         } // run
+
+        /**
+         * Executes an opt-in job, preserving snapshots on recoverable failure.
+         * @param limits Validated resource policy.
+         */
+        private void runBounded(TraceLimits limits) {
+            try (TraceSession session = new TraceSession(limits, job.inspection,
+                    allBreakpoints || accumulateBreakpoints)) {
+                String source = "";
+                Throwable failure = null;
+                List<ExecutionSnapshot> snapshots = null;
+                try {
+                    source = readBoundedSource(session, limits);
+                    session.phase("compile");
+                    snapshots = executeBoundedSource(source, session, limits);
+                } catch (Exception caught) {
+                    failure = caught;
+                    if (caught instanceof InterruptedException) {
+                        session.cancel();
+                        Thread.currentThread().interrupt();
+                    } // if
+                } // try
+                if (snapshots == null && session.traceAvailable()) {
+                    snapshots = session.snapshots();
+                } // if
+                Object payload = null;
+                try {
+                    payload = snapshots == null ? null : boundedPayload(source, snapshots);
+                } catch (RuntimeException serializationFailure) {
+                    failure = serializationFailure;
+                    session.phase("serialize");
+                } // try
+                TraceResult result = session.result(
+                        format.name().toLowerCase(java.util.Locale.ROOT),
+                        payload, failure);
+                PyTutorSerializer.getGson(pretty).toJson(result, System.out);
+                System.out.println();
+                if (!result.complete()) {
+                    exitHandler.accept(result.status().equals("stopped") ? 3 : 1);
+                } // if
+            } // try
+        } // runBounded
+
+        /**
+         * Reads sources with a byte cap before parsing or decoding them.
+         * @param session Job session.
+         * @param limits Source budgets.
+         * @return UTF-8 source text.
+         * @throws IOException On source read failure.
+         */
+        private String readBoundedSource(TraceSession session, TraceLimits limits)
+                throws IOException {
+            InputStream stream = input == null ? System.in : Files.newInputStream(input.toPath());
+            try {
+                java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+                byte[] chunk = new byte[4096];
+                int count;
+                while ((count = stream.read(chunk)) != -1) {
+                    session.enforce((long) bytes.size() + count,
+                            limits.sourceBytes(), "source_limit");
+                    bytes.write(chunk, 0, count);
+                } // while
+                return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+            } finally {
+                if (input != null) {
+                    stream.close();
+                } // if
+            } // try
+        } // readBoundedSource
+
+        /**
+         * Compiles a job and captures its selected trace.
+         * @param source Source stream.
+         * @param session Active session.
+         * @param limits Validated limits.
+         * @return Completed snapshots.
+         * @throws Exception On compilation or tracing failure.
+         */
+        private List<ExecutionSnapshot> executeBoundedSource(
+                String source, TraceSession session, TraceLimits limits) throws Exception {
+            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source).results().count();
+            session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
+            List<CompilationHelper.SourceFile> sources =
+                    CompilationHelper.parseMultiFileStream(source);
+            Optional<Path> root = job.inspection == InspectionPolicy.FIELDS ? Optional.empty()
+                    : CompilationHelper.findSourceRoot(
+                            CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
+            try (CompilationResult compiled = CompilationHelper.compile(source, root)) {
+                List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
+                session.phase("trace");
+                if (allBreakpoints) {
+                    Collection<Integer> lines = breakpoints == null
+                            ? DebugTraceHelper.getValidBreakpointLines(compiled) : breakpoints;
+                    DebugTraceHelper.traceChronological(compiled, lines, units, true);
+                } else {
+                    DebugTraceHelper.trace(compiled, breakpoints, units);
+                } // if
+                session.check();
+                return session.snapshots();
+            } // try
+        } // executeBoundedSource
+
+        /**
+         * Creates an unchanged trace-format root inside the result envelope.
+         * @param source Source text.
+         * @param snapshots Completed states in capture order.
+         * @return Serializer model.
+         */
+        private Object boundedPayload(String source, List<ExecutionSnapshot> snapshots) {
+            if (format == TraceFormat.MODERN) {
+                return new ModernTraceSerializer(removeMainArgs, inlineStrings,
+                        removeMethodThis, typeStyle).createTrace(source, snapshots);
+            } // if
+            return new PyTutorSerializer(removeMainArgs, inlineStrings,
+                    removeMethodThis, typeStyle).createTrace(source, snapshots);
+        } // boundedPayload
 
         /**
          * Discovers and parses all compilation units in the source files and source root.

@@ -52,6 +52,7 @@ import com.sun.jdi.request.MethodExitRequest;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
+import cs1302.tracer.execution.TraceSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -239,7 +240,7 @@ public class DebugTraceHelper {
 
         boolean endEventLoop = false;
         while (!endEventLoop) {
-            for (Event event : vm.eventQueue().remove()) {
+            for (Event event : nextEvents(vm)) {
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
                     if (compilationResult.compiledClassNames().contains(
@@ -255,8 +256,7 @@ public class DebugTraceHelper {
                         Integer line = loc.lineNumber();
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources);
-                        snapshots.computeIfAbsent(
-                                line, ArrayList<ExecutionSnapshot>::new).add(snapshot);
+                        storeSnapshot(snapshots, line, snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
@@ -267,14 +267,14 @@ public class DebugTraceHelper {
                     } // if
                 } // case
                 case ExceptionEvent ee -> {
+                    recordException(ee);
                     Location loc = ee.location();
                     if (loc != null && compilationResult.compiledClassNames().contains(
                             loc.declaringType().name())) {
                         Integer line = loc.lineNumber();
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 ee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
-                        snapshots.computeIfAbsent(
-                                line, ArrayList<ExecutionSnapshot>::new).add(snapshot);
+                        storeSnapshot(snapshots, line, snapshot);
                         if (!snapshots.containsKey(-1)) {
                             snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
                         } // if
@@ -680,10 +680,9 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-
         boolean endEventLoop = false;
         while (!endEventLoop) {
-            for (Event event : vm.eventQueue().remove()) {
+            for (Event event : nextEvents(vm)) {
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
                     if (compilationResult.compiledClassNames().contains(
@@ -709,6 +708,7 @@ public class DebugTraceHelper {
                     } // if
                 } // case
                 case ExceptionEvent ee -> {
+                    recordException(ee);
                     Location loc = ee.location();
                     if (loc != null && compilationResult.compiledClassNames().contains(
                             loc.declaringType().name())) {
@@ -730,11 +730,9 @@ public class DebugTraceHelper {
                     // do nothing
                 } // default
                 } // switch
-
                 if (endEventLoop) {
                     break;
                 } // if
-
                 vm.resume();
             } // for
         } // while
@@ -766,7 +764,7 @@ public class DebugTraceHelper {
                     new HashSet<>(compilationResult.compiledClassNames());
 
             while (!compiledClasses.isEmpty()) {
-                for (Event event : vm.eventQueue().remove()) {
+                for (Event event : nextEvents(vm)) {
                     switch (event) {
                     case ClassPrepareEvent cpe -> {
                         for (Location loc : cpe.referenceType().allLineLocations()) {
@@ -856,9 +854,12 @@ public class DebugTraceHelper {
         Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
 
         env.get("main").setValue(compilationResult.mainClass());
-        env.get("options").setValue("-classpath " + compilationResult.classPath());
+        env.get("options").setValue("-classpath \"" + compilationResult.classPath() + "\"");
 
         VirtualMachine vm = launchingConnector.launch(env);
+        if (TraceSession.current() != null) {
+            TraceSession.current().attach(vm);
+        } // if
 
         for (String className : compilationResult.compiledClassNames()) {
             ClassPrepareRequest classPrepareRequest =
@@ -955,11 +956,17 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
 
-        flushTargetStreams(mainThread.virtualMachine(), mainThread);
+        TraceSession session = TraceSession.current();
+        if (session != null) {
+            session.beginSnapshot();
+        } // if
+        if (TraceSession.mayInvoke()) {
+            flushTargetStreams(mainThread.virtualMachine(), mainThread);
+        } // if
         vmOut.sync();
         vmErr.sync();
 
-        List<ObjectReference> heapReferencesToWalk = new ArrayList<>();
+        List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
         Map<Long, TraceValue> heap = new HashMap<>();
         AstTypeResolver astTypeResolver = new AstTypeResolver(parsedSources);
         Map<Long, String> objectTypeMap = new HashMap<>();
@@ -985,18 +992,25 @@ public class DebugTraceHelper {
 
         drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
 
+        if (session != null) {
+            session.allocate((long) vmOut.size() + vmErr.size());
+        } // if
         byte[] vmOutBytes = vmOut.getBytes();
         byte[] vmErrBytes = vmErr.getBytes();
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
 
-        return new ExecutionSnapshot(
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(
                 stackSnapshots,
                 statics,
                 heap,
                 vmOutBytes,
                 vmErrBytes,
                 Optional.ofNullable(currentStepSourcePath));
+        if (session != null) {
+            session.commit(snapshot);
+        } // if
+        return snapshot;
     } // snapshotTheWorld
 
     /**
@@ -1688,4 +1702,66 @@ public class DebugTraceHelper {
                 .map(vd -> vd.getInitializer().get().asLambdaExpr())
                 .flatMap(DebugTraceHelper::tryImplementLambdaSam);
     } // findStaticLambdaImplementation
+
+    /**
+     * Records an uncaught guest exception for the job result.
+     * @param event Exception event.
+     */
+    private static void recordException(ExceptionEvent event) {
+        if (TraceSession.current() != null) {
+            TraceSession.current().guestException(event.exception().referenceType().name());
+        } // if
+    } // recordException
+
+    /**
+     * Waits for debugger events while observing session cancellation.
+     * @param vm Guest debugger.
+     * @return Events, possibly empty after a poll timeout.
+     * @throws InterruptedException On thread cancellation.
+     */
+    private static Iterable<Event> nextEvents(VirtualMachine vm) throws InterruptedException {
+        TraceSession session = TraceSession.current();
+        if (session != null) {
+            session.check();
+        } // if
+        var events = vm.eventQueue().remove(100);
+        return events == null ? List.of() : events;
+    } // nextEvents
+
+    /**
+     * Stores selected breakpoint state, avoiding a second unbounded history in bounded jobs.
+     * @param snapshots Legacy breakpoint mapping.
+     * @param line Breakpoint line.
+     * @param snapshot Completed state.
+     */
+    private static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
+            int line, ExecutionSnapshot snapshot) {
+        List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
+        if (TraceSession.current() != null) {
+            entries.clear();
+        } // if
+        entries.add(snapshot);
+    } // storeSnapshot
+
+    /** Deduplicates and budgets references before retaining them for heap traversal. */
+    private static final class ReferenceQueue extends LinkedList<ObjectReference> {
+        private static final long serialVersionUID = 1L;
+        private final Set<Long> queued = new HashSet<>();
+
+        /** Constructs an empty reference work queue. */
+        ReferenceQueue() {} // ReferenceQueue
+
+        @Override
+        public boolean add(ObjectReference reference) {
+            if (reference == null || queued.contains(reference.uniqueID())) {
+                return false;
+            } // if
+            TraceSession session = TraceSession.current();
+            if (session != null) {
+                session.encounter(reference.uniqueID());
+            } // if
+            queued.add(reference.uniqueID());
+            return super.add(reference);
+        } // add
+    } // ReferenceQueue
 } // DebugTraceHelper

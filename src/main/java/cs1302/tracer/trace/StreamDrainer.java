@@ -1,6 +1,7 @@
 package cs1302.tracer.trace;
 
 import java.io.ByteArrayOutputStream;
+import cs1302.tracer.execution.TraceSession;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -14,6 +15,8 @@ public class StreamDrainer implements AutoCloseable {
     private static final long DEFAULT_MAX_WAIT_MILLIS = 50;
     private static final long DEFAULT_QUIET_PERIOD_MILLIS = 5;
 
+    private final TraceSession session;
+    private final long limit;
     private final InputStream source;
     private final ByteArrayOutputStream sink;
     private final Thread readerThread;
@@ -30,6 +33,11 @@ public class StreamDrainer implements AutoCloseable {
     public StreamDrainer(InputStream source) {
         if (source == null) {
             throw new IllegalArgumentException("source input stream cannot be null");
+        } // if
+        this.session = TraceSession.current();
+        this.limit = session == null ? 0 : session.outputLimit();
+        if (session != null) {
+            session.register(this);
         } // if
         this.source = source;
         this.sink = new ByteArrayOutputStream();
@@ -52,7 +60,12 @@ public class StreamDrainer implements AutoCloseable {
                     break;
                 } // if
                 synchronized (sink) {
-                    sink.write(buffer, 0, read);
+                    int retained = limit == 0 ? read
+                            : (int) Math.min(read, Math.max(0, limit - sink.size()));
+                    sink.write(buffer, 0, retained);
+                    if (retained < read) {
+                        session.stop("output_limit");
+                    } // if
                 } // synchronized
                 lastReadNanos = System.nanoTime();
             } catch (IOException ioe) {

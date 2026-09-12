@@ -1,5 +1,6 @@
 package cs1302.tracer.trace;
 
+import cs1302.tracer.execution.TraceSession;
 import com.sun.jdi.ArrayReference;
 import com.sun.jdi.BooleanValue;
 import com.sun.jdi.ByteValue;
@@ -96,7 +97,7 @@ public sealed interface TraceValue {
                                 astTypeResolver,
                                 objectTypeMap));
             } // case
-            case StringReference sr -> new String(sr.value());
+            case StringReference sr -> stringValue(sr);
             case ObjectReference or -> handleObjectReference(
                     mainThread,
                     or,
@@ -107,6 +108,19 @@ public sealed interface TraceValue {
                 throw new IllegalArgumentException("Unrecognized value type: " + value);
         }; // switch
     } // fromJdiValue
+
+    /**
+     * Budgets JDK string backing storage before asking JDI for its contents.
+     * @param string Guest string.
+     * @return Owned string value.
+     */
+    private static TraceValue stringValue(StringReference string) {
+        Field backing = string.referenceType().fieldByName("value");
+        if (backing != null && string.getValue(backing) instanceof ArrayReference array) {
+            TraceSession.elements(array.length());
+        } // if
+        return new String(string.value());
+    } // stringValue
 
     /**
      * Handles converting an ObjectReference into an appropriate TraceValue.
@@ -125,6 +139,10 @@ public sealed interface TraceValue {
             AstTypeResolver astTypeResolver,
             java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
 
+        if (!TraceSession.mayInvoke()) {
+            return handleRegularObject(
+                    or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+        } // if
         Optional<Primitive> maybeWrappedPrimitive = Primitive.tryFromJdiValue(mainThread, or);
         if (maybeWrappedPrimitive.isPresent()) {
             outEncounteredReferences.ifPresent(l -> l.add(or));
@@ -204,6 +222,7 @@ public sealed interface TraceValue {
             return;
         } // if
         java.lang.String elemType = typeArgs.get(0);
+        TraceSession.elements(ar.length());
         for (Value elemVal : ar.getValues()) {
             if (elemVal instanceof ObjectReference elemOr) {
                 java.lang.String elemRuntime = elemOr.referenceType().name();
@@ -362,15 +381,13 @@ public sealed interface TraceValue {
                 astTypeResolver != null
                         ? astTypeResolver.getClassGenericInfo(rawClassFqn)
                         : Optional.empty();
-
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields =
                 or.referenceType().allFields().stream().filter(f -> !f.isStatic()).toList();
-
+        TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
             java.lang.String fieldTypeName =
                     resolveFieldTypeName(objectField, classInfo, bindings);
-
             Value fieldValue = or.getValue(objectField);
             switch (fieldValue) {
             case null -> objectSnapshotFields.add(new ExecutionSnapshot.Field(
@@ -406,7 +423,6 @@ public sealed interface TraceValue {
             } // default
             } // switch
         } // for
-
         return new Object(classFqn, objectSnapshotFields);
     } // handleRegularObject
 
@@ -426,6 +442,7 @@ public sealed interface TraceValue {
             Optional<java.util.List<ObjectReference>> outEncounteredReferences,
             AstTypeResolver astTypeResolver,
             java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+        TraceSession.elements(arrayReference.length());
         java.util.List<TraceValue> tvs = new ArrayList<>(arrayReference.length());
 
         for (int i = 0; i < arrayReference.length(); i++) {
@@ -740,6 +757,7 @@ public sealed interface TraceValue {
                 ArrayReference ar =
                         (ArrayReference) entries.invokeMethod(
                                 mainThread, entriesToArray, java.util.List.of(), 0);
+                TraceSession.elements(ar.length() * 2L);
                 java.util.Map<TraceValue, TraceValue> map = new HashMap<>();
                 for (int i = 0; i < ar.length(); i++) {
                     ObjectReference entry = (ObjectReference) ar.getValue(i);
