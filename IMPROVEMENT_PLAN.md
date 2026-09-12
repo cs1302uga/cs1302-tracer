@@ -1,6 +1,8 @@
 # Tracer improvement plan
 
-Status: proposed implementation plan; no implementation changes included.
+Status: first milestone implemented on `feat/bounded-tracing`; final validation
+is recorded below. The separate Linux runner and listed follow-up work remain
+outside this milestone.
 
 ## Objective and agreed scope
 
@@ -209,8 +211,8 @@ After the first milestone, prioritize these independently measurable changes:
 
 1. Cache immutable AST/type/lambda/final indexes once per compilation instead of
    rebuilding them for each snapshot. Verify trace equivalence and measure time.
-2. Replace the heap traversal's `ArrayList.removeFirst()` queue with a deque and
-   track queued object IDs to reduce redundant work on shared graphs.
+2. Delivered during phase 3: heap traversal now uses a deque-backed work queue
+   with deduplicated object IDs, enabling reference budgets before retention.
 3. Store captured output once with per-snapshot offsets internally, materializing
    cumulative output only where serializers require it. Measure peak memory and
    runtime on output-heavy traces.
@@ -235,3 +237,29 @@ all budgets have bounded failure tests, partial results are valid and explicit,
 legacy visualizer fixtures pass, cleanup is verified, and the runner boundary is
 documented. Release notes must distinguish bug fixes, opt-in behavior, remaining
 limitations, and the separate work required for hosted isolation.
+
+## Implementation outcome
+
+Phases 1–5 are implemented in small commits on `feat/bounded-tracing`:
+
+- Contained source destinations, null map entry handling, compiler ownership,
+  and cleanup regression tests.
+- Opt-in v1 result envelope, finite configurable budgets, monotonic watchdog,
+  caller cancellation, atomic partial snapshots, and bounded output retention.
+- Latest-only selected-breakpoint retention, including legacy CLI output, and
+  explicit uncaught-exception/nonzero guest-exit results.
+- FIELDS inspection without guest method invocation and ASM-based breakpoint
+  discovery without guest execution.
+- Eleven committed Python Tutor compatibility fixtures generated from `main`
+  (`bd7626f`), a non-mutating verifier, normalizer tests, documentation, and CI
+  coverage for Linux JDK 21/25 plus macOS JDK 21.
+
+The result envelope additionally retains bounded stdout/stderr when a job stops
+before producing its first snapshot. Trace-byte accounting is a documented data
+budget, not an OS memory ceiling. Input parsing/compilation still require an outer
+runner deadline, and forced process death can leave no recoverable JSON artifact.
+
+See [bounded tracing](docs/BOUNDED_TRACING.md) for the contract and measured example
+profile, and the [runner contract](docs/RUNNER_CONTRACT.md) for hosted isolation
+requirements. Existing display-oriented collection decoding remains available in
+TRUSTED mode; FIELDS reports its raw-field presentation in diagnostics.

@@ -1,6 +1,6 @@
 # Project Architecture & Developer Guide
 
-`cs1302-tracer` is a programmatic Java execution tracer built on top of the Java Debug Interface (JDI) and JavaParser. It compiles arbitrary guest Java code (including multi-file packages and streamed sources), executes it inside a sandboxed guest JVM, inspects execution states at method/line breakpoints, traverses the reachable object graph on the heap, and serializes the execution trace into JSON.
+`cs1302-tracer` is a programmatic Java execution tracer built on top of the Java Debug Interface (JDI) and JavaParser. It compiles arbitrary guest Java code (including multi-file packages and streamed sources), executes it inside a separate guest JVM (without establishing host isolation), inspects execution states at method/line breakpoints, traverses the reachable object graph on the heap, and serializes the execution trace into JSON.
 
 ---
 
@@ -50,11 +50,11 @@ Built using [Picocli](https://picocli.info/), `App.java` handles argument parsin
   - `trace`: Main execution command. Options:
     - `-b, --breakpoint`: Specific line numbers to take snapshots at.
     - `-a, --all-breakpoints`: Traces every executable line chronologically.
-    - `-c, --accumulate-breakpoints`: Accumulates multiple hits on the same line into arrays.
+    - `--accumulate-breakpoints`: Accumulates multiple hits on the same line into arrays.
     - `-f, --format`: Choose output format: `pytutor` (default) or `modern`.
-    - `--no-main-args`: Strips the `args` array parameter from `main(String[])` frame locals.
+    - `--remove-main-args`: Strips the `args` array parameter from `main(String[])` frame locals.
     - `--inline-strings`: Displays string values directly in variable slots rather than pointing to heap objects.
-    - `--no-method-this`: Omits the `this` reference from instance method stack frames.
+    - `--remove-method-this`: Omits the `this` reference from instance method stack frames.
   - `list-breakpoints`: Analyzes source files and lists valid line numbers where breakpoints can be set.
   - `show-licenses`: Dynamically reads and prints bundled third-party license notices (`META-INF/THIRD-PARTY.txt`).
 
@@ -120,7 +120,7 @@ sequenceDiagram
   - Tags each snapshot, stack frame, and breakpoint with its relative source file path (e.g., `cs1302/account/Account.java`).
 - **VM Lifecycle & I/O Isolation**:
   - Captures `stdout` and `stderr` streams separately in real time.
-  - Calls `vm.exit(0)` before disposing the connection to prevent hanging suspended guest threads.
+  - Destroys the guest process during cleanup and disposes the debugger connection. Bounded sessions also wait for process termination within a cleanup deadline.
 
 ---
 
@@ -130,7 +130,7 @@ To capture heap state without depending on guest JVM memory addresses after exec
 
 1. **Primitive & Wrapper Values**: Extracted directly (e.g., `IntegerValue`, `BooleanValue`, `DoubleValue` handling `NaN` and infinities).
 2. **String Values**: Captured as `TraceValue.String`.
-3. **Object Graph Traversal (Mark-and-Sweep)**:
+3. **Reachable Object Graph Traversal**:
    - Starting from all static fields and active stack frame local variables, reachable objects are traversed recursively.
    - Circular references and pointer aliasing are tracked via `ObjectReference.uniqueID()`, ensuring shared objects reference the same heap entry.
 4. **Specialized Heap Types**:
@@ -196,7 +196,7 @@ mvn package -DskipTests -Djacoco.skip=true
 
 ### JaCoCo Coverage Requirement
 
-The build enforces **100% line coverage** and **100% branch coverage** across all production classes using `jacoco-maven-plugin`. Any untested branches or lines will cause the build to fail.
+The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.model` and `cs1302.tracer.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
 
 ### Running Example Traces
 
@@ -216,3 +216,35 @@ To regenerate all example outputs:
 - [JavaParser Documentation](https://javaparser.org/)
 - [Picocli User Manual](https://picocli.info/)
 - [Online Python Tutor Trace Format](https://github.com/pgbovine/OnlinePythonTutor/blob/master/v3/docs/opt-trace-format.md)
+
+## Bounded execution architecture
+
+`cs1302.tracer.execution` contains the opt-in limits, result contract, inspection
+policy, and `TraceSession`. A session binds to the caller thread for existing
+static extraction helpers and owns the guest process, output-drainer lifecycle,
+watchdog, stop reason, and retained snapshots. It is closed with try-with-resources;
+the binding is not inherited by other threads. Cancellation can be requested from
+another thread. The watchdog operates independently of JDI event handling.
+
+Snapshot extraction accounts references/elements before retaining them and commits
+only complete states. Size accounting uses a streaming counter rather than an
+intermediate JSON string. Selected-breakpoint jobs can replace previous states
+instead of retaining every hit. Budgeted output drainers cap retained bytes and
+signal a stop while continuing to drain during teardown. The envelope is written
+to stdout through Gson's writer API.
+
+`BreakpointReader` uses ASM 9.10.1 to read SourceFile and line-number attributes
+without loading or executing compiled classes. This keeps the project compatible
+with the Java 21 runtime baseline while supporting the tested class-file versions.
+See the [ASM release history](https://asm.ow2.io/versions.html). All compiled classes,
+including unused nested classes and records, contribute to the source-line index.
+Numeric CLI breakpoints retain their existing meaning across source files.
+
+`FIELDS` inspection bypasses guest collection/accessor/wrapper/flush calls and
+uses raw fields for ordinary objects. It intentionally differs from specialized
+TRUSTED presentation and reports that policy in result diagnostics. This does not
+constrain code executed by the guest itself.
+
+The [result schema](docs/BOUNDED_TRACING.md) documents limits, partial outputs, and
+failure semantics. The [runner contract](docs/RUNNER_CONTRACT.md) defines the
+separate whole-job isolation boundary and authoritative external termination status.

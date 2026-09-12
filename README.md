@@ -290,12 +290,30 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-arg
   mvn clean test
   ```
 
-  *(Enforces 100% line and branch coverage across production classes)*
+  *(Enforces 100% line and branch coverage for the configured
+  `cs1302.tracer.model` and `cs1302.tracer.serialize` packages.)*
 
 - **Run Reference Examples**:
 
   ```bash
-  ./examples/test.sh
+  mvn package
+  python3 examples/verify.py
   ```
 
 For detailed architecture diagrams, design decisions, value extraction mechanics, and contribution guidelines, see [HACKING.md](HACKING.md).
+
+## Bounded jobs and future hosted execution
+
+Use `trace --result-envelope` to opt into execution limits, structured failures,
+partial traces, and captured output even when no snapshot completes. Existing
+invocations keep their Python Tutor output. `--inspection FIELDS` inspects object
+fields without calling guest methods and accepts self-contained source bundles.
+
+See [bounded tracing and schema v1](docs/BOUNDED_TRACING.md) for options, accounting,
+exit codes, and an example budget profile. See the [Linux runner contract](docs/RUNNER_CONTRACT.md)
+for the separate isolation layer required for potentially malicious submissions.
+A regular guest JVM is not a sandbox; the hosted runner remains a follow-up project.
+
+`list-breakpoints` reads compiled debug information without executing the guest.
+To regenerate a single example's output, use `./examples/test.sh FILE [OPTIONS...]`.
+Regression verification is separate and never overwrites expected fixtures.
