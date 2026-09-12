@@ -1,0 +1,96 @@
+{
+  "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "INSTANCE",
+          "Person",
+          [
+            "name",
+            [
+              "REF",
+              3
+            ]
+          ],
+          [
+            "age",
+            42
+          ]
+        ],
+        "2": [
+          "LIST"
+        ],
+        "3": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Alice"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": [
+            "java.lang.String",
+            "int"
+          ]
+        },
+        "2": {
+          "type": "java.lang.String[]"
+        },
+        "3": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 4,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "alice": [
+              "REF",
+              1
+            ],
+            "args": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:4",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "alice": {
+              "final": false,
+              "type": "Person"
+            },
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "alice"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "userlog": ""
+}

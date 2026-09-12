@@ -1,0 +1,142 @@
+{
+  "code": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "LIST",
+          [
+            "REF",
+            3
+          ],
+          [
+            "REF",
+            4
+          ]
+        ],
+        "3": [
+          "INSTANCE",
+          "Person",
+          [
+            "name",
+            [
+              "REF",
+              5
+            ]
+          ],
+          [
+            "age",
+            22
+          ]
+        ],
+        "4": [
+          "INSTANCE",
+          "Person",
+          [
+            "name",
+            [
+              "REF",
+              6
+            ]
+          ],
+          [
+            "age",
+            20
+          ]
+        ],
+        "5": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Bob"
+          ]
+        ],
+        "6": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Alice"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": "Person[]"
+        },
+        "3": {
+          "type": [
+            "java.lang.String",
+            "int"
+          ]
+        },
+        "4": {
+          "type": [
+            "java.lang.String",
+            "int"
+          ]
+        },
+        "5": {
+          "type": "java.lang.String"
+        },
+        "6": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 9,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "roster": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:9",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "roster": {
+              "final": false,
+              "type": "Person[]"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "roster"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "userlog": ""
+}

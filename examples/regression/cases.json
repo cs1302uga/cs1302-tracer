@@ -1,0 +1,13 @@
+[
+  {"name":"record", "input":"examples/example0/Driver.java"},
+  {"name":"inline_strings", "input":"examples/example0/Driver.java", "options":["--inline-strings", "--remove-main-args"]},
+  {"name":"array_aliases", "input":"examples/example3/Driver.java"},
+  {"name":"selected_breakpoint", "input":"examples/example7/Driver.java", "options":["-b", "6"]},
+  {"name":"accumulated_breakpoint", "input":"examples/example7/Driver.java", "options":["-b", "6", "--accumulate-breakpoints"]},
+  {"name":"chronological", "input":"examples/example7/Driver.java", "options":["-a"]},
+  {"name":"lambdas", "input":"examples/example9/Driver.java"},
+  {"name":"cycles", "input":"examples/example16/cs1302/nodes/Driver.java"},
+  {"name":"generics", "input":"examples/example19/cs1302/generics/Driver.java"},
+  {"name":"exception", "input":"examples/example23/cs1302/exceptions/uncaught/Driver.java"},
+  {"name":"multi_file_stream", "directory":"examples/example12", "stream":["cs1302/math/Calculator.java", "cs1302/math/Driver.java"]}
+]

@@ -1,0 +1,73 @@
+{
+  "code": "// --- cs1302/math/Calculator.java ---\npackage cs1302.math;\n\npublic class Calculator {\n\n    public static int multiply(int a, int b) {\n        int result = 0;\n        for (int i = 0; i < b; i++) {\n            result += a;\n        } // for\n        return result;\n    } // multiply\n\n} // Calculator\n\n// --- cs1302/math/Driver.java ---\npackage cs1302.math;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        int x = 4;\n        int y = 3;\n        int product = Calculator.multiply(x, y);\n\n        System.out.printf(\"%d * %d = %d%n\", x, y, product);\n    } // main\n\n} // Driver\n\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": "cs1302/math/Driver.java",
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        }
+      },
+      "line": 11,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "product": 12,
+            "x": 4,
+            "y": 3
+          },
+          "file": "cs1302/math/Driver.java",
+          "frame_id": 0,
+          "func_name": "main:11",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "product": {
+              "final": false,
+              "type": "int"
+            },
+            "x": {
+              "final": false,
+              "type": "int"
+            },
+            "y": {
+              "final": false,
+              "type": "int"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "x",
+            "y",
+            "product"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": "4 * 3 = 12\n"
+    }
+  ],
+  "userlog": ""
+}

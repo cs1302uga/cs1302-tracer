@@ -1,0 +1,172 @@
+{
+  "code": "package cs1302.nodes;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Node head = new Node(\"Beta\");\n        head.setNext(new Node(\"Gamma\"));\n\n        // Prepend \"Alpha\"\n        head = new Node(\"Alpha\", head);\n\n        // Traverse the linked nodes\n        Node curr = head;\n        while (curr != null) {\n            System.out.println(curr.getItem());\n            curr = curr.getNext();\n        } // while\n    } // main\n\n} // Driver\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "INSTANCE",
+          "cs1302.nodes.Node",
+          [
+            "item",
+            [
+              "REF",
+              3
+            ]
+          ],
+          [
+            "next",
+            [
+              "REF",
+              4
+            ]
+          ]
+        ],
+        "3": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Alpha"
+          ]
+        ],
+        "4": [
+          "INSTANCE",
+          "cs1302.nodes.Node",
+          [
+            "item",
+            [
+              "REF",
+              5
+            ]
+          ],
+          [
+            "next",
+            [
+              "REF",
+              6
+            ]
+          ]
+        ],
+        "5": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Beta"
+          ]
+        ],
+        "6": [
+          "INSTANCE",
+          "cs1302.nodes.Node",
+          [
+            "item",
+            [
+              "REF",
+              7
+            ]
+          ],
+          [
+            "next",
+            null
+          ]
+        ],
+        "7": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Gamma"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": [
+            "java.lang.String",
+            "cs1302.nodes.Node"
+          ]
+        },
+        "3": {
+          "type": "java.lang.String"
+        },
+        "4": {
+          "type": [
+            "java.lang.String",
+            "cs1302.nodes.Node"
+          ]
+        },
+        "5": {
+          "type": "java.lang.String"
+        },
+        "6": {
+          "type": [
+            "java.lang.String",
+            "cs1302.nodes.Node"
+          ]
+        },
+        "7": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 18,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "curr": null,
+            "head": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:18",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "curr": {
+              "final": false,
+              "type": "cs1302.nodes.Node"
+            },
+            "head": {
+              "final": false,
+              "type": "cs1302.nodes.Node"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "head",
+            "curr"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": "Alpha\nBeta\nGamma\n"
+    }
+  ],
+  "userlog": ""
+}

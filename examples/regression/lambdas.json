@@ -1,0 +1,99 @@
+{
+  "code": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "JAVA_LAMBDA",
+          "boolean test(java.lang.Integer n) {\n    return n % 2 == 0;\n}"
+        ],
+        "3": [
+          "JAVA_LAMBDA",
+          "java.lang.Integer apply(java.lang.Integer x) {\n    return x * x;\n}"
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": "lambda"
+        },
+        "3": {
+          "type": "lambda"
+        }
+      },
+      "line": 15,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "check": false,
+            "isEven": [
+              "REF",
+              2
+            ],
+            "result": 25,
+            "square": [
+              "REF",
+              3
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:15",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "check": {
+              "final": false,
+              "type": "boolean"
+            },
+            "isEven": {
+              "final": false,
+              "type": "java.util.function.Predicate<java.lang.Integer>"
+            },
+            "result": {
+              "final": false,
+              "type": "int"
+            },
+            "square": {
+              "final": false,
+              "type": "java.util.function.Function<java.lang.Integer, java.lang.Integer>"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "square",
+            "isEven",
+            "result",
+            "check"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": ""
+    }
+  ],
+  "userlog": ""
+}

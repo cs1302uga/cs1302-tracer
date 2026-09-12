@@ -1,2 +1,6 @@
 *.json
 *.png
+
+# Regression expectations are reviewed source artifacts.
+!regression/*.json
+__pycache__/

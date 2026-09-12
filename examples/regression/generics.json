@@ -1,0 +1,171 @@
+{
+  "code": "package cs1302.generics;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Pair<String, Integer> score = new Pair<>(\"Alice\", 95);\n        Pair<Integer, Boolean> flag = new Pair<>(101, true);\n\n        System.out.printf(\"Score: %s -> %d%n\", score.getKey(), score.getValue());\n        System.out.printf(\"Flag: %d -> %b%n\", flag.getKey(), flag.getValue());\n    } // main\n\n} // Driver\n",
+  "stdin": "",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "INSTANCE",
+          "cs1302.generics.Pair<java.lang.Integer, java.lang.Boolean>",
+          [
+            "key",
+            [
+              "REF",
+              4
+            ]
+          ],
+          [
+            "value",
+            [
+              "REF",
+              5
+            ]
+          ]
+        ],
+        "3": [
+          "INSTANCE",
+          "cs1302.generics.Pair<java.lang.String, java.lang.Integer>",
+          [
+            "key",
+            [
+              "REF",
+              6
+            ]
+          ],
+          [
+            "value",
+            [
+              "REF",
+              7
+            ]
+          ]
+        ],
+        "4": [
+          "INSTANCE",
+          "java.lang.Integer",
+          [
+            "value",
+            101
+          ]
+        ],
+        "5": [
+          "INSTANCE",
+          "java.lang.Boolean",
+          [
+            "value",
+            true
+          ]
+        ],
+        "6": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Alice"
+          ]
+        ],
+        "7": [
+          "INSTANCE",
+          "java.lang.Integer",
+          [
+            "value",
+            95
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": [
+            "java.lang.Integer",
+            "java.lang.Boolean"
+          ]
+        },
+        "3": {
+          "type": [
+            "java.lang.String",
+            "java.lang.Integer"
+          ]
+        },
+        "4": {
+          "type": [
+            "int"
+          ]
+        },
+        "5": {
+          "type": [
+            "boolean"
+          ]
+        },
+        "6": {
+          "type": "java.lang.String"
+        },
+        "7": {
+          "type": [
+            "int"
+          ]
+        }
+      },
+      "line": 11,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "flag": [
+              "REF",
+              2
+            ],
+            "score": [
+              "REF",
+              3
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:11",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "flag": {
+              "final": false,
+              "type": "cs1302.generics.Pair<java.lang.Integer, java.lang.Boolean>"
+            },
+            "score": {
+              "final": false,
+              "type": "cs1302.generics.Pair<java.lang.String, java.lang.Integer>"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "score",
+            "flag"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdout": "Score: Alice -> 95\nFlag: 101 -> true\n"
+    }
+  ],
+  "userlog": ""
+}
