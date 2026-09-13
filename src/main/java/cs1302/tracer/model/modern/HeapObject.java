@@ -8,7 +8,8 @@ import java.util.List;
  *
  * @param id The unique reference ID of this heap object.
  * @param type The runtime or declared type of the object.
- * @param kind The category of heap object: "object", "array", "string", "lambda", or "box".
+ * @param kind The category of heap object:
+ *     "object", "array", "string", "lambda", "box", or "color".
  * @param fields The list of instance fields for objects.
  * @param elements The list of element values for arrays.
  * @param value The scalar string or boxed value.
@@ -93,4 +94,16 @@ public record HeapObject(
     public static HeapObject ofLambda(long id, String type, String sam) {
         return new HeapObject(id, type, "lambda", null, null, null, sam);
     } // ofLambda
+
+    /**
+     * Factory method for colors.
+     *
+     * @param id The heap object ID.
+     * @param type The color type name.
+     * @param value The hex color string.
+     * @return A new HeapObject instance for a color.
+     */
+    public static HeapObject ofColor(long id, String type, String value) {
+        return new HeapObject(id, type, "color", null, null, value, null);
+    } // ofColor
 } // HeapObject

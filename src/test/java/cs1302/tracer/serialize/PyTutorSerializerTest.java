@@ -297,6 +297,8 @@ public class PyTutorSerializerTest {
           new TraceValue.List("int[][]", List.of(new TraceValue.Reference(150L)));
       TraceValue.List rowVal =
           new TraceValue.List("int[]", List.of(new TraceValue.Primitive.Integer(1)));
+      TraceValue.Color colorVal =
+          new TraceValue.Color("java.awt.Color", "#FF0000");
 
       Map<Long, TraceValue> heap =
           Map.ofEntries(
@@ -314,7 +316,8 @@ public class PyTutorSerializerTest {
               Map.entry(120L, shortVal),
               Map.entry(130L, lambdaVal),
               Map.entry(140L, matrixVal),
-              Map.entry(150L, rowVal));
+              Map.entry(150L, rowVal),
+              Map.entry(160L, colorVal));
 
       StackSnapshot frame =
           new StackSnapshot(
@@ -350,6 +353,10 @@ public class PyTutorSerializerTest {
       assertThat(heapAttrs.get("130")).isEqualTo(Map.of("type", "lambda"));
       assertThat(heapAttrs.get("140")).isEqualTo(Map.of("type", "int[][]"));
       assertThat(heapAttrs.get("150")).isEqualTo(Map.of("type", "int[]"));
+      assertThat(heapAttrs.get("160")).isEqualTo(Map.of("type", "java.awt.Color"));
+
+      assertThat(step.heap().get("160"))
+          .isEqualTo(List.of("COLOR", "java.awt.Color", "#FF0000"));
 
       assertThat(step.heap().get("40"))
           .isEqualTo(List.of("INSTANCE", "java.lang.Integer", List.of("value", 42)));

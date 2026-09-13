@@ -373,4 +373,32 @@ public class ModernTraceSerializerTest {
     assertThat(simpleStep.heap().get("101").type()).isEqualTo("Pair<String, Integer>");
     assertThat(simpleStep.heap().get("101").fields().get(0).type()).isEqualTo("String");
   }
+
+  @Test
+  @DisplayName("should serialize Color in ModernTraceSerializer")
+  void shouldSerializeColorInModernTraceSerializer() {
+    Field f1 = new Field(false, "java.awt.Color", "c", new TraceValue.Reference(200L));
+    TraceValue.Color color = new TraceValue.Color("java.awt.Color", "#FF0000");
+    StackSnapshot frame =
+        new StackSnapshot(
+            "main",
+            10,
+            List.of(f1),
+            Optional.empty());
+    ExecutionSnapshot snapshot =
+        new ExecutionSnapshot(
+            List.of(frame),
+            List.of(),
+            Map.of(200L, color),
+            new byte[0],
+            new byte[0]);
+
+    ModernTraceSerializer serializer =
+        new ModernTraceSerializer(false, false, false, cs1302.tracer.model.TypeStyle.SIMPLE);
+    Step step = serializer.createStep(snapshot, 1, false);
+
+    assertThat(step.heap().get("200").kind()).isEqualTo("color");
+    assertThat(step.heap().get("200").type()).isEqualTo("Color");
+    assertThat(step.heap().get("200").value()).isEqualTo("#FF0000");
+  }
 }

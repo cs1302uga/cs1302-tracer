@@ -354,6 +354,8 @@ public class ModernTraceSerializer {
                             id,
                             typeStyle.format(prim.toWrapperObject().getClass().getName()),
                             serializeValue(prim));
+            case TraceValue.Color col ->
+                    HeapObject.ofColor(id, typeStyle.format(col.classFqn()), col.hex());
             default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch
     } // serializeHeapObject

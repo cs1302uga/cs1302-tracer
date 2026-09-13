@@ -18,6 +18,7 @@ import com.sun.jdi.LongValue;
 import com.sun.jdi.Method;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.PrimitiveValue;
+import com.sun.jdi.ReferenceType;
 import com.sun.jdi.ShortValue;
 import com.sun.jdi.StringReference;
 import com.sun.jdi.ThreadReference;
@@ -140,6 +141,9 @@ public sealed interface TraceValue {
             java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
 
         if (!TraceSession.mayInvoke()) {
+            if (isColor(or)) {
+                return handleColor(mainThread, or);
+            } // if
             return handleRegularObject(
                     or, outEncounteredReferences, astTypeResolver, objectTypeMap);
         } // if
@@ -155,12 +159,85 @@ public sealed interface TraceValue {
             return maybeContainer.get();
         } // if
 
+        if (isColor(or)) {
+            return handleColor(mainThread, or);
+        } // if
+
         if (isBuiltInType(or.referenceType().name())) {
             return new Object(or.referenceType().name(), java.util.List.of());
         } // if
 
         return handleRegularObject(or, outEncounteredReferences, astTypeResolver, objectTypeMap);
     } // handleObjectReference
+
+    /**
+     * Checks if an object reference is a java.awt.Color instance.
+     *
+     * @param or The object reference.
+     * @return True if Color.
+     */
+    private static boolean isColor(ObjectReference or) {
+        if (or == null) {
+            return false;
+        } // if
+        ReferenceType rt = or.referenceType();
+        if ("java.awt.Color".equals(rt.name())) {
+            return true;
+        } // if
+        if (rt instanceof ClassType ct) {
+            ClassType sup = ct.superclass();
+            while (sup != null) {
+                if ("java.awt.Color".equals(sup.name())) {
+                    return true;
+                } // if
+                sup = sup.superclass();
+            } // while
+        } // if
+        return false;
+    } // isColor
+
+    /**
+     * Handles converting a Color object reference into a TraceValue.Color.
+     *
+     * @param mainThread The thread reference.
+     * @param or The color object reference.
+     * @return The converted Color TraceValue.
+     */
+    private static TraceValue handleColor(ThreadReference mainThread, ObjectReference or) {
+        java.lang.String classFqn = or.referenceType().name();
+        Field valueField = or.referenceType().fieldByName("value");
+        Integer argbVal = null;
+        if (valueField != null) {
+            Value val = or.getValue(valueField);
+            if (val instanceof PrimitiveValue pv) {
+                argbVal = pv.intValue();
+            } // if
+        } // if
+        if (argbVal == null && TraceSession.mayInvoke()
+                && or.referenceType() instanceof ClassType ct) {
+            try {
+                Method getRGB = ct.concreteMethodByName("getRGB", "()I");
+                if (getRGB != null) {
+                    Value val = or.invokeMethod(mainThread, getRGB, java.util.List.of(), 0);
+                    if (val instanceof PrimitiveValue pv) {
+                        argbVal = pv.intValue();
+                    } // if
+                } // if
+            } catch (Exception ignored) {
+                // fallback to default
+            } // try
+        } // if
+        int argb = (argbVal != null) ? argbVal : 0;
+        int alpha = (argb >> 24) & 0xFF;
+        int red = (argb >> 16) & 0xFF;
+        int green = (argb >> 8) & 0xFF;
+        int blue = argb & 0xFF;
+        java.lang.String hex = (alpha == 255)
+                ? java.lang.String.format("#%02X%02X%02X", red, green, blue)
+                : java.lang.String.format("#%02X%02X%02X%02X", red, green, blue, alpha);
+        TraceSession.elements(hex.length());
+        return new Color(classFqn, hex);
+    } // handleColor
 
     /**
      * Checks if a class name belongs to standard Java runtime packages.
@@ -840,4 +917,13 @@ public sealed interface TraceValue {
      * @param implementation Implementation expression or string.
      */
     record Lambda(java.lang.String implementation) implements TraceValue {} // Lambda
+
+    /**
+     * Represents a Color object trace value.
+     *
+     * @param classFqn The fully qualified class name.
+     * @param hex The hexadecimal color string.
+     */
+    record Color(java.lang.String classFqn, java.lang.String hex)
+            implements TraceValue {} // Color
 } // TraceValue

@@ -334,6 +334,8 @@ public record PyTutorSerializer(
             case TraceValue.Primitive.Short s ->
                 heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("short"))));
             case TraceValue.Lambda l -> heapAttrs.put(key, Map.of("type", "lambda"));
+            case TraceValue.Color c ->
+                heapAttrs.put(key, Map.of("type", typeStyle.format(c.classFqn())));
             default -> {
                 // do nothing
             } // default
@@ -491,6 +493,8 @@ public record PyTutorSerializer(
             } // case
             case TraceValue.Map mapValue -> serializeMap(mapValue, heap);
             case TraceValue.Object objectValue -> serializeObject(objectValue, heap);
+            case TraceValue.Color colorValue ->
+                    List.of("COLOR", typeStyle.format(colorValue.classFqn()), colorValue.hex());
         }; // switch
     } // serializeTraceValue
 

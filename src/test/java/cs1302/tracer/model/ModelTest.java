@@ -161,6 +161,12 @@ public class ModelTest {
     assertThat(lam.kind()).isEqualTo("lambda");
     assertThat(lam.sam()).isEqualTo("() -> {}");
 
+    cs1302.tracer.model.modern.HeapObject col =
+        cs1302.tracer.model.modern.HeapObject.ofColor(6L, "java.awt.Color", "#FF0000");
+    assertThat(col.kind()).isEqualTo("color");
+    assertThat(col.type()).isEqualTo("java.awt.Color");
+    assertThat(col.value()).isEqualTo("#FF0000");
+
     cs1302.tracer.model.modern.StackFrame frame =
         new cs1302.tracer.model.modern.StackFrame(
             "main", 10, "Driver.java", true, ref, List.of(var));

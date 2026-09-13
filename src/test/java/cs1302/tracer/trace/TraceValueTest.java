@@ -157,5 +157,12 @@ public class TraceValueTest {
       TraceValue.Lambda lambda = new TraceValue.Lambda("() -> 42");
       assertThat(lambda.implementation()).isEqualTo("() -> 42");
     }
+
+    @Test
+    void testColor() {
+      TraceValue.Color color = new TraceValue.Color("java.awt.Color", "#FF0000");
+      assertThat(color.classFqn()).isEqualTo("java.awt.Color");
+      assertThat(color.hex()).isEqualTo("#FF0000");
+    }
   }
 }

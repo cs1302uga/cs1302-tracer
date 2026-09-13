@@ -361,4 +361,47 @@ public class DebugTraceHelperComprehensiveTest {
       assertThat(err).contains("CrashSingleTest.main");
     }
   }
+
+  @Test
+  @DisplayName("should trace java.awt.Color objects with hex values and transparency")
+  void shouldTraceColorObjects() throws Exception {
+    String source =
+        """
+        import java.awt.Color;
+
+        public class ColorTest {
+            public static void main(String[] args) {
+                Color opaque = Color.RED;
+                Color translucent = new Color(0, 255, 0, 128);
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      ExecutionSnapshot snapshot = DebugTraceHelper.trace(cr, cu);
+      assertThat(snapshot).isNotNull();
+      assertThat(snapshot.heap()).isNotEmpty();
+
+      boolean foundOpaque = false;
+      boolean foundTranslucent = false;
+      for (TraceValue tv : snapshot.heap().values()) {
+        if (tv instanceof TraceValue.Color c) {
+          if ("#FF0000".equals(c.hex())) {
+            foundOpaque = true;
+          } else if ("#00FF0080".equals(c.hex())) {
+            foundTranslucent = true;
+          } // if
+        } // if
+      } // for
+      assertThat(foundOpaque).isTrue();
+      assertThat(foundTranslucent).isTrue();
+    }
+  }
 }
