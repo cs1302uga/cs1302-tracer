@@ -10,6 +10,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.nodeTypes.modifiers.NodeWithPublicModifier;
 import java.io.File;
 import java.io.IOException;
@@ -299,15 +300,18 @@ public class CompilationHelper {
     public static CompilationResult compile(String javaSource, Optional<Path> sourceRoot)
             throws IOException {
         List<SourceFile> sourceFiles = parseMultiFileStream(javaSource);
+        boolean previewEnabled =
+                detectPreviewUsage(sourceFiles.stream().map(SourceFile::ast).toList());
         Path workingDir = Files.createTempDirectory("code-tracer");
         try {
             List<File> files = writeSourceFiles(workingDir, sourceFiles);
-            Set<String> classes = compileFiles(workingDir, files, sourceRoot);
+            Set<String> classes = compileFiles(workingDir, files, sourceRoot, previewEnabled);
             SourceFile entryPoint = findEntryPoint(sourceFiles);
             MethodDeclaration mainMethod = findMain(entryPoint.ast());
             String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
             return new CompilationResult(workingDir, classes, mainClass,
-                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir));
+                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir),
+                    previewEnabled);
         } catch (IOException | RuntimeException | Error failure) {
             try {
                 deleteWorkingDirectory(workingDir);
@@ -323,11 +327,15 @@ public class CompilationHelper {
      * @param workingDir Output directory.
      * @param files Source files.
      * @param sourceRoot Optional dependency root.
+     * @param previewEnabled Whether preview features are enabled.
      * @return Compiled binary names.
      * @throws IOException On file manager failure.
      */
     private static Set<String> compileFiles(
-            Path workingDir, List<File> files, Optional<Path> sourceRoot) throws IOException {
+            Path workingDir,
+            List<File> files,
+            Optional<Path> sourceRoot,
+            boolean previewEnabled) throws IOException {
         Set<String> classes = new HashSet<>();
         JavaCompiler compiler = Objects.requireNonNull(
                 ToolProvider.getSystemJavaCompiler(), "Could not get Java compiler");
@@ -344,7 +352,7 @@ public class CompilationHelper {
                 } // getJavaFileForOutput
             };
             boolean success = compiler.getTask(null, forwarding, diagnostics,
-                    buildCompilerOptions(workingDir, sourceRoot), null,
+                    buildCompilerOptions(workingDir, sourceRoot, previewEnabled), null,
                     standard.getJavaFileObjectsFromFiles(files)).call();
             if (!success) {
                 throw new IllegalArgumentException(
@@ -395,11 +403,18 @@ public class CompilationHelper {
      *
      * @param workingDir Temporary compilation directory.
      * @param sourceRoot Optional source root.
+     * @param previewEnabled Whether preview features are enabled.
      * @return List of option strings.
      */
-    private static List<String> buildCompilerOptions(Path workingDir, Optional<Path> sourceRoot) {
+    private static List<String> buildCompilerOptions(
+            Path workingDir, Optional<Path> sourceRoot, boolean previewEnabled) {
         List<String> compilerOptions = new ArrayList<>();
         compilerOptions.add("-g");
+        if (previewEnabled) {
+            compilerOptions.add("--enable-preview");
+            compilerOptions.add("-source");
+            compilerOptions.add(String.valueOf(Runtime.version().feature()));
+        } // if
         compilerOptions.add("-d");
         compilerOptions.add(workingDir.toAbsolutePath().toString());
         compilerOptions.add("-sourcepath");
@@ -412,6 +427,61 @@ public class CompilationHelper {
         compilerOptions.add(sourcePathStr);
         return compilerOptions;
     } // buildCompilerOptions
+
+    /**
+     * Checks whether the given compilation units use preview language or library features
+     * such as java.lang.IO or instance main methods.
+     *
+     * @param compilationUnits List of compilation units to inspect.
+     * @return True if preview features are detected, false otherwise.
+     */
+    public static boolean detectPreviewUsage(List<CompilationUnit> compilationUnits) {
+        if (compilationUnits == null) {
+            return false;
+        } // if
+        for (CompilationUnit cu : compilationUnits) {
+            if (detectPreviewUsage(cu)) {
+                return true;
+            } // if
+        } // for
+        return false;
+    } // detectPreviewUsage
+
+    /**
+     * Checks whether a single compilation unit uses preview language or library features.
+     *
+     * @param cu The compilation unit to inspect.
+     * @return True if preview features are detected.
+     */
+    public static boolean detectPreviewUsage(CompilationUnit cu) {
+        if (cu == null) {
+            return false;
+        } // if
+        for (ImportDeclaration imp : cu.getImports()) {
+            String name = imp.getNameAsString();
+            if (name.equals("java.lang.IO") || name.equals("java.io.IO")
+                    || name.startsWith("java.lang.IO.") || name.startsWith("java.io.IO.")) {
+                return true;
+            } // if
+        } // for
+        List<MethodCallExpr> calls = cu.findAll(MethodCallExpr.class);
+        for (MethodCallExpr call : calls) {
+            if (call.getScope().isPresent()) {
+                String scope = call.getScope().get().toString();
+                if (scope.equals("IO") || scope.equals("java.lang.IO")
+                        || scope.equals("java.io.IO")) {
+                    return true;
+                } // if
+            } // if
+        } // for
+        List<MethodDeclaration> methods = cu.findAll(MethodDeclaration.class);
+        for (MethodDeclaration m : methods) {
+            if (m.getNameAsString().equals("main") && (!m.isStatic() || !m.isPublic())) {
+                return true;
+            } // if
+        } // for
+        return false;
+    } // detectPreviewUsage
 
     /**
      * Deletes owned compilation files without hiding cleanup failures.
@@ -512,12 +582,20 @@ public class CompilationHelper {
                 .map(p -> p.isVarArgs())
                 .orElse(false);
         boolean hasOneArg = m.getParameters().size() == 1;
-        return m.isPublic()
+        boolean standardMain = m.isPublic()
                 && m.isStatic()
                 && hasVoidReturn
                 && isNamedMain
                 && (hasStringArrArg ^ hasStringVarargsArg)
                 && hasOneArg;
+        if (standardMain) {
+            return true;
+        } // if
+        boolean instanceMain = isNamedMain
+                && hasVoidReturn
+                && (m.getParameters().isEmpty()
+                        || (hasOneArg && (hasStringArrArg ^ hasStringVarargsArg)));
+        return instanceMain;
     } // isMainMethod
 
     /**
@@ -557,13 +635,31 @@ public class CompilationHelper {
      * @param compiledClassNames Binary names of the classes that were compiled.
      * @param mainClass Binary name of the class that contains the main method.
      * @param sourceRoot The source root used during compilation, if any.
+     * @param previewEnabled True if preview features were enabled during compilation.
      */
     public record CompilationResult(
             Path classPath,
             Set<String> compiledClassNames,
             String mainClass,
-            Optional<Path> sourceRoot)
+            Optional<Path> sourceRoot,
+            boolean previewEnabled)
             implements AutoCloseable {
+
+        /**
+         * Constructs a CompilationResult with an explicit source root.
+         *
+         * @param classPath Class output path.
+         * @param compiledClassNames Set of compiled class names.
+         * @param mainClass Main entry class name.
+         * @param sourceRoot Source root path.
+         */
+        public CompilationResult(
+                Path classPath,
+                Set<String> compiledClassNames,
+                String mainClass,
+                Optional<Path> sourceRoot) {
+            this(classPath, compiledClassNames, mainClass, sourceRoot, false);
+        } // CompilationResult
 
         /**
          * Constructs a CompilationResult without an explicit source root.
@@ -574,7 +670,7 @@ public class CompilationHelper {
          */
         public CompilationResult(
                 Path classPath, Set<String> compiledClassNames, String mainClass) {
-            this(classPath, compiledClassNames, mainClass, Optional.empty());
+            this(classPath, compiledClassNames, mainClass, Optional.empty(), false);
         } // CompilationResult
 
         @Override

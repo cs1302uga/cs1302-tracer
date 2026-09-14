@@ -109,9 +109,22 @@ public record PyTutorSerializer(
      * @return The structured PyTutorTrace model.
      */
     public PyTutorTrace createTrace(String javaSource, ExecutionSnapshot snapshot) {
+        return createTrace(javaSource, "", snapshot);
+    } // createTrace
+
+    /**
+     * Create a {@link PyTutorTrace} model representing the given snapshot and standard input.
+     *
+     * @param javaSource The source code for the program corresponding to the execution snapshot.
+     * @param stdin The standard input string.
+     * @param snapshot The snapshot that should be serialized.
+     * @return The structured PyTutorTrace model.
+     */
+    public PyTutorTrace createTrace(
+            String javaSource, String stdin, ExecutionSnapshot snapshot) {
         boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
         TraceStep step = createTraceStep(snapshot, isMultiFile);
-        return new PyTutorTrace(javaSource, "", List.of(step), "");
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, List.of(step), "");
     } // createTrace
 
     /**
@@ -122,10 +135,24 @@ public record PyTutorSerializer(
      * @return The structured PyTutorTrace model.
      */
     public PyTutorTrace createTrace(String javaSource, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, "", snapshots);
+    } // createTrace
+
+    /**
+     * Create a {@link PyTutorTrace} model representing a chronological sequence of snapshots and
+     * standard input.
+     *
+     * @param javaSource The source code for the program corresponding to the execution snapshots.
+     * @param stdin The standard input string.
+     * @param snapshots The list of snapshots in chronological order that should be serialized.
+     * @return The structured PyTutorTrace model.
+     */
+    public PyTutorTrace createTrace(
+            String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
         boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
         List<TraceStep> steps =
                 snapshots.stream().map(s -> createTraceStep(s, isMultiFile)).toList();
-        return new PyTutorTrace(javaSource, "", steps, "");
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
     } // createTrace
 
     /**
@@ -381,7 +408,21 @@ public record PyTutorSerializer(
      * @return The serialized execution snapshot as a JSON string.
      */
     public String serialize(String javaSource, ExecutionSnapshot snapshot, boolean pretty) {
-        PyTutorTrace trace = createTrace(javaSource, snapshot);
+        return serialize(javaSource, "", snapshot, pretty);
+    } // serialize
+
+    /**
+     * Serialize an execution snapshot into the OnlinePythonTutor JSON trace string with stdin.
+     *
+     * @param javaSource The source code for the program corresponding to the execution snapshot.
+     * @param stdin The standard input string.
+     * @param snapshot The snapshot that should be serialized.
+     * @param pretty True to enable pretty-printing.
+     * @return The serialized execution snapshot as a JSON string.
+     */
+    public String serialize(
+            String javaSource, String stdin, ExecutionSnapshot snapshot, boolean pretty) {
+        PyTutorTrace trace = createTrace(javaSource, stdin, snapshot);
         return getGson(pretty).toJson(trace);
     } // serialize
 

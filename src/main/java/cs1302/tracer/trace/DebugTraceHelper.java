@@ -129,7 +129,38 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-        return trace(compilationResult, breakPoints, List.of(parsedSource));
+        return trace(compilationResult, breakPoints, List.of(parsedSource), "");
+    } // trace
+
+    /**
+     * Take snapshots of a program's execution state with stdin using a single parsed source.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param breakPoints The source line numbers to snapshot at.
+     * @param parsedSource Parsed source code for the compiled program.
+     * @param stdin The standard input string.
+     * @return A mapping from breakpoint line numbers to a list of execution snapshots.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> trace(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            CompilationUnit parsedSource,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return trace(compilationResult, breakPoints, List.of(parsedSource), stdin);
     } // trace
 
     /**
@@ -158,12 +189,44 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        return trace(compilationResult, breakPoints, parsedSources, "");
+    } // trace
+
+    /**
+     * Take snapshots of a program's execution state with stdin using multiple parsed source files.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param breakPoints The source line numbers to snapshot at.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param stdin The standard input string.
+     * @return A mapping from breakpoint line numbers to a list of execution snapshots.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> trace(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         boolean snapMainEnd =
                 breakPoints == null || breakPoints.isEmpty() || breakPoints.contains(-1);
         Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
+        writeGuestStdin(vm, stdin);
         try (StreamDrainer vmErrDrainer =
                         new StreamDrainer(vm.process().getErrorStream());
                 StreamDrainer vmOutDrainer =
@@ -218,11 +281,26 @@ public class DebugTraceHelper {
     public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
             CompilationResult compilationResult, Collection<Integer> breakPoints,
             List<CompilationUnit> parsedSources) throws Exception {
+        return traceLatest(compilationResult, breakPoints, parsedSources, "");
+    } // traceLatest
+
+    /**
+     * Captures only the latest state per selected line with stdin.
+     * @param compilationResult Compiled program.
+     * @param breakPoints Selected line numbers.
+     * @param parsedSources Parsed sources.
+     * @param stdin Standard input string.
+     * @return Latest snapshot mapping in the existing breakpoint shape.
+     * @throws Exception On tracing or cleanup failure.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
+            CompilationResult compilationResult, Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources, String stdin) throws Exception {
         try (TraceSession session = new TraceSession(
                 cs1302.tracer.execution.TraceLimits.unlimited(),
                 cs1302.tracer.execution.InspectionPolicy.TRUSTED, false)) {
             session.phase("trace");
-            return trace(compilationResult, breakPoints, parsedSources);
+            return trace(compilationResult, breakPoints, parsedSources, stdin);
         } // try
     } // traceLatest
 
@@ -345,10 +423,11 @@ public class DebugTraceHelper {
      */
     private static boolean isMainMethodExit(Method method) {
         String mainJniSignature = "([Ljava/lang/String;)V";
-        return method.isPublic()
-                && method.isStatic()
+        String noArgJniSignature = "()V";
+        return !method.isPrivate()
                 && method.name().equals("main")
-                && method.signature().equals(mainJniSignature);
+                && (method.signature().equals(mainJniSignature)
+                        || method.signature().equals(noArgJniSignature));
     } // isMainMethodExit
 
     /**
@@ -563,7 +642,35 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-        return trace(compilationResult, null, List.of(parsedSource)).get(-1).getLast();
+        return trace(compilationResult, parsedSource, "");
+    } // trace
+
+    /**
+     * Take a snapshot of a program's execution state just before the main method returns
+     * with stdin.
+     *
+     * @param compilationResult CompilationResult from compilation.
+     * @param parsedSource Parsed source code.
+     * @param stdin Standard input string.
+     * @return An execution snapshot taken at the end of the main method.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static ExecutionSnapshot trace(
+            CompilationResult compilationResult, CompilationUnit parsedSource, String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return trace(compilationResult, null, List.of(parsedSource), stdin).get(-1).getLast();
     } // trace
 
     /**
@@ -589,7 +696,35 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-        return trace(compilationResult, null, parsedSources).get(-1).getLast();
+        return trace(compilationResult, parsedSources, "");
+    } // trace
+
+    /**
+     * Take a snapshot of a program's execution state just before the main method returns
+     * with stdin.
+     *
+     * @param compilationResult CompilationResult from compilation.
+     * @param parsedSources Parsed source codes.
+     * @param stdin Standard input string.
+     * @return An execution snapshot taken at the end of the main method.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static ExecutionSnapshot trace(
+            CompilationResult compilationResult, List<CompilationUnit> parsedSources, String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return trace(compilationResult, null, parsedSources, stdin).get(-1).getLast();
     } // trace
 
     /**
@@ -621,16 +756,50 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
         return traceChronological(
-                compilationResult, breakPoints, List.of(parsedSource), includeMainExit);
+                compilationResult, breakPoints, List.of(parsedSource), includeMainExit, "");
+    } // traceChronological
+
+    /**
+     * Run a program under JDI and capture all snapshots in chronological order with stdin.
+     *
+     * @param compilationResult CompilationResult from compilation.
+     * @param breakPoints The collection of line numbers where breakpoints should be placed.
+     * @param parsedSource Parsed source code for the compiled program.
+     * @param includeMainExit If true, includes the snapshot when main exits.
+     * @param stdin Standard input string.
+     * @return A list of execution snapshots in chronological order.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static List<ExecutionSnapshot> traceChronological(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            CompilationUnit parsedSource,
+            boolean includeMainExit,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return traceChronological(
+                compilationResult, breakPoints, List.of(parsedSource), includeMainExit, stdin);
     } // traceChronological
 
     /**
      * Run a program under JDI and capture all snapshots in chronological order.
      *
-     * @param compilationResult A properly filled CompilationResult.
+     * @param compilationResult CompilationResult from compilation.
      * @param breakPoints The collection of line numbers where breakpoints should be placed.
      * @param parsedSources Parsed source codes for the compiled program.
-     * @param includeMainExit If true, includes the snapshot when main exits at the end.
+     * @param includeMainExit If true, includes the snapshot when main exits.
      * @return A list of execution snapshots in chronological order.
      * @throws IOException On I/O error.
      * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
@@ -652,8 +821,43 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        return traceChronological(
+                compilationResult, breakPoints, parsedSources, includeMainExit, "");
+    } // traceChronological
+
+    /**
+     * Run a program under JDI and capture all snapshots in chronological order with stdin.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param breakPoints The collection of line numbers where breakpoints should be placed.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param includeMainExit If true, includes the snapshot when main exits at the end.
+     * @param stdin Standard input string.
+     * @return A list of execution snapshots in chronological order.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static List<ExecutionSnapshot> traceChronological(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources,
+            boolean includeMainExit,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
+        writeGuestStdin(vm, stdin);
         List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
 
         try (StreamDrainer vmErrDrainer =
@@ -871,8 +1075,12 @@ public class DebugTraceHelper {
         Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
 
         env.get("main").setValue(compilationResult.mainClass());
-        env.get("options").setValue(
-                "-Djava.awt.headless=true -classpath \"" + compilationResult.classPath() + "\"");
+        String options =
+                "-Djava.awt.headless=true -classpath \"" + compilationResult.classPath() + "\"";
+        if (compilationResult.previewEnabled()) {
+            options = "--enable-preview " + options;
+        } // if
+        env.get("options").setValue(options);
 
         VirtualMachine vm = launchingConnector.launch(env);
         if (TraceSession.current() != null) {
@@ -888,6 +1096,26 @@ public class DebugTraceHelper {
 
         return vm;
     } // startVmWithCprs
+
+    /**
+     * Writes standard input bytes to the guest process and immediately closes the stream.
+     *
+     * @param vm The debuggee VirtualMachine.
+     * @param stdin The standard input string to supply.
+     */
+    private static void writeGuestStdin(VirtualMachine vm, String stdin) {
+        if (vm == null || vm.process() == null) {
+            return;
+        } // if
+        try (java.io.OutputStream out = vm.process().getOutputStream()) {
+            if (stdin != null && !stdin.isEmpty()) {
+                out.write(stdin.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                out.flush();
+            } // if
+        } catch (IOException ignored) {
+            // Process might have terminated early or closed its stdin stream
+        } // try
+    } // writeGuestStdin
 
     /**
      * Convert a lambda expression in the AST into an implementation.

@@ -752,5 +752,30 @@ public class PyTutorSerializerTest {
       assertThat(heapAttrs.get("3"))
           .isEqualTo(Map.of("type", "java.util.HashMap<java.lang.String, java.lang.Integer>"));
     }
+
+    @Test
+    @DisplayName("should support standard input in PyTutor trace serialization")
+    void shouldSupportStdinInPyTutorTraceSerialization() {
+      ExecutionSnapshot snapshot =
+          new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
+      PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
+
+      PyTutorTrace traceWithStdin = serializer.createTrace("class A {}", "input text", snapshot);
+      assertThat(traceWithStdin.stdin()).isEqualTo("input text");
+
+      PyTutorTrace traceNullStdin = serializer.createTrace("class A {}", (String) null, snapshot);
+      assertThat(traceNullStdin.stdin()).isEqualTo("");
+
+      PyTutorTrace traceListStdin =
+          serializer.createTrace("class A {}", "input text", List.of(snapshot));
+      assertThat(traceListStdin.stdin()).isEqualTo("input text");
+
+      PyTutorTrace traceListNullStdin =
+          serializer.createTrace("class A {}", (String) null, List.of(snapshot));
+      assertThat(traceListNullStdin.stdin()).isEqualTo("");
+
+      String json = serializer.serialize("class A {}", "input text", snapshot, false);
+      assertThat(json).contains("\"stdin\":\"input text\"");
+    }
   }
 }

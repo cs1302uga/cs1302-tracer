@@ -118,9 +118,21 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, ExecutionSnapshot snapshot) {
+        return createTrace(javaSource, "", snapshot);
+    } // createTrace
+
+    /**
+     * Creates a modern trace for a single snapshot with standard input.
+     *
+     * @param javaSource The original Java source code.
+     * @param stdin The standard input string.
+     * @param snapshot The single execution snapshot.
+     * @return The generated modern Trace object.
+     */
+    public Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot) {
         boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
         Step step = createStep(snapshot, 1, isMultiFile);
-        return new Trace(javaSource, List.of(step));
+        return new Trace(javaSource, stdin, List.of(step));
     } // createTrace
 
     /**
@@ -131,12 +143,24 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, "", snapshots);
+    } // createTrace
+
+    /**
+     * Creates a modern trace for a chronological list of snapshots with standard input.
+     *
+     * @param javaSource The original Java source code.
+     * @param stdin The standard input string.
+     * @param snapshots The list of execution snapshots.
+     * @return The generated modern Trace object.
+     */
+    public Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
         boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
         List<Step> steps = new ArrayList<>();
         for (int i = 0; i < snapshots.size(); i++) {
             steps.add(createStep(snapshots.get(i), i + 1, isMultiFile));
         } // for
-        return new Trace(javaSource, steps);
+        return new Trace(javaSource, stdin, steps);
     } // createTrace
 
     /**
@@ -148,6 +172,19 @@ public class ModernTraceSerializer {
      */
     public Trace createBreakpointsTrace(
             String javaSource, Map<Integer, ?> breakpointSnapshots) {
+        return createBreakpointsTrace(javaSource, "", breakpointSnapshots);
+    } // createBreakpointsTrace
+
+    /**
+     * Creates a modern trace for a breakpoints map with standard input.
+     *
+     * @param javaSource The original Java source code.
+     * @param stdin The standard input string.
+     * @param breakpointSnapshots The mapping of line numbers to snapshots.
+     * @return The generated modern Trace object.
+     */
+    public Trace createBreakpointsTrace(
+            String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
@@ -162,7 +199,7 @@ public class ModernTraceSerializer {
                 converted.put(entry.getKey(), steps);
             } // if
         } // for
-        return new Trace(javaSource, converted);
+        return new Trace(javaSource, stdin, converted);
     } // createBreakpointsTrace
 
     /**

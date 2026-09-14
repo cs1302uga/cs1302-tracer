@@ -850,4 +850,123 @@ public class AppTest {
     assertThat(prettyOutput.trim().lines().count()).isGreaterThan(1);
     assertThat(prettyOutput).contains("\n  ");
   }
+
+  @Test
+  @DisplayName("should trace program with inline standard input")
+  void shouldTraceWithInlineStdin() {
+    String testProgram =
+        """
+        import java.util.Scanner;
+        public class Main {
+          public static void main(String[] args) {
+            Scanner s = new Scanner(System.in);
+            String token = s.next();
+          }
+        }
+        """;
+
+    String output =
+        executeCommand(App.Trace::new, testProgram, "--stdin=hello", "-f=pytutor").get();
+    assertThat(output).contains("\"stdin\":\"hello\"");
+    assertThat(output).contains("\"token\"");
+    assertThat(output).contains("\"hello\"");
+  }
+
+  @Test
+  @DisplayName("should trace program with stdin file input")
+  void shouldTraceWithStdinFile() throws IOException {
+    String testProgram =
+        """
+        import java.util.Scanner;
+        public class Main {
+          public static void main(String[] args) {
+            Scanner s = new Scanner(System.in);
+            int number = s.nextInt();
+          }
+        }
+        """;
+
+    File tempStdin = File.createTempFile("tracer-stdin", ".txt");
+    tempStdin.deleteOnExit();
+    Files.writeString(tempStdin.toPath(), "1302");
+
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "--stdin-file=" + tempStdin.getAbsolutePath(),
+                "-f=modern")
+            .get();
+    assertThat(output).contains("\"stdin\": \"1302\"");
+    assertThat(output).contains("\"number\"");
+    assertThat(output).contains("1302");
+  }
+
+  @Test
+  @DisplayName("should reject both --stdin and --stdin-file")
+  void shouldRejectBothStdinAndStdinFile() throws IOException {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {}
+        }
+        """;
+
+    File tempStdin = File.createTempFile("tracer-stdin", ".txt");
+    tempStdin.deleteOnExit();
+    Files.writeString(tempStdin.toPath(), "test");
+
+    AtomicInteger exitCode = new AtomicInteger(0);
+    App.Trace app = new App.Trace();
+    app.exitHandler = exitCode::set;
+    CommandLine cmd = new CommandLine(app);
+
+    File tempFile = File.createTempFile("cs1302-tracer", ".java");
+    tempFile.deleteOnExit();
+    Files.writeString(tempFile.toPath(), testProgram);
+
+    cmd.execute(
+        "--input=" + tempFile.getCanonicalPath(),
+        "--stdin=inline",
+        "--stdin-file=" + tempStdin.getAbsolutePath());
+
+    assertThat(exitCode.get()).isEqualTo(2);
+  }
+
+  @Test
+  @DisplayName("should trace program with preview features and instance main")
+  void shouldTracePreviewFeatureWithIO() {
+    String testProgram;
+    if (Runtime.version().feature() >= 23) {
+      testProgram =
+          """
+          public class Main {
+            void main() {
+              String name = IO.readln("Enter name: ");
+              IO.println("Hello " + name);
+            }
+          }
+          """;
+    } else {
+      testProgram =
+          """
+          public class Main {
+            void main() {
+              int x = 42;
+            }
+          }
+          """;
+    }
+
+    String output =
+        executeCommand(App.Trace::new, testProgram, "--stdin=Java", "-f=pytutor", "-v").get();
+    assertThat(output).contains("\"stdin\":\"Java\"");
+    if (Runtime.version().feature() >= 23) {
+      assertThat(output).contains("\"name\"");
+      assertThat(output).contains("\"Java\"");
+    } else {
+      assertThat(output).contains("\"x\"");
+      assertThat(output).contains("42");
+    }
+  }
 }

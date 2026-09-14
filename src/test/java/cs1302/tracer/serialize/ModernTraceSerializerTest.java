@@ -401,4 +401,35 @@ public class ModernTraceSerializerTest {
     assertThat(step.heap().get("200").type()).isEqualTo("Color");
     assertThat(step.heap().get("200").value()).isEqualTo("#FF0000");
   }
+
+  @Test
+  @DisplayName("should support standard input in ModernTrace trace serialization")
+  void shouldSupportStdinInModernTraceSerializer() {
+    ExecutionSnapshot snapshot =
+        new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
+    ModernTraceSerializer serializer =
+        new ModernTraceSerializer(false, false, false, cs1302.tracer.model.TypeStyle.FQN);
+
+    Trace traceSingle = serializer.createTrace("class A {}", "input text", snapshot);
+    assertThat(traceSingle.stdin()).isEqualTo("input text");
+
+    Trace traceSingleNull = serializer.createTrace("class A {}", (String) null, snapshot);
+    assertThat(traceSingleNull.stdin()).isEqualTo("");
+
+    Trace traceList = serializer.createTrace("class A {}", "input text", List.of(snapshot));
+    assertThat(traceList.stdin()).isEqualTo("input text");
+
+    Trace traceListNull = serializer.createTrace("class A {}", (String) null, List.of(snapshot));
+    assertThat(traceListNull.stdin()).isEqualTo("");
+
+    Trace traceBp = serializer.createBreakpointsTrace("class A {}", "input text", Map.of(1, snapshot));
+    assertThat(traceBp.stdin()).isEqualTo("input text");
+
+    Trace traceBpNull = serializer.createBreakpointsTrace("class A {}", (String) null, Map.of(1, snapshot));
+    assertThat(traceBpNull.stdin()).isEqualTo("");
+
+    Trace traceBpList =
+        serializer.createBreakpointsTrace("class A {}", "input text", Map.of(1, List.of(snapshot)));
+    assertThat(traceBpList.stdin()).isEqualTo("input text");
+  }
 }

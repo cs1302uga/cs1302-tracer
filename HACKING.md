@@ -200,7 +200,7 @@ The JaCoCo check enforces **100% line coverage** and **100% branch coverage** fo
 
 ### Running Example Traces
 
-The `examples/` directory contains 32 reference test cases (`example0` through `example31`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, multi-level class inheritance with dynamic dispatch, empty string and zero-length array instances, all numeric and non-numeric primitive wrapper class types, and java.awt.Color objects with transparency and aliasing.
+The `examples/` directory contains 34 reference test cases (`example0` through `example33`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, multi-level class inheritance with dynamic dispatch, empty string and zero-length array instances, all numeric and non-numeric primitive wrapper class types, java.awt.Color objects with transparency and aliasing, guest standard input reading with java.util.Scanner, and Java preview features with java.lang.IO.
 
 To regenerate all example outputs:
 
