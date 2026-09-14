@@ -8,6 +8,7 @@ import cs1302.tracer.App;
 import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.LicenseHelper;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -403,5 +404,45 @@ public class DebugTraceHelperComprehensiveTest {
       assertThat(foundOpaque).isTrue();
       assertThat(foundTranslucent).isTrue();
     }
+  }
+
+  @Test
+  @DisplayName("sanitizeDebuggeeStderr removes JVM tool options banners")
+  void testSanitizeDebuggeeStderr() {
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(null)).isNull();
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(new byte[0])).isEmpty();
+
+    byte[] clean = "Normal error output\n".getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(clean)).isEqualTo(clean);
+
+    byte[] withToolOptions =
+        "Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true\nActual error\n"
+            .getBytes(StandardCharsets.UTF_8);
+    byte[] expected = "Actual error\n".getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(withToolOptions)).isEqualTo(expected);
+
+    byte[] onlyToolOptions =
+        "Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true\n"
+            .getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(onlyToolOptions)).isEmpty();
+
+    byte[] withJavaOptions =
+        "Picked up _JAVA_OPTIONS: -Dsome.prop=1\nAnother error"
+            .getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(withJavaOptions))
+        .isEqualTo("Another error".getBytes(StandardCharsets.UTF_8));
+
+    byte[] multipleBanners =
+        ("Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true\n"
+            + "Picked up _JAVA_OPTIONS: -Xmx512m\n"
+            + "Message\n")
+            .getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(multipleBanners))
+        .isEqualTo("Message\n".getBytes(StandardCharsets.UTF_8));
+
+    byte[] bannerWithoutNewline =
+        "Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true"
+            .getBytes(StandardCharsets.UTF_8);
+    assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(bannerWithoutNewline)).isEmpty();
   }
 }

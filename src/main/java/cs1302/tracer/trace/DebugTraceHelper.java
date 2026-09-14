@@ -56,6 +56,7 @@ import cs1302.tracer.execution.TraceSession;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -453,7 +454,7 @@ public class DebugTraceHelper {
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
         if (!chronologicalSnapshots.isEmpty()) {
-            byte[] finalErr = vmErr.getBytes();
+            byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
             byte[] finalOut = vmOut.getBytes();
             ExecutionSnapshot last = chronologicalSnapshots.getLast();
             if (finalErr.length > last.stderr().length || finalOut.length > last.stdout().length) {
@@ -481,7 +482,7 @@ public class DebugTraceHelper {
             Map<Integer, List<ExecutionSnapshot>> snapshots,
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
-        byte[] finalErr = vmErr.getBytes();
+        byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
         byte[] finalOut = vmOut.getBytes();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
             List<ExecutionSnapshot> list = entry.getValue();
@@ -508,6 +509,36 @@ public class DebugTraceHelper {
             } // if
         } // for
     } // syncTrailingStreamOutput
+
+    /**
+     * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic
+     * banner lines emitted before user program execution (such as
+     * {@code Picked up JAVA_TOOL_OPTIONS}).
+     *
+     * @param rawStderr Raw stderr bytes from the debuggee process.
+     * @return Sanitized stderr bytes.
+     */
+    static byte[] sanitizeDebuggeeStderr(byte[] rawStderr) {
+        if (rawStderr == null || rawStderr.length == 0) {
+            return rawStderr;
+        } // if
+        String str = new String(rawStderr, StandardCharsets.UTF_8);
+        if (!str.startsWith("Picked up JAVA_TOOL_OPTIONS:")
+                && !str.startsWith("Picked up _JAVA_OPTIONS:")) {
+            return rawStderr;
+        } // if
+        while (str.startsWith("Picked up JAVA_TOOL_OPTIONS:")
+                || str.startsWith("Picked up _JAVA_OPTIONS:")) {
+            int newlineIndex = str.indexOf('\n');
+            if (newlineIndex == -1) {
+                str = "";
+                break;
+            } else {
+                str = str.substring(newlineIndex + 1);
+            } // if
+        } // while
+        return str.getBytes(StandardCharsets.UTF_8);
+    } // sanitizeDebuggeeStderr
 
     /**
      * Take a snapshot of a program's execution state just before the main method returns.
@@ -840,7 +871,8 @@ public class DebugTraceHelper {
         Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
 
         env.get("main").setValue(compilationResult.mainClass());
-        env.get("options").setValue("-classpath \"" + compilationResult.classPath() + "\"");
+        env.get("options").setValue(
+                "-Djava.awt.headless=true -classpath \"" + compilationResult.classPath() + "\"");
 
         VirtualMachine vm = launchingConnector.launch(env);
         if (TraceSession.current() != null) {
@@ -982,7 +1014,7 @@ public class DebugTraceHelper {
             session.allocate((long) vmOut.size() + vmErr.size());
         } // if
         byte[] vmOutBytes = vmOut.getBytes();
-        byte[] vmErrBytes = vmErr.getBytes();
+        byte[] vmErrBytes = sanitizeDebuggeeStderr(vmErr.getBytes());
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
 
