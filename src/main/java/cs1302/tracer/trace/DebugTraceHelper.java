@@ -1990,7 +1990,7 @@ public class DebugTraceHelper {
     /** Deduplicates and budgets references before retaining them for heap traversal. */
     private static final class ReferenceQueue extends LinkedList<ObjectReference> {
         private static final long serialVersionUID = 1L;
-        private final Set<Long> queued = new HashSet<>();
+        private final transient Set<Long> queued = new HashSet<>();
 
         /** Constructs an empty reference work queue. */
         ReferenceQueue() {} // ReferenceQueue
