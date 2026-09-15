@@ -405,62 +405,6 @@
       "stdinConsumed": "",
       "stdinOffset": 0,
       "stdout": "sum = 6\n"
-    },
-    {
-      "event": "step_line",
-      "file": null,
-      "func_name": "main",
-      "globals": {},
-      "globals_attrs": {},
-      "heap": {
-        "1": [
-          "LIST"
-        ]
-      },
-      "heap_attrs": {
-        "1": {
-          "type": "java.lang.String[]"
-        }
-      },
-      "line": 9,
-      "ordered_globals": [],
-      "stack_to_render": [
-        {
-          "encoded_locals": {
-            "args": [
-              "REF",
-              1
-            ],
-            "sum": 6
-          },
-          "file": null,
-          "frame_id": 0,
-          "func_name": "main:9",
-          "is_highlighted": true,
-          "is_parent": false,
-          "is_zombie": false,
-          "locals_attrs": {
-            "args": {
-              "final": false,
-              "type": "java.lang.String[]"
-            },
-            "sum": {
-              "final": false,
-              "type": "int"
-            }
-          },
-          "ordered_varnames": [
-            "args",
-            "sum"
-          ],
-          "parent_frame_id_list": [],
-          "unique_hash": "0"
-        }
-      ],
-      "stderr": "",
-      "stdinConsumed": "",
-      "stdinOffset": 0,
-      "stdout": "sum = 6\n"
     }
   ],
   "userlog": ""

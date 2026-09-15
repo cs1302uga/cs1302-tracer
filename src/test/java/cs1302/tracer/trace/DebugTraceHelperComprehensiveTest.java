@@ -13,6 +13,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -444,5 +445,207 @@ public class DebugTraceHelperComprehensiveTest {
         "Picked up JAVA_TOOL_OPTIONS: -Djava.awt.headless=true"
             .getBytes(StandardCharsets.UTF_8);
     assertThat(DebugTraceHelper.sanitizeDebuggeeStderr(bannerWithoutNewline)).isEmpty();
+  }
+
+  @Test
+  @DisplayName("isRedundantSnapshot verifies identity, null, and all execution snapshot attributes")
+  void testIsRedundantSnapshot() {
+    ExecutionSnapshot.StackSnapshot frame1 =
+        new ExecutionSnapshot.StackSnapshot(
+            "main", 10, List.of(), Optional.empty(), Optional.of("A.java"));
+    ExecutionSnapshot s1 =
+        new ExecutionSnapshot(
+            List.of(frame1),
+            List.of(),
+            Map.of(),
+            new byte[] {65},
+            new byte[] {66},
+            Optional.of("A.java"),
+            "input",
+            5);
+
+    // Identity check
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, s1)).isTrue();
+
+    // Null checks
+    assertThat(DebugTraceHelper.isRedundantSnapshot(null, s1)).isFalse();
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, null)).isFalse();
+    assertThat(DebugTraceHelper.isRedundantSnapshot(null, null)).isTrue();
+
+    // Equal snapshot with distinct byte array instances
+    ExecutionSnapshot s2 =
+        new ExecutionSnapshot(
+            List.of(frame1),
+            List.of(),
+            Map.of(),
+            new byte[] {65},
+            new byte[] {66},
+            Optional.of("A.java"),
+            "input",
+            5);
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, s2)).isTrue();
+
+    // Differing sourcePath
+    ExecutionSnapshot diffSource =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            s1.heap(),
+            s1.stdout(),
+            s1.stderr(),
+            Optional.of("B.java"),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffSource)).isFalse();
+
+    // Differing stack
+    ExecutionSnapshot.StackSnapshot frame2 =
+        new ExecutionSnapshot.StackSnapshot(
+            "main", 11, List.of(), Optional.empty(), Optional.of("A.java"));
+    ExecutionSnapshot diffStack =
+        new ExecutionSnapshot(
+            List.of(frame2),
+            s1.statics(),
+            s1.heap(),
+            s1.stdout(),
+            s1.stderr(),
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStack)).isFalse();
+
+    // Differing statics
+    ExecutionSnapshot.Field field =
+        new ExecutionSnapshot.Field(false, "int", "x", new TraceValue.Primitive.Integer(1));
+    ExecutionSnapshot diffStatics =
+        new ExecutionSnapshot(
+            s1.stack(),
+            List.of(field),
+            s1.heap(),
+            s1.stdout(),
+            s1.stderr(),
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStatics)).isFalse();
+
+    // Differing heap
+    ExecutionSnapshot diffHeap =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            Map.of(1L, new TraceValue.Primitive.Integer(1)),
+            s1.stdout(),
+            s1.stderr(),
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffHeap)).isFalse();
+
+    // Differing stdout
+    ExecutionSnapshot diffStdout =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            s1.heap(),
+            new byte[] {99},
+            s1.stderr(),
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStdout)).isFalse();
+
+    // Differing stderr
+    ExecutionSnapshot diffStderr =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            s1.heap(),
+            s1.stdout(),
+            new byte[] {99},
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStderr)).isFalse();
+
+    // Differing stdinConsumed
+    ExecutionSnapshot diffStdinConsumed =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            s1.heap(),
+            s1.stdout(),
+            s1.stderr(),
+            s1.sourcePath(),
+            "different",
+            s1.stdinOffset());
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStdinConsumed)).isFalse();
+
+    // Differing stdinOffset
+    ExecutionSnapshot diffStdinOffset =
+        new ExecutionSnapshot(
+            s1.stack(),
+            s1.statics(),
+            s1.heap(),
+            s1.stdout(),
+            s1.stderr(),
+            s1.sourcePath(),
+            s1.stdinConsumed(),
+            10);
+    assertThat(DebugTraceHelper.isRedundantSnapshot(s1, diffStdinOffset)).isFalse();
+  }
+
+  @Test
+  @DisplayName("deduplicates snapshot when breakpoint is placed on return or closing line of main")
+  void testDeduplicateMainClosingLineBreakpoint() throws Exception {
+    String source =
+        """
+        package test;
+
+        public class ClosingLineDriver {
+            public static void main(String[] args) {
+                int x = 10;
+                System.out.println(x);
+            } // main
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validLines = DebugTraceHelper.getValidBreakpointLines(cr);
+      int maxLine = validLines.stream().mapToInt(Integer::intValue).max().orElseThrow();
+
+      // Case 1: Breakpoint explicitly set on closing brace line of main
+      List<ExecutionSnapshot> closingOnlySnapshots =
+          DebugTraceHelper.traceChronological(cr, List.of(maxLine), List.of(cu), true, "");
+      long countAtMaxLine =
+          closingOnlySnapshots.stream()
+              .filter(s -> !s.stack().isEmpty() && s.stack().getLast().methodLine() == maxLine)
+              .count();
+      assertThat(countAtMaxLine).isEqualTo(1);
+
+      // Case 2: Breakpoints set on all valid lines (including closing brace)
+      List<ExecutionSnapshot> allSnapshots =
+          DebugTraceHelper.traceChronological(cr, validLines, List.of(cu), true, "");
+      long countAllAtMaxLine =
+          allSnapshots.stream()
+              .filter(s -> !s.stack().isEmpty() && s.stack().getLast().methodLine() == maxLine)
+              .count();
+      assertThat(countAllAtMaxLine).isEqualTo(1);
+
+      // Case 3: Breakpoint set on intermediate line only (line 5)
+      // The method exit snapshot at maxLine should be preserved since line 5 != maxLine
+      List<ExecutionSnapshot> intermediateSnapshots =
+          DebugTraceHelper.traceChronological(cr, List.of(5), List.of(cu), true, "");
+      assertThat(intermediateSnapshots).hasSize(2);
+      assertThat(intermediateSnapshots.get(0).stack().getLast().methodLine()).isEqualTo(5);
+      assertThat(intermediateSnapshots.get(1).stack().getLast().methodLine()).isEqualTo(maxLine);
+    }
   }
 }

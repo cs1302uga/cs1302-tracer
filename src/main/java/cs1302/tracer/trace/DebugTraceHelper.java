@@ -60,6 +60,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -68,6 +69,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -565,6 +567,30 @@ public class DebugTraceHelper {
     } // isSameTopFrame
 
     /**
+     * Checks whether an execution snapshot is completely redundant with a previous snapshot.
+     *
+     * @param prev Previous execution snapshot.
+     * @param current Current execution snapshot.
+     * @return True if both snapshots share identical location and execution state.
+     */
+    static boolean isRedundantSnapshot(ExecutionSnapshot prev, ExecutionSnapshot current) {
+        if (prev == current) {
+            return true;
+        } // if
+        if (prev == null || current == null) {
+            return false;
+        } // if
+        return Objects.equals(prev.sourcePath(), current.sourcePath())
+                && Objects.equals(prev.stack(), current.stack())
+                && Objects.equals(prev.statics(), current.statics())
+                && Objects.equals(prev.heap(), current.heap())
+                && Arrays.equals(prev.stdout(), current.stdout())
+                && Arrays.equals(prev.stderr(), current.stderr())
+                && Objects.equals(prev.stdinConsumed(), current.stdinConsumed())
+                && prev.stdinOffset() == current.stdinOffset();
+    } // isRedundantSnapshot
+
+    /**
      * Synchronizes any trailing standard output or standard error bytes to the final snapshot.
      *
      * @param chronologicalSnapshots List of snapshots.
@@ -1013,7 +1039,11 @@ public class DebugTraceHelper {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
                                 inputTracker);
-                        chronologicalSnapshots.add(snapshot);
+                        if (chronologicalSnapshots.isEmpty()
+                                || !isRedundantSnapshot(
+                                        chronologicalSnapshots.getLast(), snapshot)) {
+                            chronologicalSnapshots.add(snapshot);
+                        } // if
                     } else {
                         handleReaderMethodExit(mee, inputTracker, systemIn);
                     } // if
