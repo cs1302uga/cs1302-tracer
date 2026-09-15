@@ -265,16 +265,6 @@ public sealed interface TraceValue {
     } // isBuiltInType
 
     /**
-     * Handles collections and maps conversion.
-     *
-     * @param mainThread The thread reference.
-     * @param or The object reference.
-     * @param outEncounteredReferences Accumulates references.
-     * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
-     * @return Optional containing converted container TraceValue.
-     */
-    /**
      * Propagates reified element types from a parameterized container to element objects.
      *
      * @param ar The array of elements.

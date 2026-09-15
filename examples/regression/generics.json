@@ -164,6 +164,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "Score: Alice -> 95\nFlag: 101 -> true\n"
     }
   ],

@@ -76,6 +76,8 @@
         }
       ],
       "stderr": "Exception in thread \"main\" java.lang.ArithmeticException: / by zero\n\tat cs1302.exceptions.uncaught.Driver.divide(Driver.java:28)\n\tat cs1302.exceptions.uncaught.Driver.main(Driver.java:15)\n",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "Starting calculation...\nAttempting division: 10 / 0\n"
     }
   ],

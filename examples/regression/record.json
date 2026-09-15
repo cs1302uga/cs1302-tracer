@@ -89,6 +89,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     }
   ],

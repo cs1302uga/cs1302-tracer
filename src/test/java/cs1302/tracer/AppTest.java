@@ -969,4 +969,92 @@ public class AppTest {
       assertThat(output).contains("42");
     }
   }
+
+  @Test
+  @DisplayName("should trace stdin consumption across multiple scanner reads in modern format")
+  void shouldTraceStdinConsumptionAcrossScannerReads() {
+    String testProgram =
+        """
+        import java.util.Scanner;
+        public class Main {
+          public static void main(String[] args) {
+            Scanner s = new Scanner(System.in);
+            int a = s.nextInt();
+            String b = s.next();
+          }
+        }
+        """;
+
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "--stdin=10  hello",
+                "-b=5",
+                "-b=6",
+                "-b=7",
+                "--accumulate-breakpoints",
+                "-f=modern")
+            .get();
+    assertThat(output).contains("\"stdinConsumed\": \"10\"");
+    assertThat(output).contains("\"stdinOffset\": 2");
+    assertThat(output).contains("\"stdinConsumed\": \"10  hello\"");
+    assertThat(output).contains("\"stdinOffset\": 9");
+  }
+
+  @Test
+  @DisplayName("should trace stdin consumption with BufferedReader in pytutor format")
+  void shouldTraceStdinConsumptionWithBufferedReader() {
+    String testProgram =
+        """
+        import java.io.BufferedReader;
+        import java.io.InputStreamReader;
+        public class Main {
+          public static void main(String[] args) throws Exception {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            String line = reader.readLine();
+          }
+        }
+        """;
+
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "--stdin=first line\nsecond line",
+                "-f=pytutor")
+            .get();
+    assertThat(output).contains("\"stdinConsumed\":\"first line\\n\"");
+    assertThat(output).contains("\"stdinOffset\":11");
+  }
+
+  @Test
+  @DisplayName("should trace stdin consumption with raw System.in.read")
+  void shouldTraceStdinConsumptionWithRawInputStream() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) throws Exception {
+            int b1 = System.in.read();
+            int b2 = System.in.read();
+          }
+        }
+        """;
+
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "--stdin=hi",
+                "-b=3",
+                "-b=4",
+                "-b=5",
+                "--accumulate-breakpoints",
+                "-f=modern")
+            .get();
+    assertThat(output).contains("\"stdinConsumed\": \"h\"");
+    assertThat(output).contains("\"stdinOffset\": 1");
+    assertThat(output).contains("\"stdinConsumed\": \"hi\"");
+    assertThat(output).contains("\"stdinOffset\": 2");
+  }
 }

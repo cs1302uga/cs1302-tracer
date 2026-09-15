@@ -430,12 +430,6 @@ public class AstTypeResolver {
     } // normalizeWildcard
 
     /**
-     * Checks if a class is a standard single-parameter collection class.
-     *
-     * @param classFqn Class FQN.
-     * @return True if single-parameter collection.
-     */
-    /**
      * Checks if two raw type names match, accounting for package qualification.
      *
      * @param raw1 First raw type name.

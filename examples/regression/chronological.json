@@ -48,6 +48,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -102,6 +104,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -162,6 +166,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -222,6 +228,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -282,6 +290,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -336,6 +346,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": ""
     },
     {
@@ -390,6 +402,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "sum = 6\n"
     },
     {
@@ -444,6 +458,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "sum = 6\n"
     }
   ],

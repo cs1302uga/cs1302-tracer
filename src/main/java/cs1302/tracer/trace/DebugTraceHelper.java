@@ -23,6 +23,7 @@ import com.sun.jdi.Bootstrap;
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.Field;
 import com.sun.jdi.IncompatibleThreadStateException;
+import com.sun.jdi.IntegerValue;
 import com.sun.jdi.LocalVariable;
 import com.sun.jdi.Location;
 import com.sun.jdi.Method;
@@ -30,6 +31,7 @@ import com.sun.jdi.ObjectReference;
 import com.sun.jdi.PrimitiveValue;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.StackFrame;
+import com.sun.jdi.StringReference;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.Type;
 import com.sun.jdi.VMDisconnectedException;
@@ -227,6 +229,8 @@ public class DebugTraceHelper {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         writeGuestStdin(vm, stdin);
+        InputTracker inputTracker = new InputTracker(stdin);
+        registerReaderMethodExitRequests(vm);
         try (StreamDrainer vmErrDrainer =
                         new StreamDrainer(vm.process().getErrorStream());
                 StreamDrainer vmOutDrainer =
@@ -253,7 +257,8 @@ public class DebugTraceHelper {
                     loadedClasses,
                     vmOutDrainer,
                     vmErrDrainer,
-                    snapMainEnd);
+                    snapMainEnd,
+                    inputTracker);
 
             try {
                 vm.process().waitFor(200, TimeUnit.MILLISECONDS);
@@ -316,6 +321,7 @@ public class DebugTraceHelper {
      * @param vmOut Drainer for stdout.
      * @param vmErr Drainer for stderr.
      * @param snapMainEnd True if main exit should be captured.
+     * @param inputTracker Input tracker.
      * @throws InterruptedException On interrupt.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException If debug info is missing.
@@ -330,12 +336,14 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            boolean snapMainEnd)
+            boolean snapMainEnd,
+            InputTracker inputTracker)
             throws InterruptedException,
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
 
+        ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
             for (Event event : nextEvents(vm)) {
@@ -353,31 +361,24 @@ public class DebugTraceHelper {
                             loc.declaringType().name())) {
                         Integer line = loc.lineNumber();
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                inputTracker);
                         storeSnapshot(snapshots, line, snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                inputTracker);
                         snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
+                    } else {
+                        handleReaderMethodExit(mee, inputTracker, systemIn);
                     } // if
                 } // case
-                case ExceptionEvent ee -> {
-                    recordException(ee);
-                    Location loc = ee.location();
-                    if (loc != null && compilationResult.compiledClassNames().contains(
-                            loc.declaringType().name())) {
-                        Integer line = loc.lineNumber();
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                ee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
-                        storeSnapshot(snapshots, line, snapshot);
-                        if (!snapshots.containsKey(-1)) {
-                            snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
-                        } // if
-                    } // if
-                } // case
+                case ExceptionEvent ee -> processBreakpointExceptionEvent(
+                        ee, compilationResult, loadedClasses, vmOut, vmErr,
+                        parsedSources, inputTracker, snapshots);
                 case VMDeathEvent vde -> {
                     endEventLoop = true;
                 } // case
@@ -393,6 +394,48 @@ public class DebugTraceHelper {
             } // for
         } // while
     } // processBreakpointsEventLoop
+
+    /**
+     * Handles an ExceptionEvent during the breakpoint event loop.
+     *
+     * @param ee The exception event.
+     * @param compilationResult The compilation result.
+     * @param loadedClasses Set of loaded classes.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param parsedSources List of compilation units.
+     * @param inputTracker Input tracker.
+     * @param snapshots Target snapshot map.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    private static void processBreakpointExceptionEvent(
+            ExceptionEvent ee,
+            CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            List<CompilationUnit> parsedSources,
+            InputTracker inputTracker,
+            Map<Integer, List<ExecutionSnapshot>> snapshots)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        recordException(ee);
+        Location loc = ee.location();
+        if (loc != null && compilationResult.compiledClassNames().contains(
+                loc.declaringType().name())) {
+            Integer line = loc.lineNumber();
+            ExecutionSnapshot snapshot = snapshotTheWorld(
+                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    inputTracker);
+            storeSnapshot(snapshots, line, snapshot);
+            if (!snapshots.containsKey(-1)) {
+                snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
+            } // if
+        } // if
+    } // processBreakpointExceptionEvent
 
     /**
      * Registers breakpoint requests on a newly prepared class.
@@ -545,7 +588,9 @@ public class DebugTraceHelper {
                                 last.heap(),
                                 finalOut,
                                 finalErr,
-                                last.sourcePath()));
+                                last.sourcePath(),
+                                last.stdinConsumed(),
+                                last.stdinOffset()));
             } // if
         } // if
     } // syncTrailingStreamOutput
@@ -580,7 +625,9 @@ public class DebugTraceHelper {
                                     last.heap(),
                                     finalOut,
                                     finalErr,
-                                    last.sourcePath()));
+                                    last.sourcePath(),
+                                    last.stdinConsumed(),
+                                    last.stdinOffset()));
                     if (mutableList != list) {
                         entry.setValue(mutableList);
                     } // if
@@ -858,6 +905,8 @@ public class DebugTraceHelper {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         writeGuestStdin(vm, stdin);
+        InputTracker inputTracker = new InputTracker(stdin);
+        registerReaderMethodExitRequests(vm);
         List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
 
         try (StreamDrainer vmErrDrainer =
@@ -886,7 +935,8 @@ public class DebugTraceHelper {
                     loadedClasses,
                     vmOutDrainer,
                     vmErrDrainer,
-                    includeMainExit);
+                    includeMainExit,
+                    inputTracker);
 
             try {
                 vm.process().waitFor(200, TimeUnit.MILLISECONDS);
@@ -915,6 +965,7 @@ public class DebugTraceHelper {
      * @param vmOut Drainer for stdout.
      * @param vmErr Drainer for stderr.
      * @param includeMainExit True to include main exit.
+     * @param inputTracker Input tracker.
      * @throws InterruptedException On interrupt.
      * @throws IncompatibleThreadStateException On thread error.
      * @throws AbsentInformationException On absent debug info.
@@ -929,11 +980,13 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            boolean includeMainExit)
+            boolean includeMainExit,
+            InputTracker inputTracker)
             throws InterruptedException,
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
             for (Event event : nextEvents(vm)) {
@@ -950,30 +1003,24 @@ public class DebugTraceHelper {
                     if (compilationResult.compiledClassNames().contains(
                             breakLocation.declaringType().name())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                inputTracker);
                         chronologicalSnapshots.add(snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && includeMainExit) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
+                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                inputTracker);
                         chronologicalSnapshots.add(snapshot);
+                    } else {
+                        handleReaderMethodExit(mee, inputTracker, systemIn);
                     } // if
                 } // case
-                case ExceptionEvent ee -> {
-                    recordException(ee);
-                    Location loc = ee.location();
-                    if (loc != null && compilationResult.compiledClassNames().contains(
-                            loc.declaringType().name())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                ee.thread(), loadedClasses, vmOut, vmErr, parsedSources);
-                        if (chronologicalSnapshots.isEmpty()
-                                || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
-                            chronologicalSnapshots.add(snapshot);
-                        } // if
-                    } // if
-                } // case
+                case ExceptionEvent ee -> processChronologicalExceptionEvent(
+                        ee, compilationResult, loadedClasses, vmOut, vmErr,
+                        parsedSources, inputTracker, chronologicalSnapshots);
                 case VMDeathEvent vde -> {
                     endEventLoop = true;
                 } // case
@@ -991,6 +1038,47 @@ public class DebugTraceHelper {
             } // for
         } // while
     } // processChronologicalEventLoop
+
+    /**
+     * Handles an ExceptionEvent during the chronological event loop.
+     *
+     * @param ee The exception event.
+     * @param compilationResult The compilation result.
+     * @param loadedClasses Set of loaded classes.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param parsedSources List of compilation units.
+     * @param inputTracker Input tracker.
+     * @param chronologicalSnapshots List to accumulate snapshots.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    private static void processChronologicalExceptionEvent(
+            ExceptionEvent ee,
+            CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            List<CompilationUnit> parsedSources,
+            InputTracker inputTracker,
+            List<ExecutionSnapshot> chronologicalSnapshots)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        recordException(ee);
+        Location loc = ee.location();
+        if (loc != null && compilationResult.compiledClassNames().contains(
+                loc.declaringType().name())) {
+            ExecutionSnapshot snapshot = snapshotTheWorld(
+                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    inputTracker);
+            if (chronologicalSnapshots.isEmpty()
+                    || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
+                chronologicalSnapshots.add(snapshot);
+            } // if
+        } // if
+    } // processChronologicalExceptionEvent
 
     /**
      * Return a mapping of source file relative path to valid breakpoint line numbers.
@@ -1118,6 +1206,211 @@ public class DebugTraceHelper {
     } // writeGuestStdin
 
     /**
+     * Finds the System.in object reference in the target VM.
+     *
+     * @param vm The JDI VirtualMachine.
+     * @return The ObjectReference for System.in, or null if not found.
+     */
+    private static ObjectReference getSystemIn(VirtualMachine vm) {
+        try {
+            List<ReferenceType> systemClasses = vm.classesByName("java.lang.System");
+            if (systemClasses != null && !systemClasses.isEmpty()) {
+                ReferenceType systemClass = systemClasses.getFirst();
+                Field inField = systemClass.fieldByName("in");
+                if (inField != null) {
+                    Value val = systemClass.getValue(inField);
+                    if (val instanceof ObjectReference objRef) {
+                        return objRef;
+                    } // if
+                } // if
+            } // if
+        } catch (Exception ignored) {
+            // Target VM might not have loaded System yet
+        } // try
+        return null;
+    } // getSystemIn
+
+    /**
+     * Registers MethodExitRequests for standard reader classes to track input consumption.
+     *
+     * @param vm The debuggee VirtualMachine.
+     */
+    private static void registerReaderMethodExitRequests(VirtualMachine vm) {
+        String[] readerClasses = {
+            "java.util.Scanner",
+            "java.io.BufferedReader",
+            "java.lang.IO",
+            "java.io.InputStream",
+            "java.io.BufferedInputStream"
+        };
+        for (String className : readerClasses) {
+            MethodExitRequest req = vm.eventRequestManager().createMethodExitRequest();
+            req.addClassFilter(className);
+            req.enable();
+        } // for
+    } // registerReaderMethodExitRequests
+
+    /**
+     * Handles MethodExitEvents on reader classes and advances the input tracker.
+     *
+     * @param mee The method exit event.
+     * @param inputTracker The active input tracker.
+     * @param systemIn Cached reference to System.in in target VM.
+     */
+    private static void handleReaderMethodExit(
+            MethodExitEvent mee,
+            InputTracker inputTracker,
+            ObjectReference systemIn) {
+        if (inputTracker == null || inputTracker.isExhausted()) {
+            return;
+        } // if
+        try {
+            Method method = mee.method();
+            String declaringClass = method.declaringType().name();
+            String methodName = method.name();
+            Value retVal = mee.returnValue();
+
+            if (declaringClass.equals("java.util.Scanner")) {
+                handleScannerExit(methodName, retVal, inputTracker);
+            } // if
+            if (declaringClass.equals("java.io.BufferedReader")
+                    && methodName.equals("readLine")) {
+                if (retVal instanceof StringReference strRef) {
+                    inputTracker.consumeLine(strRef.value());
+                } // if
+            } // if
+            if (declaringClass.equals("java.lang.IO")
+                    && methodName.equals("readln")) {
+                if (retVal instanceof StringReference strRef) {
+                    inputTracker.consumeLine(strRef.value());
+                } // if
+            } // if
+            if (isInputStreamClass(declaringClass) && methodName.equals("read")) {
+                handleInputStreamExit(mee, method, retVal, inputTracker, systemIn);
+            } // if
+        } catch (Exception ignored) {
+            // Ignore inspection errors on reader exit
+        } // try
+    } // handleReaderMethodExit
+
+    /**
+     * Handles method exit on java.util.Scanner.
+     *
+     * @param methodName The method name.
+     * @param retVal The return value.
+     * @param inputTracker The input tracker.
+     */
+    private static void handleScannerExit(
+            String methodName,
+            Value retVal,
+            InputTracker inputTracker) {
+        if (methodName.equals("nextLine")) {
+            if (retVal instanceof StringReference strRef) {
+                inputTracker.consumeLine(strRef.value());
+            } // if
+        } // if
+        if (methodName.equals("next") || methodName.startsWith("find")) {
+            if (retVal instanceof StringReference strRef) {
+                inputTracker.consumeToken(strRef.value());
+            } // if
+        } // if
+    } // handleScannerExit
+
+    /**
+     * Handles method exit on InputStream.read variants for System.in.
+     *
+     * @param mee The method exit event.
+     * @param method The method.
+     * @param retVal The return value.
+     * @param inputTracker The input tracker.
+     * @param systemIn Cached reference to System.in.
+     */
+    private static void handleInputStreamExit(
+            MethodExitEvent mee,
+            Method method,
+            Value retVal,
+            InputTracker inputTracker,
+            ObjectReference systemIn) {
+        ObjectReference targetSysIn = systemIn != null
+                ? systemIn
+                : getSystemIn(mee.virtualMachine());
+        if (isSystemInStream(mee, targetSysIn) && !isCalledByHigherLevelReader(mee.thread())) {
+            if (retVal instanceof IntegerValue intVal) {
+                int readResult = intVal.value();
+                if (method.argumentTypeNames().isEmpty()) {
+                    if (readResult >= 0) {
+                        inputTracker.consumeBytes(1);
+                    } // if
+                } else {
+                    if (readResult > 0) {
+                        inputTracker.consumeBytes(readResult);
+                    } // if
+                } // if
+            } // if
+        } // if
+    } // handleInputStreamExit
+
+    /**
+     * Checks if the method exit event was invoked on the target VM's System.in instance.
+     *
+     * @param mee The method exit event.
+     * @param systemIn The System.in object reference in the target VM.
+     * @return True if method was invoked on System.in.
+     */
+    private static boolean isSystemInStream(MethodExitEvent mee, ObjectReference systemIn) {
+        if (systemIn == null) {
+            return false;
+        } // if
+        try {
+            if (mee.thread().frameCount() > 0) {
+                ObjectReference thisObj = mee.thread().frame(0).thisObject();
+                return systemIn.equals(thisObj);
+            } // if
+        } catch (IncompatibleThreadStateException ignored) {
+            return false;
+        } // try
+        return false;
+    } // isSystemInStream
+
+    /**
+     * Checks if the declaring class is an InputStream implementation.
+     *
+     * @param declaringClass The class name to check.
+     * @return True if class is an InputStream.
+     */
+    private static boolean isInputStreamClass(String declaringClass) {
+        return declaringClass.equals("java.io.InputStream")
+                || declaringClass.equals("java.io.BufferedInputStream");
+    } // isInputStreamClass
+
+    /**
+     * Checks if the current thread's call stack originates from a higher-level reader.
+     *
+     * @param thread The thread to inspect.
+     * @return True if Scanner, BufferedReader, Reader, or IO is in the call stack.
+     */
+    private static boolean isCalledByHigherLevelReader(ThreadReference thread) {
+        try {
+            int frameCount = thread.frameCount();
+            for (int i = 0; i < frameCount; i++) {
+                StackFrame frame = thread.frame(i);
+                String callerClass = frame.location().declaringType().name();
+                if (callerClass.startsWith("java.util.Scanner")
+                        || callerClass.startsWith("java.io.BufferedReader")
+                        || callerClass.startsWith("java.io.Reader")
+                        || callerClass.startsWith("java.io.InputStreamReader")
+                        || callerClass.startsWith("sun.nio.cs.StreamDecoder")
+                        || callerClass.startsWith("java.lang.IO")) {
+                    return true;
+                } // if
+            } // for
+        } catch (IncompatibleThreadStateException ignored) {
+            return false;
+        } // try
+        return false;
+    } // isCalledByHigherLevelReader
+
+    /**
      * Convert a lambda expression in the AST into an implementation.
      *
      * @param lambda The lambda expression to convert.
@@ -1187,6 +1480,7 @@ public class DebugTraceHelper {
      * @param vmOut Drainer for stdout.
      * @param vmErr Drainer for stderr.
      * @param parsedSources Parsed source codes.
+     * @param inputTracker Input tracker.
      * @return An execution snapshot.
      * @throws IncompatibleThreadStateException If thread state is incompatible.
      * @throws AbsentInformationException If debug info is missing.
@@ -1197,20 +1491,14 @@ public class DebugTraceHelper {
             Iterable<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources)
+            List<CompilationUnit> parsedSources,
+            InputTracker inputTracker)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
 
         TraceSession session = TraceSession.current();
-        if (session != null) {
-            session.beginSnapshot();
-        } // if
-        if (TraceSession.mayInvoke()) {
-            flushTargetStreams(mainThread.virtualMachine(), mainThread);
-        } // if
-        vmOut.sync();
-        vmErr.sync();
+        prepareSessionAndStreams(session, mainThread, vmOut, vmErr);
 
         List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
         Map<Long, TraceValue> heap = new HashMap<>();
@@ -1245,6 +1533,8 @@ public class DebugTraceHelper {
         byte[] vmErrBytes = sanitizeDebuggeeStderr(vmErr.getBytes());
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
+        String stdinConsumed = inputTracker == null ? "" : inputTracker.consumed();
+        int stdinOffset = inputTracker == null ? 0 : inputTracker.offset();
 
         ExecutionSnapshot snapshot = new ExecutionSnapshot(
                 stackSnapshots,
@@ -1252,11 +1542,61 @@ public class DebugTraceHelper {
                 heap,
                 vmOutBytes,
                 vmErrBytes,
-                Optional.ofNullable(currentStepSourcePath));
+                Optional.ofNullable(currentStepSourcePath),
+                stdinConsumed,
+                stdinOffset);
         if (session != null) {
             session.commit(snapshot);
         } // if
         return snapshot;
+    } // snapshotTheWorld
+
+    /**
+     * Prepares the session and stream drainers prior to heap inspection.
+     *
+     * @param session The active trace session.
+     * @param mainThread The main thread reference.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     */
+    private static void prepareSessionAndStreams(
+            TraceSession session,
+            ThreadReference mainThread,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr) {
+        if (session != null) {
+            session.beginSnapshot();
+        } // if
+        if (TraceSession.mayInvoke()) {
+            flushTargetStreams(mainThread.virtualMachine(), mainThread);
+        } // if
+        vmOut.sync();
+        vmErr.sync();
+    } // prepareSessionAndStreams
+
+    /**
+     * Takes an execution snapshot without active input tracking.
+     *
+     * @param mainThread Main thread reference.
+     * @param loadedClasses Loaded classes.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param parsedSources Parsed compilation units.
+     * @return Execution snapshot.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    private static ExecutionSnapshot snapshotTheWorld(
+            ThreadReference mainThread,
+            Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            List<CompilationUnit> parsedSources)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, parsedSources, null);
     } // snapshotTheWorld
 
     /**

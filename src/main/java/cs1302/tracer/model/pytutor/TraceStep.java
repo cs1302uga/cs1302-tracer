@@ -19,6 +19,8 @@ import java.util.Map;
  * @param heap The heap objects map.
  * @param heapAttrs Type and structural attributes of heap objects.
  * @param file The optional relative source file path for multi-file programs.
+ * @param stdinConsumed Standard input consumed up to this step.
+ * @param stdinOffset Character offset reached in standard input up to this step.
  */
 public record TraceStep(
         @SerializedName("stdout") String stdout,
@@ -32,10 +34,12 @@ public record TraceStep(
         @SerializedName("ordered_globals") List<String> orderedGlobals,
         @SerializedName("heap") Map<String, Object> heap,
         @SerializedName("heap_attrs") Map<String, Object> heapAttrs,
-        @SerializedName("file") String file) {
+        @SerializedName("file") String file,
+        @SerializedName("stdinConsumed") String stdinConsumed,
+        @SerializedName("stdinOffset") int stdinOffset) {
 
     /**
-     * Constructs a single-file trace step without a file path.
+     * Constructs a single-file trace step without a file path and defaulting stdin tracking.
      *
      * @param stdout Captured standard output.
      * @param stderr Captured standard error.
@@ -73,6 +77,54 @@ public record TraceStep(
                 orderedGlobals,
                 heap,
                 heapAttrs,
-                null);
+                null,
+                "",
+                0);
+    } // TraceStep
+
+    /**
+     * Constructs a trace step with a file path and defaulting stdin tracking.
+     *
+     * @param stdout Captured standard output.
+     * @param stderr Captured standard error.
+     * @param event Event type string.
+     * @param funcName Executing function name.
+     * @param line Line number.
+     * @param stackToRender Stack frames to render.
+     * @param globals Global variables.
+     * @param globalsAttrs Global variable attributes.
+     * @param orderedGlobals Ordered global names.
+     * @param heap Heap objects map.
+     * @param heapAttrs Heap attributes.
+     * @param file Relative source file path.
+     */
+    public TraceStep(
+            String stdout,
+            String stderr,
+            String event,
+            String funcName,
+            long line,
+            List<RenderStackFrame> stackToRender,
+            Map<String, Object> globals,
+            Map<String, Object> globalsAttrs,
+            List<String> orderedGlobals,
+            Map<String, Object> heap,
+            Map<String, Object> heapAttrs,
+            String file) {
+        this(
+                stdout,
+                stderr,
+                event,
+                funcName,
+                line,
+                stackToRender,
+                globals,
+                globalsAttrs,
+                orderedGlobals,
+                heap,
+                heapAttrs,
+                file,
+                "",
+                0);
     } // TraceStep
 } // TraceStep

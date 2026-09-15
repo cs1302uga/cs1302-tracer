@@ -61,6 +61,8 @@
           }
         ],
         "stderr": "",
+        "stdinConsumed": "",
+        "stdinOffset": 0,
         "stdout": "sum = 6\n"
       }
     ],

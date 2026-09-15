@@ -66,6 +66,8 @@
         }
       ],
       "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "4 * 3 = 12\n"
     }
   ],

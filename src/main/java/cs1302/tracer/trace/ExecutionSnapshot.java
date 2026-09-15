@@ -13,6 +13,8 @@ import java.util.Optional;
  * @param stdout Bytes that have been output by the program to stdout up to the snapshot point.
  * @param stderr Bytes that have been output by the program to stderr up to the snapshot point.
  * @param sourcePath Optional relative source file path for the currently executing line.
+ * @param stdinConsumed Cumulative standard input consumed up to this snapshot point.
+ * @param stdinOffset Character index reached in standard input up to this snapshot point.
  */
 public record ExecutionSnapshot(
         List<StackSnapshot> stack,
@@ -20,7 +22,29 @@ public record ExecutionSnapshot(
         Map<Long, TraceValue> heap,
         byte[] stdout,
         byte[] stderr,
-        Optional<String> sourcePath) {
+        Optional<String> sourcePath,
+        String stdinConsumed,
+        int stdinOffset) {
+
+    /**
+     * Constructs a snapshot with an explicit source file path defaulting stdin tracking.
+     *
+     * @param stack The program's stack.
+     * @param statics Loaded static variables.
+     * @param heap The program's heap.
+     * @param stdout Captured standard output bytes.
+     * @param stderr Captured standard error bytes.
+     * @param sourcePath Optional relative source file path.
+     */
+    public ExecutionSnapshot(
+            List<StackSnapshot> stack,
+            List<Field> statics,
+            Map<Long, TraceValue> heap,
+            byte[] stdout,
+            byte[] stderr,
+            Optional<String> sourcePath) {
+        this(stack, statics, heap, stdout, stderr, sourcePath, "", 0);
+    } // ExecutionSnapshot
 
     /**
      * Constructs a snapshot without an explicit source file path.
@@ -37,7 +61,7 @@ public record ExecutionSnapshot(
             Map<Long, TraceValue> heap,
             byte[] stdout,
             byte[] stderr) {
-        this(stack, statics, heap, stdout, stderr, Optional.empty());
+        this(stack, statics, heap, stdout, stderr, Optional.empty(), "", 0);
     } // ExecutionSnapshot
 
     /**

@@ -254,7 +254,9 @@ public class ModernTraceSerializer {
                 statics,
                 heap,
                 stdout,
-                stderr);
+                stderr,
+                snapshot.stdinConsumed(),
+                snapshot.stdinOffset());
     } // createStep
 
     /**

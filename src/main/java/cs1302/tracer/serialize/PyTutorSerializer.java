@@ -223,7 +223,9 @@ public record PyTutorSerializer(
                 orderedStatics,
                 serializedHeap,
                 heapAttrs,
-                stepFile);
+                stepFile,
+                snapshot.stdinConsumed(),
+                snapshot.stdinOffset());
     } // createTraceStep
 
     /**
