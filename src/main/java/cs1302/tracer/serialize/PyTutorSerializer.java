@@ -587,7 +587,11 @@ public record PyTutorSerializer(
     private Object serializeObject(TraceValue.Object objectValue, Map<Long, TraceValue> heap) {
         List<Object> list = new ArrayList<>();
         list.add("INSTANCE");
-        list.add(typeStyle.format(objectValue.classFqn()));
+        String typeLabel = typeStyle.format(objectValue.classFqn());
+        if (objectValue.enumConstant().isPresent()) {
+            typeLabel += "." + objectValue.enumConstant().get();
+        } // if
+        list.add(typeLabel);
         for (Field field : objectValue.fields()) {
             list.add(Arrays.asList(
                     field.identifier(), serializeTraceValue(field.value(), heap)));

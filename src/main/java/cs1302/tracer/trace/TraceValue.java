@@ -164,7 +164,10 @@ public sealed interface TraceValue {
         } // if
 
         if (isBuiltInType(or.referenceType().name())) {
-            return new Object(or.referenceType().name(), java.util.List.of());
+            ClassType enumDecl = resolveEnumDeclaringType(or);
+            Optional<java.lang.String> enumConstant =
+                    Optional.ofNullable(extractEnumConstantName(or, enumDecl));
+            return new Object(or.referenceType().name(), java.util.List.of(), enumConstant);
         } // if
 
         return handleRegularObject(or, outEncounteredReferences, astTypeResolver, objectTypeMap);
@@ -423,31 +426,59 @@ public sealed interface TraceValue {
     } // resolveFieldTypeName
 
     /**
-     * Converts a regular user object reference with fields.
+     * Resolves the declaring enum type if the given reference is an enum instance.
+     *
+     * @param or The object reference.
+     * @return The declaring enum ClassType, or null if not an enum.
+     */
+    private static ClassType resolveEnumDeclaringType(ObjectReference or) {
+        if (or != null && or.referenceType() instanceof ClassType ct) {
+            if (ct.isEnum()) {
+                return ct;
+            } // if
+            if (ct.superclass() != null && ct.superclass().isEnum()) {
+                return ct.superclass();
+            } // if
+        } // if
+        return null;
+    } // resolveEnumDeclaringType
+
+    /**
+     * Extracts the enum constant name if the given reference is an enum instance.
+     *
+     * @param or The object reference.
+     * @param enumDeclaringType The declaring enum ClassType.
+     * @return The constant name, or null if not resolved.
+     */
+    private static java.lang.String extractEnumConstantName(
+            ObjectReference or, ClassType enumDeclaringType) {
+        if (enumDeclaringType != null && or != null) {
+            Field nameField = enumDeclaringType.fieldByName("name");
+            if (nameField != null && or.getValue(nameField) instanceof StringReference sr) {
+                return sr.value();
+            } // if
+        } // if
+        return null;
+    } // extractEnumConstantName
+
+    /**
+     * Converts JDI fields of an object reference into execution snapshot fields.
      *
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Reified type map.
-     * @return Converted Object TraceValue.
+     * @param classInfo Generic class info.
+     * @param bindings Type bindings.
+     * @return Collection of snapshot fields.
      */
-    private static TraceValue handleRegularObject(
+    private static java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(
             ObjectReference or,
             Optional<java.util.List<ObjectReference>> outEncounteredReferences,
             AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
-        java.lang.String rawClassFqn = or.referenceType().name();
-        java.lang.String reifiedClassType =
-                (objectTypeMap != null) ? objectTypeMap.get(or.uniqueID()) : null;
-        java.lang.String classFqn = (reifiedClassType != null) ? reifiedClassType : rawClassFqn;
-        java.util.Map<java.lang.String, java.lang.String> bindings =
-                (reifiedClassType != null && astTypeResolver != null)
-                        ? astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
-                        : Collections.emptyMap();
-        Optional<AstTypeResolver.ClassGenericInfo> classInfo =
-                astTypeResolver != null
-                        ? astTypeResolver.getClassGenericInfo(rawClassFqn)
-                        : Optional.empty();
+            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap,
+            Optional<AstTypeResolver.ClassGenericInfo> classInfo,
+            java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields =
                 or.referenceType().allFields().stream().filter(f -> !f.isStatic()).toList();
@@ -490,7 +521,42 @@ public sealed interface TraceValue {
             } // default
             } // switch
         } // for
-        return new Object(classFqn, objectSnapshotFields);
+        return objectSnapshotFields;
+    } // extractSnapshotFields
+
+    /**
+     * Converts a regular user object reference with fields.
+     *
+     * @param or The object reference.
+     * @param outEncounteredReferences Accumulates references.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Reified type map.
+     * @return Converted Object TraceValue.
+     */
+    private static TraceValue handleRegularObject(
+            ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
+            AstTypeResolver astTypeResolver,
+            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+        ClassType enumDeclaringType = resolveEnumDeclaringType(or);
+        java.lang.String rawClassFqn = (enumDeclaringType != null)
+                ? enumDeclaringType.name()
+                : or.referenceType().name();
+        java.lang.String reifiedClassType =
+                (objectTypeMap != null) ? objectTypeMap.get(or.uniqueID()) : null;
+        java.lang.String classFqn = (reifiedClassType != null) ? reifiedClassType : rawClassFqn;
+        java.lang.String constantName = extractEnumConstantName(or, enumDeclaringType);
+        java.util.Map<java.lang.String, java.lang.String> bindings =
+                (reifiedClassType != null && astTypeResolver != null)
+                        ? astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
+                        : Collections.emptyMap();
+        Optional<AstTypeResolver.ClassGenericInfo> classInfo =
+                astTypeResolver != null
+                        ? astTypeResolver.getClassGenericInfo(rawClassFqn)
+                        : Optional.empty();
+        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = extractSnapshotFields(
+                or, outEncounteredReferences, astTypeResolver, objectTypeMap, classInfo, bindings);
+        return new Object(classFqn, objectSnapshotFields, Optional.ofNullable(constantName));
     } // handleRegularObject
 
     /**
@@ -759,11 +825,27 @@ public sealed interface TraceValue {
      *
      * @param classFqn Declaring class FQN.
      * @param fields Object fields.
+     * @param enumConstant Optional enum constant name if this object is an enum constant.
      */
     record Object(
             java.lang.String classFqn,
-            java.util.Collection<ExecutionSnapshot.Field> fields)
-            implements TraceValue {} // Object
+            java.util.Collection<ExecutionSnapshot.Field> fields,
+            Optional<java.lang.String> enumConstant)
+            implements TraceValue {
+
+        /**
+         * Constructs an Object without an enum constant name.
+         *
+         * @param classFqn Declaring class FQN.
+         * @param fields Object fields.
+         */
+        public Object(
+                java.lang.String classFqn,
+                java.util.Collection<ExecutionSnapshot.Field> fields) {
+            this(classFqn, fields, Optional.empty());
+        } // Object
+
+    } // Object
 
     /**
      * A string.

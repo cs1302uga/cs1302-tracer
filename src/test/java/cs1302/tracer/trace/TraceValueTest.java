@@ -108,6 +108,18 @@ public class TraceValueTest {
           new ExecutionSnapshot.Field(true, "int", "x", new TraceValue.Primitive.Integer(10));
       TraceValue.Object obj = new TraceValue.Object("com.example.Foo", List.of(field));
       assertThat(obj.classFqn()).isEqualTo("com.example.Foo");
+      assertThat(obj.enumConstant()).isEmpty();
+      assertThat(obj.fields()).containsExactly(field);
+    }
+
+    @Test
+    void testObjectWithEnumConstant() {
+      ExecutionSnapshot.Field field =
+          new ExecutionSnapshot.Field(true, "String", "name", new TraceValue.String("TUESDAY"));
+      TraceValue.Object obj =
+          new TraceValue.Object("cs1302.Day", List.of(field), Optional.of("TUESDAY"));
+      assertThat(obj.classFqn()).isEqualTo("cs1302.Day");
+      assertThat(obj.enumConstant()).contains("TUESDAY");
       assertThat(obj.fields()).containsExactly(field);
     }
 

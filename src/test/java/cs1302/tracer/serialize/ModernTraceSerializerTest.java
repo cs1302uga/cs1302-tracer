@@ -432,4 +432,31 @@ public class ModernTraceSerializerTest {
         serializer.createBreakpointsTrace("class A {}", "input text", Map.of(1, List.of(snapshot)));
     assertThat(traceBpList.stdin()).isEqualTo("input text");
   }
+
+  @Test
+  @DisplayName("should serialize enum object with qualified constant name in SIMPLE and FQN type styles")
+  void shouldSerializeEnumObject() {
+    TraceValue.Object enumObj =
+        new TraceValue.Object(
+            "cs1302.example.Day",
+            List.of(
+                new Field(false, "java.lang.String", "name", new TraceValue.String("TUESDAY")),
+                new Field(false, "int", "ordinal", new TraceValue.Primitive.Integer(2))),
+            Optional.of("TUESDAY"));
+    ExecutionSnapshot snapshot =
+        new ExecutionSnapshot(
+            List.of(), List.of(), Map.of(20L, enumObj), new byte[0], new byte[0]);
+
+    ModernTraceSerializer simpleSerializer =
+        new ModernTraceSerializer(false, false, false, cs1302.tracer.model.TypeStyle.SIMPLE);
+    Step simpleStep = simpleSerializer.createStep(snapshot, 1, false);
+    assertThat(simpleStep.heap().get("20")).isNotNull();
+    assertThat(simpleStep.heap().get("20").type()).isEqualTo("Day.TUESDAY");
+
+    ModernTraceSerializer fqnSerializer =
+        new ModernTraceSerializer(false, false, false, cs1302.tracer.model.TypeStyle.FQN);
+    Step fqnStep = fqnSerializer.createStep(snapshot, 1, false);
+    assertThat(fqnStep.heap().get("20")).isNotNull();
+    assertThat(fqnStep.heap().get("20").type()).isEqualTo("cs1302.example.Day.TUESDAY");
+  }
 }

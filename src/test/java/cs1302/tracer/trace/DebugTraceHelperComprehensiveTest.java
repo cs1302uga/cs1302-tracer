@@ -648,4 +648,57 @@ public class DebugTraceHelperComprehensiveTest {
       assertThat(intermediateSnapshots.get(1).stack().getLast().methodLine()).isEqualTo(maxLine);
     }
   }
+
+  @Test
+  @DisplayName("should trace enums with standard and specialized class body constants")
+  void shouldTraceEnumsWithStandardAndSpecializedBodies() throws Exception {
+    String source =
+        """
+        package test;
+
+        public class EnumTestGuest {
+            enum Mode {
+                STANDARD,
+                SPECIAL {
+                    @Override
+                    public String toString() {
+                        return "special";
+                    }
+                }
+            }
+
+            public static void main(String[] args) {
+                Mode m1 = Mode.STANDARD;
+                Mode m2 = Mode.SPECIAL;
+                System.out.println(m1 + " " + m2);
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source)) {
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validBreakpoints = DebugTraceHelper.getValidBreakpointLines(cr);
+      List<ExecutionSnapshot> chronological =
+          DebugTraceHelper.traceChronological(cr, validBreakpoints, cu, true);
+
+      assertThat(chronological).isNotEmpty();
+      ExecutionSnapshot finalSnapshot = chronological.get(chronological.size() - 1);
+      List<TraceValue.Object> enumObjects =
+          finalSnapshot.heap().values().stream()
+              .filter(tv -> tv instanceof TraceValue.Object)
+              .map(tv -> (TraceValue.Object) tv)
+              .filter(obj -> obj.enumConstant().isPresent())
+              .toList();
+      assertThat(enumObjects).extracting(TraceValue.Object::classFqn)
+          .contains("test.EnumTestGuest$Mode");
+      assertThat(enumObjects).extracting(obj -> obj.enumConstant().get())
+          .contains("STANDARD", "SPECIAL");
+    }
+  }
 }

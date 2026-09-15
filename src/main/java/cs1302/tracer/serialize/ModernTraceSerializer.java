@@ -364,7 +364,11 @@ public class ModernTraceSerializer {
                             serializeValue(f.value()),
                             f.isFinal()));
                 } // for
-                yield HeapObject.ofObject(id, typeStyle.format(obj.classFqn()), fields);
+                String typeLabel = typeStyle.format(obj.classFqn());
+                if (obj.enumConstant().isPresent()) {
+                    typeLabel += "." + obj.enumConstant().get();
+                } // if
+                yield HeapObject.ofObject(id, typeLabel, fields);
             } // case
             case TraceValue.String str ->
                     HeapObject.ofString(id, typeStyle.format("java.lang.String"), str.value());

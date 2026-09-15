@@ -754,6 +754,35 @@ public class PyTutorSerializerTest {
     }
 
     @Test
+    @DisplayName("should format enum constant type in heap with SIMPLE and FQN type styles")
+    void shouldFormatEnumConstantInHeap() {
+      TraceValue.Object enumObj =
+          new TraceValue.Object(
+              "cs1302.example.MealType",
+              List.of(
+                  new Field(false, "java.lang.String", "name", new TraceValue.String("BREAKFAST")),
+                  new Field(false, "int", "ordinal", new TraceValue.Primitive.Integer(0))),
+              Optional.of("BREAKFAST"));
+      ExecutionSnapshot snapshot =
+          new ExecutionSnapshot(
+              List.of(), List.of(), Map.of(10L, enumObj), new byte[0], new byte[0]);
+
+      PyTutorSerializer simpleSerializer =
+          new PyTutorSerializer(false, false, false, cs1302.tracer.model.TypeStyle.SIMPLE);
+      TraceStep simpleStep = simpleSerializer.createTraceStep(snapshot);
+      List<?> simpleInstance = (List<?>) simpleStep.heap().get("10");
+      assertThat(simpleInstance.get(0)).isEqualTo("INSTANCE");
+      assertThat(simpleInstance.get(1)).isEqualTo("MealType.BREAKFAST");
+
+      PyTutorSerializer fqnSerializer =
+          new PyTutorSerializer(false, false, false, cs1302.tracer.model.TypeStyle.FQN);
+      TraceStep fqnStep = fqnSerializer.createTraceStep(snapshot);
+      List<?> fqnInstance = (List<?>) fqnStep.heap().get("10");
+      assertThat(fqnInstance.get(0)).isEqualTo("INSTANCE");
+      assertThat(fqnInstance.get(1)).isEqualTo("cs1302.example.MealType.BREAKFAST");
+    }
+
+    @Test
     @DisplayName("should support standard input in PyTutor trace serialization")
     void shouldSupportStdinInPyTutorTraceSerialization() {
       ExecutionSnapshot snapshot =
