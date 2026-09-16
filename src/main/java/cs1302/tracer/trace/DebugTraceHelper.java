@@ -1805,7 +1805,13 @@ public class DebugTraceHelper {
                         astTypeResolver.getAllocationType(callerClass, callerLine);
                 if (allocType.isPresent()
                         && frame.thisObject() instanceof ObjectReference frameThis) {
-                    objectTypeMap.putIfAbsent(frameThis.uniqueID(), allocType.get());
+                    String candidate = allocType.get();
+                    String rawAlloc = AstTypeResolver.extractRawTypeName(candidate);
+                    String runtimeClass = frameThis.referenceType().name();
+                    if (!rawAlloc.contains("[") && !candidate.contains("[")
+                            && AstTypeResolver.rawTypeMatches(runtimeClass, rawAlloc)) {
+                        objectTypeMap.putIfAbsent(frameThis.uniqueID(), candidate);
+                    } // if
                 } // if
             } // if
 

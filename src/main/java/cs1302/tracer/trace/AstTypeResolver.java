@@ -332,7 +332,9 @@ public class AstTypeResolver {
                 int line = vd.getRange().map(r -> r.begin.line).orElse(0);
                 if (line > 0) {
                     String typeStr = resolveAstType(vd.getType());
-                    lineAllocations.put(line, typeStr);
+                    if (!typeStr.contains("[")) {
+                        lineAllocations.put(line, typeStr);
+                    } // if
                 } // if
             } // if
         } // for
@@ -342,7 +344,9 @@ public class AstTypeResolver {
             if (line > 0) {
                 try {
                     String typeStr = ae.getTarget().calculateResolvedType().describe();
-                    lineAllocations.put(line, typeStr);
+                    if (!typeStr.contains("[")) {
+                        lineAllocations.put(line, typeStr);
+                    } // if
                 } catch (Throwable ignored) {
                     // skip resolution on error
                 } // try
@@ -353,8 +357,7 @@ public class AstTypeResolver {
             int line = oce.getRange().map(r -> r.begin.line).orElse(0);
             if (line > 0) {
                 String allocType = resolveObjectCreationType(oce);
-                if (allocType != null
-                        && (!lineAllocations.containsKey(line) || allocType.contains("<"))) {
+                if (allocType != null && !allocType.contains("[")) {
                     lineAllocations.put(line, allocType);
                 } // if
             } // if
@@ -430,13 +433,13 @@ public class AstTypeResolver {
     } // normalizeWildcard
 
     /**
-     * Checks if two raw type names match, accounting for package qualification.
+     * Compare two raw type names, allowing for suffix matching when one is simple.
      *
      * @param raw1 First raw type name.
      * @param raw2 Second raw type name.
      * @return True if they match exactly or as suffixes.
      */
-    private static boolean rawTypeMatches(String raw1, String raw2) {
+    public static boolean rawTypeMatches(String raw1, String raw2) {
         if (raw1 == null || raw2 == null) {
             return false;
         } // if

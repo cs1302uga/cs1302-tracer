@@ -511,6 +511,106 @@ public class AstTypeResolverTest {
               "java.util.ArrayList<java.lang.Integer>",
               "java.util.ArrayList")).isFalse();
     }
+
+    @Test
+    @DisplayName("should match raw types correctly")
+    void shouldMatchRawTypesCorrectly() {
+      assertThat(AstTypeResolver.rawTypeMatches("Person", "Person")).isTrue();
+      assertThat(AstTypeResolver.rawTypeMatches("cs1302.Person", "Person")).isTrue();
+      assertThat(AstTypeResolver.rawTypeMatches("Person", "cs1302.Person")).isTrue();
+      assertThat(AstTypeResolver.rawTypeMatches("Person", "Person[]")).isFalse();
+      assertThat(AstTypeResolver.rawTypeMatches("Person[]", "Person")).isFalse();
+      assertThat(AstTypeResolver.rawTypeMatches(null, "Person")).isFalse();
+      assertThat(AstTypeResolver.rawTypeMatches("Person", null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should not index array types as allocation sites for object creations")
+    void shouldNotIndexArrayTypesAsAllocationSites() {
+      String code =
+          """
+          public class Driver {
+              public static void main(String[] args) {
+                  Person[] roster = new Person[] {
+                      new Person("Alice", 20)
+                  };
+              }
+          }
+          record Person(String name, int age) {}
+          """;
+      com.github.javaparser.ParserConfiguration config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      com.github.javaparser.JavaParser parser = new com.github.javaparser.JavaParser(config);
+      CompilationUnit cu = parser.parse(code).getResult().orElseThrow();
+      AstTypeResolver resolver = new AstTypeResolver(List.of(cu));
+      Optional<String> allocType = resolver.getAllocationType("Driver", 4);
+      assertThat(allocType).isPresent();
+      assertThat(allocType.get()).isEqualTo("Person");
+      assertThat(allocType.get()).doesNotContain("[]");
+    }
+
+    @Test
+    @DisplayName("should trace object created inside array initializer with scalar class name")
+    void shouldTraceObjectCreatedInsideArrayInitializer() throws Exception {
+      String source =
+          """
+          public class Driver {
+              public static void main(String[] args) {
+                  Person[] roster = new Person[] {
+                      new Person("Alice", 20)
+                  };
+              }
+          }
+          record Person(String name, int age) {}
+          """;
+
+      try (CompilationResult compilationResult =
+          CompilationHelper.compile(source, Optional.empty())) {
+        com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver combinedTypeSolver =
+            new com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver();
+        combinedTypeSolver.add(
+            new com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver());
+        combinedTypeSolver.add(
+            new com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver(
+                compilationResult.classPath()));
+        com.github.javaparser.symbolsolver.JavaSymbolSolver symbolSolver =
+            new com.github.javaparser.symbolsolver.JavaSymbolSolver(combinedTypeSolver);
+        com.github.javaparser.ParserConfiguration config =
+            new com.github.javaparser.ParserConfiguration()
+                .setSymbolResolver(symbolSolver)
+                .setLanguageLevel(com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+        com.github.javaparser.JavaParser parser = new com.github.javaparser.JavaParser(config);
+
+        List<CompilationHelper.SourceFile> sourceFiles =
+            CompilationHelper.parseMultiFileStream(source);
+        List<CompilationUnit> allCus =
+            sourceFiles.stream()
+                .map(sf -> parser.parse(sf.content()).getResult().orElseThrow())
+                .toList();
+
+        Collection<Integer> breakPoints =
+            DebugTraceHelper.getValidBreakpointLines(compilationResult);
+
+        List<ExecutionSnapshot> snapshots =
+            DebugTraceHelper.traceChronological(compilationResult, breakPoints, allCus, true);
+
+        assertThat(snapshots).isNotEmpty();
+        for (ExecutionSnapshot snapshot : snapshots) {
+          for (ExecutionSnapshot.StackSnapshot frame : snapshot.stack()) {
+            if ("<init>".equals(frame.methodName()) && frame.thisObject().isPresent()) {
+              assertThat(frame.thisObject().get().typeName()).isEqualTo("Person");
+              assertThat(frame.thisObject().get().typeName()).doesNotContain("[]");
+            }
+          }
+          for (TraceValue tv : snapshot.heap().values()) {
+            if (tv instanceof TraceValue.Object obj) {
+              assertThat(obj.classFqn()).doesNotContain("Person[]");
+            }
+          }
+        }
+      }
+    }
   }
 }
 
