@@ -145,7 +145,7 @@ public sealed interface TraceValue {
                 return handleColor(mainThread, or);
             } // if
             return handleRegularObject(
-                    or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+                    mainThread, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
         } // if
         Optional<Primitive> maybeWrappedPrimitive = Primitive.tryFromJdiValue(mainThread, or);
         if (maybeWrappedPrimitive.isPresent()) {
@@ -170,7 +170,8 @@ public sealed interface TraceValue {
             return new Object(or.referenceType().name(), java.util.List.of(), enumConstant);
         } // if
 
-        return handleRegularObject(or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+        return handleRegularObject(
+                mainThread, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
     } // handleObjectReference
 
     /**
@@ -525,8 +526,41 @@ public sealed interface TraceValue {
     } // extractSnapshotFields
 
     /**
+     * Evaluates lazy enum hash code if configured and currently uninitialized.
+     *
+     * @param mainThread The thread reference.
+     * @param or The enum object reference.
+     * @param enumDeclaringType The declaring enum ClassType.
+     */
+    private static void evaluateEnumHashIfNeeded(
+            ThreadReference mainThread, ObjectReference or, ClassType enumDeclaringType) {
+        if (mainThread == null || enumDeclaringType == null || !TraceSession.shouldEvalEnumHash()) {
+            return;
+        } // if
+        Field hashField = null;
+        for (Field f : or.referenceType().allFields()) {
+            if ("hash".equals(f.name()) && "int".equals(f.typeName())) {
+                hashField = f;
+                break;
+            } // if
+        } // for
+        if (hashField != null && or.getValue(hashField) instanceof IntegerValue iv
+                && iv.value() == 0 && or.referenceType() instanceof ClassType ct) {
+            try {
+                Method hashCodeMethod = ct.concreteMethodByName("hashCode", "()I");
+                if (hashCodeMethod != null) {
+                    or.invokeMethod(mainThread, hashCodeMethod, java.util.List.of(), 0);
+                } // if
+            } catch (Exception ignored) {
+                // fallback to uninitialized hash
+            } // try
+        } // if
+    } // evaluateEnumHashIfNeeded
+
+    /**
      * Converts a regular user object reference with fields.
      *
+     * @param mainThread The thread reference.
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
@@ -534,11 +568,13 @@ public sealed interface TraceValue {
      * @return Converted Object TraceValue.
      */
     private static TraceValue handleRegularObject(
+            ThreadReference mainThread,
             ObjectReference or,
             Optional<java.util.List<ObjectReference>> outEncounteredReferences,
             AstTypeResolver astTypeResolver,
             java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
         ClassType enumDeclaringType = resolveEnumDeclaringType(or);
+        evaluateEnumHashIfNeeded(mainThread, or, enumDeclaringType);
         java.lang.String rawClassFqn = (enumDeclaringType != null)
                 ? enumDeclaringType.name()
                 : or.referenceType().name();

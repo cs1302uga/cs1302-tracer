@@ -8,6 +8,7 @@ import cs1302.tracer.App;
 import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.LicenseHelper;
+import cs1302.tracer.execution.TraceSession;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Date;
@@ -699,6 +700,68 @@ public class DebugTraceHelperComprehensiveTest {
           .contains("test.EnumTestGuest$Mode");
       assertThat(enumObjects).extracting(obj -> obj.enumConstant().get())
           .contains("STANDARD", "SPECIAL");
+      assertThat(enumObjects).isNotEmpty();
+      for (TraceValue.Object enumObj : enumObjects) {
+        ExecutionSnapshot.Field hashField = enumObj.fields().stream()
+            .filter(f -> "hash".equals(f.identifier()))
+            .findFirst()
+            .orElse(null);
+        assertThat(hashField).isNotNull();
+        assertThat(hashField.value()).isInstanceOf(TraceValue.Primitive.Integer.class);
+        assertThat(((TraceValue.Primitive.Integer) hashField.value()).value()).isNotEqualTo(0);
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("should not evaluate enum hash when disabled")
+  void shouldNotEvaluateEnumHashWhenDisabled() throws Exception {
+    String source =
+        """
+        package test;
+
+        public class EnumHashDisabledGuest {
+            enum Color { RED, GREEN }
+
+            public static void main(String[] args) {
+                Color c = Color.RED;
+                System.out.println(c);
+            }
+        }
+        """;
+
+    try (CompilationResult cr = CompilationHelper.compile(source);
+         AutoCloseable scope = TraceSession.withEvalEnumHash(false)) {
+      assertThat(scope).isNotNull();
+      var config =
+          new com.github.javaparser.ParserConfiguration()
+              .setLanguageLevel(
+                  com.github.javaparser.ParserConfiguration.LanguageLevel.CURRENT);
+      CompilationUnit cu =
+          new com.github.javaparser.JavaParser(config).parse(source).getResult().get();
+
+      Collection<Integer> validBreakpoints = DebugTraceHelper.getValidBreakpointLines(cr);
+      List<ExecutionSnapshot> chronological =
+          DebugTraceHelper.traceChronological(cr, validBreakpoints, cu, true);
+
+      assertThat(chronological).isNotEmpty();
+      ExecutionSnapshot finalSnapshot = chronological.get(chronological.size() - 1);
+      List<TraceValue.Object> enumObjects =
+          finalSnapshot.heap().values().stream()
+              .filter(tv -> tv instanceof TraceValue.Object)
+              .map(tv -> (TraceValue.Object) tv)
+              .filter(obj -> obj.enumConstant().isPresent())
+              .toList();
+      assertThat(enumObjects).isNotEmpty();
+      for (TraceValue.Object enumObj : enumObjects) {
+        ExecutionSnapshot.Field hashField = enumObj.fields().stream()
+            .filter(f -> "hash".equals(f.identifier()))
+            .findFirst()
+            .orElse(null);
+        assertThat(hashField).isNotNull();
+        assertThat(hashField.value()).isInstanceOf(TraceValue.Primitive.Integer.class);
+        assertThat(((TraceValue.Primitive.Integer) hashField.value()).value()).isEqualTo(0);
+      }
     }
   }
 }

@@ -30,4 +30,37 @@ class TraceContractTest {
             assertThat(gson.toJsonTree(unavailable).getAsJsonObject().get("trace").isJsonNull()).isTrue();
         }
     }
+
+    @Test
+    void testEvalEnumHashSettings() throws Exception {
+        JobOptions job1 = new JobOptions();
+        assertThat(job1.evalEnumHash).isTrue();
+        new picocli.CommandLine(job1).parseArgs("--no-eval-enum-hash");
+        assertThat(job1.evalEnumHash).isFalse();
+
+        JobOptions job2 = new JobOptions();
+        new picocli.CommandLine(job2).parseArgs("--eval-enum-hash");
+        assertThat(job2.evalEnumHash).isTrue();
+        assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
+
+        try (AutoCloseable scope = TraceSession.withEvalEnumHash(false)) {
+            assertThat(scope).isNotNull();
+            assertThat(TraceSession.shouldEvalEnumHash()).isFalse();
+        }
+        assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
+
+        try (TraceSession session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true, false)) {
+            assertThat(session).isNotNull();
+            assertThat(TraceSession.shouldEvalEnumHash()).isFalse();
+        }
+        assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
+
+        try (TraceSession session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.FIELDS, true, true)) {
+            assertThat(session).isNotNull();
+            assertThat(TraceSession.shouldEvalEnumHash()).isFalse();
+        }
+        assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
+    }
 }

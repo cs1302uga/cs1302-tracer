@@ -29,6 +29,28 @@ public class JobOptions {
             description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
 
+    /**
+     * Sets whether enum hash codes should not be evaluated.
+     * @param noEval True to disable enum hash evaluation.
+     */
+    @Option(names = "--no-eval-enum-hash",
+            description = "Do not evaluate lazy enum hash codes when capturing snapshots.")
+    void setNoEvalEnumHash(boolean noEval) {
+        this.evalEnumHash = !noEval;
+    } // setNoEvalEnumHash
+
+    /**
+     * Sets whether enum hash codes should be evaluated.
+     * @param eval True to enable enum hash evaluation.
+     */
+    @Option(names = "--eval-enum-hash",
+            description = "Evaluate lazy enum hash codes when capturing snapshots.")
+    void setEvalEnumHash(boolean eval) {
+        this.evalEnumHash = eval;
+    } // setEvalEnumHash
+
+    public boolean evalEnumHash = true;
+
     /** Constructs default trusted options. */
     public JobOptions() {} // JobOptions
 

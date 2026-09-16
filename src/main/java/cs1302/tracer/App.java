@@ -322,37 +322,46 @@ public class App {
                 exitHandler.accept(2);
                 return;
             } // try
-            String source = readInputFile();
-
+            AutoCloseable scope = TraceSession.withEvalEnumHash(job.evalEnumHash);
             try {
-                List<CompilationHelper.SourceFile> sourceFiles =
-                        CompilationHelper.parseMultiFileStream(source);
-                CompilationHelper.SourceFile entryFile =
-                        CompilationHelper.findEntryPoint(sourceFiles);
-                CompilationUnit preCu = entryFile.ast();
-                Optional<Path> sourceRoot =
-                        CompilationHelper.findSourceRoot(preCu, getInputPath());
+                String source = readInputFile();
 
-                try (CompilationResult compilationResult =
-                        CompilationHelper.compile(source, sourceRoot)) {
-                    Optional<Path> parserSourceRoot = sourceRoot.isPresent()
-                            ? sourceRoot
-                            : Optional.of(compilationResult.classPath());
-                    List<CompilationUnit> allCus = discoverAllCompilationUnits(
-                            sourceFiles, sourceRoot, parserSourceRoot);
+                try {
+                    List<CompilationHelper.SourceFile> sourceFiles =
+                            CompilationHelper.parseMultiFileStream(source);
+                    CompilationHelper.SourceFile entryFile =
+                            CompilationHelper.findEntryPoint(sourceFiles);
+                    CompilationUnit preCu = entryFile.ast();
+                    Optional<Path> sourceRoot =
+                            CompilationHelper.findSourceRoot(preCu, getInputPath());
 
-                    if (format == TraceFormat.MODERN) {
-                        runModernTrace(source, compilationResult, allCus, guestStdin);
-                    } else {
-                        runPyTutorTrace(source, compilationResult, allCus, guestStdin);
+                    try (CompilationResult compilationResult =
+                            CompilationHelper.compile(source, sourceRoot)) {
+                        Optional<Path> parserSourceRoot = sourceRoot.isPresent()
+                                ? sourceRoot
+                                : Optional.of(compilationResult.classPath());
+                        List<CompilationUnit> allCus = discoverAllCompilationUnits(
+                                sourceFiles, sourceRoot, parserSourceRoot);
+
+                        if (format == TraceFormat.MODERN) {
+                            runModernTrace(source, compilationResult, allCus, guestStdin);
+                        } else {
+                            runPyTutorTrace(source, compilationResult, allCus, guestStdin);
+                        } // if
+                    } // try
+                } catch (Throwable cause) {
+                    System.err.println("Unable to generate trace!");
+                    if (verbose) {
+                        cause.printStackTrace();
                     } // if
+                    exitHandler.accept(1);
                 } // try
-            } catch (Throwable cause) {
-                System.err.println("Unable to generate trace!");
-                if (verbose) {
-                    cause.printStackTrace();
-                } // if
-                exitHandler.accept(1);
+            } finally {
+                try {
+                    scope.close();
+                } catch (Exception ignored) {
+                    // ignore close failure
+                } // try
             } // try
         } // run
 
@@ -364,7 +373,7 @@ public class App {
          */
         private void runBounded(TraceLimits limits, String guestStdin) {
             try (TraceSession session = new TraceSession(limits, job.inspection,
-                    allBreakpoints || accumulateBreakpoints)) {
+                    allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 String source = "";
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;

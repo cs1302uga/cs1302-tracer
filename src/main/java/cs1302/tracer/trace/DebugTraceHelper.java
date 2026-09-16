@@ -303,9 +303,13 @@ public class DebugTraceHelper {
     public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
             CompilationResult compilationResult, Collection<Integer> breakPoints,
             List<CompilationUnit> parsedSources, String stdin) throws Exception {
+        if (TraceSession.current() != null) {
+            return trace(compilationResult, breakPoints, parsedSources, stdin);
+        } // if
         try (TraceSession session = new TraceSession(
                 cs1302.tracer.execution.TraceLimits.unlimited(),
-                cs1302.tracer.execution.InspectionPolicy.TRUSTED, false)) {
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, false,
+                TraceSession.shouldEvalEnumHash())) {
             session.phase("trace");
             return trace(compilationResult, breakPoints, parsedSources, stdin);
         } // try

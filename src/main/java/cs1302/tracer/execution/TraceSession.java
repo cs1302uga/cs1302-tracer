@@ -48,6 +48,8 @@ public final class TraceSession implements AutoCloseable {
     private boolean droppedSnapshot;
     private String phase = "source";
     private final List<String> diagnostics = new ArrayList<>();
+    private final boolean evalEnumHash;
+    private static final ThreadLocal<Boolean> UNBOUNDED_EVAL_ENUM_HASH = new ThreadLocal<>();
 
     /**
      * Binds a session to the calling thread until closed.
@@ -56,6 +58,19 @@ public final class TraceSession implements AutoCloseable {
      * @param accumulate Whether every snapshot is retained.
      */
     public TraceSession(TraceLimits limits, InspectionPolicy inspection, boolean accumulate) {
+        this(limits, inspection, accumulate,
+                UNBOUNDED_EVAL_ENUM_HASH.get() == null || UNBOUNDED_EVAL_ENUM_HASH.get());
+    } // TraceSession
+
+    /**
+     * Binds a session to the calling thread until closed with enum hash configuration.
+     * @param limits Effective budgets.
+     * @param inspection Guest inspection policy.
+     * @param accumulate Whether every snapshot is retained.
+     * @param evalEnumHash Whether lazy enum hash codes should be evaluated.
+     */
+    public TraceSession(TraceLimits limits, InspectionPolicy inspection, boolean accumulate,
+            boolean evalEnumHash) {
         if (CURRENT.get() != null) {
             throw new IllegalStateException("A trace session is already active on this thread");
         } // if
@@ -66,6 +81,7 @@ public final class TraceSession implements AutoCloseable {
                     + "guest methods and stream flush are not invoked.");
         } // if
         this.accumulate = accumulate;
+        this.evalEnumHash = evalEnumHash;
         CURRENT.set(this);
     } // TraceSession
 
@@ -78,12 +94,45 @@ public final class TraceSession implements AutoCloseable {
     } // current
 
     /**
+     * Temporarily sets enum hash evaluation setting when running outside a session.
+     * @param evalEnumHash Whether lazy enum hash codes should be evaluated.
+     * @return AutoCloseable scope restoring previous setting.
+     */
+    public static AutoCloseable withEvalEnumHash(boolean evalEnumHash) {
+        Boolean previous = UNBOUNDED_EVAL_ENUM_HASH.get();
+        UNBOUNDED_EVAL_ENUM_HASH.set(evalEnumHash);
+        return () -> {
+            if (previous == null) {
+                UNBOUNDED_EVAL_ENUM_HASH.remove();
+            } else {
+                UNBOUNDED_EVAL_ENUM_HASH.set(previous);
+            } // if
+        };
+    } // withEvalEnumHash
+
+    /**
      * Returns whether helpers may invoke guest methods.
      * @return True for trusted inspection.
      */
     public static boolean mayInvoke() {
         return current() == null || current().inspection == InspectionPolicy.TRUSTED;
     } // mayInvoke
+
+    /**
+     * Returns whether helpers should evaluate lazy enum hash codes.
+     * @return True if enabled and methods may be invoked.
+     */
+    public static boolean shouldEvalEnumHash() {
+        if (!mayInvoke()) {
+            return false;
+        } // if
+        TraceSession session = current();
+        if (session != null) {
+            return session.evalEnumHash;
+        } // if
+        Boolean override = UNBOUNDED_EVAL_ENUM_HASH.get();
+        return override == null || override;
+    } // shouldEvalEnumHash
 
     /** Checks cancellation and the monotonic tracing deadline. */
     public void check() {

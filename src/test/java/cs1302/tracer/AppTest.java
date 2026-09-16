@@ -1057,4 +1057,42 @@ public class AppTest {
     assertThat(output).contains("\"stdinConsumed\": \"hi\"");
     assertThat(output).contains("\"stdinOffset\": 2");
   }
+
+  @Test
+  @DisplayName("should trace enum with and without eval-enum-hash option")
+  void shouldTraceEnumWithAndWithoutEvalEnumHash() {
+    String testProgram =
+        """
+        public class Main {
+          enum Fruit { APPLE, BANANA }
+          public static void main(String[] args) {
+            Fruit f = Fruit.APPLE;
+            System.out.println(f);
+          }
+        }
+        """;
+
+    String outputDefault =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=5",
+                "-f=pytutor")
+            .get();
+    assertThat(outputDefault).contains("\"Main$Fruit.APPLE\"");
+    // Default evaluates non-zero hash
+    assertThat(outputDefault).doesNotContain("[\"hash\",0]");
+
+    String outputNoEval =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=5",
+                "-f=pytutor",
+                "--no-eval-enum-hash")
+            .get();
+    // Disabled keeps hash as 0
+    assertThat(outputNoEval).contains("\"Main$Fruit.APPLE\"");
+    assertThat(outputNoEval).contains("[\"hash\",0]");
+  }
 }
