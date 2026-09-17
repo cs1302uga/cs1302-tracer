@@ -83,6 +83,7 @@ class ContainerInspectionFailureTest {
                 cs1302.tracer.execution.TraceLimits.unlimited(), mode.equals("fields-only")
                         ? cs1302.tracer.execution.InspectionPolicy.FIELDS
                         : cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+            assertThat(cs1302.tracer.execution.TraceSession.current()).isSameAs(session);
             var result = (TraceValue.Color) TraceValue.fromJdiValue(null, object, Optional.empty());
             assertThat(result.hex()).isEqualTo(mode.equals("field") || mode.equals("getter")
                     ? "#123456" : "#00000000");

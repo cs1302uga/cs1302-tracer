@@ -80,7 +80,8 @@ class StreamDrainerFailureTest {
             }
             @Override public void close() { release.countDown(); }
         };
-        try (var drainer = new StreamDrainer(source)) {
+        var drainer = new StreamDrainer(source);
+        try {
             assertThat(entered.await(1, TimeUnit.SECONDS)).isTrue();
             drainer.sync(0, 0);
             assertThat(drainer.size()).isZero();
@@ -88,6 +89,8 @@ class StreamDrainerFailureTest {
             drainer.waitForEof(1000);
             assertThat(drainer.getBytes()).containsExactly((byte) 65);
             assertThat(drainer.isEof()).isFalse();
+        } finally {
+            drainer.close();
         }
     }
 

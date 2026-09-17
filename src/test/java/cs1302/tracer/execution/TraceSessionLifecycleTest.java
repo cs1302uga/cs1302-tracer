@@ -32,8 +32,10 @@ class TraceSessionLifecycleTest {
 
     @Test
     void nestedEnumOptionsRestoreTheOuterSetting() throws Exception {
-        try (var outer = TraceSession.withEvalEnumHash(false)) {
-            try (var inner = TraceSession.withEvalEnumHash(true)) {
+        var outer = TraceSession.withEvalEnumHash(false);
+        try (outer) {
+            var inner = TraceSession.withEvalEnumHash(true);
+            try (inner) {
                 assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
             }
             assertThat(TraceSession.shouldEvalEnumHash()).isFalse();
