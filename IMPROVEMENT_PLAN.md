@@ -344,3 +344,96 @@ Remaining proposals, ordered after the reliability work:
   with references and heap keys, while mismatched IDs and changed input offsets
   remain detectable.
 - `git diff --check` passed. Linux CI was not run locally.
+
+
+## Audit implementation follow-up — September 17, 2026
+
+The follow-up implements the startup, correctness, and contract work from
+[the audit](docs/AUDIT_PLAN.md), plus the source-index and dependency-discovery
+optimizations. The original audit remains a dated baseline.
+
+### Delivered behavior
+
+- Guest input is fed concurrently with event processing. A guest runtime owner
+  cleans up initialization failures and terminates the process before closing
+  potentially blocked streams and joining the input feeder.
+- Ordinary jobs now also allow 1 MiB of UTF-8 guest input by default.
+  `--max-input-bytes` overrides this budget; zero disables it. Envelope mode keeps
+  its explicit-budget policy. `input_limit` stops before compilation, exits 3, and
+  includes `limits.inputBytes` in the envelope. File input is checked per chunk.
+- Local finality uses declaring class, callable, and lexical scope, including
+  final parameters and constructors. Disjoint scopes no longer share a final-name
+  flag. Both output formats have real-guest regression assertions.
+- Ordinary and envelope capture use the same retention decisions. A redundant
+  terminal state counts as extracted work but is not retained. Output refresh
+  updates the session and legacy result containers under the same accounting.
+- Source-derived type, local, and lambda indexes are constructed once per trace.
+  Runtime object identity/type propagation remains local to each snapshot.
+- Metadata discovery follows compiled class SourceFile attributes instead of
+  walking all Java files under the inferred source root. It includes nested and
+  constant-only types. Source byte/file caps apply independently to discovered
+  dependencies; compiler and symbol-solver work are still outside these caps.
+- README JSON examples are checked against the existing verified record fixtures.
+  Maven wrapper commands are used consistently. The JDK 25 CI build enables the
+  strict production coverage profile; JDK 21 builds retain the default gates.
+
+### Remaining decisions
+
+The full shared-output/offset representation remains deferred. Existing snapshot
+records expose cumulative byte arrays, and serializers build cumulative strings.
+The source-cache benchmarks measure process-tree RSS rather than retained Java
+heap, so they do not establish the benefit of replacing that representation.
+A memory-specific profile and a compatibility-preserving design are the next gate;
+no claim of bounded actual Java heap or elimination of cumulative output copying
+is made here.
+
+File-qualified breakpoints, a whole-job deadline, and the isolated hosted runner
+remain optional Phase 5 work. Legacy line-only matching is unchanged. Lambda
+reconstruction still uses source-name/line heuristics; this follow-up corrects
+final metadata without broadening the lambda feature's guarantees.
+
+### Validation and measurements
+
+Benchmarks used three fresh-process runs per workload, running the baseline and
+updated artifacts sequentially on the same macOS/JDK 25 machine. The baseline is
+the working tree after the correctness fixes and before source-index caching and
+compiled-dependency discovery. All four normalized trace hashes match.
+
+| Workload | Median before | Median after | Peak RSS before | Peak RSS after |
+| --- | ---: | ---: | ---: | ---: |
+
+| loop | 1.855 s | 1.875 s | 183.0 MiB | 184.4 MiB |
+| output | 2.656 s | 2.673 s | 287.8 MiB | 285.0 MiB |
+| collections | 2.080 s | 2.123 s | 221.1 MiB | 184.5 MiB |
+| sources | 2.530 s | 2.196 s | 196.5 MiB | 175.5 MiB |
+
+The source-heavy workload improved by about 13% in elapsed time and 11% in peak
+RSS. Collection peak RSS also decreased; the other elapsed-time differences are
+small and do not demonstrate an improvement. These are local process-tree
+measurements, not a claim of general speedup or retained-heap savings.
+Raw runs: [before](docs/benchmarks/audit-before.json),
+[after](docs/benchmarks/audit-after.json). Reproduce with
+`python3 scripts/benchmark.py --jar PATH_TO_ARTIFACT`.
+
+Baseline benchmark JAR SHA-256: `90979bc3cec03a6f6965376963c66266b0cd9ae5a90c142d9f7ab00fb495085e`.
+
+Updated benchmark JAR SHA-256: `ca0fcf5e113970b9134a9cac2813f6d60e8c8f3776349cc268e3456a711a5e08`.
+
+
+Final validation of the implementation:
+
+| Check | Result |
+| --- | --- |
+| Clean package, JDK 25 with `-Ppre-commit-coverage` | 385 tests passed; Checkstyle and strict coverage passed. |
+| Production coverage, JDK 25 | 3,239 lines and 1,858 branches covered; zero missed. |
+| Clean package, JDK 21 | 385 tests discovered, 384 passed, one JDK 25-only test skipped; default gates passed. |
+| Compatibility fixtures, JDK 21 and JDK 25 | All 24 passed on each JDK; committed fixtures unchanged. |
+| Python normalizer and README contract tests | All six passed. |
+| Whitespace validation | `git diff --check` passed. |
+
+Linux CI was configured but not executed locally. The tests cover 1 MiB input and
+EOF, early input closure/exit, timeout cleanup, partial initialization, cancellation
+while joining the feeder, UTF-8 input-budget boundaries, lexical final metadata,
+constructor/overload parameters in both formats, suppressed-snapshot accounting,
+and bounded compiled-dependency metadata discovery. The original three correctness
+regressions were observed failing before their fixes.

@@ -28,6 +28,8 @@ public class JobOptions {
     public Long sourceBytes;
     @Option(names = "--max-source-files", description = "Streamed source files; 0 is unlimited.")
     Long sourceFiles;
+    @Option(names = "--max-input-bytes", description = "UTF-8 guest input bytes; 0 is unlimited.")
+    public Long inputBytes;
     @Option(names = "--inspection", defaultValue = "TRUSTED",
             description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
@@ -70,7 +72,8 @@ public class JobOptions {
                 select(heapObjects, defaults.heapObjects()), select(elements, defaults.elements()),
                 select(traceBytes, defaults.traceBytes()),
                 select(sourceBytes, defaults.sourceBytes()),
-                select(sourceFiles, defaults.sourceFiles()));
+                select(sourceFiles, defaults.sourceFiles()),
+                select(inputBytes, defaults.inputBytes()));
     } // limits
 
     /**

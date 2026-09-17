@@ -54,9 +54,8 @@ class DebuggerTypeMetadataTest {
                 }
                 """);
         var lambdas = new HashMap<String, List<?>>();
-        var finals = new HashMap<String, Set<String>>();
-        call("buildLambdaAndFinalMaps", new Class<?>[] {List.class, Map.class, Map.class},
-                Arrays.asList(null, unit), lambdas, finals);
+        call("buildLambdaMap", new Class<?>[] {List.class, Map.class},
+                Arrays.asList(null, unit), lambdas);
         assertThat(lambdas.get("C.m()")).hasSize(2);
         assertThat(call("findLambdaImplementation", new Class<?>[] {List.class, String.class, int.class},
                 lambdas.get("C.m()"), "local", 1)).toString().contains("void run()");

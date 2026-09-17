@@ -50,5 +50,20 @@ class NormalizeTests(unittest.TestCase):
         self.assertNotEqual(normalize({"heap": {"7": ["LIST"]}}), normalize({"heap": {}}))
 
 
+class ReadmeContractTests(unittest.TestCase):
+    def test_readme_examples_match_verified_fixtures(self):
+        from pathlib import Path
+        import json
+        root = Path(__file__).resolve().parent.parent
+        readme = (root / "README.md").read_text()
+        for heading, fixture in [("### 1. PythonTutor Format", "record.json"),
+                                 ("### 2. Modern Clean Format", "modern_record.json")]:
+            section = readme.split(heading, 1)[1]
+            example = section.split("```json", 1)[1].split("```", 1)[0]
+            expected = json.loads((root / "examples/regression" / fixture).read_text())
+            self.assertEqual(json.loads(example), expected)
+
+
+
 if __name__ == "__main__":
     unittest.main()

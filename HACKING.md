@@ -188,10 +188,10 @@ cs1302.tracer.model
 
 ```bash
 # Compile and run unit tests with JaCoCo verification
-mvn clean test
+./mvnw clean test
 
 # Build fat JAR with all dependencies bundled
-mvn package -DskipTests -Djacoco.skip=true
+./mvnw package -DskipTests -Djacoco.skip=true
 ```
 
 ### JaCoCo Coverage Requirement
@@ -263,9 +263,11 @@ are preserved. Style violations or tool failures block the commit before coverag
 runs. The check runs even without staged Java changes, so configuration changes
 are checked too. To check the working tree manually, run `./mvnw checkstyle:check`.
 
-The opt-in `pre-commit-coverage` Maven profile requires **100% line and branch
-coverage across all production classes**, in addition to the normal build checks.
-Run it directly with `./mvnw -Ppre-commit-coverage clean test`.
+The `pre-commit-coverage` Maven profile requires **100% line and branch coverage
+across all production classes**, in addition to the normal build checks. The JDK 25
+CI job enables it; JDK 21 jobs use the default package gates because JDK-specific
+paths cannot all execute there. Run the strict profile locally on JDK 25 with
+`./mvnw -Ppre-commit-coverage clean test`.
 
 The executable `.githooks/pre-commit-coverage` exports the Git index into a temporary
 workspace and runs that command there. It tests staged content only, excludes stale
@@ -286,6 +288,22 @@ chmod +x "$(git rev-parse --git-path hooks)/pre-commit"
 ```
 
 This enables lint and coverage without activating the separate pre-push hook.
-Installation is local to each checkout; the scripts and
-Maven profile are tracked in the repository. Git permits local hooks to be bypassed;
-use the same Maven profile in CI if this must also be a merge requirement.
+Installation is local to each checkout; the scripts and Maven profile are tracked
+in the repository. Git permits local hooks to be bypassed; the JDK 25 CI job
+independently enforces the strict profile.
+
+
+## Audit follow-up performance checks
+
+`python3 scripts/benchmark.py` starts fresh tracer processes for loops,
+output-heavy code, collections, and source-heavy programs. It reports median
+elapsed time, process-tree peak RSS, retained-byte accounting, and normalized
+trace hashes. RSS is not Java heap usage. Use `--jar` to compare saved artifacts
+and run the artifacts sequentially on an otherwise idle machine. Successful
+optimizations must retain matching semantic hashes as well as pass fixtures.
+
+Source-derived type, lambda, and local-final metadata is prepared once per trace.
+Runtime object identities and inferred object types remain snapshot-local. Source
+discovery reads only paths represented by compiled class debug attributes, under
+independent applications of the source byte/file budgets. Guest I/O ownership
+ensures process termination precedes closing streams that might be blocked.

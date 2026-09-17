@@ -88,12 +88,12 @@ class AppFailureTest {
     @Test
     void discoveryIgnoresUnreadableUnreferencedSources(@TempDir Path directory) throws Exception {
         var trace = new App.Trace();
-        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits", List.class, Optional.class, Optional.class);
+        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits", List.class, Optional.class, Optional.class, Set.class);
         discover.setAccessible(true);
         Files.write(directory.resolve("Invalid.java"), new byte[] {(byte) 0xff});
         Files.writeString(directory.resolve("notes.txt"), "not java");
-        assertThat(discover.invoke(trace, List.of(), Optional.of(directory), Optional.empty())).isEqualTo(List.of());
-        assertThat(discover.invoke(trace, List.of(), Optional.of(directory.resolve("missing")), Optional.empty())).isEqualTo(List.of());
+        assertThat(discover.invoke(trace, List.of(), Optional.of(directory), Optional.empty(), Set.of())).isEqualTo(List.of());
+        assertThat(discover.invoke(trace, List.of(), Optional.of(directory.resolve("missing")), Optional.empty(), Set.of())).isEqualTo(List.of());
         assertThat(trace.getInputPath()).isEmpty();
     }
 
@@ -117,5 +117,49 @@ class AppFailureTest {
                 "public class C { public static void main(String[] a) { int n = 1; } }", "-f", "modern", "-a", "-b", "1");
         assertThat(result).isPresent();
         assertThat(JsonParser.parseString(result.orElseThrow()).getAsJsonObject().getAsJsonArray("steps")).isNotEmpty();
+    }
+    @Test void inputOptionsConflictBeforeOpeningFiles() {
+        var trace = new App.Trace();
+        new picocli.CommandLine(trace).parseArgs("--stdin", "text", "--stdin-file", "absent");
+        assertThatThrownBy(trace::resolveGuestStdin).isInstanceOf(IllegalArgumentException.class);
+        var status = new java.util.concurrent.atomic.AtomicInteger();
+        trace.exitHandler = status::set;
+        trace.run();
+        assertThat(status.get()).isEqualTo(2);
+    }
+
+    @Test void discoveryReadsOnlyCompiledSourcesAndRejectsEscapingPaths(@TempDir Path root)
+            throws Exception {
+        var trace = new App.Trace();
+        Files.writeString(root.resolve("Needed.java"), "class Needed { final int n=1; }");
+        Files.writeString(root.resolve("Unrelated.java"), "this is invalid Java");
+        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits",
+                List.class, Optional.class, Optional.class, Set.class);
+        discover.setAccessible(true);
+        var units = (List<?>) discover.invoke(trace, List.of(), Optional.of(root),
+                Optional.of(root), Set.of("Needed.java"));
+        assertThat(units).hasSize(1);
+        assertThat(units.getFirst().toString()).contains("Needed");
+        assertThatThrownBy(() -> discover.invoke(trace, List.of(), Optional.of(root),
+                Optional.of(root), Set.of("../Escapes.java")))
+                .hasCauseInstanceOf(IOException.class);
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            assertThat(TraceSession.current()).isSameAs(session);
+            new picocli.CommandLine(trace).parseArgs("--max-source-bytes", "1");
+            assertThatThrownBy(() -> discover.invoke(trace, List.of(), Optional.of(root),
+                    Optional.of(root), Set.of("Needed.java")))
+                    .hasCauseInstanceOf(TraceSession.Stopped.class);
+        }
+    }
+    @Test void inputResolutionAlsoWorksOutsideAJob(@TempDir Path root) throws Exception {
+        var trace = new App.Trace();
+        assertThat(trace.resolveGuestStdin()).isEmpty();
+        new picocli.CommandLine(trace).parseArgs("--stdin", "hello");
+        assertThat(trace.resolveGuestStdin()).isEqualTo("hello");
+        trace = new App.Trace();
+        Path file = root.resolve("input.txt");
+        Files.writeString(file, "é😀");
+        new picocli.CommandLine(trace).parseArgs("--stdin-file", file.toString());
+        assertThat(trace.resolveGuestStdin()).isEqualTo("é😀");
     }
 }

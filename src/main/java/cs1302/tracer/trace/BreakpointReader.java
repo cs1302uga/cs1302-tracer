@@ -41,6 +41,31 @@ public final class BreakpointReader {
         return lines;
     } // read
 
+    /**
+     * Reads source identities from compiled debug attributes, including constant-only types.
+     * @param compiled Owned compilation output.
+     * @return Relative source paths actually represented by compiled classes.
+     * @throws IOException On class file read failure.
+     */
+    public static Set<String> sourcePaths(CompilationResult compiled) throws IOException {
+        Set<String> sources = new TreeSet<>();
+        for (String name : compiled.compiledClassNames()) {
+            var path = compiled.classPath().resolve(name.replace('.', '/') + ".class");
+            try (var input = Files.newInputStream(path)) {
+                ClassReader reader = new ClassReader(input);
+                String binaryName = reader.getClassName();
+                String prefix = binaryName.substring(0, binaryName.lastIndexOf('/') + 1);
+                reader.accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitSource(String source, String debug) {
+                        sources.add(prefix + source);
+                    } // visitSource
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
+            } // try
+        } // for
+        return sources;
+    } // sourcePaths
+
     /** Accumulates line table entries under each class's SourceFile attribute. */
     private static final class LineVisitor extends ClassVisitor {
         private final Map<String, Set<Integer>> lines;

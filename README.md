@@ -57,42 +57,118 @@ Generates Online Python Tutor JSON snapshots using nested tuple structures (`["I
 #### Java Input
 
 ```java
-public class Main {
-  public static void main(String[] args) {
-    Person alice = new Person("Alice", 42);
-  }
-}
+public class Driver {
+    public static void main(String[] args) {
+        Person alice = new Person("Alice", 42);
+    } // main
+} // Driver
 
 record Person(String name, int age) { }
 ```
 
 #### PythonTutor JSON Output
 
+Generated with `trace -f pytutor -i examples/example0/Driver.java`; heap IDs are
+normalized for readability.
+
 ```json
 {
-  "code": "public class Main {\n ... }",
+  "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "line": 4,
+      "file": null,
       "func_name": "main",
-      "stack_to_render": [
-        {
-          "frame_id": 0,
-          "func_name": "main:4",
-          "ordered_varnames": ["alice"],
-          "encoded_locals": { "alice": ["REF", 65] },
-          "locals_attrs": { "alice": { "type": "Person", "final": false } }
-        }
-      ],
+      "globals": {},
+      "globals_attrs": {},
       "heap": {
-        "65": ["INSTANCE", "Person", ["name", "Alice"], ["age", 42]]
+        "1": [
+          "INSTANCE",
+          "Person",
+          [
+            "name",
+            [
+              "REF",
+              3
+            ]
+          ],
+          [
+            "age",
+            42
+          ]
+        ],
+        "2": [
+          "LIST"
+        ],
+        "3": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "Alice"
+          ]
+        ]
       },
       "heap_attrs": {
-        "65": { "type": ["java.lang.String", "int"], "final": [true, true] }
-      }
+        "1": {
+          "type": [
+            "java.lang.String",
+            "int"
+          ]
+        },
+        "2": {
+          "type": "java.lang.String[]"
+        },
+        "3": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 4,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "alice": [
+              "REF",
+              1
+            ],
+            "args": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:4",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "alice": {
+              "final": false,
+              "type": "Person"
+            },
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "alice"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": ""
     }
-  ]
+  ],
+  "userlog": ""
 }
 ```
 
@@ -100,51 +176,85 @@ record Person(String name, int age) { }
 
 Produces an explicit, typed object graph with dictionary-backed heaps and pointer references:
 
+This complete example comes from `examples/example0/Driver.java`, traced with
+`trace -f modern`. Heap IDs are normalized for readability; runtime IDs vary.
+
 ```json
 {
-  "code": "public class Main {\n ... }",
+  "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "format": "modern",
+  "stdin": "",
   "steps": [
     {
-      "line": 4,
-      "event": "step_line",
-      "file": "Main.java",
-      "stack": [
+      "callStack": [
         {
-          "methodName": "main",
+          "isHighlighted": true,
           "line": 4,
-          "file": "Main.java",
-          "variables": [
+          "locals": [
             {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
               "name": "alice",
               "type": "Person",
-              "value": { "ref": 65 },
-              "final": false
+              "value": {
+                "ref": 2
+              }
             }
-          ]
+          ],
+          "methodName": "main"
         }
       ],
+      "event": "step_line",
       "heap": {
-        "65": {
-          "kind": "object",
-          "type": "Person",
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
           "fields": [
-            { 
-              "name": "name", 
-              "type": "java.lang.String", 
-              "value": "Alice", 
-              "final": true 
+            {
+              "final": true,
+              "name": "name",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 3
+              }
             },
-            {  
-              "name": "age", 
-              "type": "int", 
-              "value": 42, 
-              "final": true 
+            {
+              "final": true,
+              "name": "age",
+              "type": "int",
+              "value": 42
             }
-          ]
+          ],
+          "id": 2,
+          "kind": "object",
+          "type": "Person"
+        },
+        "3": {
+          "id": 3,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Alice"
         }
       },
+      "line": 4,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
       "stdout": "",
-      "stderr": ""
+      "step": 1
     }
   ]
 }
@@ -152,18 +262,35 @@ Produces an explicit, typed object graph with dictionary-backed heaps and pointe
 
 ---
 
+Modern frames use `callStack` and `locals`. Source `file` fields are emitted for
+multi-file traces; optional fields can be omitted in ordinary output and appear
+as null in envelopes. Selected-breakpoint output differs from chronological output.
+The format-specific payload is separate from the versioned job envelope described
+in [bounded tracing](docs/BOUNDED_TRACING.md).
+
 ## Building and Installation
 
 ### Prerequisites
 
 - **Java Development Kit (JDK)**: Version 21 or greater.
-- **Apache Maven**: Version 3.8 or greater.
+- **Maven wrapper**: Use the included `./mvnw`; a separate Maven installation is optional.
+
+The checkout selects JDK 25 through `.java-version`. With Homebrew and jenv:
+
+```sh
+jenv add /opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home
+java -version
+./mvnw -version
+```
+
+Both commands should report JDK 25. JDK 21 remains supported; select it explicitly
+when running the compatibility matrix.
 
 ### Build Executable Fat JAR
 
 ```bash
 # Compile and build the self-contained JAR (with all dependencies) and source bundle
-mvn clean package
+./mvnw clean package
 ```
 
 The resulting JAR will be located at:
@@ -287,7 +414,7 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-arg
 - **Run Unit Tests & JaCoCo Coverage**:
 
   ```bash
-  mvn clean test
+  ./mvnw clean test
   ```
 
   *(Enforces 100% line and branch coverage for the configured
@@ -296,7 +423,7 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-arg
 - **Run Reference Examples**:
 
   ```bash
-  mvn package
+  ./mvnw package
   python3 examples/verify.py
   ```
 

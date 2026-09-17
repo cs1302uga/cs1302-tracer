@@ -13,19 +13,19 @@ clean-all: clean
 
 # Compile source files
 compile:
-	mvn compile
+	./mvnw compile
 
 # Run tests and verify coverage
 test:
-	mvn test
+	./mvnw test
 
 # Package fat JAR and source bundle
 package:
-	mvn package
+	./mvnw package
 
 # Install artifacts to local repository
 install:
-	mvn install
+	./mvnw install
 
 # Run GitHub Actions workflow locally using act
 ci:

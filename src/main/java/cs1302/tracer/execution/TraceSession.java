@@ -287,11 +287,25 @@ public final class TraceSession implements AutoCloseable {
      * @param snapshot Fully extracted state.
      */
     public void commit(ExecutionSnapshot snapshot) {
+        commit(snapshot, true);
+    } // commit
+
+    /**
+     * Accounts a completed extraction and publishes it only when selected for retention.
+     * @param snapshot Fully extracted state.
+     * @param retain Whether the event selection keeps this state.
+     */
+    public void commit(ExecutionSnapshot snapshot, boolean retain) {
         check();
         SnapshotCounter counter = new SnapshotCounter();
         GSON.toJson(snapshot, counter);
         long size = Math.max(buildingBytes, counter.bytes);
         enforce(Math.addExact(retainedBytes, size), limits.traceBytes(), "trace_limit");
+        captured++;
+        extracting = false;
+        if (!retain) {
+            return;
+        } // if
         if (!accumulate) {
             int line = snapshot.stack().isEmpty() ? -1
                     : (int) snapshot.stack().getLast().methodLine();
@@ -304,8 +318,6 @@ public final class TraceSession implements AutoCloseable {
         completed.add(snapshot);
         sizes.put(snapshot, size);
         retainedBytes += size;
-        captured++;
-        extracting = false;
     } // commit
 
     /**
@@ -401,22 +413,40 @@ public final class TraceSession implements AutoCloseable {
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
-        ExecutionSnapshot last = completed.getLast();
-        long extra = Math.max(0, drainers.get(0).size() - last.stderr().length)
-                + Math.max(0, drainers.get(1).size() - last.stdout().length);
-        if (extra == 0) {
-            return;
-        } // if
-        // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
-        enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
-        ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
-                drainers.get(1).getBytes(), drainers.get(0).getBytes(), last.sourcePath(),
-                last.stdinConsumed(), last.stdinOffset());
-        completed.set(completed.size() - 1, updated);
-        latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);
-        sizes.put(updated, sizes.remove(last) + extra * 15);
-        retainedBytes += extra * 15;
+        updateOutput(completed.getLast(), drainers.get(1).getBytes(),
+                cs1302.tracer.trace.DebugTraceHelper.sanitizeDebuggeeStderr(
+                        drainers.get(0).getBytes()));
     } // finishOutput
+
+    /**
+     * Refreshes a retained snapshot and accounts output growth before publication.
+     * @param last Original snapshot.
+     * @param stdout Final stdout bytes.
+     * @param stderr Final sanitized stderr bytes.
+     * @return Refreshed state for both the session and legacy result containers.
+     */
+    public ExecutionSnapshot updateOutput(ExecutionSnapshot last, byte[] stdout, byte[] stderr) {
+        check();
+        long extra = Math.max(0, stderr.length - last.stderr().length)
+                + Math.max(0, stdout.length - last.stdout().length);
+        if (extra == 0) {
+            return last;
+        } // if
+        Long size = sizes.get(last);
+        if (size != null) {
+            enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
+        } // if
+        ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
+                stdout, stderr, last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
+        if (size != null) {
+            completed.set(completed.indexOf(last), updated);
+            latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);
+            sizes.remove(last);
+            sizes.put(updated, size + extra * 15);
+            retainedBytes += extra * 15;
+        } // if
+        return updated;
+    } // updateOutput
 
     @Override
     public void close() {

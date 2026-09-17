@@ -4,14 +4,12 @@ import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.LambdaExpr;
-import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.resolution.MethodUsage;
 import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
@@ -105,6 +103,64 @@ public class DebugTraceHelper {
      */
     private record LambdaAssignment(
             String variableName, int lineNumber, String lambdaImplementation) {} // LambdaAssignment
+
+    /** Owns guest I/O and terminates the process before closing potentially blocked streams. */
+    private static final class GuestRuntime implements AutoCloseable {
+        private final VirtualMachine vm;
+        private StreamDrainer stderr;
+        private StreamDrainer stdout;
+        private Thread inputWriter;
+
+        /**
+         * Takes ownership immediately, including partially initialized stream handling.
+         * @param vm Launched guest.
+         * @param stdin Guest input.
+         */
+        GuestRuntime(VirtualMachine vm, String stdin) {
+            this.vm = vm;
+            try {
+                stderr = new StreamDrainer(vm.process().getErrorStream());
+                stdout = new StreamDrainer(vm.process().getInputStream());
+                registerReaderMethodExitRequests(vm);
+                inputWriter = Thread.ofVirtual().name("tracer-stdin").start(
+                        () -> writeGuestStdin(vm, stdin));
+            } catch (RuntimeException | Error failure) {
+                close();
+                throw failure;
+            } // try
+        } // GuestRuntime
+
+        @Override
+        public void close() {
+            cleanupVm(vm);
+            awaitInputWriter(inputWriter);
+            if (stderr != null) {
+                stderr.close();
+            } // if
+            if (stdout != null) {
+                stdout.close();
+            } // if
+        } // close
+    } // GuestRuntime
+
+    /** Immutable-by-ownership source metadata shared throughout one trace. */
+    private static final class SnapshotSources {
+        private final List<CompilationUnit> units;
+        private final AstTypeResolver types;
+        private final LocalMetadata locals;
+        private final Map<String, List<LambdaAssignment>> lambdas = new HashMap<>();
+
+        /**
+         * Indexes source-derived facts once, keeping guest identities snapshot-local.
+         * @param sources Parsed compilation units owned by this trace.
+         */
+        SnapshotSources(List<CompilationUnit> sources) {
+            units = sources;
+            types = new AstTypeResolver(sources);
+            locals = new LocalMetadata(sources);
+            buildLambdaMap(sources, lambdas);
+        } // SnapshotSources
+    } // SnapshotSources
 
     /**
      * Take snapshots of a program's execution state at the given breakpoints.
@@ -229,13 +285,10 @@ public class DebugTraceHelper {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
-        writeGuestStdin(vm, stdin);
-        InputTracker inputTracker = new InputTracker(stdin);
-        registerReaderMethodExitRequests(vm);
-        try (StreamDrainer vmErrDrainer =
-                        new StreamDrainer(vm.process().getErrorStream());
-                StreamDrainer vmOutDrainer =
-                        new StreamDrainer(vm.process().getInputStream())) {
+        try (GuestRuntime runtime = new GuestRuntime(vm, stdin)) {
+            StreamDrainer vmErrDrainer = runtime.stderr;
+            StreamDrainer vmOutDrainer = runtime.stdout;
+            InputTracker inputTracker = new InputTracker(stdin);
 
             if (snapMainEnd) {
                 MethodExitRequest methodExitRequest =
@@ -267,8 +320,6 @@ public class DebugTraceHelper {
             syncTrailingStreamOutput(snapshots, vmOutDrainer, vmErrDrainer);
 
             return snapshots;
-        } finally {
-            cleanupVm(vm);
         } // try
     } // trace
 
@@ -344,6 +395,7 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
 
+        SnapshotSources sourceIndex = new SnapshotSources(parsedSources);
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
@@ -362,7 +414,7 @@ public class DebugTraceHelper {
                             loc.declaringType().name())) {
                         Integer line = loc.lineNumber();
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
                         storeSnapshot(snapshots, line, snapshot);
                     } // if
@@ -370,8 +422,9 @@ public class DebugTraceHelper {
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                mee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
+                        recordSnapshot(snapshot, true);
                         snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
                     } else {
                         handleReaderMethodExit(mee, inputTracker, systemIn);
@@ -379,7 +432,7 @@ public class DebugTraceHelper {
                 } // case
                 case ExceptionEvent ee -> processBreakpointExceptionEvent(
                         ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        parsedSources, inputTracker, snapshots);
+                        sourceIndex, inputTracker, snapshots);
                 case VMDeathEvent vde -> {
                     endEventLoop = true;
                 } // case
@@ -404,7 +457,7 @@ public class DebugTraceHelper {
      * @param loadedClasses Set of loaded classes.
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
-     * @param parsedSources List of compilation units.
+     * @param sourceIndex Prepared source metadata.
      * @param inputTracker Input tracker.
      * @param snapshots Target snapshot map.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -417,7 +470,7 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SnapshotSources sourceIndex,
             InputTracker inputTracker,
             Map<Integer, List<ExecutionSnapshot>> snapshots)
             throws IncompatibleThreadStateException,
@@ -429,7 +482,7 @@ public class DebugTraceHelper {
                 loc.declaringType().name())) {
             Integer line = loc.lineNumber();
             ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    ee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                     inputTracker);
             storeSnapshot(snapshots, line, snapshot);
             if (!snapshots.containsKey(-1)) {
@@ -621,15 +674,7 @@ public class DebugTraceHelper {
             if (finalErr.length > last.stderr().length || finalOut.length > last.stdout().length) {
                 chronologicalSnapshots.set(
                         chronologicalSnapshots.size() - 1,
-                        new ExecutionSnapshot(
-                                last.stack(),
-                                last.statics(),
-                                last.heap(),
-                                finalOut,
-                                finalErr,
-                                last.sourcePath(),
-                                last.stdinConsumed(),
-                                last.stdinOffset()));
+                        refreshOutput(last, finalOut, finalErr));
             } // if
         } // if
     } // syncTrailingStreamOutput
@@ -658,15 +703,7 @@ public class DebugTraceHelper {
                             : new ArrayList<>(list);
                     mutableList.set(
                             mutableList.size() - 1,
-                            new ExecutionSnapshot(
-                                    last.stack(),
-                                    last.statics(),
-                                    last.heap(),
-                                    finalOut,
-                                    finalErr,
-                                    last.sourcePath(),
-                                    last.stdinConsumed(),
-                                    last.stdinOffset()));
+                            refreshOutput(last, finalOut, finalErr));
                     if (mutableList != list) {
                         entry.setValue(mutableList);
                     } // if
@@ -676,6 +713,22 @@ public class DebugTraceHelper {
     } // syncTrailingStreamOutput
 
     /**
+     * Shares output refresh and budget accounting across result representations.
+     * @param last Original state.
+     * @param stdout Final stdout.
+     * @param stderr Final sanitized stderr.
+     * @return Refreshed state.
+     */
+    private static ExecutionSnapshot refreshOutput(
+            ExecutionSnapshot last, byte[] stdout, byte[] stderr) {
+        TraceSession session = TraceSession.current();
+        return session == null
+                ? new ExecutionSnapshot(last.stack(), last.statics(), last.heap(), stdout, stderr,
+                        last.sourcePath(), last.stdinConsumed(), last.stdinOffset())
+                : session.updateOutput(last, stdout, stderr);
+    } // refreshOutput
+
+    /**
      * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic
      * banner lines emitted before user program execution (such as
      * {@code Picked up JAVA_TOOL_OPTIONS}).
@@ -683,7 +736,7 @@ public class DebugTraceHelper {
      * @param rawStderr Raw stderr bytes from the debuggee process.
      * @return Sanitized stderr bytes.
      */
-    static byte[] sanitizeDebuggeeStderr(byte[] rawStderr) {
+    public static byte[] sanitizeDebuggeeStderr(byte[] rawStderr) {
         if (rawStderr == null || rawStderr.length == 0) {
             return rawStderr;
         } // if
@@ -943,15 +996,11 @@ public class DebugTraceHelper {
             ClassNotLoadedException {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
-        writeGuestStdin(vm, stdin);
-        InputTracker inputTracker = new InputTracker(stdin);
-        registerReaderMethodExitRequests(vm);
-        List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
-
-        try (StreamDrainer vmErrDrainer =
-                        new StreamDrainer(vm.process().getErrorStream());
-                StreamDrainer vmOutDrainer =
-                        new StreamDrainer(vm.process().getInputStream())) {
+        try (GuestRuntime runtime = new GuestRuntime(vm, stdin)) {
+            List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
+            StreamDrainer vmErrDrainer = runtime.stderr;
+            StreamDrainer vmOutDrainer = runtime.stdout;
+            InputTracker inputTracker = new InputTracker(stdin);
 
             if (includeMainExit) {
                 MethodExitRequest methodExitRequest =
@@ -983,8 +1032,6 @@ public class DebugTraceHelper {
             syncTrailingStreamOutput(chronologicalSnapshots, vmOutDrainer, vmErrDrainer);
 
             return chronologicalSnapshots;
-        } finally {
-            cleanupVm(vm);
         } // try
     } // traceChronological
 
@@ -1021,6 +1068,7 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        SnapshotSources sourceIndex = new SnapshotSources(parsedSources);
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
@@ -1038,19 +1086,21 @@ public class DebugTraceHelper {
                     if (compilationResult.compiledClassNames().contains(
                             breakLocation.declaringType().name())) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
+                        recordSnapshot(snapshot, true);
                         chronologicalSnapshots.add(snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && includeMainExit) {
                         ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                                mee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
-                        if (chronologicalSnapshots.isEmpty()
-                                || !isRedundantSnapshot(
-                                        chronologicalSnapshots.getLast(), snapshot)) {
+                        boolean retain = chronologicalSnapshots.isEmpty()
+                                || !isRedundantSnapshot(chronologicalSnapshots.getLast(), snapshot);
+                        recordSnapshot(snapshot, retain);
+                        if (retain) {
                             chronologicalSnapshots.add(snapshot);
                         } // if
                     } else {
@@ -1059,7 +1109,7 @@ public class DebugTraceHelper {
                 } // case
                 case ExceptionEvent ee -> processChronologicalExceptionEvent(
                         ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        parsedSources, inputTracker, chronologicalSnapshots);
+                        sourceIndex, inputTracker, chronologicalSnapshots);
                 case VMDeathEvent vde -> {
                     endEventLoop = true;
                 } // case
@@ -1086,7 +1136,7 @@ public class DebugTraceHelper {
      * @param loadedClasses Set of loaded classes.
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
-     * @param parsedSources List of compilation units.
+     * @param sourceIndex Prepared source metadata.
      * @param inputTracker Input tracker.
      * @param chronologicalSnapshots List to accumulate snapshots.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -1099,7 +1149,7 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SnapshotSources sourceIndex,
             InputTracker inputTracker,
             List<ExecutionSnapshot> chronologicalSnapshots)
             throws IncompatibleThreadStateException,
@@ -1110,10 +1160,12 @@ public class DebugTraceHelper {
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
             ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    ee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                     inputTracker);
-            if (chronologicalSnapshots.isEmpty()
-                    || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
+            boolean retain = chronologicalSnapshots.isEmpty()
+                    || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot);
+            recordSnapshot(snapshot, retain);
+            if (retain) {
                 chronologicalSnapshots.add(snapshot);
             } // if
         } // if
@@ -1191,19 +1243,35 @@ public class DebugTraceHelper {
         env.get("options").setValue(options);
 
         VirtualMachine vm = launchingConnector.launch(env);
-        if (TraceSession.current() != null) {
-            TraceSession.current().attach(vm);
-        } // if
-
-        for (String className : compilationResult.compiledClassNames()) {
-            ClassPrepareRequest classPrepareRequest =
-                    vm.eventRequestManager().createClassPrepareRequest();
-            classPrepareRequest.addClassFilter(className);
-            classPrepareRequest.enable();
-        } // for
-
-        return vm;
+        return prepareVm(vm, compilationResult);
     } // startVmWithCprs
+
+    /**
+     * Establishes session ownership and prepares events, cleaning up initialization failures.
+     * @param vm Newly launched guest.
+     * @param compilationResult Compiled class identities.
+     * @return Prepared guest debugger.
+     */
+    private static VirtualMachine prepareVm(
+            VirtualMachine vm, CompilationResult compilationResult) {
+        try {
+            if (TraceSession.current() != null) {
+                TraceSession.current().attach(vm);
+            } // if
+
+            for (String className : compilationResult.compiledClassNames()) {
+                ClassPrepareRequest classPrepareRequest =
+                        vm.eventRequestManager().createClassPrepareRequest();
+                classPrepareRequest.addClassFilter(className);
+                classPrepareRequest.enable();
+            } // for
+
+            return vm;
+        } catch (RuntimeException | Error failure) {
+            cleanupVm(vm);
+            throw failure;
+        } // try
+    } // prepareVm
 
     /**
      * Writes standard input bytes to the guest process and immediately closes the stream.
@@ -1224,6 +1292,26 @@ public class DebugTraceHelper {
             // Process might have terminated early or closed its stdin stream
         } // try
     } // writeGuestStdin
+
+    /**
+     * Joins the input feeder after guest termination, preserving owner cancellation.
+     * @param writer Input feeder, or null if initialization failed.
+     */
+    private static void awaitInputWriter(Thread writer) {
+        if (writer == null) {
+            return;
+        } // if
+        boolean interrupted = Thread.interrupted();
+        try {
+            writer.join(500);
+        } catch (InterruptedException cancelled) {
+            interrupted = true;
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            } // if
+        } // try
+    } // awaitInputWriter
 
     /**
      * Finds the System.in object reference in the target VM.
@@ -1359,7 +1447,7 @@ public class DebugTraceHelper {
      * @param loadedClasses The loaded classes.
      * @param vmOut Drainer for stdout.
      * @param vmErr Drainer for stderr.
-     * @param parsedSources Parsed source codes.
+     * @param sourceIndex Prepared source metadata.
      * @param inputTracker Input tracker.
      * @return An execution snapshot.
      * @throws IncompatibleThreadStateException If thread state is incompatible.
@@ -1371,7 +1459,7 @@ public class DebugTraceHelper {
             Iterable<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SnapshotSources sourceIndex,
             InputTracker inputTracker)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
@@ -1382,13 +1470,8 @@ public class DebugTraceHelper {
 
         List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
         Map<Long, TraceValue> heap = new HashMap<>();
-        AstTypeResolver astTypeResolver = new AstTypeResolver(parsedSources);
+        AstTypeResolver astTypeResolver = sourceIndex.types;
         Map<Long, String> objectTypeMap = new HashMap<>();
-
-        Map<String, List<LambdaAssignment>> lambdaMethodAssignments = new HashMap<>();
-        Map<String, Set<String>> finalMethodVariables = new HashMap<>();
-        buildLambdaAndFinalMaps(
-                parsedSources, lambdaMethodAssignments, finalMethodVariables);
 
         prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap);
 
@@ -1396,13 +1479,13 @@ public class DebugTraceHelper {
                 mainThread,
                 astTypeResolver,
                 objectTypeMap,
-                lambdaMethodAssignments,
-                finalMethodVariables,
+                sourceIndex.lambdas,
+                sourceIndex.locals,
                 heapReferencesToWalk,
                 heap);
 
         List<ExecutionSnapshot.Field> statics = collectStatics(
-                loadedClasses, parsedSources, heapReferencesToWalk, heap);
+                loadedClasses, sourceIndex.units, heapReferencesToWalk, heap);
 
         drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
 
@@ -1425,9 +1508,6 @@ public class DebugTraceHelper {
                 Optional.ofNullable(currentStepSourcePath),
                 stdinConsumed,
                 stdinOffset);
-        if (session != null) {
-            session.commit(snapshot);
-        } // if
         return snapshot;
     } // snapshotTheWorld
 
@@ -1510,16 +1590,14 @@ public class DebugTraceHelper {
     } // resolveStepSourcePath
 
     /**
-     * Builds lambda assignment and final variable maps from parsed compilation units.
+     * Builds lambda assignment metadata from parsed compilation units.
      *
      * @param parsedSources List of compilation units.
      * @param lambdaMap Target map for lambda assignments.
-     * @param finalMap Target map for final variable names.
      */
-    private static void buildLambdaAndFinalMaps(
+    private static void buildLambdaMap(
             List<CompilationUnit> parsedSources,
-            Map<String, List<LambdaAssignment>> lambdaMap,
-            Map<String, Set<String>> finalMap) {
+            Map<String, List<LambdaAssignment>> lambdaMap) {
         for (CompilationUnit cu : parsedSources) {
             if (cu == null) {
                 continue;
@@ -1562,16 +1640,9 @@ public class DebugTraceHelper {
                 assignments.sort(Comparator.comparingInt(LambdaAssignment::lineNumber));
                 lambdaMap.put(sig, assignments);
 
-                Set<String> finals = m.findAll(VariableDeclarationExpr.class).stream()
-                        .filter(v -> v.getModifiers().contains(Modifier.finalModifier()))
-                        .map(VariableDeclarationExpr::getVariables)
-                        .flatMap(Collection::stream)
-                        .map(VariableDeclarator::getNameAsString)
-                        .collect(Collectors.toSet());
-                finalMap.put(sig, finals);
             } // for
         } // for
-    } // buildLambdaAndFinalMaps
+    } // buildLambdaMap
 
     /**
      * Resolves a method qualified signature string.
@@ -1763,7 +1834,7 @@ public class DebugTraceHelper {
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Object type map.
      * @param lambdaMap Lambda assignments map.
-     * @param finalMap Final variable names map.
+     * @param localMetadata Scoped local declarations.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap trace values map.
      * @return List of StackSnapshots in call order.
@@ -1776,7 +1847,7 @@ public class DebugTraceHelper {
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap,
             Map<String, List<LambdaAssignment>> lambdaMap,
-            Map<String, Set<String>> finalMap,
+            LocalMetadata localMetadata,
             List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap)
             throws IncompatibleThreadStateException,
@@ -1793,8 +1864,6 @@ public class DebugTraceHelper {
                     frameMethod.argumentTypes().stream()
                             .map(Type::name)
                             .collect(Collectors.joining(",")));
-            Set<String> finalVariableNames =
-                    finalMap.getOrDefault(frameMethodSignature, Collections.emptySet());
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
             List<LambdaAssignment> methodLambdaAssignments =
                     lambdaMap.getOrDefault(frameMethodSignature, Collections.emptyList());
@@ -1803,7 +1872,8 @@ public class DebugTraceHelper {
             String methodName = frameMethod.name();
             for (LocalVariable lv : frame.visibleVariables()) {
                 TraceSession.elements(1);
-                boolean isFinal = finalVariableNames.contains(lv.name());
+                boolean isFinal = localMetadata.isFinal(
+                        declaringClassFqn, methodName, lv.name(), currentLine);
                 Optional<String> lvLambdaImplementation =
                         findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
                 String resolvedTypeName = resolveLocalVariableType(
@@ -2173,6 +2243,17 @@ public class DebugTraceHelper {
     } // nextEvents
 
     /**
+     * Publishes the event loop's retention decision to the session.
+     * @param snapshot Completed extraction.
+     * @param retain Whether this state is selected for output.
+     */
+    private static void recordSnapshot(ExecutionSnapshot snapshot, boolean retain) {
+        if (TraceSession.current() != null) {
+            TraceSession.current().commit(snapshot, retain);
+        } // if
+    } // recordSnapshot
+
+    /**
      * Stores selected breakpoint state, avoiding a second unbounded history in bounded jobs.
      * @param snapshots Legacy breakpoint mapping.
      * @param line Breakpoint line.
@@ -2180,6 +2261,7 @@ public class DebugTraceHelper {
      */
     private static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
             int line, ExecutionSnapshot snapshot) {
+        recordSnapshot(snapshot, true);
         List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
         if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
             entries.clear();

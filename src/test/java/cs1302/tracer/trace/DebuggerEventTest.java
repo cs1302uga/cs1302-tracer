@@ -133,4 +133,73 @@ class DebuggerEventTest {
         assertThat(snapshots).hasSize(2);
         assertThat(snapshots.getLast().stack().getLast().methodLine()).isEqualTo(1);
     }
+    @Test void initializationFailureDestroysLaunchedGuest() throws Exception {
+        Process process = new ProcessBuilder("sh", "-c", "exec sleep 30").start();
+        assertThat(process.isAlive()).isTrue();
+        var vm = mirror(VirtualMachine.class, Map.of("process", process,
+                "eventRequestManager", new IllegalStateException("initialization failed")));
+        assertThatThrownBy(() -> call("prepareVm", new Class<?>[] {VirtualMachine.class, CompilationResult.class},
+                vm, new CompilationResult(null, Set.of("Main"), "Main")))
+                .isInstanceOf(IllegalStateException.class).hasMessage("initialization failed");
+        assertThat(process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        assertThat(process.isAlive()).isFalse();
+    }
+
+    @Test void inputWriterJoinHandlesAbsentWriterAndCancellation() throws Exception {
+        var signature = new Class<?>[] {Thread.class};
+        call("awaitInputWriter", signature, (Object) null);
+        Thread writer = new Thread(() -> {});
+        Thread.currentThread().interrupt();
+        try {
+            call("awaitInputWriter", signature, writer);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally { Thread.interrupted(); }
+        var release = new java.util.concurrent.CountDownLatch(1);
+        Thread blocked = Thread.ofPlatform().start(() -> {
+            try { release.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        });
+        var preserved = new java.util.concurrent.atomic.AtomicBoolean();
+        Thread joining = Thread.ofPlatform().start(() -> {
+            try { call("awaitInputWriter", signature, blocked); preserved.set(Thread.currentThread().isInterrupted()); }
+            catch (Exception e) { throw new AssertionError(e); }
+        });
+        try {
+            long deadline = System.nanoTime() + 1_000_000_000;
+            while (joining.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
+                Thread.sleep(1);
+            }
+            joining.interrupt();
+            joining.join(2000);
+            assertThat(joining.isAlive()).isFalse();
+            assertThat(preserved.get()).isTrue();
+        } finally { release.countDown(); blocked.join(2000); }
+    }
+    @Test void partialIoInitializationAlwaysReleasesOwnership() throws Exception {
+        var constructor = Class.forName("cs1302.tracer.trace.DebugTraceHelper$GuestRuntime")
+                .getDeclaredConstructor(VirtualMachine.class, String.class);
+        constructor.setAccessible(true);
+        for (int failurePoint = 0; failurePoint < 3; failurePoint++) {
+            int point = failurePoint;
+            var destroyed = new java.util.concurrent.atomic.AtomicBoolean();
+            Process process = new Process() {
+                @Override public java.io.InputStream getErrorStream() {
+                    if (point == 0) throw new IllegalStateException("stderr unavailable");
+                    return java.io.InputStream.nullInputStream();
+                }
+                @Override public java.io.InputStream getInputStream() {
+                    if (point == 1) throw new IllegalStateException("stdout unavailable");
+                    return java.io.InputStream.nullInputStream();
+                }
+                @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
+                @Override public int waitFor() { return 0; }
+                @Override public int exitValue() { return 0; }
+                @Override public void destroy() { destroyed.set(true); }
+            };
+            var vm = mirror(VirtualMachine.class, Map.of("process", process,
+                    "eventRequestManager", new IllegalStateException("requests unavailable")));
+            assertThatThrownBy(() -> constructor.newInstance(vm, "input"))
+                    .hasCauseInstanceOf(IllegalStateException.class);
+            assertThat(destroyed.get()).isTrue();
+        }
+    }
 }

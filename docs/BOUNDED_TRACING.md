@@ -7,9 +7,13 @@ job status and completed partial snapshots. These settings do not isolate a prog
 
 Ordinary defaults are 10 seconds of tracing, 10,000 snapshots, 1 MiB of output per
 stream, 10,000 heap objects and 100,000 elements per snapshot, 64 MiB of accounted
-trace data, 1 MiB of submitted source, and 128 streamed source files. These are
+trace data, 1 MiB each of submitted source and guest input, and 128 streamed source files. These are
 configurable interactive-workload defaults, not measured process-memory ceilings.
-Source limits cover submitted input, not neighboring sources discovered on disk.
+Source limits apply independently to the submitted bundle and to the combined
+compiled dependencies read for metadata. Discovery follows compiler-emitted source
+identities instead of scanning every neighboring Java file. Discovery failures
+report the `compile` phase; unreferenced files are not parsed. These limits do not
+bound javac's own dependency reading or allocations.
 The tracing deadline excludes source reading, parsing, and compilation.
 
 Use `--unlimited` to disable these defaults. An explicit individual limit still
@@ -24,7 +28,7 @@ java -jar target/code-tracer-jar-with-dependencies.jar trace \
   --result-envelope --inspection FIELDS -a -f pytutor \
   --timeout-ms 5000 --max-snapshots 1000 --max-output-bytes 65536 \
   --max-heap-objects 1000 --max-elements 10000 --max-trace-bytes 33554432 \
-  --max-source-bytes 262144 --max-source-files 32 < submission.txt
+  --max-source-bytes 262144 --max-source-files 32 --max-input-bytes 1048576 < submission.txt
 ```
 
 This is an illustrative teaching-workload profile, not a security guarantee or a
@@ -52,6 +56,7 @@ benchmark for a concurrent hosted service.
 | `--max-elements` | Cumulative inspected array slots, fields, stack frames/locals, and string backing-storage units per snapshot. Repeated inspection can count more than once. |
 | `--max-trace-bytes` | Accounted retained snapshot storage, including the snapshot being built. See accounting below. |
 | `--max-source-bytes` | Raw source bytes before UTF-8 decoding and parsing. |
+| `--max-input-bytes` | UTF-8 guest input bytes; file input is checked before retaining each chunk. |
 | `--max-source-files` | Number of delimiter-defined source files, checked before parsing. Undelimited input counts as one file. |
 
 Usage equal to a cap is allowed. A job stops when it would exceed a cap. The first
@@ -122,7 +127,7 @@ Stop codes:
 | --- | --- |
 | `timeout`, `cancelled` | Deadline or caller cancellation. |
 | `snapshot_limit`, `output_limit`, `heap_limit`, `element_limit`, `trace_limit` | Tracing resource cap reached. |
-| `source_limit`, `source_file_limit` | Submission input cap reached. |
+| `source_limit`, `source_file_limit`, `input_limit` | Source or guest-input cap reached. |
 | `compile_error` | Source read/parse/compile failure. Consult `phase` and diagnostics. |
 | `guest_exception` | Observed uncaught exception in the guest. |
 | `guest_exit` | Nonzero guest exit without an earlier recorded stop/failure. |
@@ -146,7 +151,7 @@ Recovering checkpoints after a kill is deferred.
 ## Verification
 
 ```sh
-mvn clean package
+./mvnw clean package
 python3 -m unittest discover -s examples -p test_verify.py
 python3 examples/verify.py
 ```
@@ -162,3 +167,14 @@ Review every regenerated diff. The normalizer changes heap IDs only, preserving
 reference sharing, cycles, values, source lines, step order, and output metadata.
 The existing `examples/test.sh FILE [OPTIONS...]` and `generate_all.sh` commands
 remain output-generation tools rather than regression verification commands.
+
+Guest input is fed concurrently with execution and closed to deliver EOF. The
+session terminates the guest before joining a blocked feeder during cleanup.
+`inputBytes` is an additive budget field in envelope schema v1; `input_limit` is a
+controlled stop (exit 3), reported in the `source` phase before compilation.
+`--stdin` counts UTF-8 bytes too; its argument string is already allocated by CLI
+parsing. The legacy eight-argument `TraceLimits` constructor leaves input unlimited.
+
+Chronological duplicate terminal states count as captured work but are omitted
+from retained output in both ordinary and envelope mode. Final output refresh
+uses the same retention accounting in both paths.

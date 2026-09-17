@@ -99,4 +99,20 @@ class TraceContractTest {
         }
         assertThat(TraceSession.shouldEvalEnumHash()).isTrue();
     }
+    @Test void suppressedStateStillCountsAsCapturedWork() {
+        var limits = new TraceLimits(0, 2, 0, 0, 0, 0, 0, 0);
+        var snapshot = new cs1302.tracer.trace.ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                new byte[0], new byte[0]);
+        try (var session = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+            session.beginSnapshot();
+            session.commit(snapshot);
+            long retained = session.result("modern", null, null).counters().get("retainedBytes");
+            session.beginSnapshot();
+            session.commit(snapshot, false);
+            var result = session.result("modern", null, null);
+            assertThat(result.counters()).containsEntry("snapshotsCaptured", 2L)
+                    .containsEntry("snapshotsRetained", 1L).containsEntry("retainedBytes", retained);
+            assertThatThrownBy(session::beginSnapshot).hasMessage("snapshot_limit");
+        }
+    }
 }

@@ -296,23 +296,57 @@ public class App {
             } // if
             if (stdinFile != null) {
                 try {
-                    return Files.readString(stdinFile.toPath());
+                    try (InputStream stream = Files.newInputStream(stdinFile.toPath())) {
+                        return readGuestInput(stream);
+                    } // try
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to read stdin file: " + stdinFile, e);
                 } // try
             } // if
-            return stdin != null ? stdin : "";
+            String value = stdin != null ? stdin : "";
+            enforceInputLimit(value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+            return value;
         } // resolveGuestStdin
+
+        /**
+         * Reads guest input with a byte cap before retaining the next chunk.
+         * @param stream Guest input source.
+         * @return Decoded UTF-8 guest input.
+         * @throws IOException If the input cannot be read.
+         */
+        private String readGuestInput(InputStream stream) throws IOException {
+            var bytes = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[4096];
+            int count;
+            while ((count = stream.read(chunk)) != -1) {
+                enforceInputLimit((long) bytes.size() + count);
+                bytes.write(chunk, 0, count);
+            } // while
+            return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+        } // readGuestInput
+
+        /**
+         * Applies the selected input budget when a job is active.
+         * @param bytes Input bytes read or supplied.
+         */
+        private void enforceInputLimit(long bytes) {
+            TraceSession session = TraceSession.current();
+            if (session != null) {
+                session.enforce(bytes, job.limits().inputBytes(), "input_limit");
+            } // if
+        } // enforceInputLimit
 
         @Override
         public void run() {
-            String guestStdin;
             TraceLimits selected;
             try {
-                guestStdin = resolveGuestStdin();
+                if (stdin != null && stdinFile != null) {
+                    throw new IllegalArgumentException(
+                            "Cannot specify both --stdin and --stdin-file");
+                } // if
                 selected = job.limits();
                 if (job.envelope) {
-                    runBounded(selected, guestStdin);
+                    runBounded(selected);
                     return;
                 } // if
                 if (job.inspection != InspectionPolicy.TRUSTED) {
@@ -327,7 +361,7 @@ public class App {
             try (TraceSession session = new TraceSession(selected, job.inspection,
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 try {
-                    runOrdinary(session, selected, guestStdin);
+                    runOrdinary(session, selected, resolveGuestStdin());
                 } catch (Throwable cause) {
                     TraceResult result = session.result(format.name(), null, cause);
                     boolean stopped = result.status().equals("stopped");
@@ -371,7 +405,8 @@ public class App {
                         ? sourceRoot
                         : Optional.of(compilationResult.classPath());
                 List<CompilationUnit> allCus = discoverAllCompilationUnits(
-                        sourceFiles, sourceRoot, parserSourceRoot);
+                        sourceFiles, sourceRoot, parserSourceRoot,
+                        cs1302.tracer.trace.BreakpointReader.sourcePaths(compilationResult));
 
                 session.phase("trace");
                 if (format == TraceFormat.MODERN) {
@@ -386,15 +421,16 @@ public class App {
          * Executes an opt-in job, preserving snapshots on recoverable failure.
          *
          * @param limits Validated resource policy.
-         * @param guestStdin Standard input string for guest process.
          */
-        private void runBounded(TraceLimits limits, String guestStdin) {
+        private void runBounded(TraceLimits limits) {
             try (TraceSession session = new TraceSession(limits, job.inspection,
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 String source = "";
+                String guestStdin = "";
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;
                 try {
+                    guestStdin = resolveGuestStdin();
                     source = readBoundedSource(session, limits);
                     session.phase("compile");
                     snapshots = executeBoundedSource(source, session, limits, guestStdin);
@@ -475,7 +511,9 @@ public class App {
                     : CompilationHelper.findSourceRoot(
                             CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
             try (CompilationResult compiled = CompilationHelper.compile(source, root)) {
-                List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
+                List<CompilationUnit> units = discoverAllCompilationUnits(sources, root,
+                        root.isPresent() ? root : Optional.of(compiled.classPath()),
+                        cs1302.tracer.trace.BreakpointReader.sourcePaths(compiled));
                 session.phase("trace");
                 if (allBreakpoints) {
                     Collection<Integer> lines = breakpoints == null
@@ -513,12 +551,14 @@ public class App {
          * @param sourceFiles Input source files.
          * @param sourceRoot Optional source root path.
          * @param parserSourceRoot Parser type resolution path.
+         * @param compiledPaths Source identities emitted by the compiler.
          * @return List of parsed CompilationUnits.
+         * @throws IOException On discovery read failure.
          */
         private List<CompilationUnit> discoverAllCompilationUnits(
                 List<CompilationHelper.SourceFile> sourceFiles,
                 Optional<Path> sourceRoot,
-                Optional<Path> parserSourceRoot) {
+                Optional<Path> parserSourceRoot, Set<String> compiledPaths) throws IOException {
             List<CompilationUnit> allCus = new ArrayList<>();
             Set<String> parsedPaths = new HashSet<>();
             for (CompilationHelper.SourceFile sf : sourceFiles) {
@@ -526,27 +566,50 @@ public class App {
                 parsedPaths.add(sf.relativePath().replace('\\', '/'));
             } // for
             if (sourceRoot.isPresent()) {
-                try (var stream = Files.walk(sourceRoot.get())) {
-                    List<Path> javaFiles = stream
-                            .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
-                            .toList();
-                    for (Path p : javaFiles) {
-                        String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
-                        if (!parsedPaths.contains(rel)) {
-                            try {
-                                allCus.add(parseSource(Files.readString(p), parserSourceRoot));
-                                parsedPaths.add(rel);
-                            } catch (Exception ignored) {
-                                // ignore parse errors on unreferenced files
-                            } // try
+                Path root = sourceRoot.get().toAbsolutePath().normalize();
+                long[] usage = {0, 0};
+                for (String relative : new java.util.TreeSet<>(compiledPaths)) {
+                    if (!parsedPaths.contains(relative)) {
+                        Path path = root.resolve(relative).normalize();
+                        if (!path.startsWith(root)) {
+                            throw new IOException("Compiled source path escapes source root");
                         } // if
-                    } // for
-                } catch (Exception ignored) {
-                    // ignore file discovery errors
-                } // try
+                        allCus.add(parseSource(
+                                readDiscoveredSource(path, usage), parserSourceRoot));
+                        parsedPaths.add(relative);
+                    } // if
+                } // for
             } // if
             return allCus;
         } // discoverAllCompilationUnits
+
+        /**
+         * Reads a compiled dependency under independent source-discovery budgets.
+         * @param path Compiled source file.
+         * @param usage Cumulative discovered bytes and files.
+         * @return UTF-8 source text.
+         * @throws IOException On read failure.
+         */
+        private String readDiscoveredSource(Path path, long[] usage) throws IOException {
+            TraceSession session = TraceSession.current();
+            TraceLimits limits = job.limits();
+            if (session != null) {
+                session.enforce(++usage[1], limits.sourceFiles(), "source_file_limit");
+            } // if
+            try (InputStream inputStream = Files.newInputStream(path)) {
+                var bytes = new java.io.ByteArrayOutputStream();
+                byte[] chunk = new byte[4096];
+                int count;
+                while ((count = inputStream.read(chunk)) != -1) {
+                    usage[0] += count;
+                    if (session != null) {
+                        session.enforce(usage[0], limits.sourceBytes(), "source_limit");
+                    } // if
+                    bytes.write(chunk, 0, count);
+                } // while
+                return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
+            } // try
+        } // readDiscoveredSource
 
         /**
          * Runs and outputs modern JSON trace.

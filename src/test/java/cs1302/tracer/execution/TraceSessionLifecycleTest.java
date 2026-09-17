@@ -10,12 +10,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceSessionLifecycleTest {
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7})
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8})
     void rejectsEachNegativeBudget(int index) {
-        long[] values = new long[8];
+        long[] values = new long[9];
         values[index] = -1;
         assertThatThrownBy(() -> new TraceLimits(values[0], values[1], values[2], values[3],
-                values[4], values[5], values[6], values[7]))
+                values[4], values[5], values[6], values[7], values[8]))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("nonnegative");
     }
 
