@@ -302,6 +302,21 @@ trace hashes. RSS is not Java heap usage. Use `--jar` to compare saved artifacts
 and run the artifacts sequentially on an otherwise idle machine. Successful
 optimizations must retain matching semantic hashes as well as pass fixtures.
 
+For output-specific retained memory, run:
+
+```sh
+python3 scripts/profile_output.py --jdk "$JAVA_HOME" > output-memory.json
+```
+
+Supply a JDK home explicitly (for example, `jenv prefix`); `--jar` selects a saved
+artifact. The profiler compiles a temporary instrumentation agent and runs six
+fresh JVMs on a POSIX host. It counts distinct stdout/stderr arrays reachable from
+real chronological snapshots, including each array's shallow JVM size. It checks
+output contents, monotonic lengths, and final length. This isolates retained
+output arrays; it does not measure total trace heap, peak allocations, serializer
+memory, or RSS. Library tracing intentionally runs without CLI retention caps.
+See [the storage analysis](docs/OUTPUT_STORAGE.md) for results and design constraints.
+
 Source-derived type, lambda, and local-final metadata is prepared once per trace.
 Runtime object identities and inferred object types remain snapshot-local. Source
 discovery reads only paths represented by compiled class debug attributes, under

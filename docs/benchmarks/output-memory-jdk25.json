@@ -1,0 +1,81 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "java": "openjdk version \"25.0.4.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 25.0.4.1)\nOpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)",
+  "artifactSha256": "7a37854e94a970ccbfe735b1616c684c4360bb12d99de4b8d0ba3b6f58cdc21a",
+  "harnessSha256": "402f76cf8962866dbbf49387d237286713039811c0a581574e2ede4d197db040",
+  "measurement": "Identity-deduplicated shallow size of snapshot stdout/stderr arrays",
+  "runs": [
+    {
+      "workload": "burst",
+      "iterations": 50,
+      "chunkBytes": 1024,
+      "snapshots": 54,
+      "uniqueOutputArrays": 108,
+      "logicalCumulativeOutputBytes": 54272,
+      "retainedOutputPayloadBytes": 54272,
+      "retainedOutputArrayBytes": 56000,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "workload": "burst",
+      "iterations": 100,
+      "chunkBytes": 1024,
+      "snapshots": 104,
+      "uniqueOutputArrays": 208,
+      "logicalCumulativeOutputBytes": 105472,
+      "retainedOutputPayloadBytes": 105472,
+      "retainedOutputArrayBytes": 108800,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "workload": "burst",
+      "iterations": 200,
+      "chunkBytes": 1024,
+      "snapshots": 204,
+      "uniqueOutputArrays": 408,
+      "logicalCumulativeOutputBytes": 207872,
+      "retainedOutputPayloadBytes": 207872,
+      "retainedOutputArrayBytes": 214400,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "workload": "continuous",
+      "iterations": 50,
+      "chunkBytes": 1024,
+      "snapshots": 103,
+      "uniqueOutputArrays": 206,
+      "logicalCumulativeOutputBytes": 2611200,
+      "retainedOutputPayloadBytes": 2611200,
+      "retainedOutputArrayBytes": 2614496,
+      "finalOutputBytes": 51200,
+      "sharedPayloadLowerBoundBytes": 51200
+    },
+    {
+      "workload": "continuous",
+      "iterations": 100,
+      "chunkBytes": 1024,
+      "snapshots": 203,
+      "uniqueOutputArrays": 406,
+      "logicalCumulativeOutputBytes": 10342400,
+      "retainedOutputPayloadBytes": 10342400,
+      "retainedOutputArrayBytes": 10348896,
+      "finalOutputBytes": 102400,
+      "sharedPayloadLowerBoundBytes": 102400
+    },
+    {
+      "workload": "continuous",
+      "iterations": 200,
+      "chunkBytes": 1024,
+      "snapshots": 403,
+      "uniqueOutputArrays": 806,
+      "logicalCumulativeOutputBytes": 41164800,
+      "retainedOutputPayloadBytes": 41164800,
+      "retainedOutputArrayBytes": 41177696,
+      "finalOutputBytes": 204800,
+      "sharedPayloadLowerBoundBytes": 204800
+    }
+  ]
+}

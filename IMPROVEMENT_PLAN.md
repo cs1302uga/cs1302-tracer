@@ -381,11 +381,11 @@ optimizations. The original audit remains a dated baseline.
 
 The full shared-output/offset representation remains deferred. Existing snapshot
 records expose cumulative byte arrays, and serializers build cumulative strings.
-The source-cache benchmarks measure process-tree RSS rather than retained Java
-heap, so they do not establish the benefit of replacing that representation.
-A memory-specific profile and a compatibility-preserving design are the next gate;
-no claim of bounded actual Java heap or elimination of cumulative output copying
-is made here.
+The follow-up output-specific profile now establishes quadratic retained-array
+growth; see [the measurement and implementation design](docs/OUTPUT_STORAGE.md).
+The next step is an internal compact representation with compatibility adapters
+and serializer changes. No production shared-storage change or claim of bounded
+actual Java heap or elimination of cumulative output copying is made here.
 
 File-qualified breakpoints, a whole-job deadline, and the isolated hosted runner
 remain optional Phase 5 work. Legacy line-only matching is unchanged. Lambda
@@ -437,3 +437,19 @@ while joining the feeder, UTF-8 input-budget boundaries, lexical final metadata,
 constructor/overload parameters in both formats, suppressed-snapshot accounting,
 and bounded compiled-dependency metadata discovery. The original three correctness
 regressions were observed failing before their fixes.
+
+### Output memory investigation after commit `90d64bb`
+
+Added a standalone instrumentation-based profiler and recorded six workload/size
+combinations on JDK 21 and 25. The continuous-output case retains 41,177,696 bytes
+of snapshot output arrays for 204,800 emitted bytes at 200 iterations. Doubling
+iterations approximately quadruples retained output storage. The burst case also
+confirms repeated copying when output is unchanged. The profiler validates real
+snapshot contents and counts distinct arrays, separating this result from RSS.
+
+The measurement gate for shared output is complete. The design keeps the public
+`ExecutionSnapshot` record and independent arrays, introduces compact internal
+capture, and calls for serializer and accounting validation before shipping.
+See [OUTPUT_STORAGE.md](docs/OUTPUT_STORAGE.md) for scope, raw data, reproduction,
+and the remaining implementation sequence. Production code is unchanged in this
+investigation; the existing full-suite validation above remains applicable.
