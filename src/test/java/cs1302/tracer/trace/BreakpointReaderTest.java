@@ -37,4 +37,26 @@ class BreakpointReaderTest {
             assertThat(marker).doesNotExist();
         }
     }
+
+    @Test
+    void ignoresLineTablesWithoutSourceOrPositiveLine(@TempDir Path directory) throws Exception {
+        for (boolean source : java.util.List.of(false, true)) {
+            var writer = new org.objectweb.asm.ClassWriter(0);
+            writer.visit(org.objectweb.asm.Opcodes.V21, 1, "Synthetic", null, "java/lang/Object", null);
+            if (source) writer.visitSource("Synthetic.java", null);
+            var method = writer.visitMethod(9, "main", "()V", null, null);
+            method.visitCode();
+            var label = new org.objectweb.asm.Label();
+            method.visitLabel(label);
+            method.visitLineNumber(0, label);
+            method.visitInsn(org.objectweb.asm.Opcodes.RETURN);
+            method.visitMaxs(0, 0);
+            method.visitEnd();
+            writer.visitEnd();
+            Files.write(directory.resolve("Synthetic.class"), writer.toByteArray());
+            var compiled = new CompilationHelper.CompilationResult(directory,
+                    java.util.Set.of("Synthetic"), "Synthetic", java.util.Optional.empty());
+            assertThat(BreakpointReader.read(compiled)).isEmpty();
+        }
+    }
 }

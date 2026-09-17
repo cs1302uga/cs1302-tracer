@@ -7,6 +7,7 @@ public class InputTracker {
 
     private final String stdin;
     private int cursor;
+    private int pendingBytes;
 
     /**
      * Constructs a new {@code InputTracker} with the specified standard input string.
@@ -109,15 +110,26 @@ public class InputTracker {
     } // consumeLine
 
     /**
-     * Records consumption of raw bytes/characters (e.g., from {@code InputStream.read}).
+     * Records raw UTF-8 byte consumption, advancing only through complete code points.
+     * Character offsets remain UTF-16 indices into the supplied input string.
      *
-     * @param count Number of bytes/characters consumed.
+     * @param count Number of bytes consumed by {@code InputStream.read}.
      */
     public synchronized void consumeBytes(int count) {
         if (count <= 0 || cursor >= stdin.length()) {
             return;
         } // if
-        cursor = Math.min(stdin.length(), cursor + count);
+        pendingBytes += count;
+        while (cursor < stdin.length()) {
+            int end = cursor + Character.charCount(stdin.codePointAt(cursor));
+            int bytes = stdin.substring(cursor, end)
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (pendingBytes < bytes) {
+                break;
+            } // if
+            pendingBytes -= bytes;
+            cursor = end;
+        } // while
     } // consumeBytes
 
 } // InputTracker

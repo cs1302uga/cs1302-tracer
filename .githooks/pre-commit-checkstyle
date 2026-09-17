@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+snapshot=$(mktemp -d "${TMPDIR:-/tmp}/cs1302-checkstyle.XXXXXX")
+trap 'rm -rf "$snapshot"' 0
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Check the index, including its Maven configuration and style rules. Never format
+# working files or stage changes, and never reuse an earlier Checkstyle cache.
+git checkout-index --all --prefix="$snapshot/"
+echo "Checking staged files against the project's Checkstyle configuration."
+cd "$snapshot"
+if ! ./mvnw -B -ntp checkstyle:check; then
+    echo "Commit blocked: staged Checkstyle check failed. Fix and stage the changes." >&2
+    exit 1
+fi

@@ -1,8 +1,22 @@
 # Bounded tracing and result schema v1
 
-Trusted instructor invocations keep their existing defaults and Python Tutor JSON.
-Use `--result-envelope` to opt into job status, partial results, resource budgets,
-and an inspection policy. These settings do not isolate a program from the host.
+Ordinary instructor invocations now use finite budgets while preserving successful
+Python Tutor and modern JSON shapes. A limit stop writes no JSON to stdout, prints
+its reason to stderr, and exits with code 3. Use `--result-envelope` for explicit
+job status and completed partial snapshots. These settings do not isolate a program from the host.
+
+Ordinary defaults are 10 seconds of tracing, 10,000 snapshots, 1 MiB of output per
+stream, 10,000 heap objects and 100,000 elements per snapshot, 64 MiB of accounted
+trace data, 1 MiB of submitted source, and 128 streamed source files. These are
+configurable interactive-workload defaults, not measured process-memory ceilings.
+Source limits cover submitted input, not neighboring sources discovered on disk.
+The tracing deadline excludes source reading, parsing, and compilation.
+
+Use `--unlimited` to disable these defaults. An explicit individual limit still
+applies with `--unlimited`, regardless of option order; zero disables that limit.
+For compatibility, envelope mode retains its existing policy: omitted limits are
+unlimited, and callers should supply their intended budgets explicitly.
+`--inspection FIELDS` still requires `--result-envelope`.
 Hosted execution requires the separate [runner contract](RUNNER_CONTRACT.md).
 
 ```sh
@@ -16,7 +30,7 @@ java -jar target/code-tracer-jar-with-dependencies.jar trace \
 This is an illustrative teaching-workload profile, not a security guarantee or a
 universal production default. Tune it for your examples and the runner's total
 memory, concurrency, and wall-clock budgets. Supply finite budgets for every
-hosted job. Trusted invocations and omitted budget options use zero (unlimited).
+hosted job. In envelope mode, omitted budget options use zero (unlimited).
 Negative values and unsupported options are rejected before tracing.
 
 A local JDK 25 trial on September 12, 2026 ran all 11 regression workloads as

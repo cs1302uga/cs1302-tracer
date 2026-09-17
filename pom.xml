@@ -6,7 +6,7 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>2.11.5</version>
+  <version>2.12.0</version>
 
   <name>cs1302-tracer</name>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
@@ -334,6 +334,48 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>pre-commit-coverage</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>check-all-production-coverage</id>
+                <phase>test</phase>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <rule>
+                      <element>BUNDLE</element>
+                      <limits>
+                        <limit>
+                          <counter>LINE</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>1.00</minimum>
+                        </limit>
+                        <limit>
+                          <counter>BRANCH</counter>
+                          <value>COVEREDRATIO</value>
+                          <minimum>1.00</minimum>
+                        </limit>
+                      </limits>
+                    </rule>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
   <distributionManagement>
     <repository>

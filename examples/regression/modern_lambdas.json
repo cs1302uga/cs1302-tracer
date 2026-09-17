@@ -1,0 +1,83 @@
+{
+  "code": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": true,
+          "line": 15,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "square",
+              "type": "java.util.function.Function<java.lang.Integer, java.lang.Integer>",
+              "value": {
+                "ref": 2
+              }
+            },
+            {
+              "final": false,
+              "name": "isEven",
+              "type": "java.util.function.Predicate<java.lang.Integer>",
+              "value": {
+                "ref": 3
+              }
+            },
+            {
+              "final": false,
+              "name": "result",
+              "type": "int",
+              "value": 25
+            },
+            {
+              "final": false,
+              "name": "check",
+              "type": "boolean",
+              "value": false
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "id": 2,
+          "kind": "lambda",
+          "sam": "java.lang.Integer apply(java.lang.Integer x) {\n    return x * x;\n}",
+          "type": "lambda"
+        },
+        "3": {
+          "id": 3,
+          "kind": "lambda",
+          "sam": "boolean test(java.lang.Integer n) {\n    return n % 2 == 0;\n}",
+          "type": "lambda"
+        }
+      },
+      "line": 15,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "",
+      "step": 1
+    }
+  ]
+}

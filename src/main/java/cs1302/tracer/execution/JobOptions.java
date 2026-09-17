@@ -2,29 +2,32 @@ package cs1302.tracer.execution;
 
 import picocli.CommandLine.Option;
 
-/** Opt-in CLI settings for bounded tracing and the versioned result envelope. */
+/** CLI settings for tracing budgets and the opt-in versioned result envelope. */
 public class JobOptions {
 
     @Option(names = "--result-envelope", description = "Emit versioned job status and trace JSON.")
     public boolean envelope;
+    @Option(names = "--unlimited",
+            description = "Disable default budgets; explicit limits still apply.")
+    public boolean unlimited;
     @Option(names = "--timeout-ms", 
             description = "Tracing deadline in milliseconds; 0 is unlimited.")
-    long timeoutMillis;
+    Long timeoutMillis;
     @Option(names = "--max-snapshots", description = "Maximum captured snapshots; 0 is unlimited.")
-    long snapshots;
+    Long snapshots;
     @Option(names = "--max-output-bytes", description = "Guest bytes per stream; 0 is unlimited.")
-    long outputBytes;
+    Long outputBytes;
     @Option(names = "--max-heap-objects", description = "Objects per snapshot; 0 is unlimited.")
-    long heapObjects;
+    Long heapObjects;
     @Option(names = "--max-elements", 
             description = "Inspected elements per snapshot; 0 is unlimited.")
-    long elements;
+    Long elements;
     @Option(names = "--max-trace-bytes", description = "Accounted snapshot bytes; 0 is unlimited.")
-    long traceBytes;
+    Long traceBytes;
     @Option(names = "--max-source-bytes", description = "UTF-8 source bytes; 0 is unlimited.")
-    public long sourceBytes;
+    public Long sourceBytes;
     @Option(names = "--max-source-files", description = "Streamed source files; 0 is unlimited.")
-    long sourceFiles;
+    Long sourceFiles;
     @Option(names = "--inspection", defaultValue = "TRUSTED",
             description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
@@ -59,7 +62,24 @@ public class JobOptions {
      * @return Effective limits.
      */
     public TraceLimits limits() {
-        return new TraceLimits(timeoutMillis, snapshots, outputBytes, heapObjects,
-                elements, traceBytes, sourceBytes, sourceFiles);
+        TraceLimits defaults = envelope || unlimited
+                ? TraceLimits.unlimited() : TraceLimits.instructorDefaults();
+        return new TraceLimits(select(timeoutMillis, defaults.timeoutMillis()),
+                select(snapshots, defaults.snapshots()),
+                select(outputBytes, defaults.outputBytes()),
+                select(heapObjects, defaults.heapObjects()), select(elements, defaults.elements()),
+                select(traceBytes, defaults.traceBytes()),
+                select(sourceBytes, defaults.sourceBytes()),
+                select(sourceFiles, defaults.sourceFiles()));
     } // limits
+
+    /**
+     * Selects an explicit value, including zero, before applying a default.
+     * @param value Explicit setting, or null.
+     * @param fallback Default setting.
+     * @return Effective setting.
+     */
+    private static long select(Long value, long fallback) {
+        return value == null ? fallback : value;
+    } // select
 } // JobOptions

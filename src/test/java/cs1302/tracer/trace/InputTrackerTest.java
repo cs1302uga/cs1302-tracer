@@ -9,6 +9,21 @@ import org.junit.jupiter.api.Test;
 public class InputTrackerTest {
 
     @Test
+    void rawReadsAdvanceOnlyThroughCompleteUtf8Characters() {
+        InputTracker tracker = new InputTracker("é😀x");
+        tracker.consumeBytes(1);
+        assertThat(tracker.offset()).isZero();
+        tracker.consumeBytes(1);
+        assertThat(tracker.consumed()).isEqualTo("é");
+        tracker.consumeBytes(3);
+        assertThat(tracker.consumed()).isEqualTo("é");
+        tracker.consumeBytes(1);
+        assertThat(tracker.consumed()).isEqualTo("é😀");
+        tracker.consumeBytes(1);
+        assertThat(tracker.isExhausted()).isTrue();
+    }
+
+    @Test
     @DisplayName("should initialize correctly with null, empty, and populated stdin")
     void testInitialization() {
         InputTracker nullTracker = new InputTracker(null);
@@ -120,4 +135,21 @@ public class InputTrackerTest {
         assertThat(tracker.isExhausted()).isTrue();
     } // testConsumeBytes
 
+    @org.junit.jupiter.api.Test
+    void unmatchedLinesAndExhaustedReadsDoNotAdvance() {
+        InputTracker tracker = new InputTracker("one\rtwo!");
+        tracker.consumeLine("absent");
+        org.assertj.core.api.Assertions.assertThat(tracker.offset()).isZero();
+        tracker.consumeLine("one");
+        org.assertj.core.api.Assertions.assertThat(tracker.offset()).isEqualTo(4);
+        tracker.consumeLine("two");
+        org.assertj.core.api.Assertions.assertThat(tracker.unconsumed()).isEqualTo("!");
+        tracker.consumeBytes(1);
+        tracker.consumeBytes(1);
+        tracker.consumeToken("!");
+        org.assertj.core.api.Assertions.assertThat(tracker.consumed()).isEqualTo("one\rtwo!");
+        InputTracker trailingCr = new InputTracker("last\r");
+        trailingCr.consumeLine("last");
+        org.assertj.core.api.Assertions.assertThat(trailingCr.isExhausted()).isTrue();
+    }
 } // InputTrackerTest

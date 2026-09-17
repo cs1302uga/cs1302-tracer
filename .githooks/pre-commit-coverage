@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+cd "$(git rev-parse --show-toplevel)"
+snapshot=$(mktemp -d "${TMPDIR:-/tmp}/cs1302-precommit.XXXXXX")
+trap 'rm -rf "$snapshot"' 0
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Export the index, not the working tree: partially staged files must be tested
+# exactly as they will be committed. A new directory also excludes stale coverage.
+git checkout-index --all --prefix="$snapshot/"
+if ! grep -q '<id>pre-commit-coverage</id>' "$snapshot/pom.xml"; then
+    echo "Coverage hook: stage pom.xml with the pre-commit-coverage profile first." >&2
+    exit 1
+fi
+
+echo "Checking staged files: 100% production line and branch coverage required."
+cd "$snapshot"
+if ! ./mvnw -B -ntp -Ppre-commit-coverage clean test; then
+    echo "Commit blocked: staged build, tests, or 100% coverage check failed." >&2
+    exit 1
+fi

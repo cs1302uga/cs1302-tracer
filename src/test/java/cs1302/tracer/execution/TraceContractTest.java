@@ -7,12 +7,48 @@ import org.junit.jupiter.api.Test;
 
 class TraceContractTest {
     @Test
+    void finalOutputRefreshPreservesLogicalInput() {
+        try (TraceSession session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.FIELDS, true);
+                var err = new cs1302.tracer.trace.StreamDrainer(
+                        new java.io.ByteArrayInputStream(new byte[0]));
+                var out = new cs1302.tracer.trace.StreamDrainer(
+                        new java.io.ByteArrayInputStream(new byte[] {65}))) {
+            err.waitForEof(1000);
+            out.waitForEof(1000);
+            session.beginSnapshot();
+            session.commit(new cs1302.tracer.trace.ExecutionSnapshot(
+                    List.of(), List.of(), java.util.Map.of(), new byte[0], new byte[0],
+                    java.util.Optional.empty(), "hello", 5));
+            session.finishOutput();
+            assertThat(session.snapshots().getFirst().stdinConsumed()).isEqualTo("hello");
+            assertThat(session.snapshots().getFirst().stdinOffset()).isEqualTo(5);
+            assertThat(session.snapshots().getFirst().stdout()).containsExactly((byte) 65);
+        }
+    }
+
+    @Test
+    void explicitZeroAndUnlimitedOverrideInstructorDefaults() {
+        JobOptions options = new JobOptions();
+        new picocli.CommandLine(options).parseArgs("--timeout-ms", "0");
+        assertThat(options.limits().timeoutMillis()).isZero();
+        assertThat(options.limits().outputBytes()).isPositive();
+        options = new JobOptions();
+        new picocli.CommandLine(options).parseArgs("--unlimited", "--max-snapshots", "3");
+        assertThat(options.limits().timeoutMillis()).isZero();
+        assertThat(options.limits().snapshots()).isEqualTo(3);
+        options = new JobOptions();
+        new picocli.CommandLine(options).parseArgs("--result-envelope");
+        assertThat(options.limits()).isEqualTo(TraceLimits.unlimited());
+    }
+
+    @Test
     void rejectsInvalidBudgets() {
         assertThatThrownBy(() -> new TraceLimits(-1, 0, 0, 0, 0, 0, 0, 0))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new TraceLimits(Long.MAX_VALUE, 0, 0, 0, 0, 0, 0, 0))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThat(new JobOptions().limits()).isEqualTo(TraceLimits.unlimited());
+        assertThat(new JobOptions().limits()).isEqualTo(TraceLimits.instructorDefaults());
     }
 
     @Test

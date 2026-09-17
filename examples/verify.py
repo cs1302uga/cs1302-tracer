@@ -51,8 +51,17 @@ def normalize(document):
                     isolated = [key for key in pending if reference_free(pending[key])]
                     if not isolated:
                         raise ValueError("Unreachable object graph cannot be normalized safely")
-                    key = min(isolated, key=lambda item: json.dumps(pending[item], sort_keys=True))
-                heap[str(identity(key))] = visit(pending.pop(key))
+                    def isolated_content(item):
+                        content = pending[item]
+                        if isinstance(content, dict):
+                            content = {name: value for name, value in content.items() if name != "id"}
+                        return json.dumps(content, sort_keys=True)
+                    key = min(isolated, key=isolated_content)
+                normalized_key = str(identity(key))
+                entry = pending.pop(key)
+                if isinstance(entry, dict) and "id" in entry:
+                    entry = {**entry, "id": identity(entry["id"])}
+                heap[normalized_key] = visit(entry)
             result["heap"] = heap
         if "heap_attrs" in value:
             result["heap_attrs"] = {str(identity(key)): visit(item)

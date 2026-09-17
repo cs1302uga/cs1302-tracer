@@ -1,0 +1,62 @@
+{
+  "code": "package cs1302.exceptions.uncaught;\n\n/**\n * Driver class demonstrating the runtime behavior of an uncaught ArithmeticException.\n */\npublic class Driver {\n\n    /**\n     * Entry point of the program.\n     *\n     * @param args Command-line arguments.\n     */\n    public static void main(String[] args) {\n        System.out.println(\"Starting calculation...\");\n        int result = divide(10, 0);\n        System.out.println(\"Result: \" + result);\n    } // main\n\n    /**\n     * Divides two integer values.\n     *\n     * @param a The numerator.\n     * @param b The denominator.\n     * @return The quotient.\n     */\n    public static int divide(int a, int b) {\n        System.out.println(\"Attempting division: \" + a + \" / \" + b);\n        return a / b;\n    } // divide\n\n} // Driver\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": false,
+          "line": 15,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            }
+          ],
+          "methodName": "main"
+        },
+        {
+          "isHighlighted": true,
+          "line": 28,
+          "locals": [
+            {
+              "final": false,
+              "name": "a",
+              "type": "int",
+              "value": 10
+            },
+            {
+              "final": false,
+              "name": "b",
+              "type": "int",
+              "value": 0
+            }
+          ],
+          "methodName": "divide"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        }
+      },
+      "line": 28,
+      "method": "divide",
+      "statics": [],
+      "stderr": "Exception in thread \"main\" java.lang.ArithmeticException: / by zero\n\tat cs1302.exceptions.uncaught.Driver.divide(Driver.java:28)\n\tat cs1302.exceptions.uncaught.Driver.main(Driver.java:15)\n",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "Starting calculation...\nAttempting division: 10 / 0\n",
+      "step": 1
+    }
+  ]
+}

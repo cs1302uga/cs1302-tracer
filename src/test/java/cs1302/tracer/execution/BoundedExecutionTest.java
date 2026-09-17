@@ -31,10 +31,21 @@ class BoundedExecutionTest {
         return run(command);
     }
 
+    private static List<String> tracerCommand() {
+        List<String> command = new ArrayList<>();
+        command.add(Path.of(System.getProperty("java.home"), "bin", "java").toString());
+        // Instrument the child tracer just like the test JVM, without instrumenting
+        // guest programs. JaCoCo appends each child's data to the same execution file.
+        java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
+                .filter(argument -> argument.startsWith("-javaagent:")
+                        && argument.contains("jacoco"))
+                .forEach(command::add);
+        command.addAll(List.of("-Xmx128m", "-cp", System.getProperty("java.class.path")));
+        return command;
+    }
+
     JsonObject run(List<String> arguments) throws Exception {
-        List<String> command = new ArrayList<>(List.of(
-                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-Xmx128m", "-cp", System.getProperty("java.class.path")));
+        List<String> command = tracerCommand();
         command.addAll(arguments);
         Path output = directory.resolve("out.json");
         Path errors = directory.resolve("err.txt");
@@ -49,6 +60,43 @@ class BoundedExecutionTest {
             assertThat(process.exitValue()).isEqualTo(result.get("complete").getAsBoolean() ? 0
                     : result.get("status").getAsString().equals("stopped") ? 3 : 1);
             return result;
+        } finally {
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            process.destroyForcibly();
+            process.waitFor(2, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void modernEnvelopeHonorsExplicitChronologicalBreakpoints() throws Exception {
+        var result = trace("int value = 1;\nSystem.out.println(value);", "-a", "-b", "3",
+                "-f", "modern");
+        assertThat(result.get("complete").getAsBoolean()).isTrue();
+        assertThat(result.get("format").getAsString()).isEqualTo("modern");
+        assertThat(result.getAsJsonObject("trace").getAsJsonArray("steps")).isNotEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"timeout,--timeout-ms,250", "output,--max-output-bytes,64",
+            "snapshot,--max-snapshots,2"})
+    void ordinaryStopsNeverPublishPartialJson(String reason, String option, String value)
+            throws Exception {
+        Path source = directory.resolve("Ordinary.java");
+        Files.writeString(source, "public class Ordinary {\n"
+                + "public static void main(String[] args) {\n"
+                + "while (true) {\nSystem.out.println(1);\n}\n}\n}\n");
+        Path output = directory.resolve("ordinary-out.txt");
+        Path errors = directory.resolve("ordinary-err.txt");
+        List<String> command = tracerCommand();
+        command.addAll(List.of("cs1302.tracer.App", "trace", "-i", source.toString(),
+                "-a", option, value));
+        Process process = new ProcessBuilder(command)
+                .redirectOutput(output.toFile()).redirectError(errors.toFile()).start();
+        try {
+            assertThat(process.waitFor(15, TimeUnit.SECONDS)).isTrue();
+            assertThat(process.exitValue()).isEqualTo(3);
+            assertThat(Files.readString(output)).isEmpty();
+            assertThat(Files.readString(errors)).contains("Trace stopped: " + reason);
         } finally {
             process.descendants().forEach(ProcessHandle::destroyForcibly);
             process.destroyForcibly();

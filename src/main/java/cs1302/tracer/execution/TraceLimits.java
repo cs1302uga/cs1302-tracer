@@ -26,6 +26,15 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes,
     } // TraceLimits
 
     /**
+     * Returns the ordinary instructor CLI policy.
+     * @return Finite budgets for interactive examples.
+     */
+    public static TraceLimits instructorDefaults() {
+        return new TraceLimits(10_000, 10_000, 1_048_576, 10_000,
+                100_000, 67_108_864, 1_048_576, 128);
+    } // instructorDefaults
+
+    /**
      * Returns the trusted unlimited policy.
      * @return Unlimited budgets.
      */

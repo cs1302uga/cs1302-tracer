@@ -12,7 +12,6 @@ import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.LambdaExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.resolution.MethodUsage;
 import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
@@ -262,11 +261,7 @@ public class DebugTraceHelper {
                     snapMainEnd,
                     inputTracker);
 
-            try {
-                vm.process().waitFor(200, TimeUnit.MILLISECONDS);
-            } catch (Exception ignored) {
-                // ignore wait error
-            } // try
+            awaitGuestExit(vm);
             vmErrDrainer.sync();
             vmOutDrainer.sync();
             syncTrailingStreamOutput(snapshots, vmOutDrainer, vmErrDrainer);
@@ -553,6 +548,20 @@ public class DebugTraceHelper {
             // ignore cleanup error
         } // try
     } // cleanupVm
+
+    /**
+     * Briefly waits for final guest output without hiding an interrupt.
+     * @param vm Guest debugger connection.
+     */
+    private static void awaitGuestExit(VirtualMachine vm) {
+        try {
+            vm.process().waitFor(200, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } catch (RuntimeException ignored) {
+            // The debugger may already have disconnected.
+        } // try
+    } // awaitGuestExit
 
     /**
      * Checks whether two execution snapshots have the same top-level call frame.
@@ -968,11 +977,7 @@ public class DebugTraceHelper {
                     includeMainExit,
                     inputTracker);
 
-            try {
-                vm.process().waitFor(200, TimeUnit.MILLISECONDS);
-            } catch (Exception ignored) {
-                // ignore wait error
-            } // try
+            awaitGuestExit(vm);
             vmErrDrainer.sync();
             vmOutDrainer.sync();
             syncTrailingStreamOutput(chronologicalSnapshots, vmOutDrainer, vmErrDrainer);
@@ -1137,25 +1142,6 @@ public class DebugTraceHelper {
     } // getValidBreakpointLinesByFile
 
     /**
-     * Resolves source path from a Location object.
-     *
-     * @param loc The Location.
-     * @param refType The declaring ReferenceType.
-     * @return Resolved file path string.
-     */
-    private static String resolveLocationPath(Location loc, ReferenceType refType) {
-        try {
-            return loc.sourcePath();
-        } catch (AbsentInformationException e) {
-            try {
-                return loc.sourceName();
-            } catch (AbsentInformationException ex) {
-                return refType.name().replace('.', '/') + ".java";
-            } // try
-        } // try
-    } // resolveLocationPath
-
-    /**
      * Return the set of source lines for the compiled classes that can have breakpoints set.
      *
      * @param compilationResult A CompilationResult holding the classes.
@@ -1299,150 +1285,12 @@ public class DebugTraceHelper {
             return;
         } // if
         try {
-            Method method = mee.method();
-            String declaringClass = method.declaringType().name();
-            String methodName = method.name();
-            Value retVal = mee.returnValue();
-
-            if (declaringClass.equals("java.util.Scanner")) {
-                handleScannerExit(methodName, retVal, inputTracker);
-            } // if
-            if (declaringClass.equals("java.io.BufferedReader")
-                    && methodName.equals("readLine")) {
-                if (retVal instanceof StringReference strRef) {
-                    inputTracker.consumeLine(strRef.value());
-                } // if
-            } // if
-            if (declaringClass.equals("java.lang.IO")
-                    && methodName.equals("readln")) {
-                if (retVal instanceof StringReference strRef) {
-                    inputTracker.consumeLine(strRef.value());
-                } // if
-            } // if
-            if (isInputStreamClass(declaringClass) && methodName.equals("read")) {
-                handleInputStreamExit(mee, method, retVal, inputTracker, systemIn);
-            } // if
+            ReaderTracking.record(mee, inputTracker,
+                    systemIn != null ? systemIn : getSystemIn(mee.virtualMachine()));
         } catch (Exception ignored) {
             // Ignore inspection errors on reader exit
         } // try
     } // handleReaderMethodExit
-
-    /**
-     * Handles method exit on java.util.Scanner.
-     *
-     * @param methodName The method name.
-     * @param retVal The return value.
-     * @param inputTracker The input tracker.
-     */
-    private static void handleScannerExit(
-            String methodName,
-            Value retVal,
-            InputTracker inputTracker) {
-        if (methodName.equals("nextLine")) {
-            if (retVal instanceof StringReference strRef) {
-                inputTracker.consumeLine(strRef.value());
-            } // if
-        } // if
-        if (methodName.equals("next") || methodName.startsWith("find")) {
-            if (retVal instanceof StringReference strRef) {
-                inputTracker.consumeToken(strRef.value());
-            } // if
-        } // if
-    } // handleScannerExit
-
-    /**
-     * Handles method exit on InputStream.read variants for System.in.
-     *
-     * @param mee The method exit event.
-     * @param method The method.
-     * @param retVal The return value.
-     * @param inputTracker The input tracker.
-     * @param systemIn Cached reference to System.in.
-     */
-    private static void handleInputStreamExit(
-            MethodExitEvent mee,
-            Method method,
-            Value retVal,
-            InputTracker inputTracker,
-            ObjectReference systemIn) {
-        ObjectReference targetSysIn = systemIn != null
-                ? systemIn
-                : getSystemIn(mee.virtualMachine());
-        if (isSystemInStream(mee, targetSysIn) && !isCalledByHigherLevelReader(mee.thread())) {
-            if (retVal instanceof IntegerValue intVal) {
-                int readResult = intVal.value();
-                if (method.argumentTypeNames().isEmpty()) {
-                    if (readResult >= 0) {
-                        inputTracker.consumeBytes(1);
-                    } // if
-                } else {
-                    if (readResult > 0) {
-                        inputTracker.consumeBytes(readResult);
-                    } // if
-                } // if
-            } // if
-        } // if
-    } // handleInputStreamExit
-
-    /**
-     * Checks if the method exit event was invoked on the target VM's System.in instance.
-     *
-     * @param mee The method exit event.
-     * @param systemIn The System.in object reference in the target VM.
-     * @return True if method was invoked on System.in.
-     */
-    private static boolean isSystemInStream(MethodExitEvent mee, ObjectReference systemIn) {
-        if (systemIn == null) {
-            return false;
-        } // if
-        try {
-            if (mee.thread().frameCount() > 0) {
-                ObjectReference thisObj = mee.thread().frame(0).thisObject();
-                return systemIn.equals(thisObj);
-            } // if
-        } catch (IncompatibleThreadStateException ignored) {
-            return false;
-        } // try
-        return false;
-    } // isSystemInStream
-
-    /**
-     * Checks if the declaring class is an InputStream implementation.
-     *
-     * @param declaringClass The class name to check.
-     * @return True if class is an InputStream.
-     */
-    private static boolean isInputStreamClass(String declaringClass) {
-        return declaringClass.equals("java.io.InputStream")
-                || declaringClass.equals("java.io.BufferedInputStream");
-    } // isInputStreamClass
-
-    /**
-     * Checks if the current thread's call stack originates from a higher-level reader.
-     *
-     * @param thread The thread to inspect.
-     * @return True if Scanner, BufferedReader, Reader, or IO is in the call stack.
-     */
-    private static boolean isCalledByHigherLevelReader(ThreadReference thread) {
-        try {
-            int frameCount = thread.frameCount();
-            for (int i = 0; i < frameCount; i++) {
-                StackFrame frame = thread.frame(i);
-                String callerClass = frame.location().declaringType().name();
-                if (callerClass.startsWith("java.util.Scanner")
-                        || callerClass.startsWith("java.io.BufferedReader")
-                        || callerClass.startsWith("java.io.Reader")
-                        || callerClass.startsWith("java.io.InputStreamReader")
-                        || callerClass.startsWith("sun.nio.cs.StreamDecoder")
-                        || callerClass.startsWith("java.lang.IO")) {
-                    return true;
-                } // if
-            } // for
-        } catch (IncompatibleThreadStateException ignored) {
-            return false;
-        } // try
-        return false;
-    } // isCalledByHigherLevelReader
 
     /**
      * Convert a lambda expression in the AST into an implementation.
@@ -1482,9 +1330,7 @@ public class DebugTraceHelper {
             } // if
             sb.append(e).append("}");
         } else {
-            if (lambda.getBody() instanceof BlockStmt b) {
-                sb.append(b);
-            } // if
+            sb.append(lambda.getBody());
         } // if
 
         return SIMPLE_JAVA_PARSER.parseMethodDeclaration(sb.toString())
@@ -1607,31 +1453,6 @@ public class DebugTraceHelper {
         vmOut.sync();
         vmErr.sync();
     } // prepareSessionAndStreams
-
-    /**
-     * Takes an execution snapshot without active input tracking.
-     *
-     * @param mainThread Main thread reference.
-     * @param loadedClasses Loaded classes.
-     * @param vmOut Standard output drainer.
-     * @param vmErr Standard error drainer.
-     * @param parsedSources Parsed compilation units.
-     * @return Execution snapshot.
-     * @throws IncompatibleThreadStateException On thread state error.
-     * @throws AbsentInformationException If debug info is missing.
-     * @throws ClassNotLoadedException If class is not loaded.
-     */
-    private static ExecutionSnapshot snapshotTheWorld(
-            ThreadReference mainThread,
-            Iterable<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, parsedSources, null);
-    } // snapshotTheWorld
 
     /**
      * Drains reachable heap references into the heap map.
@@ -1808,8 +1629,7 @@ public class DebugTraceHelper {
                     String candidate = allocType.get();
                     String rawAlloc = AstTypeResolver.extractRawTypeName(candidate);
                     String runtimeClass = frameThis.referenceType().name();
-                    if (!rawAlloc.contains("[") && !candidate.contains("[")
-                            && AstTypeResolver.rawTypeMatches(runtimeClass, rawAlloc)) {
+                    if (AstTypeResolver.rawTypeMatches(runtimeClass, rawAlloc)) {
                         objectTypeMap.putIfAbsent(frameThis.uniqueID(), candidate);
                     } // if
                 } // if
@@ -2121,7 +1941,7 @@ public class DebugTraceHelper {
         if (!newHasGenerics && existingHasGenerics) {
             return false;
         } // if
-        if (newHasGenerics && existingHasGenerics) {
+        if (newHasGenerics) {
             boolean existingHasWildcard = existingType.contains("?");
             boolean newHasWildcard = newType.contains("?");
             if (existingHasWildcard && !newHasWildcard) {
@@ -2361,7 +2181,7 @@ public class DebugTraceHelper {
     private static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
             int line, ExecutionSnapshot snapshot) {
         List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
-        if (TraceSession.current() != null) {
+        if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
             entries.clear();
         } // if
         entries.add(snapshot);

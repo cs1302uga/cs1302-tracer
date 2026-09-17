@@ -1,0 +1,307 @@
+{
+  "code": "public class LogicalInput {\n    public static void main(String[] args) {\n        String unrelated = new java.util.Scanner(\"same\").nextLine();\n        String first = new java.util.Scanner(System.in).nextLine();\n        System.out.println(first);\n    }\n}\n",
+  "stdin": "same\nlater\n",
+  "trace": [
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        }
+      },
+      "line": 3,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:3",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            }
+          },
+          "ordered_varnames": [
+            "args"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": ""
+    },
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "same"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 4,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "unrelated": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:4",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "unrelated": {
+              "final": false,
+              "type": "java.lang.String"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "unrelated"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": ""
+    },
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "same"
+          ]
+        ],
+        "3": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "same"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": "java.lang.String"
+        },
+        "3": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 5,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "first": [
+              "REF",
+              3
+            ],
+            "unrelated": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:5",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "first": {
+              "final": false,
+              "type": "java.lang.String"
+            },
+            "unrelated": {
+              "final": false,
+              "type": "java.lang.String"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "unrelated",
+            "first"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdinConsumed": "same\n",
+      "stdinOffset": 5,
+      "stdout": ""
+    },
+    {
+      "event": "step_line",
+      "file": null,
+      "func_name": "main",
+      "globals": {},
+      "globals_attrs": {},
+      "heap": {
+        "1": [
+          "LIST"
+        ],
+        "2": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "same"
+          ]
+        ],
+        "3": [
+          "INSTANCE",
+          "String",
+          [
+            "___NO_LABEL!___",
+            "same"
+          ]
+        ]
+      },
+      "heap_attrs": {
+        "1": {
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "type": "java.lang.String"
+        },
+        "3": {
+          "type": "java.lang.String"
+        }
+      },
+      "line": 6,
+      "ordered_globals": [],
+      "stack_to_render": [
+        {
+          "encoded_locals": {
+            "args": [
+              "REF",
+              1
+            ],
+            "first": [
+              "REF",
+              3
+            ],
+            "unrelated": [
+              "REF",
+              2
+            ]
+          },
+          "file": null,
+          "frame_id": 0,
+          "func_name": "main:6",
+          "is_highlighted": true,
+          "is_parent": false,
+          "is_zombie": false,
+          "locals_attrs": {
+            "args": {
+              "final": false,
+              "type": "java.lang.String[]"
+            },
+            "first": {
+              "final": false,
+              "type": "java.lang.String"
+            },
+            "unrelated": {
+              "final": false,
+              "type": "java.lang.String"
+            }
+          },
+          "ordered_varnames": [
+            "args",
+            "unrelated",
+            "first"
+          ],
+          "parent_frame_id_list": [],
+          "unique_hash": "0"
+        }
+      ],
+      "stderr": "",
+      "stdinConsumed": "same\n",
+      "stdinOffset": 5,
+      "stdout": "same\n"
+    }
+  ],
+  "userlog": ""
+}

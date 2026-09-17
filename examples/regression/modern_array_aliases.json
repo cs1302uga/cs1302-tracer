@@ -1,0 +1,118 @@
+{
+  "code": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": true,
+          "line": 9,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "roster",
+              "type": "Person[]",
+              "value": {
+                "ref": 2
+              }
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "elements": [
+            {
+              "ref": 3
+            },
+            {
+              "ref": 4
+            }
+          ],
+          "id": 2,
+          "kind": "array",
+          "type": "Person[]"
+        },
+        "3": {
+          "fields": [
+            {
+              "final": true,
+              "name": "name",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 5
+              }
+            },
+            {
+              "final": true,
+              "name": "age",
+              "type": "int",
+              "value": 22
+            }
+          ],
+          "id": 3,
+          "kind": "object",
+          "type": "Person"
+        },
+        "4": {
+          "fields": [
+            {
+              "final": true,
+              "name": "name",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 6
+              }
+            },
+            {
+              "final": true,
+              "name": "age",
+              "type": "int",
+              "value": 20
+            }
+          ],
+          "id": 4,
+          "kind": "object",
+          "type": "Person"
+        },
+        "5": {
+          "id": 5,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Bob"
+        },
+        "6": {
+          "id": 6,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Alice"
+        }
+      },
+      "line": 9,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "",
+      "step": 1
+    }
+  ]
+}

@@ -232,17 +232,18 @@ public class LicenseHelper {
      * @return The formatted third-party notices, or a fallback notice if resource is unavailable.
      */
     public static String getThirdPartyNotices() {
+        String content = "";
         try (InputStream is =
                 LicenseHelper.class.getResourceAsStream("/META-INF/THIRD-PARTY.txt")) {
             if (is != null) {
-                String content = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
-                if (!content.isEmpty()) {
-                    return content;
-                } // if
+                content = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
             } // if
         } catch (Exception ignored) {
-            // ignore and return fallback below
+            content = "";
         } // try
+        if (!content.isEmpty()) {
+            return content;
+        } // if
         return """
             Lists of third-party dependencies:
             \t(The Apache Software License, Version 2.0) JavaParser (https://github.com/javaparser)

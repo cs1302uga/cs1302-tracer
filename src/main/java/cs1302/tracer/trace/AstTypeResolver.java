@@ -357,7 +357,7 @@ public class AstTypeResolver {
             int line = oce.getRange().map(r -> r.begin.line).orElse(0);
             if (line > 0) {
                 String allocType = resolveObjectCreationType(oce);
-                if (allocType != null && !allocType.contains("[")) {
+                if (!allocType.contains("[")) {
                     lineAllocations.put(line, allocType);
                 } // if
             } // if
@@ -456,9 +456,6 @@ public class AstTypeResolver {
      * @return True if single-parameter collection.
      */
     private static boolean isStandardSingleParamCollection(String classFqn) {
-        if (classFqn == null) {
-            return false;
-        } // if
         return "java.util.ArrayList".equals(classFqn) || "ArrayList".equals(classFqn)
                 || "java.util.LinkedList".equals(classFqn) || "LinkedList".equals(classFqn)
                 || "java.util.Vector".equals(classFqn) || "Vector".equals(classFqn)
@@ -476,9 +473,6 @@ public class AstTypeResolver {
      * @return True if standard map.
      */
     private static boolean isStandardMap(String classFqn) {
-        if (classFqn == null) {
-            return false;
-        } // if
         return "java.util.HashMap".equals(classFqn) || "HashMap".equals(classFqn)
                 || "java.util.LinkedHashMap".equals(classFqn) || "LinkedHashMap".equals(classFqn)
                 || "java.util.TreeMap".equals(classFqn) || "TreeMap".equals(classFqn)
@@ -494,9 +488,6 @@ public class AstTypeResolver {
      * @return Found info or null.
      */
     private ClassGenericInfo findClassGenericInfo(String className) {
-        if (className == null) {
-            return null;
-        } // if
         ClassGenericInfo info = classInfoMap.get(className);
         if (info != null) {
             return info;
@@ -604,7 +595,7 @@ public class AstTypeResolver {
             } // if
         } // if
 
-        if (isStandardSingleParamCollection(runtimeClassFqn) && !declaredArgs.isEmpty()) {
+        if (isStandardSingleParamCollection(runtimeClassFqn)) {
             return runtimeClassFqn + "<" + declaredArgs.get(0) + ">";
         } // if
         if (isStandardMap(runtimeClassFqn) && declaredArgs.size() >= 2) {
@@ -837,9 +828,6 @@ public class AstTypeResolver {
      * @return Substituted AST Type.
      */
     private static Type substituteType(Type type, Map<String, String> bindings) {
-        if (bindings == null || bindings.isEmpty() || type == null) {
-            return type != null ? type.clone() : null;
-        } // if
         if (type instanceof ClassOrInterfaceType cit) {
             String name = cit.getNameAsString();
             if (bindings.containsKey(name)

@@ -181,9 +181,6 @@ public sealed interface TraceValue {
      * @return True if Color.
      */
     private static boolean isColor(ObjectReference or) {
-        if (or == null) {
-            return false;
-        } // if
         ReferenceType rt = or.referenceType();
         if ("java.awt.Color".equals(rt.name())) {
             return true;
@@ -433,7 +430,7 @@ public sealed interface TraceValue {
      * @return The declaring enum ClassType, or null if not an enum.
      */
     private static ClassType resolveEnumDeclaringType(ObjectReference or) {
-        if (or != null && or.referenceType() instanceof ClassType ct) {
+        if (or.referenceType() instanceof ClassType ct) {
             if (ct.isEnum()) {
                 return ct;
             } // if
@@ -453,7 +450,7 @@ public sealed interface TraceValue {
      */
     private static java.lang.String extractEnumConstantName(
             ObjectReference or, ClassType enumDeclaringType) {
-        if (enumDeclaringType != null && or != null) {
+        if (enumDeclaringType != null) {
             Field nameField = enumDeclaringType.fieldByName("name");
             if (nameField != null && or.getValue(nameField) instanceof StringReference sr) {
                 return sr.value();
@@ -622,8 +619,7 @@ public sealed interface TraceValue {
                 outEncounteredReferences.ifPresent(l -> l.add(or));
                 tvs.add(new Reference(or.uniqueID()));
             } // case
-            case Value v -> tvs.add(fromJdiValue(
-                    mainThread, v, outEncounteredReferences, astTypeResolver, objectTypeMap));
+            case Value v -> throw new IllegalArgumentException("Unrecognized value type: " + v);
             } // switch
         } // for
 
@@ -672,18 +668,17 @@ public sealed interface TraceValue {
             } // if
 
             ClassType classType = (ClassType) objectReference.type();
-            java.lang.String getterPrefix = getPrimitiveGetterPrefix(classType.signature());
-            if (getterPrefix == null) {
+            Getter getter = getPrimitiveGetter(classType.signature());
+            if (getter == null) {
                 return Optional.empty();
             } // if
 
-            java.lang.String jniSig = getPrimitiveJniSignature(getterPrefix);
-            Method getterMethod = classType.concreteMethodByName(
-                    getterPrefix + "Value", "()" + jniSig);
+            Method getterMethod =
+                    classType.concreteMethodByName(getter.name(), getter.signature());
             if (getterMethod == null) {
                 throw new IllegalStateException(java.lang.String.format(
-                        "Expected method %s with signature ()%s.",
-                        getterPrefix + "Value", jniSig));
+                        "Expected method %s with signature %s.",
+                        getter.name(), getter.signature()));
             } // if
 
             try {
@@ -701,44 +696,30 @@ public sealed interface TraceValue {
         } // tryFromJdiValue
 
         /**
-         * Gets getter prefix for primitive wrappers.
-         *
-         * @param signature Class signature.
-         * @return Getter prefix or null.
+         * A wrapper accessor and its matching JNI method signature.
+         * @param name Accessor method name.
+         * @param signature JNI method signature.
          */
-        private static java.lang.String getPrimitiveGetterPrefix(java.lang.String signature) {
-            return switch (signature) {
-                case "Ljava/lang/Boolean;" -> "boolean";
-                case "Ljava/lang/Byte;" -> "byte";
-                case "Ljava/lang/Character;" -> "char";
-                case "Ljava/lang/Short;" -> "short";
-                case "Ljava/lang/Integer;" -> "int";
-                case "Ljava/lang/Long;" -> "long";
-                case "Ljava/lang/Float;" -> "float";
-                case "Ljava/lang/Double;" -> "double";
-                default -> null;
-            }; // switch
-        } // getPrimitiveGetterPrefix
+        record Getter(java.lang.String name, java.lang.String signature) {} // Getter
 
         /**
-         * Gets primitive JNI signature character.
-         *
-         * @param prefix Getter prefix.
-         * @return JNI signature string.
+         * Gets the accessor for a primitive wrapper in one lookup.
+         * @param signature Wrapper class signature.
+         * @return Accessor, or null for other classes.
          */
-        private static java.lang.String getPrimitiveJniSignature(java.lang.String prefix) {
-            return switch (prefix) {
-                case "boolean" -> "Z";
-                case "byte" -> "B";
-                case "char" -> "C";
-                case "short" -> "S";
-                case "int" -> "I";
-                case "long" -> "J";
-                case "float" -> "F";
-                case "double" -> "D";
-                default -> throw new IllegalStateException("Unreachable.");
+        private static Getter getPrimitiveGetter(java.lang.String signature) {
+            return switch (signature) {
+                case "Ljava/lang/Boolean;" -> new Getter("booleanValue", "()Z");
+                case "Ljava/lang/Byte;" -> new Getter("byteValue", "()B");
+                case "Ljava/lang/Character;" -> new Getter("charValue", "()C");
+                case "Ljava/lang/Short;" -> new Getter("shortValue", "()S");
+                case "Ljava/lang/Integer;" -> new Getter("intValue", "()I");
+                case "Ljava/lang/Long;" -> new Getter("longValue", "()J");
+                case "Ljava/lang/Float;" -> new Getter("floatValue", "()F");
+                case "Ljava/lang/Double;" -> new Getter("doubleValue", "()D");
+                default -> null;
             }; // switch
-        } // getPrimitiveJniSignature
+        } // getPrimitiveGetter
 
         /**
          * Convert this PrimitiveValue into a primitive wrapper object.

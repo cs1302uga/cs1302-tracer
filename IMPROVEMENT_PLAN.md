@@ -282,3 +282,65 @@ heap/element/retained-trace caps, snapshot caps, source byte/file caps, cancella
 partial-state retention, restrictive inspection, nonzero guest exit reporting, and
 that a timed-out guest process is no longer alive when the CLI exits. Linux CI and
 the separate runner's isolation tests have not been executed in this local session.
+
+
+## Instructor reliability follow-up — September 17, 2026
+
+The follow-up prioritizes trusted instructor use. Agreed behavior:
+
+- Ordinary CLI runs use finite limits with `--unlimited` as an explicit override.
+- Successful JSON keeps its existing shape. Limit stops emit no stdout trace,
+  diagnose the stop on stderr, and exit 3. Envelope mode retains partial traces
+  with explicit incompleteness and its existing explicit-budget policy.
+- TRUSTED inspection remains the default; FIELDS remains an explicit envelope option.
+- Demonstrated incorrect values may change without changing the schema.
+- Input highlighting describes logical consumption, excluding buffered lookahead.
+
+Implemented corrections and before/after behavior:
+
+1. Reading `"hello"` from `new Scanner("hello")` previously marked matching supplied
+   stdin consumed. Reader tracking now checks delegate provenance before advancing.
+2. Nested reader calls could count a single read repeatedly. Only the outermost
+   observed read advances input, including both IO.readln overloads. Repeated lines,
+   blank lines, Unicode, and EOF have JDK 25 regression coverage.
+3. Cached numeric Scanner reads now use the original matched text so lookahead
+   does not consume input and signs/leading zeros are preserved.
+4. Raw UTF-8 byte consumption previously advanced UTF-16 indices as though bytes
+   and characters were interchangeable. Highlighting now waits for complete code
+   points, preserving the existing character-index schema.
+5. Final output refresh now preserves the snapshot's stdin metadata.
+6. Ordinary CLI sessions enforce the documented finite profile. Accumulated
+   breakpoint output retains all budgeted hits; selected non-accumulating output
+   retains only the latest hit. Existing successful fixtures are not regenerated.
+
+The input observer is extracted into ReaderTracking, using bounded delegate-field
+inspection without invoking guest methods. JDK 21 and 25 are the supported test
+matrix. Arbitrary custom readers, alternate encodings, and mixing IO with other
+stdin APIs remain outside the guaranteed input-highlighting contract.
+
+Remaining proposals, ordered after the reliability work:
+
+1. Cache immutable source-derived AST/type/lambda/final indexes per compilation.
+   `snapshotTheWorld` currently rebuilds these for each snapshot. Require trace
+   equivalence and measured improvement before changing that ownership boundary.
+2. Store captured output once with snapshot offsets internally. Snapshot creation
+   currently copies cumulative output; quantify retained-memory improvement before
+   introducing a new representation.
+3. Add an outer whole-job deadline if parsing/compilation hangs become an instructor
+   requirement. Current tracing deadlines exclude those phases and source transport.
+4. Keep the separately isolated hosted runner as a later project.
+
+
+### Follow-up validation
+
+- Clean Maven package on local JDK 25: 203 tests passed; Checkstyle and configured
+  coverage gates passed.
+- Clean Maven package on local JDK 21: 203 tests discovered, 202 passed, and the
+  JDK 25-only IO regression skipped; Checkstyle and configured coverage gates passed.
+- All 24 compatibility fixtures passed on both JDK 21 and JDK 25. This includes
+  the 11 original Python Tutor cases, 11 modern equivalents, and logical stdin
+  consumption in both formats. All 11 original fixture files remain unchanged.
+- Five fixture-normalizer tests passed. Modern heap-entry IDs are normalized along
+  with references and heap keys, while mismatched IDs and changed input offsets
+  remain detectable.
+- `git diff --check` passed. Linux CI was not run locally.

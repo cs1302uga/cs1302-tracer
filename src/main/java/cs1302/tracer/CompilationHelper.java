@@ -59,7 +59,8 @@ public class CompilationHelper {
 
     /** Regular expression pattern for matching file delimiters in multi-file source streams. */
     public static final Pattern DELIMITER_PATTERN =
-            Pattern.compile("^//\\s*[-=]{3,}\\s*(.*?\\.java)\\s*[-=]{3,}\\s*$", Pattern.MULTILINE);
+            Pattern.compile("^//[ \t]*[-=]{3,}[ \t]*(.*?\\.java)[ \t]*[-=]{3,}[ \t]*$",
+                    Pattern.MULTILINE);
 
     /**
      * Represents an individual source file from a single-file or multi-file input stream.
@@ -250,14 +251,14 @@ public class CompilationHelper {
             String[] parts = pkgName.get().split("\\.");
             Path curr = parent;
             for (int i = parts.length - 1; i >= 0; i--) {
-                if (curr != null && curr.getFileName() != null
+                if (curr.getFileName() != null
                         && curr.getFileName().toString().equals(parts[i])) {
                     curr = curr.getParent();
                 } else {
                     return Optional.empty();
                 } // if
             } // for
-            if (curr != null && Files.isDirectory(curr.resolve(pkgPathStr))) {
+            if (Files.isDirectory(curr.resolve(pkgPathStr))) {
                 return Optional.of(curr);
             } // if
             return Optional.empty();
@@ -313,14 +314,23 @@ public class CompilationHelper {
                     sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir),
                     previewEnabled);
         } catch (IOException | RuntimeException | Error failure) {
-            try {
-                deleteWorkingDirectory(workingDir);
-            } catch (IOException cleanupFailure) {
-                failure.addSuppressed(cleanupFailure);
-            } // try
+            cleanupAfterFailure(workingDir, failure);
             throw failure;
         } // try
     } // compile
+
+    /**
+     * Cleans compilation output while preserving the original failure.
+     * @param workingDir Owned output directory.
+     * @param failure Original compilation failure.
+     */
+    static void cleanupAfterFailure(Path workingDir, Throwable failure) {
+        try {
+            deleteWorkingDirectory(workingDir);
+        } catch (IOException cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
+        } // try
+    } // cleanupAfterFailure
 
     /**
      * Compiles source files while owning the compiler's file manager.
@@ -582,20 +592,11 @@ public class CompilationHelper {
                 .map(p -> p.isVarArgs())
                 .orElse(false);
         boolean hasOneArg = m.getParameters().size() == 1;
-        boolean standardMain = m.isPublic()
-                && m.isStatic()
-                && hasVoidReturn
-                && isNamedMain
-                && (hasStringArrArg ^ hasStringVarargsArg)
-                && hasOneArg;
-        if (standardMain) {
-            return true;
-        } // if
-        boolean instanceMain = isNamedMain
+        boolean supportedMain = isNamedMain
                 && hasVoidReturn
                 && (m.getParameters().isEmpty()
                         || (hasOneArg && (hasStringArrArg ^ hasStringVarargsArg)));
-        return instanceMain;
+        return supportedMain;
     } // isMainMethod
 
     /**

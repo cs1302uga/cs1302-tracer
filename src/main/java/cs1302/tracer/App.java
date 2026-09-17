@@ -82,17 +82,18 @@ public class App {
 
         @Override
         public String[] getVersion() {
+            String version = "development";
             try (InputStream is = App.class.getResourceAsStream(
                     "/cs1302/tracer/version.properties")) {
                 if (is != null) {
                     Properties props = new Properties();
                     props.load(is);
-                    return new String[] {props.getProperty("version", "development")};
+                    version = props.getProperty("version", "development");
                 } // if
             } catch (IOException ignored) {
-                // fallback to development
+                version = "development";
             } // try
-            return new String[] {"development"};
+            return new String[] {version};
         } // getVersion
     } // PropertiesVersionProvider
 
@@ -306,64 +307,80 @@ public class App {
         @Override
         public void run() {
             String guestStdin;
+            TraceLimits selected;
             try {
                 guestStdin = resolveGuestStdin();
-                TraceLimits selected = job.limits();
+                selected = job.limits();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
                     return;
                 } // if
-                if (!selected.equals(TraceLimits.unlimited())
-                        || job.inspection != InspectionPolicy.TRUSTED) {
-                    throw new IllegalArgumentException("Trace controls require --result-envelope");
+                if (job.inspection != InspectionPolicy.TRUSTED) {
+                    throw new IllegalArgumentException(
+                            "Inspection controls require --result-envelope");
                 } // if
             } catch (IllegalArgumentException invalid) {
                 System.err.println(invalid.getMessage());
                 exitHandler.accept(2);
                 return;
             } // try
-            AutoCloseable scope = TraceSession.withEvalEnumHash(job.evalEnumHash);
-            try {
-                String source = readInputFile();
-
+            try (TraceSession session = new TraceSession(selected, job.inspection,
+                    allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 try {
-                    List<CompilationHelper.SourceFile> sourceFiles =
-                            CompilationHelper.parseMultiFileStream(source);
-                    CompilationHelper.SourceFile entryFile =
-                            CompilationHelper.findEntryPoint(sourceFiles);
-                    CompilationUnit preCu = entryFile.ast();
-                    Optional<Path> sourceRoot =
-                            CompilationHelper.findSourceRoot(preCu, getInputPath());
-
-                    try (CompilationResult compilationResult =
-                            CompilationHelper.compile(source, sourceRoot)) {
-                        Optional<Path> parserSourceRoot = sourceRoot.isPresent()
-                                ? sourceRoot
-                                : Optional.of(compilationResult.classPath());
-                        List<CompilationUnit> allCus = discoverAllCompilationUnits(
-                                sourceFiles, sourceRoot, parserSourceRoot);
-
-                        if (format == TraceFormat.MODERN) {
-                            runModernTrace(source, compilationResult, allCus, guestStdin);
-                        } else {
-                            runPyTutorTrace(source, compilationResult, allCus, guestStdin);
-                        } // if
-                    } // try
+                    runOrdinary(session, selected, guestStdin);
                 } catch (Throwable cause) {
-                    System.err.println("Unable to generate trace!");
+                    TraceResult result = session.result(format.name(), null, cause);
+                    boolean stopped = result.status().equals("stopped");
+                    System.err.println(stopped ? "Trace stopped: " + result.stopReason()
+                            + ". Increase the limit or use --unlimited; use --result-envelope"
+                            + " for partial traces." : "Unable to generate trace!");
                     if (verbose) {
                         cause.printStackTrace();
                     } // if
-                    exitHandler.accept(1);
-                } // try
-            } finally {
-                try {
-                    scope.close();
-                } catch (Exception ignored) {
-                    // ignore close failure
+                    exitHandler.accept(stopped ? 3 : 1);
                 } // try
             } // try
         } // run
+
+        /**
+         * Runs ordinary output with bounded tracing and the existing payload shape.
+         * @param session Active tracing session.
+         * @param selected Effective limits.
+         * @param guestStdin Guest input.
+         * @throws Exception On compilation, tracing, or serialization failure.
+         */
+        private void runOrdinary(TraceSession session, TraceLimits selected, String guestStdin)
+                throws Exception {
+            String source = readBoundedSource(session, selected);
+            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source)
+                    .results().count();
+            session.enforce(Math.max(1, files), selected.sourceFiles(),
+                    "source_file_limit");
+            session.phase("compile");
+            List<CompilationHelper.SourceFile> sourceFiles =
+                    CompilationHelper.parseMultiFileStream(source);
+            CompilationHelper.SourceFile entryFile =
+                    CompilationHelper.findEntryPoint(sourceFiles);
+            CompilationUnit preCu = entryFile.ast();
+            Optional<Path> sourceRoot =
+                    CompilationHelper.findSourceRoot(preCu, getInputPath());
+
+            try (CompilationResult compilationResult =
+                    CompilationHelper.compile(source, sourceRoot)) {
+                Optional<Path> parserSourceRoot = sourceRoot.isPresent()
+                        ? sourceRoot
+                        : Optional.of(compilationResult.classPath());
+                List<CompilationUnit> allCus = discoverAllCompilationUnits(
+                        sourceFiles, sourceRoot, parserSourceRoot);
+
+                session.phase("trace");
+                if (format == TraceFormat.MODERN) {
+                    runModernTrace(source, compilationResult, allCus, guestStdin);
+                } else {
+                    runPyTutorTrace(source, compilationResult, allCus, guestStdin);
+                } // if
+            } // try
+        } // runOrdinary
 
         /**
          * Executes an opt-in job, preserving snapshots on recoverable failure.
@@ -447,7 +464,7 @@ public class App {
          * @return Completed snapshots.
          * @throws Exception On compilation or tracing failure.
          */
-        private List<ExecutionSnapshot> executeBoundedSource(
+        List<ExecutionSnapshot> executeBoundedSource(
                 String source, TraceSession session, TraceLimits limits, String guestStdin)
                 throws Exception {
             long files = CompilationHelper.DELIMITER_PATTERN.matcher(source).results().count();
@@ -480,7 +497,7 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          * @return Serializer model.
          */
-        private Object boundedPayload(
+        Object boundedPayload(
                 String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
             if (format == TraceFormat.MODERN) {
                 return new ModernTraceSerializer(removeMainArgs, inlineStrings,
@@ -558,12 +575,12 @@ public class App {
                                 compResult, targetLines, allCus, true, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, chronological);
-                System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else if (breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, snapshot);
-                System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
                         ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
@@ -571,14 +588,14 @@ public class App {
                 if (accumulateBreakpoints) {
                     cs1302.tracer.model.modern.Trace trace =
                             serializer.createBreakpointsTrace(source, guestStdin, snapshots);
-                    System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } else {
                     Map<Integer, ExecutionSnapshot> singlePerBp = snapshots.entrySet().stream()
                             .collect(Collectors.toMap(
                                     Map.Entry::getKey, e -> e.getValue().getLast()));
                     cs1302.tracer.model.modern.Trace trace =
                             serializer.createBreakpointsTrace(source, guestStdin, singlePerBp);
-                    System.out.println(ModernTraceSerializer.getGson().toJson(trace));
+                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } // if
             } // if
         } // runModernTrace
@@ -609,11 +626,11 @@ public class App {
                         DebugTraceHelper.traceChronological(
                                 compResult, targetLines, allCus, true, guestStdin);
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
-                System.out.println(PyTutorSerializer.getGson(pretty).toJson(trace));
+                emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
             } else if (breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
-                System.out.println(pyTutorSnapshot);
+                emitTrace(pyTutorSnapshot);
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
                         ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
@@ -627,17 +644,26 @@ public class App {
                                                      .map(s -> serializer.createTrace(
                                                              source, guestStdin, s))
                                                      .toList()));
-                    System.out.println(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
+                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
                     Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
                             .collect(Collectors.toMap(
                                     Map.Entry::getKey,
                                     e -> serializer.createTrace(
                                             source, guestStdin, e.getValue().getLast())));
-                    System.out.println(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
+                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } // if
             } // if
         } // runPyTutorTrace
+
+        /**
+         * Publishes ordinary JSON only after confirming that no limit stopped the job.
+         * @param json Complete serialized payload.
+         */
+        private void emitTrace(String json) {
+            TraceSession.current().check();
+            System.out.println(json);
+        } // emitTrace
     } // Trace
 
     /** List the breakpoint lines available for a compiled Java program. */

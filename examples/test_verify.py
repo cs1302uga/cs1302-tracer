@@ -28,6 +28,22 @@ class NormalizeTests(unittest.TestCase):
         after["trace"][0]["heap"]["8"].append(["value", 42])
         self.assertNotEqual(normalize(before), normalize(after))
 
+    def test_modern_references_preserve_aliases_and_input_offsets(self):
+        before = {"steps": [{"stack": [{"variables": [{"value": {"ref": 7}},
+                                                   {"value": {"ref": 7}}]}],
+                             "heap": {"7": {"id": 7, "kind": "object", "fields": []}},
+                             "stdinConsumed": "hello", "stdinOffset": 5}]}
+        renamed = copy.deepcopy(before)
+        renamed["steps"][0]["heap"] = {"90": {"id": 90, "kind": "object", "fields": []}}
+        for variable in renamed["steps"][0]["stack"][0]["variables"]:
+            variable["value"]["ref"] = 90
+        self.assertEqual(normalize(before), normalize(renamed))
+        renamed["steps"][0]["heap"]["90"]["id"] = 91
+        self.assertNotEqual(normalize(before), normalize(renamed))
+        renamed["steps"][0]["heap"]["90"]["id"] = 90
+        renamed["steps"][0]["stdinOffset"] = 6
+        self.assertNotEqual(normalize(before), normalize(renamed))
+
     def test_keeps_isolated_legacy_display_objects(self):
         self.assertEqual(normalize({"heap": {"7": ["LIST"]}}),
                          normalize({"heap": {"99": ["LIST"]}}))

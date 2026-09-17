@@ -1059,6 +1059,69 @@ public class AppTest {
   }
 
   @Test
+  void ignoresReadersUnrelatedToStdin() {
+    String program = """
+        public class Main {
+          public static void main(String[] args) throws Exception {
+            String a = new java.util.Scanner("hello").next();
+            String b = new java.io.BufferedReader(new java.io.StringReader("hello")).readLine();
+            System.out.println(a + b);
+          }
+        }
+        """;
+    var trace = com.google.gson.JsonParser.parseString(executeCommand(App.Trace::new,
+        program, "--stdin=hello hello", "-a", "-f=modern").orElseThrow()).getAsJsonObject();
+    for (var step : trace.getAsJsonArray("steps")) {
+      assertThat(step.getAsJsonObject().get("stdinOffset").getAsInt()).isZero();
+    }
+  }
+
+  @Test
+  void tracksCachedNumericTokenWithoutCountingLookahead() {
+    String program = """
+        public class Main {
+          public static void main(String[] args) {
+            java.util.Scanner s = new java.util.Scanner(System.in);
+            boolean ready = s.hasNextInt();
+            int value = s.nextInt();
+            System.out.println(value);
+          }
+        }
+        """;
+    var trace = com.google.gson.JsonParser.parseString(executeCommand(App.Trace::new,
+        program, "--stdin=+0010 20", "-a", "-f=modern").orElseThrow()).getAsJsonObject();
+    for (var element : trace.getAsJsonArray("steps")) {
+      var step = element.getAsJsonObject();
+      int line = step.get("line").getAsInt();
+      assertThat(step.get("stdinOffset").getAsInt()).isEqualTo(line <= 5 ? 0 : 5);
+    }
+  }
+
+  @Test
+  void countsRepeatedIoLinesOncePerPublicRead() {
+    org.junit.jupiter.api.Assumptions.assumeTrue(Runtime.version().feature() >= 25);
+    String program = """
+        public class Main {
+          public static void main(String[] args) {
+            String a = java.lang.IO.readln("prompt: ");
+            String b = java.lang.IO.readln();
+            String c = java.lang.IO.readln();
+            String d = java.lang.IO.readln();
+            System.out.println(a + b + c + d);
+          }
+        }
+        """;
+    var trace = com.google.gson.JsonParser.parseString(executeCommand(App.Trace::new,
+        program, "--stdin=é\r\né\r\n\n", "-a", "-f=modern").orElseThrow()).getAsJsonObject();
+    for (var element : trace.getAsJsonArray("steps")) {
+      var step = element.getAsJsonObject();
+      int line = step.get("line").getAsInt();
+      int expected = line <= 3 ? 0 : line == 4 ? 3 : line == 5 ? 6 : 7;
+      assertThat(step.get("stdinOffset").getAsInt()).as("line %s", line).isEqualTo(expected);
+    }
+  }
+
+  @Test
   @DisplayName("should trace enum with and without eval-enum-hash option")
   void shouldTraceEnumWithAndWithoutEvalEnumHash() {
     String testProgram =

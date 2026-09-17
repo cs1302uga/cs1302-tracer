@@ -304,9 +304,12 @@ For detailed architecture diagrams, design decisions, value extraction mechanics
 
 ## Bounded jobs and future hosted execution
 
-Use `trace --result-envelope` to opt into execution limits, structured failures,
-partial traces, and captured output even when no snapshot completes. Existing
-invocations keep their Python Tutor output. `--inspection FIELDS` inspects object
+Ordinary `trace` runs now have finite defaults, including a 10-second tracing
+deadline. Use `--unlimited` to disable default budgets or override individual limits.
+A limit stop emits no trace on stdout, reports its reason on stderr, and exits 3.
+Successful invocations keep their existing JSON shapes. Use `trace --result-envelope`
+with explicit limits for structured failures, partial traces, and captured output
+even when no snapshot completes. `--inspection FIELDS` inspects object
 fields without calling guest methods and accepts self-contained source bundles.
 
 See [bounded tracing and schema v1](docs/BOUNDED_TRACING.md) for options, accounting,
@@ -317,3 +320,16 @@ A regular guest JVM is not a sandbox; the hosted runner remains a follow-up proj
 `list-breakpoints` reads compiled debug information without executing the guest.
 To regenerate a single example's output, use `./examples/test.sh FILE [OPTIONS...]`.
 Regression verification is separate and never overwrites expected fixtures.
+
+## Input highlighting
+
+`stdinConsumed` and `stdinOffset` describe input logically consumed by completed
+read calls, excluding reader lookahead. Offsets use Java UTF-16 character indices.
+Supported standard reader chains include Scanner and BufferedReader backed by
+`System.in`, and both `java.lang.IO.readln` overloads on JDK 25. Reads from unrelated
+strings or files do not advance supplied stdin. Raw UTF-8 byte reads advance the
+highlight only after a complete character has been read.
+
+Reader tracking uses JDK delegate fields without invoking guest methods. Custom
+reader implementations and alternate character encodings are not guaranteed;
+mixing `IO.readln` with other stdin readers has unspecified behavior in Java.

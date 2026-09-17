@@ -248,3 +248,44 @@ constrain code executed by the guest itself.
 The [result schema](docs/BOUNDED_TRACING.md) documents limits, partial outputs, and
 failure semantics. The [runner contract](docs/RUNNER_CONTRACT.md) defines the
 separate whole-job isolation boundary and authoritative external termination status.
+
+
+## Pre-commit lint and coverage gates
+
+The executable `.githooks/pre-commit` runs Checkstyle first, then coverage. It
+replaces the old formatter hook: nothing is automatically reformatted or re-staged.
+
+`.githooks/pre-commit-checkstyle` exports the Git index to a fresh temporary
+workspace and runs `./mvnw -B -ntp checkstyle:check`. This uses the staged Maven
+configuration and `src/main/resources/cs1302_checks_extended.xml`, with the same
+source scope as the normal build. Partial staging, spaces, and quotes in filenames
+are preserved. Style violations or tool failures block the commit before coverage
+runs. The check runs even without staged Java changes, so configuration changes
+are checked too. To check the working tree manually, run `./mvnw checkstyle:check`.
+
+The opt-in `pre-commit-coverage` Maven profile requires **100% line and branch
+coverage across all production classes**, in addition to the normal build checks.
+Run it directly with `./mvnw -Ppre-commit-coverage clean test`.
+
+The executable `.githooks/pre-commit-coverage` exports the Git index into a temporary
+workspace and runs that command there. It tests staged content only, excludes stale
+coverage data, cleans up afterward, and never formats, stages, or changes files.
+Stage the updated `pom.xml` when first adding the hook. A failing build, test,
+or coverage gate blocks the commit. After running the profile locally, open
+`target/site/jacoco/index.html` to inspect line and branch coverage.
+
+To enable both checks in a checkout using Git's default hooks directory:
+
+```sh
+cat > "$(git rev-parse --git-path hooks)/pre-commit" <<'EOF'
+#!/bin/sh
+set -eu
+exec "$(git rev-parse --show-toplevel)/.githooks/pre-commit" "$@"
+EOF
+chmod +x "$(git rev-parse --git-path hooks)/pre-commit"
+```
+
+This enables lint and coverage without activating the separate pre-push hook.
+Installation is local to each checkout; the scripts and
+Maven profile are tracked in the repository. Git permits local hooks to be bypassed;
+use the same Maven profile in CI if this must also be a merge requirement.

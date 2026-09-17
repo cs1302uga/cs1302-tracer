@@ -1,0 +1,153 @@
+{
+  "breakpoints": {
+    "6": [
+      {
+        "callStack": [
+          {
+            "isHighlighted": true,
+            "line": 6,
+            "locals": [
+              {
+                "final": false,
+                "name": "args",
+                "type": "java.lang.String[]",
+                "value": {
+                  "ref": 1
+                }
+              },
+              {
+                "final": false,
+                "name": "sum",
+                "type": "int",
+                "value": 0
+              },
+              {
+                "final": false,
+                "name": "i",
+                "type": "int",
+                "value": 1
+              }
+            ],
+            "methodName": "main"
+          }
+        ],
+        "event": "step_line",
+        "heap": {
+          "1": {
+            "elements": [],
+            "id": 1,
+            "kind": "array",
+            "type": "java.lang.String[]"
+          }
+        },
+        "line": 6,
+        "method": "main",
+        "statics": [],
+        "stderr": "",
+        "stdinConsumed": "",
+        "stdinOffset": 0,
+        "stdout": "",
+        "step": 1
+      },
+      {
+        "callStack": [
+          {
+            "isHighlighted": true,
+            "line": 6,
+            "locals": [
+              {
+                "final": false,
+                "name": "args",
+                "type": "java.lang.String[]",
+                "value": {
+                  "ref": 1
+                }
+              },
+              {
+                "final": false,
+                "name": "sum",
+                "type": "int",
+                "value": 1
+              },
+              {
+                "final": false,
+                "name": "i",
+                "type": "int",
+                "value": 2
+              }
+            ],
+            "methodName": "main"
+          }
+        ],
+        "event": "step_line",
+        "heap": {
+          "1": {
+            "elements": [],
+            "id": 1,
+            "kind": "array",
+            "type": "java.lang.String[]"
+          }
+        },
+        "line": 6,
+        "method": "main",
+        "statics": [],
+        "stderr": "",
+        "stdinConsumed": "",
+        "stdinOffset": 0,
+        "stdout": "",
+        "step": 2
+      },
+      {
+        "callStack": [
+          {
+            "isHighlighted": true,
+            "line": 6,
+            "locals": [
+              {
+                "final": false,
+                "name": "args",
+                "type": "java.lang.String[]",
+                "value": {
+                  "ref": 1
+                }
+              },
+              {
+                "final": false,
+                "name": "sum",
+                "type": "int",
+                "value": 3
+              },
+              {
+                "final": false,
+                "name": "i",
+                "type": "int",
+                "value": 3
+              }
+            ],
+            "methodName": "main"
+          }
+        ],
+        "event": "step_line",
+        "heap": {
+          "1": {
+            "elements": [],
+            "id": 1,
+            "kind": "array",
+            "type": "java.lang.String[]"
+          }
+        },
+        "line": 6,
+        "method": "main",
+        "statics": [],
+        "stderr": "",
+        "stdinConsumed": "",
+        "stdinOffset": 0,
+        "stdout": "sum = 6\n",
+        "step": 3
+      }
+    ]
+  },
+  "code": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n",
+  "format": "modern",
+  "stdin": ""
+}

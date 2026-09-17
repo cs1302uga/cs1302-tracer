@@ -1,0 +1,140 @@
+{
+  "code": "package cs1302.nodes;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Node head = new Node(\"Beta\");\n        head.setNext(new Node(\"Gamma\"));\n\n        // Prepend \"Alpha\"\n        head = new Node(\"Alpha\", head);\n\n        // Traverse the linked nodes\n        Node curr = head;\n        while (curr != null) {\n            System.out.println(curr.getItem());\n            curr = curr.getNext();\n        } // while\n    } // main\n\n} // Driver\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": true,
+          "line": 18,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "head",
+              "type": "cs1302.nodes.Node",
+              "value": {
+                "ref": 2
+              }
+            },
+            {
+              "final": false,
+              "name": "curr",
+              "type": "cs1302.nodes.Node"
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "fields": [
+            {
+              "final": false,
+              "name": "item",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 3
+              }
+            },
+            {
+              "final": false,
+              "name": "next",
+              "type": "cs1302.nodes.Node",
+              "value": {
+                "ref": 4
+              }
+            }
+          ],
+          "id": 2,
+          "kind": "object",
+          "type": "cs1302.nodes.Node"
+        },
+        "3": {
+          "id": 3,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Alpha"
+        },
+        "4": {
+          "fields": [
+            {
+              "final": false,
+              "name": "item",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 5
+              }
+            },
+            {
+              "final": false,
+              "name": "next",
+              "type": "cs1302.nodes.Node",
+              "value": {
+                "ref": 6
+              }
+            }
+          ],
+          "id": 4,
+          "kind": "object",
+          "type": "cs1302.nodes.Node"
+        },
+        "5": {
+          "id": 5,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Beta"
+        },
+        "6": {
+          "fields": [
+            {
+              "final": false,
+              "name": "item",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 7
+              }
+            },
+            {
+              "final": false,
+              "name": "next",
+              "type": "cs1302.nodes.Node"
+            }
+          ],
+          "id": 6,
+          "kind": "object",
+          "type": "cs1302.nodes.Node"
+        },
+        "7": {
+          "id": 7,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Gamma"
+        }
+      },
+      "line": 18,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "Alpha\nBeta\nGamma\n",
+      "step": 1
+    }
+  ]
+}

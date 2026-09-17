@@ -221,7 +221,7 @@ public final class TraceSession implements AutoCloseable {
         check();
         if (limits.snapshots() != 0 && captured >= limits.snapshots()) {
             stop("snapshot_limit");
-            check();
+            throw new Stopped(reason.get());
         } // if
         extracting = true;
         elements = 0;
@@ -278,7 +278,7 @@ public final class TraceSession implements AutoCloseable {
         check();
         if (limit != 0 && used > limit) {
             stop(failure);
-            check();
+            throw new Stopped(reason.get());
         } // if
     } // enforce
 
@@ -324,6 +324,14 @@ public final class TraceSession implements AutoCloseable {
     public boolean traceAvailable() {
         return process != null;
     } // traceAvailable
+
+    /**
+     * Reports whether all captured states are retained.
+     * @return True for chronological or accumulating jobs.
+     */
+    public boolean accumulates() {
+        return accumulate;
+    } // accumulates
 
     /**
      * Returns a copy of committed snapshots for serialization.
@@ -402,7 +410,8 @@ public final class TraceSession implements AutoCloseable {
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
         enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
         ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
-                drainers.get(1).getBytes(), drainers.get(0).getBytes(), last.sourcePath());
+                drainers.get(1).getBytes(), drainers.get(0).getBytes(), last.sourcePath(),
+                last.stdinConsumed(), last.stdinOffset());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);

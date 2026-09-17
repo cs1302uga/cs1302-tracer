@@ -1,0 +1,78 @@
+{
+  "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": true,
+          "line": 4,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "alice",
+              "type": "Person",
+              "value": {
+                "ref": 2
+              }
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "fields": [
+            {
+              "final": true,
+              "name": "name",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 3
+              }
+            },
+            {
+              "final": true,
+              "name": "age",
+              "type": "int",
+              "value": 42
+            }
+          ],
+          "id": 2,
+          "kind": "object",
+          "type": "Person"
+        },
+        "3": {
+          "id": 3,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Alice"
+        }
+      },
+      "line": 4,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "",
+      "step": 1
+    }
+  ]
+}

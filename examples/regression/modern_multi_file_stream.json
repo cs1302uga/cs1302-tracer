@@ -1,0 +1,63 @@
+{
+  "code": "// --- cs1302/math/Calculator.java ---\npackage cs1302.math;\n\npublic class Calculator {\n\n    public static int multiply(int a, int b) {\n        int result = 0;\n        for (int i = 0; i < b; i++) {\n            result += a;\n        } // for\n        return result;\n    } // multiply\n\n} // Calculator\n\n// --- cs1302/math/Driver.java ---\npackage cs1302.math;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        int x = 4;\n        int y = 3;\n        int product = Calculator.multiply(x, y);\n\n        System.out.printf(\"%d * %d = %d%n\", x, y, product);\n    } // main\n\n} // Driver\n\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "file": "cs1302/math/Driver.java",
+          "isHighlighted": true,
+          "line": 11,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "x",
+              "type": "int",
+              "value": 4
+            },
+            {
+              "final": false,
+              "name": "y",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "final": false,
+              "name": "product",
+              "type": "int",
+              "value": 12
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "file": "cs1302/math/Driver.java",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        }
+      },
+      "line": 11,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "4 * 3 = 12\n",
+      "step": 1
+    }
+  ]
+}

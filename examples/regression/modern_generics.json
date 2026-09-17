@@ -1,0 +1,129 @@
+{
+  "code": "package cs1302.generics;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Pair<String, Integer> score = new Pair<>(\"Alice\", 95);\n        Pair<Integer, Boolean> flag = new Pair<>(101, true);\n\n        System.out.printf(\"Score: %s -> %d%n\", score.getKey(), score.getValue());\n        System.out.printf(\"Flag: %d -> %b%n\", flag.getKey(), flag.getValue());\n    } // main\n\n} // Driver\n",
+  "format": "modern",
+  "stdin": "",
+  "steps": [
+    {
+      "callStack": [
+        {
+          "isHighlighted": true,
+          "line": 11,
+          "locals": [
+            {
+              "final": false,
+              "name": "args",
+              "type": "java.lang.String[]",
+              "value": {
+                "ref": 1
+              }
+            },
+            {
+              "final": false,
+              "name": "score",
+              "type": "cs1302.generics.Pair<java.lang.String, java.lang.Integer>",
+              "value": {
+                "ref": 2
+              }
+            },
+            {
+              "final": false,
+              "name": "flag",
+              "type": "cs1302.generics.Pair<java.lang.Integer, java.lang.Boolean>",
+              "value": {
+                "ref": 3
+              }
+            }
+          ],
+          "methodName": "main"
+        }
+      ],
+      "event": "step_line",
+      "heap": {
+        "1": {
+          "elements": [],
+          "id": 1,
+          "kind": "array",
+          "type": "java.lang.String[]"
+        },
+        "2": {
+          "fields": [
+            {
+              "final": false,
+              "name": "key",
+              "type": "java.lang.String",
+              "value": {
+                "ref": 4
+              }
+            },
+            {
+              "final": false,
+              "name": "value",
+              "type": "java.lang.Integer",
+              "value": {
+                "ref": 5
+              }
+            }
+          ],
+          "id": 2,
+          "kind": "object",
+          "type": "cs1302.generics.Pair<java.lang.String, java.lang.Integer>"
+        },
+        "3": {
+          "fields": [
+            {
+              "final": false,
+              "name": "key",
+              "type": "java.lang.Integer",
+              "value": {
+                "ref": 6
+              }
+            },
+            {
+              "final": false,
+              "name": "value",
+              "type": "java.lang.Boolean",
+              "value": {
+                "ref": 7
+              }
+            }
+          ],
+          "id": 3,
+          "kind": "object",
+          "type": "cs1302.generics.Pair<java.lang.Integer, java.lang.Boolean>"
+        },
+        "4": {
+          "id": 4,
+          "kind": "string",
+          "type": "java.lang.String",
+          "value": "Alice"
+        },
+        "5": {
+          "id": 5,
+          "kind": "box",
+          "type": "java.lang.Integer",
+          "value": 95
+        },
+        "6": {
+          "id": 6,
+          "kind": "box",
+          "type": "java.lang.Integer",
+          "value": 101
+        },
+        "7": {
+          "id": 7,
+          "kind": "box",
+          "type": "java.lang.Boolean",
+          "value": true
+        }
+      },
+      "line": 11,
+      "method": "main",
+      "statics": [],
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0,
+      "stdout": "Score: Alice -> 95\nFlag: 101 -> true\n",
+      "step": 1
+    }
+  ]
+}
