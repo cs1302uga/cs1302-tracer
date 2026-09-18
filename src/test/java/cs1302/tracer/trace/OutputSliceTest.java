@@ -48,6 +48,8 @@ class OutputSliceTest {
         OutputSlice sub = slice.subSlice(7, 5);
         assertThat(sub.asUtf8String()).isEqualTo("World");
         assertThat(sub.length()).isEqualTo(5);
+        assertThat(sub.toByteArray()).isEqualTo("World".getBytes(StandardCharsets.UTF_8));
+        assertThat(slice.subSlice(0, 5).toByteArray()).isEqualTo("Hello".getBytes(StandardCharsets.UTF_8));
 
         OutputSlice clampedSub = slice.subSlice(7, 100);
         assertThat(clampedSub.asUtf8String()).isEqualTo("World!");
@@ -241,4 +243,26 @@ class OutputSliceTest {
         assertThat(nullSnapshot.sourcePath()).isEmpty();
         assertThat(nullSnapshot.stdinConsumed()).isEmpty();
     } // testExecutionSnapshotWithSlices
+
+    @Test
+    @DisplayName("defensively copies caller arrays to protect immutability")
+    void testImmutabilityDefensiveCopy() {
+        byte[] source = "immutable text".getBytes(StandardCharsets.UTF_8);
+        OutputSlice fullSlice = OutputSlice.from(source);
+        OutputSlice subSlice = OutputSlice.from(source, 0, 9);
+
+        source[0] = (byte) 'X';
+
+        assertThat(fullSlice.asUtf8String()).isEqualTo("immutable text");
+        assertThat(fullSlice.byteAt(0)).isEqualTo((byte) 'i');
+        assertThat(subSlice.asUtf8String()).isEqualTo("immutable");
+        assertThat(subSlice.byteAt(0)).isEqualTo((byte) 'i');
+
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(
+                List.of(), List.of(), Map.of(),
+                source, source, Optional.empty());
+        source[0] = (byte) 'Y';
+        assertThat(snapshot.stdoutSlice().byteAt(0)).isEqualTo((byte) 'X');
+        assertThat(snapshot.stderrSlice().byteAt(0)).isEqualTo((byte) 'X');
+    } // testImmutabilityDefensiveCopy
 } // OutputSliceTest

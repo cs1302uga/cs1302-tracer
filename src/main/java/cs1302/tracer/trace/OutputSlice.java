@@ -52,7 +52,7 @@ public final class OutputSlice {
         if (bytes == null || bytes.length == 0) {
             return EMPTY_SLICE;
         } // if
-        return new OutputSlice(bytes, null, 0, bytes.length);
+        return new OutputSlice(bytes.clone(), null, 0, bytes.length);
     } // from
 
     /**
@@ -69,7 +69,9 @@ public final class OutputSlice {
         } // if
         int safeOffset = Math.max(0, offset);
         int safeLength = Math.min(length, bytes.length - safeOffset);
-        return new OutputSlice(bytes, null, safeOffset, safeLength);
+        return new OutputSlice(
+                Arrays.copyOfRange(bytes, safeOffset, safeOffset + safeLength),
+                null, 0, safeLength);
     } // from
 
     /**
