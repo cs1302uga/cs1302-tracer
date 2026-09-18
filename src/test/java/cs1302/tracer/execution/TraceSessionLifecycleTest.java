@@ -165,6 +165,17 @@ class TraceSessionLifecycleTest {
     }
 
     @Test
+    void stopWithDeadProcessDoesNotDestroyProcess() {
+        var process = new GuestProcess();
+        process.alive = false;
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            session.attach(vm(process));
+            session.stop("dead_guest");
+            assertThat(process.alive).isFalse();
+        } // try
+    }
+
+    @Test
     void failuresAreClassifiedByPhaseWithoutRequiringAGuest() {
         for (String phase : List.of("source", "compile", "trace", "serialize")) {
             try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {

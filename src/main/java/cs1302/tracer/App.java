@@ -9,6 +9,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import cs1302.tracer.CompilationHelper.CompilationResult;
+import cs1302.tracer.batch.BatchTraceService;
 import cs1302.tracer.execution.JobOptions;
 import cs1302.tracer.execution.TraceLimits;
 import cs1302.tracer.execution.TraceSession;
@@ -26,6 +27,8 @@ import cs1302.tracer.trace.ExecutionSnapshot;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -110,6 +113,7 @@ public class App {
     public static int execute(String[] args) {
         return new CommandLine(new App())
                 .addSubcommand(new Trace())
+                .addSubcommand(new BatchTrace())
                 .addSubcommand(new ListBreakpoints())
                 .addSubcommand(new ShowLicenses())
                 .execute(args);
@@ -125,6 +129,72 @@ public class App {
         int exitCode = execute(args);
         systemExitHandler.accept(exitCode);
     } // main
+
+    /**
+     * Parse the given Java source code string with optional source root for type resolution.
+     *
+     * @param source The Java source code to parse.
+     * @param sourceRoot The root directory where source files for the program are located.
+     * @return The parsed Java source code.
+     * @throws IllegalArgumentException If parsing failed.
+     */
+    public static CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
+        CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
+        combinedTypeSolver.add(new ReflectionTypeSolver());
+        sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
+
+        ParserConfiguration config = new ParserConfiguration()
+                .setSymbolResolver(symbolSolver)
+                .setLanguageLevel(LanguageLevel.CURRENT);
+
+        return new com.github.javaparser.JavaParser(config)
+                .parse(source)
+                .getResult()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Failed to parse Java source with symbol solver"));
+    } // parseSource
+
+    /**
+     * Discovers and parses all compilation units in the source files and source root.
+     *
+     * @param sourceFiles Input source files.
+     * @param sourceRoot Optional source root path.
+     * @param parserSourceRoot Parser type resolution path.
+     * @return List of parsed CompilationUnits.
+     */
+    public static List<CompilationUnit> discoverAllCompilationUnits(
+            List<CompilationHelper.SourceFile> sourceFiles,
+            Optional<Path> sourceRoot,
+            Optional<Path> parserSourceRoot) {
+        List<CompilationUnit> allCus = new ArrayList<>();
+        Set<String> parsedPaths = new HashSet<>();
+        for (CompilationHelper.SourceFile sf : sourceFiles) {
+            allCus.add(parseSource(sf.content(), parserSourceRoot));
+            parsedPaths.add(sf.relativePath().replace('\\', '/'));
+        } // for
+        if (sourceRoot.isPresent()) {
+            try (var stream = Files.walk(sourceRoot.get())) {
+                List<Path> javaFiles = stream
+                        .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
+                        .toList();
+                for (Path p : javaFiles) {
+                    String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
+                    if (!parsedPaths.contains(rel)) {
+                        try {
+                            allCus.add(parseSource(Files.readString(p), parserSourceRoot));
+                            parsedPaths.add(rel);
+                        } catch (Exception ignored) {
+                            // ignore parse errors on unreferenced files
+                        } // try
+                    } // if
+                } // for
+            } catch (Exception ignored) {
+                // ignore file discovery errors
+            } // try
+        } // if
+        return allCus;
+    } // discoverAllCompilationUnits
 
     /** Base class that holds common CLI parameters. */
     @Command
@@ -145,7 +215,7 @@ public class App {
                 description = "Pretty-print JSON output.")
         boolean pretty = false;
 
-        Consumer<Integer> exitHandler = System::exit;
+        public Consumer<Integer> exitHandler = System::exit;
 
         /**
          * Read the entirety of {@code input} into a string.
@@ -203,20 +273,7 @@ public class App {
          * @throws ParseProblemException If parsing failed.
          */
         protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
-            CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
-            combinedTypeSolver.add(new ReflectionTypeSolver());
-            sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
-            JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
-
-            ParserConfiguration config = new ParserConfiguration()
-                    .setSymbolResolver(symbolSolver)
-                    .setLanguageLevel(LanguageLevel.CURRENT);
-
-            return new com.github.javaparser.JavaParser(config)
-                    .parse(source)
-                    .getResult()
-                    .orElseThrow(() -> new IllegalArgumentException(
-                            "Failed to parse Java source with symbol solver"));
+            return App.parseSource(source, sourceRoot);
         } // parseSource
     } // CommandBase
 
@@ -533,33 +590,7 @@ public class App {
                 List<CompilationHelper.SourceFile> sourceFiles,
                 Optional<Path> sourceRoot,
                 Optional<Path> parserSourceRoot) {
-            List<CompilationUnit> allCus = new ArrayList<>();
-            Set<String> parsedPaths = new HashSet<>();
-            for (CompilationHelper.SourceFile sf : sourceFiles) {
-                allCus.add(parseSource(sf.content(), parserSourceRoot));
-                parsedPaths.add(sf.relativePath().replace('\\', '/'));
-            } // for
-            if (sourceRoot.isPresent()) {
-                try (var stream = Files.walk(sourceRoot.get())) {
-                    List<Path> javaFiles = stream
-                            .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
-                            .toList();
-                    for (Path p : javaFiles) {
-                        String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
-                        if (!parsedPaths.contains(rel)) {
-                            try {
-                                allCus.add(parseSource(Files.readString(p), parserSourceRoot));
-                                parsedPaths.add(rel);
-                            } catch (Exception ignored) {
-                                // ignore parse errors on unreferenced files
-                            } // try
-                        } // if
-                    } // for
-                } catch (Exception ignored) {
-                    // ignore file discovery errors
-                } // try
-            } // if
-            return allCus;
+            return App.discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
         } // discoverAllCompilationUnits
 
         /**
@@ -696,6 +727,64 @@ public class App {
             System.out.println(json);
         } // emitTrace
     } // Trace
+
+    /** Run batch traces over NDJSON. */
+    @Command(
+            name = "batch-trace",
+            description = "Execute multiple trace jobs over an NDJSON stream reusing "
+                    + "persistent guest JVM sessions.",
+            mixinStandardHelpOptions = true)
+    public static class BatchTrace implements Runnable {
+
+        @Option(
+                names = {"--workers", "-w"},
+                description = "Number of persistent worker sessions (default: ${DEFAULT-VALUE}).",
+                defaultValue = "1")
+        int workers = 1;
+
+        @Option(
+                names = {"--input", "-i"},
+                description = "Input path to NDJSON file (defaults to stdin if omitted).")
+        File input = null;
+
+        @Option(
+                names = {"--max-jobs-per-worker"},
+                description = "Maximum jobs before recycling a worker process "
+                        + "(default: ${DEFAULT-VALUE}).",
+                defaultValue = "100")
+        int maxJobsPerWorker = 100;
+
+        @Option(
+                names = {"--pretty", "-p"},
+                description = "Pretty-print output JSON.")
+        boolean pretty = false;
+
+        public Consumer<Integer> exitHandler = System::exit;
+
+        /** Constructs a BatchTrace command. */
+        public BatchTrace() {} // BatchTrace
+
+        @Override
+        public void run() {
+            try (BatchTraceService service = new BatchTraceService(
+                    workers, maxJobsPerWorker, pretty)) {
+                InputStream is = input != null
+                        ? Files.newInputStream(input.toPath()) : System.in;
+                try (OutputStreamWriter writer = new OutputStreamWriter(
+                        System.out, StandardCharsets.UTF_8)) {
+                    service.processStream(is, writer);
+                } finally {
+                    if (input != null) {
+                        is.close();
+                    } // if
+                } // try
+            } catch (Exception e) {
+                System.err.println("Batch trace failed: " + e.getMessage());
+                exitHandler.accept(1);
+            } // try
+        } // run
+    } // BatchTrace
+
 
     /** List the breakpoint lines available for a compiled Java program. */
     @Command(

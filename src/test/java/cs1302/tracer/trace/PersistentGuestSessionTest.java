@@ -1,0 +1,224 @@
+package cs1302.tracer.trace;
+
+import com.github.javaparser.StaticJavaParser;
+import cs1302.tracer.CompilationHelper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+/**
+ * Unit tests verifying lifecycle, sequential execution, and reuse of PersistentGuestSession.
+ */
+class PersistentGuestSessionTest {
+
+
+    private static final String HELPER_AND_CAUGHT_EXCEPTION = """
+            public class HelperTest {
+                public static void main(String[] args) {
+                    helper();
+                    try {
+                        throw new RuntimeException("caught in student");
+                    } catch (RuntimeException e) {
+                        int recovered = 99;
+                    }
+                }
+                private static int helper() {
+                    return 42;
+                }
+            }
+            """;
+
+    private static final String LOOP_SOURCE = """
+            public class JobLoop {
+                public static void main(String[] args) {
+                    for (int i = 0; i < 2; i++) {
+                        int x = 42;
+                    }
+                }
+            }
+            """;
+
+    private static final String JOB1_SOURCE = """
+            public class JobOne {
+                public static void main(String[] args) {
+                    int a = 10;
+                    int b = 20;
+                    int sum = a + b;
+                    System.out.println("Sum: " + sum);
+                }
+            }
+            """;
+
+    private static final String JOB2_SOURCE = """
+            public class JobTwo {
+                public static void main(String[] args) {
+                    String msg = "Hello Persistent";
+                    System.out.println(msg);
+                }
+            }
+            """;
+
+    private static final String INPUT_JOB_SOURCE = """
+            import java.util.Scanner;
+
+            public class InputJob {
+                public static void main(String[] args) {
+                    Scanner sc = new Scanner(System.in);
+                    String word = sc.next();
+                    int num = sc.nextInt();
+                    System.out.println(word + ":" + num);
+                }
+            }
+            """;
+
+    private static final String EXCEPTION_JOB_SOURCE = """
+            public class ExceptionJob {
+                public static void main(String[] args) {
+                    int x = 10;
+                    int y = 0;
+                    int z = x / y;
+                }
+            }
+            """;
+
+    @Test
+    @DisplayName("Executes multiple jobs sequentially reusing a single persistent guest session")
+    void sequentialJobsReusingSession() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            assertThat(session.isAlive()).isTrue();
+            assertThat(session.completedJobCount()).isEqualTo(0);
+
+            // Job 1
+            var ast1 = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr1 = CompilationHelper.compile(JOB1_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps1 = session.traceWithSpecs(
+                        cr1, List.of(BreakpointSpec.of(6)), List.of(ast1), "", false);
+                assertThat(snaps1).containsKey(6);
+                ExecutionSnapshot snap1 = snaps1.get(6).getFirst();
+                assertThat(snap1.stack().getLast().visibleVariables()).anyMatch(
+                        v -> "sum".equals(v.identifier()) && v.value() instanceof TraceValue.Primitive.Integer val && val.value() == 30);
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(1);
+            assertThat(session.isAlive()).isTrue();
+
+            // Job 2 (accumulate = true)
+            var ast2 = StaticJavaParser.parse(JOB2_SOURCE);
+            try (var cr2 = CompilationHelper.compile(JOB2_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps2 = session.traceWithSpecs(
+                        cr2, List.of(BreakpointSpec.of(4)), List.of(ast2), "", true);
+                assertThat(snaps2).containsKey(4);
+                ExecutionSnapshot snap2 = snaps2.get(4).getFirst();
+                assertThat(snap2.stack().getLast().visibleVariables()).anyMatch(
+                        v -> "msg".equals(v.identifier()) && v.value() instanceof TraceValue.Reference);
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(2);
+
+            // Job 3 with input
+            var ast3 = StaticJavaParser.parse(INPUT_JOB_SOURCE);
+            try (var cr3 = CompilationHelper.compile(INPUT_JOB_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps3 = session.traceWithSpecs(
+                        cr3, List.of(BreakpointSpec.of(8), BreakpointSpec.of(-1)), List.of(ast3), "tracer 42\n", false);
+                assertThat(snaps3).containsKey(8);
+                ExecutionSnapshot snap3 = snaps3.get(8).getFirst();
+                assertThat(snap3.stack().getLast().visibleVariables()).anyMatch(
+                        v -> "num".equals(v.identifier()) && v.value() instanceof TraceValue.Primitive.Integer val && val.value() == 42);
+                assertThat(snaps3).containsKey(-1);
+                ExecutionSnapshot exitSnap = snaps3.get(-1).getFirst();
+                assertThat(exitSnap.stdoutSlice().asUtf8String()).contains("tracer:42");
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(3);
+
+            // Job 4 chronological
+            var ast4 = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr4 = CompilationHelper.compile(JOB1_SOURCE)) {
+                List<ExecutionSnapshot> chrono = session.traceChronologicalWithSpecs(
+                        cr4, List.of(BreakpointSpec.of(3), BreakpointSpec.of(4), BreakpointSpec.of(5)),
+                        List.of(ast4), "");
+                assertThat(chrono).isNotEmpty();
+
+                // Chronological trace through loop covering same top frame suppression
+                var astLoop = StaticJavaParser.parse(LOOP_SOURCE);
+                try (var crLoop = CompilationHelper.compile(LOOP_SOURCE)) {
+                    List<ExecutionSnapshot> loopSnaps = session.traceChronologicalWithSpecs(
+                            crLoop, List.of(BreakpointSpec.of(4)), List.of(astLoop), "");
+                    assertThat(loopSnaps).hasSize(1);
+                } // try
+                // Chronological with duplicate line numbers to test suppression
+                List<ExecutionSnapshot> dups = session.traceChronologicalWithSpecs(
+                        cr4, List.of(BreakpointSpec.of(4), BreakpointSpec.of(4)), List.of(ast4), "");
+                assertThat(dups).isNotEmpty();
+
+                // Trace with null specs and null stdin
+                Map<Integer, List<ExecutionSnapshot>> nullSpecs = session.traceWithSpecs(
+                        cr4, null, List.of(ast4), null, true);
+                assertThat(nullSpecs).isNotEmpty();
+
+                // Trace with safeSpecs not containing -1 and snapMainEnd = false
+                Map<Integer, List<ExecutionSnapshot>> noExitSpecs = session.traceWithSpecs(
+                        cr4, List.of(BreakpointSpec.of(4)), List.of(ast4), "", false);
+                assertThat(noExitSpecs).containsKey(4);
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(8);
+        } // try
+    } // sequentialJobsReusingSession
+
+    @Test
+    @DisplayName("Handles unhandled guest exceptions and recovers for subsequent runs")
+    void handlesExceptionAndRecovers() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var astEx = StaticJavaParser.parse(EXCEPTION_JOB_SOURCE);
+            try (var crEx = CompilationHelper.compile(EXCEPTION_JOB_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        crEx, List.of(BreakpointSpec.of(4)), List.of(astEx), "", false);
+                assertThat(snaps).containsKey(5);
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(1);
+            assertThat(session.isAlive()).isTrue();
+
+            // Run a clean job right after the exception to ensure warm recovery
+            var astClean = StaticJavaParser.parse(JOB2_SOURCE);
+            try (var crClean = CompilationHelper.compile(JOB2_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> cleanSnaps = session.traceWithSpecs(
+                        crClean, List.of(BreakpointSpec.of(4)), List.of(astClean), "", false);
+                assertThat(cleanSnaps).containsKey(4);
+            } // try
+            assertThat(session.completedJobCount()).isEqualTo(2);
+        } // try
+    } // handlesExceptionAndRecovers
+
+    @Test
+    @DisplayName("Throws IllegalStateException when attempting to trace on a closed session")
+    void closedSessionRejectsTrace() throws Exception {
+        PersistentGuestSession session = PersistentGuestSession.create();
+        session.close();
+        assertThat(session.isAlive()).isFalse();
+
+        // Repeated close is idempotent
+        session.close();
+
+        var ast = StaticJavaParser.parse(JOB1_SOURCE);
+        try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+            assertThatThrownBy(() -> session.traceWithSpecs(
+                    cr, List.of(BreakpointSpec.of(3)), List.of(ast), "", false))
+                    .isInstanceOf(IllegalStateException.class);
+        } // try
+    } // closedSessionRejectsTrace
+
+    @Test
+    @DisplayName("Handles helper method return and caught exception inside student code")
+    void handlesHelperAndCaughtException() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(HELPER_AND_CAUGHT_EXCEPTION);
+            try (var cr = CompilationHelper.compile(HELPER_AND_CAUGHT_EXCEPTION)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        cr, List.of(BreakpointSpec.of(7)), List.of(ast), "", false);
+                assertThat(snaps).containsKey(7);
+            } // try
+        } // try
+    } // handlesHelperAndCaughtException
+}

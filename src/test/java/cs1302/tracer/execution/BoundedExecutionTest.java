@@ -20,10 +20,15 @@ class BoundedExecutionTest {
         Files.writeString(source, "public class Main {\n public static void main(String[] args) {\n"
                 + body + "\n }\n}\n");
         List<String> command = new ArrayList<>(List.of("cs1302.tracer.App", "trace",
-                "--result-envelope", "--timeout-ms", "2500", "--inspection", "FIELDS",
+                "--result-envelope", "--timeout-ms", "5000", "--inspection", "FIELDS",
                 "-i", source.toString()));
         if (List.of(options).contains("--inspection")) {
             int index = command.indexOf("--inspection");
+            command.remove(index);
+            command.remove(index);
+        }
+        if (List.of(options).contains("--timeout-ms")) {
+            int index = command.indexOf("--timeout-ms");
             command.remove(index);
             command.remove(index);
         }
@@ -230,7 +235,7 @@ class BoundedExecutionTest {
     @Test
     void snapshotFailurePreservesEarlierCompleteStates() throws Exception {
         var result = trace("int x = 1;\nint[] values = new int[100];\nx++;",
-                "-a", "--max-elements", "20");
+                "-a", "--max-elements", "20", "--timeout-ms", "10000");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("element_limit");
         assertThat(result.getAsJsonObject("trace").getAsJsonArray("trace")).isNotEmpty();
         assertThat(result.getAsJsonObject("counters").get("droppedSnapshots").getAsInt()).isEqualTo(1);

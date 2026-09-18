@@ -58,6 +58,7 @@ java -jar target/code-tracer-jar-with-dependencies.jar [COMMAND] [OPTIONS]
 | Subcommand | Description |
 | :--- | :--- |
 | `trace` | Compiles and traces execution of a Java program. |
+| `batch-trace` | Executes multiple trace jobs over an NDJSON stream reusing persistent guest JVM sessions. |
 | `list-breakpoints` | Lists valid executable breakpoint lines for the source. |
 | `show-licenses` | Displays open-source software license notices. |
 
@@ -169,6 +170,36 @@ Or disable default budget ceilings for large interactive runs:
 java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java --unlimited -a
 ```
 
+#### 7. Batch Mode Tracing (High-Throughput NDJSON)
+
+Run multiple trace jobs over standard input or from a file without paying cold JVM startup or JDWP debugger socket handshake costs for each run:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar batch-trace -i ./jobs.ndjson
+```
+
+Or stream jobs directly via standard input and process concurrently with multiple worker sessions:
+
+```bash
+cat jobs.ndjson | java -jar target/code-tracer-jar-with-dependencies.jar batch-trace --workers 4
+```
+
+##### Input Format (NDJSON)
+
+Each line is a JSON object with job options:
+
+```json
+{"id":"job-1","source":"public class Hello { public static void main(String[] args) { System.out.println(42); } }","format":"modern","allBreakpoints":true,"typeStyle":"simple"}
+```
+
+##### Output Format (NDJSON)
+
+Each output line contains the job correlation `id` and versioned `TraceResult`:
+
+```json
+{"id":"job-1","result":{"version":"1.0","format":"modern","status":"completed","complete":true,"trace":{"source":"...","steps":[...]}}}
+```
+
 #### 8. Inspect Valid Breakpoints
 
 Show colorized executable lines in the terminal:
@@ -273,6 +304,25 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints]
 | `--verbose` | `-v` | Output messages about what the tracer is doing. |
 | `--help` | `-h` | Show help message and exit. |
 | `--version` | `-V` | Print version information and exit. |
+
+---
+
+### `batch-trace` Options
+
+```text
+Usage: code-tracer batch-trace [-hpV] [-i=<input>]
+                               [--max-jobs-per-worker=<maxJobsPerWorker>]
+                               [-w=<workers>]
+```
+
+| Option | Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--input=<file>` | `-i` | `stdin` | Input path to NDJSON file (defaults to `stdin` if omitted). |
+| `--workers=<workers>` | `-w` | `1` | Number of persistent worker sessions running concurrently. |
+| `--max-jobs-per-worker=<num>` | | `100` | Maximum jobs before recycling a worker process. |
+| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
+| `--help` | `-h` | | Show help message and exit. |
+| `--version` | `-V` | | Print version information and exit. |
 
 ---
 
