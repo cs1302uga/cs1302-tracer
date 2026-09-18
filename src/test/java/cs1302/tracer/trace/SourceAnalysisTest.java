@@ -93,6 +93,11 @@ class SourceAnalysisTest {
                 package sample;
                 public class Unresolved {
                     static UnknownSam lambda = x -> x;
+                    void test() {
+                        UnknownSam localLambda = x -> x;
+                        localLambda = x -> x;
+                        this.lambda = x -> x;
+                    }
                 }
                 """;
         CompilationUnit cu = new JavaParser().parse(unresolvedCode).getResult().orElseThrow();
@@ -100,5 +105,10 @@ class SourceAnalysisTest {
 
         assertThat(analysis.findClassDeclaration("sample.Unresolved")).isPresent();
         assertThat(analysis.findStaticLambdaImplementation("sample.Unresolved", "lambda")).isEmpty();
+        assertThat(analysis.lambdaMethodAssignments().getOrDefault("sample.Unresolved.test()", List.of())).isEmpty();
+
+        var lambdas = cu.findAll(com.github.javaparser.ast.expr.LambdaExpr.class);
+        assertThatThrownBy(() -> DebugTraceHelper.tryImplementLambdaSam(lambdas.get(0)))
+                .isInstanceOf(RuntimeException.class);
     } // testIsolatesLambdaResolutionFailures
 } // SourceAnalysisTest

@@ -1799,41 +1799,7 @@ public class DebugTraceHelper {
             } // if
             for (MethodDeclaration m : cu.findAll(MethodDeclaration.class)) {
                 String sig = resolveMethodSignature(m);
-                List<LambdaAssignment> assignments = new ArrayList<>();
-
-                for (VariableDeclarator d : m.findAll(VariableDeclarator.class)) {
-                    if (d.getInitializer().map(Expression::isLambdaExpr).orElse(false)) {
-                        tryImplementLambdaSam(d.getInitializer().get().asLambdaExpr())
-                                .ifPresent(impl -> assignments.add(new LambdaAssignment(
-                                        d.getNameAsString(),
-                                        d.getRange().map(r -> r.begin.line).orElse(0),
-                                        impl)));
-                    } // if
-                } // for
-
-                for (AssignExpr a : m.findAll(AssignExpr.class)) {
-                    if (a.getValue().isLambdaExpr()) {
-                        String varName = null;
-                        if (a.getTarget().isNameExpr()) {
-                            varName = a.getTarget().asNameExpr().getNameAsString();
-                        } else {
-                            if (a.getTarget().isFieldAccessExpr()) {
-                                varName = a.getTarget().asFieldAccessExpr().getNameAsString();
-                            } // if
-                        } // if
-                        if (varName != null) {
-                            final String finalVarName = varName;
-                            tryImplementLambdaSam(a.getValue().asLambdaExpr())
-                                    .ifPresent(impl -> assignments.add(new LambdaAssignment(
-                                            finalVarName,
-                                            a.getRange().map(r -> r.begin.line).orElse(0),
-                                            impl)));
-                        } // if
-                    } // if
-                } // for
-
-                assignments.sort(Comparator.comparingInt(LambdaAssignment::lineNumber));
-                lambdaMap.put(sig, assignments);
+                lambdaMap.put(sig, extractMethodLambdaAssignments(m));
 
                 Set<String> finals = m.findAll(VariableDeclarationExpr.class).stream()
                         .filter(v -> v.getModifiers().contains(Modifier.finalModifier()))
@@ -1845,6 +1811,58 @@ public class DebugTraceHelper {
             } // for
         } // for
     } // buildLambdaAndFinalMaps
+
+    /**
+     * Extracts lambda assignments from a method declaration.
+     *
+     * @param m MethodDeclaration AST node.
+     * @return List of lambda assignments.
+     */
+    private static List<LambdaAssignment> extractMethodLambdaAssignments(MethodDeclaration m) {
+        List<LambdaAssignment> assignments = new ArrayList<>();
+
+        for (VariableDeclarator d : m.findAll(VariableDeclarator.class)) {
+            if (d.getInitializer().map(Expression::isLambdaExpr).orElse(false)) {
+                try {
+                    tryImplementLambdaSam(d.getInitializer().get().asLambdaExpr())
+                            .ifPresent(impl -> assignments.add(new LambdaAssignment(
+                                    d.getNameAsString(),
+                                    d.getRange().map(r -> r.begin.line).orElse(0),
+                                    impl)));
+                } catch (RuntimeException e) {
+                    // Ignore unresolved local lambdas
+                } // try
+            } // if
+        } // for
+
+        for (AssignExpr a : m.findAll(AssignExpr.class)) {
+            if (a.getValue().isLambdaExpr()) {
+                String varName = null;
+                if (a.getTarget().isNameExpr()) {
+                    varName = a.getTarget().asNameExpr().getNameAsString();
+                } else {
+                    if (a.getTarget().isFieldAccessExpr()) {
+                        varName = a.getTarget().asFieldAccessExpr().getNameAsString();
+                    } // if
+                } // if
+                if (varName != null) {
+                    final String finalVarName = varName;
+                    try {
+                        tryImplementLambdaSam(a.getValue().asLambdaExpr())
+                                .ifPresent(impl -> assignments.add(new LambdaAssignment(
+                                        finalVarName,
+                                        a.getRange().map(r -> r.begin.line).orElse(0),
+                                        impl)));
+                    } catch (RuntimeException e) {
+                        // Ignore unresolved local lambdas
+                    } // try
+                } // if
+            } // if
+        } // for
+
+        assignments.sort(Comparator.comparingInt(LambdaAssignment::lineNumber));
+        return assignments;
+    } // extractMethodLambdaAssignments
 
     /**
      * Resolves a method qualified signature string.
