@@ -43,6 +43,7 @@ public final class TraceSession implements AutoCloseable {
     private volatile boolean finished;
     private long started;
     private Thread watchdog;
+    private java.util.function.Consumer<List<Snapshot>> checkpoint = snapshots -> { };
     private long captured;
     private long elements;
     private long buildingBytes;
@@ -349,7 +350,16 @@ public final class TraceSession implements AutoCloseable {
         completed.add(snapshot);
         sizes.put(snapshot, size);
         retainedBytes += size;
+        checkpoint.accept(List.copyOf(completed));
     } // commit
+
+    /**
+     * Registers a checkpoint publisher that observes the authoritative retained set.
+     * @param publisher Bounded side-channel writer.
+     */
+    public void checkpoints(java.util.function.Consumer<List<Snapshot>> publisher) {
+        checkpoint = publisher;
+    } // checkpoints
 
     /**
      * Records an observed uncaught exception without losing later output.
@@ -496,6 +506,7 @@ public final class TraceSession implements AutoCloseable {
             sizes.remove(last);
             sizes.put(updated, size + extra * 15);
             retainedBytes += extra * 15;
+            checkpoint.accept(List.copyOf(completed));
         } // if
         return updated;
     } // updateOutput

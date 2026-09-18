@@ -1,7 +1,10 @@
 # Contract for a separate Linux submission runner
 
-Status: integration requirements for a future runner. This repository does not
-implement or validate a malicious-code isolation backend.
+Status: integration requirements implemented and exercised in
+[`cs1302-tracer-runner`](https://github.com/cs1302uga/cs1302-tracer-runner).
+This repository supplies tracing and checkpoint production. Container lifecycle,
+admission, artifact recovery, and Linux containment tests live in the runner
+repository. Automated tests do not replace independent deployment review.
 
 Trusted instructor examples may use Tracer directly on supported desktop/server
 platforms. Treat hosted student submissions as malicious by default. Isolate the

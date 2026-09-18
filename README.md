@@ -473,3 +473,10 @@ highlight only after a complete character has been read.
 Reader tracking uses JDK delegate fields without invoking guest methods. Custom
 reader implementations and alternate character encodings are not guaranteed;
 mixing `IO.readln` with other stdin readers has unspecified behavior in Java.
+
+
+The separate [submission runner](https://github.com/cs1302uga/cs1302-tracer-runner)
+provides Linux Docker/Podman containment, persistent admission, and restart recovery.
+Opt-in `--checkpoint-job-id ID` (with `--result-envelope`) writes bounded checkpoint
+records to a framed stderr side channel while preserving the final stdout envelope.
+See [the job protocol](docs/JOB_PROTOCOL.md) for the transport and recovery contract.

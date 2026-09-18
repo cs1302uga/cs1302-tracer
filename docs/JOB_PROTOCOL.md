@@ -1,8 +1,11 @@
 # Supervised job and checkpoint protocol
 
-Status: implementation contract for the separate `cs1302-tracer-runner` project.
-Tracer currently implements qualified selectors; whole-job supervision, isolation,
-and checkpoint transport are not yet implemented. This contract extends the
+Status: implemented by Tracer and the separate
+[`cs1302-tracer-runner`](https://github.com/cs1302uga/cs1302-tracer-runner) project.
+The runner provides bounded container execution, persistent admission, restart
+reconciliation, and opt-in process-kill checkpoint recovery. Hosted deployment
+still requires transport/authentication controls and independent security review.
+This contract extends the
 [runner requirements](RUNNER_CONTRACT.md) without changing Tracer envelope v1.
 
 ## Job requests
@@ -105,10 +108,17 @@ JSON document. The runner owns transport and persistence outside the guest's
 writable filesystem. Its size limits apply during reading, not after buffering
 an entire record. Worker records remain untrusted.
 
+Tracer enables this channel with `--checkpoint-job-id ID`, which requires
+`--result-envelope`. The runner sets that flag from `checkpoint.enabled`; ordinary
+CLI runs do not emit checkpoints. Each stderr record begins with the byte prefix
+`0x1e` followed by `TRACER1 ` and ends with a newline. Other stderr text remains
+bounded diagnostics.
+
 Use newline-terminated UTF-8 JSON records with a finite byte limit per record and
 per job. Each contains `schemaVersion`, `jobId`, `sequence`, and `kind`. Sequence
 numbers increase strictly, starting with a header identifying format, encoding,
-source bundle digest, and capture policy. Job/source identity must match the
+source bundle SHA-256 digest, capture policy, and a format-specific root without
+its step array. The root source/input must match the admitted request. Job/source identity must match the
 runner's admitted request; a matching digest is not authentication.
 
 Record kinds:
@@ -125,9 +135,10 @@ Record kinds:
 - `complete`: an optional normal completion marker, never a substitute for the
   supervisor's observed process outcome and validated final result.
 
-The supervisor validates records before persistence and acknowledges a checkpoint
+The supervisor validates records before persistence and locally acknowledges a checkpoint
 only after referenced data and its manifest have reached the configured durability
-level. Recovery uses the last acknowledged checkpoint, discards an incomplete tail,
+level. This is a persisted acknowledgement, not a bidirectional worker message.
+Recovery uses the last acknowledged checkpoint, discards an incomplete tail,
 and never follows offsets into missing chunks. Validate after restart as well.
 Published recovery includes format, source identity, checkpoint sequence, a valid
 partial trace, and `complete: false`; the runner termination reason remains intact.
@@ -151,3 +162,34 @@ stop with an explicit runner failure rather than silently degrading durability.
    records are rejected. Limits and recovered state agree with live retention.
 5. Existing Tracer fixtures and strict production coverage remain enforced. Runner
    lifecycle/isolation tests are separate from trace-format compatibility tests.
+
+## Implemented operational policy
+
+The runner defaults to one active job, eight queued jobs, one active job per
+operator-supplied authenticated principal, two queued jobs per principal, and
+eight retained results. All processes targeting one engine share a private local
+state directory and identical capacity policy. Queue scheduling is bounded,
+without a FIFO guarantee. The trusted process backend has no persistent admission
+or restart guarantee.
+
+Kernel-held leases identify live owners. Manifests precede creation of stopped
+containers; only then does the supervisor start the job. Reconciliation removes
+abandoned units and replays acknowledged journals, publishing `runner_restarted`
+results. Failed cleanup retains/quarantines capacity and blocks new admission.
+A deployment must run reconciliation after a supervisor crash; a dead process
+cannot clean itself up.
+
+The initial checkpoint policy publishes every retained-state change, limits each
+framed record to 2 MiB and total structure to 100000 JSON nodes, and applies the
+job's artifact cap to stdout plus journal records (64 MiB by default). Recovery
+expansion is conservatively budgeted before acknowledgement. Output chunks contain
+at most 16384 decoded bytes. A zero-length output record can reset a generation.
+All references must point to already validated bytes; active snapshots cannot
+reference missing heap objects. Optional `complete` records are understood by the
+reader but are not needed by the current producer.
+
+A usable final envelope is preferred. `recoveredTrace` is populated separately
+when final output is unavailable or invalid; successful jobs do not duplicate
+their final trace there. Checkpoint policy is included in runner results. Artifact
+history remains private and bounded, and includes submitted sources and input.
+Power-loss durability and a public network service are outside this implementation.

@@ -13,6 +13,52 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppFailureTest {
+    @Test void checkpointOptionsRejectInvalidIdentityAndLegacyOutput() {
+        for (String[] arguments : List.of(
+                new String[] {"--checkpoint-job-id", "valid"},
+                new String[] {"--result-envelope", "--checkpoint-job-id", "../invalid"})) {
+            var trace = new App.Trace();
+            var status = new java.util.concurrent.atomic.AtomicInteger();
+            trace.exitHandler = status::set;
+            new picocli.CommandLine(trace).parseArgs(arguments);
+            trace.run();
+            assertThat(status.get()).isEqualTo(2);
+        }
+    }
+
+    @Test void checkpointSideChannelPreservesBothFormatsAndCapturePolicies() {
+        PrintStream previous = System.err;
+        try {
+            for (String format : List.of("modern", "pytutor")) {
+                for (String mode : List.of("latest", "accumulate", "chronological")) {
+                    var bytes = new ByteArrayOutputStream();
+                    System.setErr(new PrintStream(bytes));
+                    var trace = new App.Trace() {
+                        @Override List<Snapshot> executeBoundedSource(String source,
+                                TraceSession session, TraceLimits limits, String stdin)
+                                throws Exception {
+                            var snapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                                    new byte[0], new byte[0]);
+                            session.beginSnapshot();
+                            session.commit(snapshot);
+                            session.updateOutput(snapshot, new byte[] {65}, new byte[0]);
+                            throw new IOException("controlled failure after capture");
+                        }
+                    };
+                    var options = new ArrayList<>(List.of("--checkpoint-job-id", "test", "-f", format));
+                    if (mode.equals("accumulate")) options.add("--accumulate-breakpoints");
+                    if (mode.equals("chronological")) options.add("-a");
+                    envelope(trace, options.toArray(String[]::new));
+                    var records = bytes.toString().lines().filter(line -> line.startsWith("\u001eTRACER1 "))
+                            .map(line -> JsonParser.parseString(line.substring(9)).getAsJsonObject()).toList();
+                    assertThat(records.getFirst().get("format").getAsString()).isEqualTo(format);
+                    assertThat(records.getFirst().get("capture").getAsString()).isEqualTo(mode);
+                    assertThat(records.getLast().get("kind").getAsString()).isEqualTo("checkpoint");
+                }
+            }
+        } finally { System.setErr(previous); }
+    }
+
     @Test void qualifiedSelectorsRejectMixedAndNonEnvelopeModesBeforeReadingInput() {
         var status = new java.util.concurrent.atomic.AtomicInteger();
         for (String[] args : List.of(

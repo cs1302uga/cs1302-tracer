@@ -281,6 +281,10 @@ public class App {
                 description = "Select source-relative path:line; requires --result-envelope.")
         List<String> qualifiedBreakpoints = new ArrayList<>();
 
+        @Option(names = "--checkpoint-job-id",
+                description = "Opt-in runner checkpoint stream on stderr; requires an envelope.")
+        String checkpointJobId;
+
         private BreakpointSelection selection = new BreakpointSelection(List.of());
 
         @Option(
@@ -358,6 +362,11 @@ public class App {
                 if (selection.qualified() && (!job.envelope || breakpoints != null)) {
                     throw new IllegalArgumentException("--breakpoint-at requires --result-envelope "
                             + "and cannot be combined with --breakpoint");
+                } // if
+                if (checkpointJobId != null && (!job.envelope
+                        || !checkpointJobId.matches("[A-Za-z0-9_-]{1,64}"))) {
+                    throw new IllegalArgumentException(
+                            "Invalid checkpoint job or missing envelope");
                 } // if
                 selected = job.limits();
                 if (job.envelope) {
@@ -447,6 +456,7 @@ public class App {
                 try {
                     guestStdin = resolveGuestStdin();
                     source = readBoundedSource(session, limits);
+                    configureCheckpoints(session, source, guestStdin);
                     session.phase("compile");
                     snapshots = executeBoundedSource(source, session, limits, guestStdin);
                 } catch (Exception caught) {
@@ -476,6 +486,28 @@ public class App {
                 } // if
             } // try
         } // runBounded
+
+        /**
+         * Configures the runner side channel after bounded source ingestion.
+         * @param session Active session.
+         * @param source Exact bundle used for compilation.
+         * @param guestStdin Guest input.
+         * @throws java.security.NoSuchAlgorithmException If SHA-256 is unavailable.
+         */
+        private void configureCheckpoints(TraceSession session, String source, String guestStdin)
+                throws java.security.NoSuchAlgorithmException {
+            if (checkpointJobId != null) {
+                String policy = allBreakpoints ? "chronological"
+                        : accumulateBreakpoints ? "accumulate" : "latest";
+                cs1302.tracer.execution.CheckpointStream stream =
+                        new cs1302.tracer.execution.CheckpointStream(System.err,
+                                PyTutorSerializer.getGson(false),
+                                states -> boundedPayload(source, states, guestStdin),
+                                checkpointJobId, format.name().toLowerCase(java.util.Locale.ROOT),
+                                policy, source, 2 * 1024 * 1024, 64 * 1024 * 1024);
+                session.checkpoints(stream::publish);
+            } // if
+        } // configureCheckpoints
 
         /**
          * Reads sources with a byte cap before parsing or decoding them.
