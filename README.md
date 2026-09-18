@@ -10,45 +10,303 @@ Tracer supports both [Online Python Tutor](https://pythontutor.com/)-compatible 
 
 - **Dual Output Formats**: Generate legacy PythonTutor traces or modern object-graph JSON traces with explicit reference pointers.
 - **Reified Generics & Type Resolution**: Recovers erased generic type parameters for Java Collections and Maps (e.g., `ArrayList<String>`, `HashMap<Integer, Double>`) via static AST extraction and dynamic element sampling.
-- **Chronological & Breakpoint Tracing**: Record step-by-step execution across all valid lines (`-a`) or capture memory at specific line numbers (`-b`).
+- **Chronological, Breakpoint & Exit Tracing**: Record step-by-step execution across all valid lines (`-a`), capture memory at specific line numbers (`-b 12`), target specific files in multi-file projects (`-b Main.java:12`), specify comma-separated breakpoint targets, or capture program termination (`-b -1`).
 - **Multi-File & Streaming Support**: Trace multi-file Java packages from the filesystem or stream multiple sources via `stdin` using comment delimiters (`// --- path/to/File.java ---`).
+- **Guest Standard Input Simulation & Highlight Offsets**: Provide guest input strings (`--stdin`) or files (`--stdin-file`) and track logical character consumption offsets (`stdinConsumed`, `stdinOffset`).
+- **Bounded Resource Budgets & Result Envelopes**: Enforce configurable execution deadlines, snapshot caps, output byte caps, heap object limits, and trace byte limits with `--unlimited` overrides and an opt-in `--result-envelope`.
+- **Type Qualification Styles**: Render type signatures using fully qualified names (`--type-style=fqn`, e.g., `java.lang.String`) or simplified short names (`--type-style=simple`, e.g., `String`).
+- **Inspection Policies**: Choose between `TRUSTED` (rich helper inspection) and `FIELDS` (inspects fields without invoking guest methods for untrusted submissions).
+- **Enum Constant & Hash Tracking**: Emits qualified enum constant labels with configurable lazy enum hash evaluation (`--eval-enum-hash` / `--no-eval-enum-hash`).
 - **Lambda Reconstruction**: Extracts lambda expression bodies and creates concrete representations of functional interface implementations.
 - **Immutability & Final Tracking**: Automatically tags and distinguishes `final` variables, record components, and object fields.
 - **Breakpoint Introspection**: List all valid executable breakpoint lines per file in colorized console format or machine-readable JSON.
 
 ---
 
-## Advanced Type Capabilities
+## Building and Installation
 
-### Reified Generics for Collections & Maps
+### Prerequisites
 
-In standard Java execution, generic type parameters are erased at runtime due to JVM type erasure. Tracer reconstructs and preserves generic type information across traces:
+- **Java Development Kit (JDK)**: Version 21 or greater.
+- **Apache Maven**: Version 3.8 or greater.
 
-1. **Static AST Analysis**: Extracts declared type arguments (e.g. `List<Person>`, `Map<String, Integer>`) from local variable, parameter, and field declarations.
-2. **Dynamic Runtime Heap Sampling**: For raw collections or generic instances where declarations are absent, Tracer samples the runtime types of items in the collection to reconstruct type signatures (e.g., `ArrayList<java.lang.String>`, `HashMap<java.lang.Integer, java.lang.Double>`).
+### Build Executable Fat JAR
 
-#### Example
-
-```java
-List<String> names = new ArrayList<>();
-names.add("Ada");
+```bash
+# Compile and build the self-contained JAR (with all dependencies) and source bundle
+mvn clean package
 ```
 
-In the output trace metadata (`heap_attrs`), Tracer emits the full reified generic type:
+The resulting JAR will be located at:
 
-```json
-{
-  "heap_attrs": {
-    "42": {
-      "type": "java.util.ArrayList<java.lang.String>"
-    }
-  }
-}
+```text
+target/code-tracer-jar-with-dependencies.jar
 ```
 
 ---
 
-## Output Formats
+## CLI Usage
+
+Run the JAR directly with Java:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar [COMMAND] [OPTIONS]
+```
+
+### Subcommands
+
+| Subcommand | Description |
+| :--- | :--- |
+| `trace` | Compiles and traces execution of a Java program. |
+| `list-breakpoints` | Lists valid executable breakpoint lines for the source. |
+| `show-licenses` | Displays open-source software license notices. |
+
+---
+
+### Common Workflows
+
+#### 1. Trace End of Execution (Single Snapshot)
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java
+```
+
+Or explicitly target program exit using the `-1` breakpoint sentinel:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b -1
+```
+
+#### 2. Chronological Line-by-Line Execution Trace (`-a`)
+
+Record all execution steps in modern format:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -a -f modern
+```
+
+#### 3. Breakpoint-Specific Snapshots (`-b`)
+
+Capture memory states before executing line 12:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b 12 -f modern
+```
+
+Target specific files in multi-file projects or specify comma-separated lists:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  -b "Main.java:12,Helper.java:24" -f modern
+```
+
+Capture each time a breakpoint line is hit (rather than only the final hit) using `--accumulate-breakpoints`:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  -b 12 --accumulate-breakpoints -f modern
+```
+
+#### 4. Guest Standard Input Simulation
+
+Supply input strings or files to programs that read from `System.in`:
+
+```bash
+# Via literal string
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  --stdin "Alice 42\n" -a -f modern
+
+# Via input file
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  --stdin-file ./input.txt -a -f modern
+```
+
+#### 5. Simplified Type Formatting (`--type-style simple`)
+
+Render clean, unqualified type names in stack frames and heap objects:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  --type-style simple -a -f modern
+```
+
+#### 6. Multi-File Streaming via Standard Input
+
+Concatenate multiple source files separated by comment headers and stream to tracer:
+
+```bash
+cat << 'EOF' | java -jar target/code-tracer-jar-with-dependencies.jar trace -a -f modern
+// --- cs1302/model/Account.java ---
+package cs1302.model;
+public class Account {
+    private int balance = 100;
+    public int getBalance() { return balance; }
+}
+
+// --- cs1302/app/Driver.java ---
+package cs1302.app;
+import cs1302.model.Account;
+public class Driver {
+    public static void main(String[] args) {
+        Account acc = new Account();
+    }
+}
+EOF
+```
+
+#### 7. Bounded Execution & Result Envelope
+
+Wrap trace results in a structured status envelope with custom timeouts and snapshot bounds:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
+  --result-envelope --timeout-ms 5000 --max-snapshots 500 -a -f modern
+```
+
+Or disable default budget ceilings for large interactive runs:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java --unlimited -a
+```
+
+#### 8. Inspect Valid Breakpoints
+
+Show colorized executable lines in the terminal:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java
+```
+
+Or retrieve as structured JSON:
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java -j -p
+```
+
+#### 9. View Dependency Licenses
+
+```bash
+java -jar target/code-tracer-jar-with-dependencies.jar show-licenses
+```
+
+---
+
+## Command Options Reference
+
+### Root Options
+
+```text
+Usage: code-tracer [-hV] [COMMAND]
+```
+
+| Option | Flag | Description |
+| :--- | :--- | :--- |
+| `--help` | `-h` | Show help message and exit. |
+| `--version` | `-V` | Print version information and exit. |
+
+---
+
+### `trace` Options
+
+```text
+Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints]
+                         [--eval-enum-hash] [--no-eval-enum-hash]
+                         [--remove-main-args] [--remove-method-this]
+                         [--result-envelope] [--unlimited] [-f=<format>]
+                         [-i=<input>] [--inspection=<inspection>]
+                         [--max-elements=<elements>]
+                         [--max-heap-objects=<heapObjects>]
+                         [--max-output-bytes=<outputBytes>]
+                         [--max-snapshots=<snapshots>]
+                         [--max-source-bytes=<sourceBytes>]
+                         [--max-source-files=<sourceFiles>]
+                         [--max-trace-bytes=<traceBytes>] [--stdin=<stdin>]
+                         [--stdin-file=<stdinFile>]
+                         [--timeout-ms=<timeoutMillis>]
+                         [--type-style=<typeStyle>] [-b=<spec>[,<spec>...]]...
+```
+
+#### Input & Breakpoint Selection
+
+| Option | Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
+| `--stdin=<string>` | | | Literal input string provided to the traced program via standard input. |
+| `--stdin-file=<file>` | | | Path to file whose content is provided to the traced program via standard input. |
+| `--all-breakpoints` | `-a` | `false` | Include all encountered breakpoint instances in chronological order. |
+| `--breakpoints=<spec>` | `-b` | | Breakpoints at which to take snapshots (e.g. `'12'`, `'Main.java:12'`, comma-separated `'12,Helper.java:5'`, or main exit sentinel `'-1'`). Repeatable. |
+| `--accumulate-breakpoints` | | `false` | Output an array of snapshots containing each reached breakpoint instance instead of only the last. |
+
+#### Output Formatting & Representation
+
+| Option | Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--format=<format>` | `-f` | `pytutor` | Output trace format: `pytutor` or `modern`. |
+| `--pretty` | `-p` | `false` | Pretty-print JSON output with indentation. |
+| `--type-style=<typeStyle>` | | `fqn` | Type qualification style: `fqn` (e.g. `java.lang.String`) or `simple` (e.g. `String`). |
+| `--inline-strings` | `-s` | `false` | Inline string values into fields/variables rather than allocating heap objects. |
+| `--remove-main-args` | | `false` | Don't include the `main` method's `args` parameter in the output stack frame. |
+| `--remove-method-this` | | `false` | Don't include the `this` reference variable for instance methods in stack frames. |
+| `--eval-enum-hash` | | enabled | Evaluate lazy enum hash codes when capturing snapshots (default). |
+| `--no-eval-enum-hash` | | | Suppress evaluation of lazy enum hash codes when capturing snapshots. |
+
+#### Execution Budgets & Isolation Policy
+
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `--result-envelope` | `false` | Emit versioned job status and trace JSON wrapper. |
+| `--unlimited` | `false` | Disable default budgets; explicit limits still apply. |
+| `--timeout-ms=<ms>` | `10000` | Tracing deadline in milliseconds (0 is unlimited; default active without envelope/unlimited). |
+| `--max-snapshots=<num>` | `10000` | Maximum captured snapshots (0 is unlimited). |
+| `--max-output-bytes=<bytes>` | `1048576` (1 MiB) | Retained guest bytes per output stream stdout/stderr (0 is unlimited). |
+| `--max-heap-objects=<num>` | `10000` | Distinct reachable object identities per snapshot (0 is unlimited). |
+| `--max-elements=<num>` | `100000` | Inspected array slots, fields, and locals per snapshot (0 is unlimited). |
+| `--max-trace-bytes=<bytes>` | `67108864` (64 MiB)| Accounted snapshot trace storage bytes (0 is unlimited). |
+| `--max-source-bytes=<bytes>` | `1048576` (1 MiB) | Maximum UTF-8 source bytes before parsing (0 is unlimited). |
+| `--max-source-files=<num>` | `128` | Maximum streamed source files (0 is unlimited). |
+| `--inspection=<inspection>` | `TRUSTED` | Inspection policy: `TRUSTED` (rich helper inspection) or `FIELDS` (invokes no guest methods, requires `--result-envelope`). |
+
+#### Diagnostics & Help
+
+| Option | Flag | Description |
+| :--- | :--- | :--- |
+| `--verbose` | `-v` | Output messages about what the tracer is doing. |
+| `--help` | `-h` | Show help message and exit. |
+| `--version` | `-V` | Print version information and exit. |
+
+---
+
+### `list-breakpoints` Options
+
+```text
+Usage: code-tracer list-breakpoints [-hjpvV] [-i=<input>]
+```
+
+| Option | Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
+| `--json` | `-j` | `false` | Output available breakpoints in structured JSON format. |
+| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
+| `--verbose` | `-v` | `false` | Output messages about what the tracer is doing. |
+| `--help` | `-h` | | Show help message and exit. |
+| `--version` | `-V` | | Print version information and exit. |
+
+---
+
+### `show-licenses` Options
+
+```text
+Usage: code-tracer show-licenses [-hV]
+```
+
+| Option | Flag | Description |
+| :--- | :--- | :--- |
+| `--help` | `-h` | Show help message and exit. |
+| `--version` | `-V` | Print version information and exit. |
+
+---
+
+## Output Formats & Schema
 
 ### 1. PythonTutor Format (`--format=pytutor`, default)
 
@@ -150,135 +408,71 @@ Produces an explicit, typed object graph with dictionary-backed heaps and pointe
 }
 ```
 
----
+### 3. Result Envelope (`--result-envelope`)
 
-## Building and Installation
+For programmatic consumers, grading harnesses, and hosted runners, `--result-envelope` wraps the execution outcome in a versioned document:
 
-### Prerequisites
-
-- **Java Development Kit (JDK)**: Version 21 or greater.
-- **Apache Maven**: Version 3.8 or greater.
-
-### Build Executable Fat JAR
-
-```bash
-# Compile and build the self-contained JAR (with all dependencies) and source bundle
-mvn clean package
+```json
+{
+  "schemaVersion": 1,
+  "format": "modern",
+  "status": "completed",
+  "stopReason": null,
+  "phase": "trace",
+  "complete": true,
+  "trace": { ... },
+  "limits": {
+    "timeoutMillis": 5000,
+    "snapshots": 500,
+    "outputBytes": 65536,
+    "heapObjects": 1000,
+    "elements": 10000,
+    "traceBytes": 33554432,
+    "sourceBytes": 262144,
+    "sourceFiles": 32
+  },
+  "diagnostics": []
+}
 ```
 
-The resulting JAR will be located at:
+#### Exit Codes
 
-```text
-target/code-tracer-jar-with-dependencies.jar
-```
-
----
-
-## CLI Usage
-
-Run the JAR directly with Java:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar [subcommand] [options]
-```
-
-### Subcommands
-
-| Subcommand | Description |
+| Exit Code | Meaning |
 | :--- | :--- |
-| `trace` | Compiles and traces execution of a Java program. |
-| `list-breakpoints` | Lists valid executable breakpoint lines for the source. |
-| `show-licenses` | Displays open-source software license notices. |
+| `0` | Successful trace completed and emitted. |
+| `1` | General error (e.g., compilation failure, unhandled guest exception). |
+| `2` | Invalid command-line arguments or contradictory options. |
+| `3` | Resource budget limit exceeded during bounded trace execution. |
 
 ---
 
-### Common Workflows
+## Advanced Execution & Type Capabilities
 
-#### 1. Trace End of Execution (Single Snapshot)
+### Reified Generics for Collections & Maps
 
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java
-```
+In standard Java execution, generic type parameters are erased at runtime due to JVM type erasure. Tracer reconstructs and preserves generic type information across traces:
 
-#### 2. Chronological Line-by-Line Execution Trace (`-a`)
+1. **Static AST Analysis**: Extracts declared type arguments (e.g. `List<Person>`, `Map<String, Integer>`) from local variable, parameter, and field declarations.
+2. **Dynamic Runtime Heap Sampling**: For raw collections or generic instances where declarations are absent, Tracer samples runtime element types to reconstruct type signatures (e.g., `ArrayList<java.lang.String>`, `HashMap<java.lang.Integer, java.lang.Double>`).
 
-Record all execution steps in modern format:
+### Input Highlighting & Stdin Tracking
 
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -a -f modern
-```
+When a guest program reads from standard input (via `Scanner`, `BufferedReader`, or `java.lang.IO.readln`), Tracer tracks the input logically consumed:
 
-#### 3. Breakpoint-Specific Snapshots (`-b`)
+- `stdinConsumed`: The substring of input logically read by completed reader operations.
+- `stdinOffset`: The 0-based Java UTF-16 character index into the supplied input string.
 
-Capture memory states only before executing lines 12 and 24:
+Reader lookahead buffers are excluded so that only data actually consumed by the program advances the offset. Raw UTF-8 bytes advance offsets once a full character sequence has completed.
 
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b 12 -b 24 -f modern
-```
+### Bounded Jobs & Inspection Policies
 
-#### 4. Multi-File Streaming via Standard Input
+By default, ordinary `trace` runs enforce finite default budgets (10-second deadline, 10,000 snapshots, 1 MiB per output stream, 10,000 heap objects, 100,000 elements, 64 MiB trace data, 1 MiB source, and 128 source files).
 
-Concatenate multiple source files separated by comment headers and stream to tracer:
+- **Budget Stops**: If a cap is exceeded, Tracer exits with code `3`. Under ordinary mode, stderr reports the stop reason. Under `--result-envelope`, a structured JSON envelope is produced with `status: "stopped"` and the specific `stopReason`.
+- **`TRUSTED` Policy**: Default policy. Inspects collections, maps, and wrappers using runtime helper methods (e.g., `toArray`, `entrySet`).
+- **`FIELDS` Policy**: Avoids invoking any guest methods during inspection. Inspects object states strictly via field reflection. Requires `--result-envelope` and self-contained source bundles.
 
-```bash
-cat << 'EOF' | java -jar target/code-tracer-jar-with-dependencies.jar trace -a -f modern
-// --- cs1302/model/Account.java ---
-package cs1302.model;
-public class Account {
-    private int balance = 100;
-    public int getBalance() { return balance; }
-}
-
-// --- cs1302/app/Driver.java ---
-package cs1302.app;
-import cs1302.model.Account;
-public class Driver {
-    public static void main(String[] args) {
-        Account acc = new Account();
-    }
-}
-EOF
-```
-
-#### 5. Inspect Valid Breakpoints
-
-Show colorized executable lines in the terminal:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java
-```
-
-Or retrieve as structured JSON:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java -j
-```
-
----
-
-### Command Options Reference
-
-#### `trace` Options
-
-```text
-Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-args]
-                         [--remove-method-this] [-f=<format>] [-i=<input>]
-                         [-b=<breakpoints>]...
-```
-
-| Option | Flag | Description |
-| :--- | :--- | :--- |
-| `--input=<file>` | `-i` | Input path to Java source file (defaults to `stdin`). |
-| `--format=<format>` | `-f` | Output format: `pytutor` (default) or `modern`. |
-| `--pretty` | `-p` | Pretty-print JSON output with indentation. |
-| `--all-breakpoints` | `-a` | Record all encountered breakpoints in chronological order. |
-| `--breakpoints=<lines>` | `-b` | Line numbers at which to capture snapshots. |
-| `--accumulate-breakpoints` | | Output an array of snapshots for each breakpoint hit instead of only the last. |
-| `--inline-strings` | `-s` | Inlines string values into fields/variables rather than allocating heap objects. |
-| `--remove-main-args` | | Omit the `args` parameter in the `main` method stack frame. |
-| `--remove-method-this` | | Omit the `this` reference variable from method stack frames. |
-| `--verbose` | `-v` | Output debug diagnostic logs. |
-| `--help` | `-h` | Display help message. |
+For details on limits, accounting models, and sandboxing requirements, see [docs/BOUNDED_TRACING.md](docs/BOUNDED_TRACING.md) and [docs/RUNNER_CONTRACT.md](docs/RUNNER_CONTRACT.md).
 
 ---
 
@@ -290,46 +484,25 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--remove-main-arg
   mvn clean test
   ```
 
-  *(Enforces 100% line and branch coverage for the configured
-  `cs1302.tracer.model` and `cs1302.tracer.serialize` packages.)*
+  *(Enforces 100% line and branch coverage across model and serialize packages.)*
 
-- **Run Reference Examples**:
+- **Run Checkstyle Verification**:
+
+  ```bash
+  mvn checkstyle:check
+  ```
+
+- **Run Reference Verification**:
 
   ```bash
   mvn package
   python3 examples/verify.py
   ```
 
-For detailed architecture diagrams, design decisions, value extraction mechanics, and contribution guidelines, see [HACKING.md](HACKING.md).
+- **Run an Individual Example**:
 
-## Bounded jobs and future hosted execution
+  ```bash
+  ./examples/test.sh examples/Simple.java -a -f modern
+  ```
 
-Ordinary `trace` runs now have finite defaults, including a 10-second tracing
-deadline. Use `--unlimited` to disable default budgets or override individual limits.
-A limit stop emits no trace on stdout, reports its reason on stderr, and exits 3.
-Successful invocations keep their existing JSON shapes. Use `trace --result-envelope`
-with explicit limits for structured failures, partial traces, and captured output
-even when no snapshot completes. `--inspection FIELDS` inspects object
-fields without calling guest methods and accepts self-contained source bundles.
-
-See [bounded tracing and schema v1](docs/BOUNDED_TRACING.md) for options, accounting,
-exit codes, and an example budget profile. See the [Linux runner contract](docs/RUNNER_CONTRACT.md)
-for the separate isolation layer required for potentially malicious submissions.
-A regular guest JVM is not a sandbox; the hosted runner remains a follow-up project.
-
-`list-breakpoints` reads compiled debug information without executing the guest.
-To regenerate a single example's output, use `./examples/test.sh FILE [OPTIONS...]`.
-Regression verification is separate and never overwrites expected fixtures.
-
-## Input highlighting
-
-`stdinConsumed` and `stdinOffset` describe input logically consumed by completed
-read calls, excluding reader lookahead. Offsets use Java UTF-16 character indices.
-Supported standard reader chains include Scanner and BufferedReader backed by
-`System.in`, and both `java.lang.IO.readln` overloads on JDK 25. Reads from unrelated
-strings or files do not advance supplied stdin. Raw UTF-8 byte reads advance the
-highlight only after a complete character has been read.
-
-Reader tracking uses JDK delegate fields without invoking guest methods. Custom
-reader implementations and alternate character encodings are not guaranteed;
-mixing `IO.readln` with other stdin readers has unspecified behavior in Java.
+For architecture diagrams, subsystem design, value extraction mechanics, and contribution guidelines, see [HACKING.md](HACKING.md).
