@@ -606,7 +606,7 @@ public class DebugTraceHelper {
      * Converts integer line numbers to BreakpointSpec instances.
      *
      * @param breakPoints The line numbers.
-     * @return Collection of BreakpointSpecs, or null if breakPoints is null.
+     * @return Collection of BreakpointSpecs, or empty list if breakPoints is null.
      */
     static Collection<BreakpointSpec> toSpecs(Collection<Integer> breakPoints) {
         if (breakPoints == null) {
