@@ -178,6 +178,58 @@ public final class OutputSlice {
     } // subSlice
 
     /**
+     * Returns the byte at the specified index within this slice.
+     *
+     * @param index The 0-based index within this slice.
+     * @return The byte value at the index.
+     */
+    public byte byteAt(int index) {
+        if (drainer != null) {
+            return drainer.byteAt(offset + index);
+        } // if
+        return directBytes[offset + index];
+    } // byteAt
+
+    /**
+     * Checks if this slice starts with the specified byte prefix without allocating memory.
+     *
+     * @param prefix The byte sequence to look for.
+     * @return True if this slice starts with prefix.
+     */
+    public boolean startsWith(byte[] prefix) {
+        if (prefix == null || prefix.length == 0) {
+            return true;
+        } // if
+        if (this.length < prefix.length) {
+            return false;
+        } // if
+        for (int i = 0; i < prefix.length; i++) {
+            if (this.byteAt(i) != prefix[i]) {
+                return false;
+            } // if
+        } // for
+        return true;
+    } // startsWith
+
+    /**
+     * Returns the index within this slice of the first occurrence of the specified byte,
+     * starting at the specified index.
+     *
+     * @param b The byte to search for.
+     * @param fromIndex The index to start the search from.
+     * @return The index of the byte within this slice, or -1 if not found.
+     */
+    public int indexOf(byte b, int fromIndex) {
+        int start = Math.max(0, fromIndex);
+        for (int i = start; i < length; i++) {
+            if (this.byteAt(i) == b) {
+                return i;
+            } // if
+        } // for
+        return -1;
+    } // indexOf
+
+    /**
      * Compares the byte contents of this slice with another slice without allocating byte arrays.
      *
      * @param other The other slice to compare against.
@@ -190,7 +242,12 @@ public final class OutputSlice {
         if (other == null || this.length != other.length) {
             return false;
         } // if
-        return Arrays.equals(this.toByteArray(), other.toByteArray());
+        for (int i = 0; i < length; i++) {
+            if (this.byteAt(i) != other.byteAt(i)) {
+                return false;
+            } // if
+        } // for
+        return true;
     } // contentEquals
 
     @Override

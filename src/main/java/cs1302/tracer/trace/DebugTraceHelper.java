@@ -809,17 +809,37 @@ public class DebugTraceHelper {
      * @param rawStderr Raw stderr OutputSlice.
      * @return Sanitized stderr OutputSlice.
      */
+    private static final byte[] JAVA_TOOL_OPTIONS_PREFIX =
+            "Picked up JAVA_TOOL_OPTIONS:".getBytes(StandardCharsets.UTF_8);
+    private static final byte[] JAVA_OPTIONS_PREFIX =
+            "Picked up _JAVA_OPTIONS:".getBytes(StandardCharsets.UTF_8);
+
+    /**
+     * Sanitizes captured standard error bytes in an OutputSlice by removing JVM diagnostic banner
+     * prefixes without allocating unnecessary intermediate byte arrays.
+     *
+     * @param rawStderr Raw stderr OutputSlice.
+     * @return Sanitized stderr OutputSlice.
+     */
     static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
         if (rawStderr == null || rawStderr.isEmpty()) {
             return rawStderr != null ? rawStderr : OutputSlice.empty();
         } // if
-        byte[] bytes = rawStderr.toByteArray();
-        byte[] sanitized = sanitizeDebuggeeStderr(bytes);
-        if (sanitized == bytes) {
+        if (!rawStderr.startsWith(JAVA_TOOL_OPTIONS_PREFIX)
+                && !rawStderr.startsWith(JAVA_OPTIONS_PREFIX)) {
             return rawStderr;
         } // if
-        return OutputSlice.from(sanitized);
-    } // sanitizeDebuggeeStderr
+        OutputSlice current = rawStderr;
+        while (current.startsWith(JAVA_TOOL_OPTIONS_PREFIX)
+                || current.startsWith(JAVA_OPTIONS_PREFIX)) {
+            int newlineIndex = current.indexOf((byte) '\n', 0);
+            if (newlineIndex == -1) {
+                return OutputSlice.empty();
+            } // if
+            current = current.subSlice(newlineIndex + 1);
+        } // while
+        return current;
+    } // sanitizeDebuggeeStderrSlice
 
     /**
      * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic
@@ -1147,10 +1167,11 @@ public class DebugTraceHelper {
 
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
             SourceAnalysis sourceAnalysis = SourceAnalysis.from(parsedSources);
+            Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
             processChronologicalEventLoop(
                     vm,
                     compilationResult,
-                    specs,
+                    safeSpecs,
                     sourceAnalysis,
                     chronologicalSnapshots,
                     loadedClasses,

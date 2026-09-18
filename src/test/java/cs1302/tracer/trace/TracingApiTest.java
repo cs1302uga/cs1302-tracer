@@ -42,6 +42,9 @@ class TracingApiTest {
             assertThat(chronological).hasSize(3);
             assertThat(chronological).allSatisfy(snapshot ->
                     assertThat(snapshot.stack().getLast().methodLine()).isEqualTo(5));
+            var chronoNullSpecs = DebugTraceHelper.traceChronologicalWithSpecs(
+                    compiled, null, List.of(ast), false, "");
+            assertThat(chronoNullSpecs).isEmpty();
         }
     }
 

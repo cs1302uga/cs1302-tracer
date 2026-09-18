@@ -2,8 +2,10 @@ package cs1302.tracer.trace;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -37,10 +39,17 @@ public final class SourceAnalysis {
             Map<String, List<DebugTraceHelper.LambdaAssignment>> lambdaMethodAssignments,
             Map<String, Set<String>> finalMethodVariables,
             Map<String, Optional<ClassOrInterfaceDeclaration>> classDeclarations) {
-        this.parsedSources = parsedSources;
+        this.parsedSources = Collections.unmodifiableList(new ArrayList<>(parsedSources));
         this.astTypeResolver = astTypeResolver;
-        this.lambdaMethodAssignments = Collections.unmodifiableMap(lambdaMethodAssignments);
-        this.finalMethodVariables = Collections.unmodifiableMap(finalMethodVariables);
+        Map<String, List<DebugTraceHelper.LambdaAssignment>> unmodifiableLambdaMap =
+                new HashMap<>();
+        lambdaMethodAssignments.forEach((k, v) ->
+                unmodifiableLambdaMap.put(k, Collections.unmodifiableList(new ArrayList<>(v))));
+        this.lambdaMethodAssignments = Collections.unmodifiableMap(unmodifiableLambdaMap);
+        Map<String, Set<String>> unmodifiableFinalMap = new HashMap<>();
+        finalMethodVariables.forEach((k, v) ->
+                unmodifiableFinalMap.put(k, Collections.unmodifiableSet(new HashSet<>(v))));
+        this.finalMethodVariables = Collections.unmodifiableMap(unmodifiableFinalMap);
         this.classDeclarations = Collections.unmodifiableMap(classDeclarations);
     } // SourceAnalysis
 

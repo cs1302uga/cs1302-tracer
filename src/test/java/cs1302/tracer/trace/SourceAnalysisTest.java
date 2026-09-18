@@ -1,6 +1,7 @@
 package cs1302.tracer.trace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
@@ -71,5 +72,10 @@ class SourceAnalysisTest {
         assertThat(analysis.astTypeResolver()).isNotNull();
         assertThat(analysis.lambdaMethodAssignments()).isNotEmpty();
         assertThat(analysis.finalMethodVariables()).isNotEmpty();
+
+        var lambdaList = analysis.lambdaMethodAssignments().values().iterator().next();
+        assertThatThrownBy(lambdaList::clear).isInstanceOf(UnsupportedOperationException.class);
+        var finalSet = analysis.finalMethodVariables().values().iterator().next();
+        assertThatThrownBy(finalSet::clear).isInstanceOf(UnsupportedOperationException.class);
     } // testSourceIndexing
 } // SourceAnalysisTest

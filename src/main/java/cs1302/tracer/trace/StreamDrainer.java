@@ -29,7 +29,8 @@ public class StreamDrainer implements AutoCloseable {
     /**
      * Constructs a new StreamDrainer for the specified source stream.
      *
-     * @param source The input stream to drain.\n     */
+     * @param source The input stream to drain.
+     */
     public StreamDrainer(InputStream source) {
         if (source == null) {
             throw new IllegalArgumentException("source input stream cannot be null");
@@ -170,6 +171,18 @@ public class StreamDrainer implements AutoCloseable {
     } // getBytes
 
     /**
+     * Returns the byte at the specified index in the captured buffer.
+     *
+     * @param index Byte index to inspect.
+     * @return Byte at specified index.
+     */
+    public byte byteAt(int index) {
+        synchronized (sink) {
+            return sink.byteAt(index);
+        } // synchronized
+    } // byteAt
+
+    /**
      * Decodes the specified subrange of accumulated bytes into a string.
      *
      * @param offset Starting byte offset.
@@ -247,9 +260,10 @@ public class StreamDrainer implements AutoCloseable {
             if (length <= 0 || offset >= count) {
                 return new byte[0];
             } // if
-            int safeLen = Math.min(length, count - offset);
+            int safeOffset = Math.max(0, offset);
+            int safeLen = Math.min(length, count - safeOffset);
             byte[] result = new byte[safeLen];
-            System.arraycopy(buf, offset, result, 0, safeLen);
+            System.arraycopy(buf, safeOffset, result, 0, safeLen);
             return result;
         } // copyRange
 
@@ -265,8 +279,19 @@ public class StreamDrainer implements AutoCloseable {
             if (length <= 0 || offset >= count) {
                 return "";
             } // if
-            int safeLen = Math.min(length, count - offset);
-            return new String(buf, offset, safeLen, charset);
+            int safeOffset = Math.max(0, offset);
+            int safeLen = Math.min(length, count - safeOffset);
+            return new String(buf, safeOffset, safeLen, charset);
         } // toStringRange
+
+        /**
+         * Returns the byte at the specified index within the buffer.
+         *
+         * @param index Byte index.
+         * @return Byte at index.
+         */
+        byte byteAt(int index) {
+            return buf[index];
+        } // byteAt
     } // AccessibleByteArrayOutputStream
 } // StreamDrainer

@@ -72,9 +72,21 @@ class OutputSliceTest {
 
         OutputSlice fromSubrange = OutputSlice.from(bytes, 0, 5);
         assertThat(fromSubrange.asUtf8String()).isEqualTo("Hello");
+        assertThat(fromSubrange.toByteArray()).isEqualTo("Hello".getBytes(StandardCharsets.UTF_8));
 
         OutputSlice fromSubrangeClamped = OutputSlice.from(bytes, -2, 5);
         assertThat(fromSubrangeClamped.asUtf8String()).isEqualTo("Hello");
+
+        assertThat(slice.byteAt(0)).isEqualTo((byte) 'H');
+        assertThat(slice.startsWith(null)).isTrue();
+        assertThat(slice.startsWith(new byte[0])).isTrue();
+        assertThat(slice.startsWith("Hello".getBytes(StandardCharsets.UTF_8))).isTrue();
+        assertThat(slice.startsWith("World".getBytes(StandardCharsets.UTF_8))).isFalse();
+        assertThat(slice.startsWith(new byte[100])).isFalse();
+
+        assertThat(slice.indexOf((byte) 'W', 0)).isEqualTo(7);
+        assertThat(slice.indexOf((byte) 'W', -5)).isEqualTo(7);
+        assertThat(slice.indexOf((byte) 'z', 0)).isEqualTo(-1);
     } // testDirectByteSlice
 
     @Test
@@ -103,6 +115,11 @@ class OutputSliceTest {
 
             OutputSlice zeroLenSlice = OutputSlice.from(drainer, 0, 0);
             assertThat(zeroLenSlice.isEmpty()).isTrue();
+
+            assertThat(drainer.byteAt(0)).isEqualTo((byte) 'S');
+            assertThat(drainer.getBytes(-5, 5)).isEqualTo("Strea".getBytes(StandardCharsets.UTF_8));
+            assertThat(drainer.getString(-5, 5, StandardCharsets.UTF_8)).isEqualTo("Strea");
+            assertThat(slice.byteAt(0)).isEqualTo((byte) 'S');
         } // try
     } // testDrainerBackedSlice
 
@@ -145,6 +162,18 @@ class OutputSliceTest {
         OutputSlice withBanner = OutputSlice.from(banner.getBytes(StandardCharsets.UTF_8));
         OutputSlice sanitized = DebugTraceHelper.sanitizeDebuggeeStderrSlice(withBanner);
         assertThat(sanitized.asUtf8String()).isEqualTo("Actual Error\n");
+
+        String banner2 = "Picked up _JAVA_OPTIONS: -Xmx512m\nRemainder\n";
+        OutputSlice withBanner2 = OutputSlice.from(banner2.getBytes(StandardCharsets.UTF_8));
+        OutputSlice sanitized2 = DebugTraceHelper.sanitizeDebuggeeStderrSlice(withBanner2);
+        assertThat(sanitized2.asUtf8String()).isEqualTo("Remainder\n");
+
+        String bannerNoNewline = "Picked up JAVA_TOOL_OPTIONS: -Dtest=true";
+        OutputSlice withBannerNoNewline =
+                OutputSlice.from(bannerNoNewline.getBytes(StandardCharsets.UTF_8));
+        OutputSlice sanitizedNoNewline =
+                DebugTraceHelper.sanitizeDebuggeeStderrSlice(withBannerNoNewline);
+        assertThat(sanitizedNoNewline.isEmpty()).isTrue();
     } // testSanitizeSlice
 
     @Test
