@@ -68,7 +68,28 @@ class BreakpointSpecTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:15:20"))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("0"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("-2"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:0"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-5"))
+                .isInstanceOf(IllegalArgumentException.class);
     } // testParseInvalid
+
+    @Test
+    @DisplayName("rejects non-positive line numbers during construction")
+    void testConstructInvalid() {
+        assertThatThrownBy(() -> BreakpointSpec.of(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of(-2))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -5))
+                .isInstanceOf(IllegalArgumentException.class);
+    } // testConstructInvalid
 
     @Test
     @DisplayName("matches source path by filename or full path")

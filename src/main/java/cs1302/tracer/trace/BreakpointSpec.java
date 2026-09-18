@@ -23,6 +23,10 @@ public record BreakpointSpec(Optional<String> file, int lineNumber) {
      */
     public BreakpointSpec {
         Objects.requireNonNull(file, "file cannot be null");
+        if (lineNumber != -1 && lineNumber <= 0) {
+            throw new IllegalArgumentException(
+                    "Breakpoint line number must be positive or -1: " + lineNumber);
+        } // if
     } // BreakpointSpec
 
     /**

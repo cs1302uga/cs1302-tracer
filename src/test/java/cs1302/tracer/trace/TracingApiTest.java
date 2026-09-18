@@ -45,6 +45,28 @@ class TracingApiTest {
             var chronoNullSpecs = DebugTraceHelper.traceChronologicalWithSpecs(
                     compiled, null, List.of(ast), false, "");
             assertThat(chronoNullSpecs).isEmpty();
+
+            try (var session = new cs1302.tracer.execution.TraceSession(
+                    cs1302.tracer.execution.TraceLimits.unlimited(),
+                    cs1302.tracer.execution.InspectionPolicy.TRUSTED, true,
+                    false)) {
+                assertThat(session.accumulates()).isTrue();
+                var latestInSession = DebugTraceHelper.traceLatestWithSpecs(
+                        compiled, List.of(BreakpointSpec.of(5)), List.of(ast), "");
+                assertThat(latestInSession.get(5)).hasSize(1);
+            } // try
+
+            var overlappingSpecsTrace = DebugTraceHelper.traceWithSpecs(
+                    compiled,
+                    List.of(
+                            BreakpointSpec.of(5),
+                            BreakpointSpec.of("Main.java", 5),
+                            BreakpointSpec.of("Main.java", 999),
+                            BreakpointSpec.of(-1)),
+                    List.of(ast),
+                    "");
+            assertThat(overlappingSpecsTrace.get(5)).hasSize(3);
+            assertThat(overlappingSpecsTrace).containsKey(-1);
         }
     }
 

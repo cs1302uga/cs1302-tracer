@@ -71,6 +71,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -363,17 +364,36 @@ public class DebugTraceHelper {
     public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(
             CompilationResult compilationResult, Collection<BreakpointSpec> specs,
             List<CompilationUnit> parsedSources, String stdin) throws Exception {
+        Map<Integer, List<ExecutionSnapshot>> raw;
         if (TraceSession.current() != null) {
-            return traceWithSpecs(compilationResult, specs, parsedSources, stdin);
+            raw = traceWithSpecs(compilationResult, specs, parsedSources, stdin);
+        } else {
+            try (TraceSession session = new TraceSession(
+                    cs1302.tracer.execution.TraceLimits.unlimited(),
+                    cs1302.tracer.execution.InspectionPolicy.TRUSTED, false,
+                    TraceSession.shouldEvalEnumHash())) {
+                session.phase("trace");
+                raw = traceWithSpecs(compilationResult, specs, parsedSources, stdin);
+            } // try
         } // if
-        try (TraceSession session = new TraceSession(
-                cs1302.tracer.execution.TraceLimits.unlimited(),
-                cs1302.tracer.execution.InspectionPolicy.TRUSTED, false,
-                TraceSession.shouldEvalEnumHash())) {
-            session.phase("trace");
-            return traceWithSpecs(compilationResult, specs, parsedSources, stdin);
-        } // try
+        return keepLatestOnly(raw);
     } // traceLatestWithSpecs
+
+    /**
+     * Reduces snapshot lists to only their latest entry per breakpoint line.
+     *
+     * @param snapshots Breakpoint snapshot mapping.
+     * @return Reduced mapping containing only the latest snapshot per line.
+     */
+    private static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(
+            Map<Integer, List<ExecutionSnapshot>> snapshots) {
+        Map<Integer, List<ExecutionSnapshot>> latest = new TreeMap<>();
+        for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
+            List<ExecutionSnapshot> list = entry.getValue();
+            latest.put(entry.getKey(), new ArrayList<>(List.of(list.get(list.size() - 1))));
+        } // for
+        return latest;
+    } // keepLatestOnly
 
     /**
      * Runs the event loop for the breakpoint trace.
@@ -560,6 +580,10 @@ public class DebugTraceHelper {
     private static void registerBreakpoints(
             VirtualMachine vm, ReferenceType refType, Collection<BreakpointSpec> breakPoints)
             throws AbsentInformationException {
+        Set<Location> registeredLocations = new HashSet<>();
+        for (var req : vm.eventRequestManager().breakpointRequests()) {
+            registeredLocations.add(req.location());
+        } // for
         for (BreakpointSpec spec : breakPoints) {
             if (spec.lineNumber() <= 0) {
                 continue;
@@ -567,7 +591,10 @@ public class DebugTraceHelper {
             if (spec.matchesReferenceType(refType)) {
                 List<Location> locations = refType.locationsOfLine(spec.lineNumber());
                 if (!locations.isEmpty()) {
-                    vm.eventRequestManager().createBreakpointRequest(locations.get(0)).enable();
+                    Location loc = locations.get(0);
+                    if (registeredLocations.add(loc)) {
+                        vm.eventRequestManager().createBreakpointRequest(loc).enable();
+                    } // if
                 } // if
             } // if
         } // for
