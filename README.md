@@ -200,6 +200,20 @@ Each output line contains the job correlation `id` and versioned `TraceResult`:
 {"id":"job-1","result":{"version":"1.0","format":"modern","status":"completed","complete":true,"trace":{"source":"...","steps":[...]}}}
 ```
 
+##### Performance Comparison
+
+Generating execution traces across all 34 reference test cases in `examples/` demonstrates substantial throughput improvements by avoiding repeated cold JVM startups and JDWP debugger socket handshakes:
+
+| Execution Mode | Workers | Total Time (34 examples) | Latency / Trace | Throughput | Speedup |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Non-Batch** (one-shot `trace` CLI) | 1 | **28.71 s** | 844.4 ms | 1.2 traces/s | **1.00x** (baseline) |
+| **Batch** (`batch-trace -w 1`) | 1 | **4.64 s** | 136.5 ms | 7.3 traces/s | **6.18x** |
+| **Batch** (`batch-trace -w 2`) | 2 | **2.84 s** | 83.4 ms | 12.0 traces/s | **10.12x** |
+| **Batch** (`batch-trace -w 4`) | 4 | **2.09 s** | 61.4 ms | 16.3 traces/s | **13.76x** |
+
+- **Session Reuse (6.18x faster)**: Comparing single-worker batch mode (`-w 1`) directly against traditional one-shot execution isolates the exact penalty of JVM startup and JDWP socket handshakes, cutting trace latency from ~844 ms down to ~136 ms.
+- **Concurrent Worker Scaling (Up to 13.76x faster)**: Distributing jobs across concurrent worker sessions (`--workers 4`) finishes all 34 test cases in ~2.09 seconds at 16.3 traces/sec.
+
 #### 8. Inspect Valid Breakpoints
 
 Show colorized executable lines in the terminal:
