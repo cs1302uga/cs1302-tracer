@@ -3,7 +3,9 @@ package cs1302.tracer.execution;
 import com.google.gson.Gson;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import java.io.ByteArrayOutputStream;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
@@ -499,8 +501,18 @@ public final class TraceSession implements AutoCloseable {
         } // write
 
         @Override
-        public OutputSlice read(JsonReader in) {
-            return null;
+        public OutputSlice read(JsonReader in) throws IOException {
+            if (in.peek() == JsonToken.NULL) {
+                in.nextNull();
+                return null;
+            } // if
+            in.beginArray();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            while (in.hasNext()) {
+                baos.write((byte) in.nextInt());
+            } // while
+            in.endArray();
+            return OutputSlice.from(baos.toByteArray());
         } // read
     } // OutputSliceTypeAdapter
 

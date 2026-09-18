@@ -255,10 +255,18 @@ class TraceSessionLifecycleTest {
         com.google.gson.TypeAdapter<cs1302.tracer.trace.OutputSlice> adapter =
                 (com.google.gson.TypeAdapter<cs1302.tracer.trace.OutputSlice>) constructor.newInstance();
 
-        // Test read returns null
-        try (var stringReader = new java.io.StringReader("[1, 2]");
+        // Test read null
+        try (var stringReader = new java.io.StringReader("null");
                 var jsonReader = new com.google.gson.stream.JsonReader(stringReader)) {
             assertThat(adapter.read(jsonReader)).isNull();
+        }
+
+        // Test read array into OutputSlice
+        try (var stringReader = new java.io.StringReader("[65, 66]");
+                var jsonReader = new com.google.gson.stream.JsonReader(stringReader)) {
+            var slice = adapter.read(jsonReader);
+            assertThat(slice).isNotNull();
+            assertThat(slice.toByteArray()).containsExactly((byte) 65, (byte) 66);
         }
 
         // Test write null

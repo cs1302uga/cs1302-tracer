@@ -38,7 +38,9 @@ public class JobOptions {
 
     /** Configured breakpoint target specifications. */
     @Option(names = {"--breakpoints", "-b"}, split = ",",
-            description = "Breakpoints at which to take snapshots.")
+            paramLabel = "<spec>",
+            description = "Breakpoints at which to take snapshots (e.g. '12', "
+                    + "'Main.java:12', or comma-separated '12,Helper.java:5').")
     public List<String> breakpoints;
 
     /**

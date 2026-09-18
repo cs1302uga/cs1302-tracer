@@ -76,6 +76,9 @@ class BreakpointSpecTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-5"))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Main-exit sentinel (-1)");
     } // testParseInvalid
 
     @Test
@@ -89,6 +92,9 @@ class BreakpointSpecTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -5))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Main-exit sentinel (-1)");
     } // testConstructInvalid
 
     @Test
