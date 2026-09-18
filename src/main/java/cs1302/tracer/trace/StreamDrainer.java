@@ -1,7 +1,7 @@
 package cs1302.tracer.trace;
 
-import java.io.ByteArrayOutputStream;
 import cs1302.tracer.execution.TraceSession;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -191,6 +191,88 @@ public class StreamDrainer implements AutoCloseable {
             return sink.byteAt(index);
         } // synchronized
     } // byteAt
+
+    /**
+     * Functional interface for streaming individual bytes with IO exceptions.
+     */
+    @FunctionalInterface
+    public interface ByteConsumer {
+        /**
+         * Consumes a single byte.
+         *
+         * @param b Byte value.
+         * @throws IOException On I/O failure.
+         */
+        void accept(byte b) throws IOException;
+    } // ByteConsumer
+
+    /**
+     * Streams a subrange of bytes under a single lock acquisition to the specified consumer.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to consume.
+     * @param consumer Consumer invoked for each byte.
+     * @throws IOException If the consumer throws an IOException.
+     */
+    public void forEachByte(int offset, int length, ByteConsumer consumer) throws IOException {
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            for (int i = 0; i < safeLength; i++) {
+                consumer.accept(sink.byteAt(safeOffset + i));
+            } // for
+        } // synchronized
+    } // forEachByte
+
+    /**
+     * Checks if a subrange of bytes starts with the given prefix under a single lock acquisition.
+     *
+     * @param offset Starting byte offset.
+     * @param length Available byte length.
+     * @param prefix Prefix to check.
+     * @return True if the subrange starts with the prefix.
+     */
+    public boolean startsWith(int offset, int length, byte[] prefix) {
+        if (prefix == null || prefix.length == 0) {
+            return true;
+        } // if
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            if (safeLength < prefix.length) {
+                return false;
+            } // if
+            for (int i = 0; i < prefix.length; i++) {
+                if (sink.byteAt(safeOffset + i) != prefix[i]) {
+                    return false;
+                } // if
+            } // for
+            return true;
+        } // synchronized
+    } // startsWith
+
+    /**
+     * Searches for the first occurrence of a byte in a subrange under a single lock acquisition.
+     *
+     * @param offset Starting byte offset.
+     * @param length Available byte length.
+     * @param b Byte to find.
+     * @param fromIndex Relative index within the subrange to start searching.
+     * @return Relative index of first match within the subrange, or -1 if not found.
+     */
+    public int indexOf(int offset, int length, byte b, int fromIndex) {
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            int start = Math.max(0, fromIndex);
+            for (int i = start; i < safeLength; i++) {
+                if (sink.byteAt(safeOffset + i) == b) {
+                    return i;
+                } // if
+            } // for
+            return -1;
+        } // synchronized
+    } // indexOf
 
     /**
      * Decodes the specified subrange of accumulated bytes into a string.

@@ -44,6 +44,7 @@ class SourceAnalysisTest {
 
                 public class Example {
                     static Function<Integer, Integer> doubler = x -> x * 2;
+                    Function<Integer, Integer> instanceDoubler = x -> x * 4;
 
                     public static void main(String[] args) {
                         final int factor = 3;
@@ -65,6 +66,11 @@ class SourceAnalysisTest {
 
         assertThat(analysis.findStaticLambdaImplementation("sample.Example", "doubler")).isPresent();
         assertThat(analysis.findStaticLambdaImplementation("Example", "doubler")).isPresent();
+        // Instance lambda fields should not be indexed as static lambdas
+        assertThat(analysis.findStaticLambdaImplementation("sample.Example", "instanceDoubler"))
+                .isEmpty();
+        assertThat(analysis.findStaticLambdaImplementation("Example", "instanceDoubler"))
+                .isEmpty();
         assertThat(analysis.findStaticLambdaImplementation("Example", "nonexistent")).isEmpty();
         assertThat(analysis.findStaticLambdaImplementation(null, "doubler")).isEmpty();
         assertThat(analysis.findStaticLambdaImplementation("Example", null)).isEmpty();
@@ -78,4 +84,21 @@ class SourceAnalysisTest {
         var finalSet = analysis.finalMethodVariables().values().iterator().next();
         assertThatThrownBy(finalSet::clear).isInstanceOf(UnsupportedOperationException.class);
     } // testSourceIndexing
+
+    @Test
+    @DisplayName("tolerates unresolved lambda symbols without throwing")
+    void testIsolatesLambdaResolutionFailures() {
+        // Parse without symbol solver so calculateResolvedType throws UnsolvedSymbolException or IllegalStateException
+        String unresolvedCode = """
+                package sample;
+                public class Unresolved {
+                    static UnknownSam lambda = x -> x;
+                }
+                """;
+        CompilationUnit cu = new JavaParser().parse(unresolvedCode).getResult().orElseThrow();
+        SourceAnalysis analysis = SourceAnalysis.from(List.of(cu));
+
+        assertThat(analysis.findClassDeclaration("sample.Unresolved")).isPresent();
+        assertThat(analysis.findStaticLambdaImplementation("sample.Unresolved", "lambda")).isEmpty();
+    } // testIsolatesLambdaResolutionFailures
 } // SourceAnalysisTest

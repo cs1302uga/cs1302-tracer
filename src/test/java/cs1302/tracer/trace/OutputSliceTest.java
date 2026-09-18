@@ -3,6 +3,7 @@ package cs1302.tracer.trace;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +15,7 @@ class OutputSliceTest {
 
     @Test
     @DisplayName("empty slice behavior")
-    void testEmptySlice() {
+    void testEmptySlice() throws Exception {
         OutputSlice empty = OutputSlice.empty();
         assertThat(empty.isEmpty()).isTrue();
         assertThat(empty.length()).isEqualTo(0);
@@ -33,11 +34,15 @@ class OutputSliceTest {
         assertThat(OutputSlice.from((StreamDrainer) null, 0, 5)).isSameAs(empty);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> empty.byteAt(0))
                 .isInstanceOf(IndexOutOfBoundsException.class);
+
+        empty.forEachByte(b -> {
+            throw new AssertionError("Should not be called");
+        });
     } // testEmptySlice
 
     @Test
     @DisplayName("direct byte slice operations and slicing")
-    void testDirectByteSlice() {
+    void testDirectByteSlice() throws Exception {
         byte[] bytes = "Hello, World!".getBytes(StandardCharsets.UTF_8);
         OutputSlice slice = OutputSlice.from(bytes);
 
@@ -46,6 +51,10 @@ class OutputSliceTest {
         assertThat(slice.toByteArray()).isEqualTo(bytes);
         assertThat(slice.asUtf8String()).isEqualTo("Hello, World!");
         assertThat(slice.toString()).isEqualTo("Hello, World!");
+
+        ByteArrayOutputStream directBaos = new ByteArrayOutputStream();
+        slice.forEachByte(directBaos::write);
+        assertThat(directBaos.toByteArray()).isEqualTo(bytes);
 
         OutputSlice sub = slice.subSlice(7, 5);
         assertThat(sub.asUtf8String()).isEqualTo("World");
@@ -91,6 +100,7 @@ class OutputSliceTest {
         assertThat(slice.indexOf((byte) 'W', 0)).isEqualTo(7);
         assertThat(slice.indexOf((byte) 'W', -5)).isEqualTo(7);
         assertThat(slice.indexOf((byte) 'z', 0)).isEqualTo(-1);
+        assertThat(slice.indexOf((byte) 'W', 100)).isEqualTo(-1);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> slice.byteAt(-1))
                 .isInstanceOf(IndexOutOfBoundsException.class);
@@ -108,6 +118,21 @@ class OutputSliceTest {
             assertThat(slice.length()).isEqualTo(data.length);
             assertThat(slice.asUtf8String()).isEqualTo("StreamDrainer Output Test");
             assertThat(slice.toByteArray()).isEqualTo(data);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            slice.forEachByte(baos::write);
+            assertThat(baos.toByteArray()).isEqualTo(data);
+
+            assertThat(slice.startsWith(null)).isTrue();
+            assertThat(slice.startsWith(new byte[0])).isTrue();
+            assertThat(slice.startsWith("Stream".getBytes(StandardCharsets.UTF_8))).isTrue();
+            assertThat(slice.startsWith("Other".getBytes(StandardCharsets.UTF_8))).isFalse();
+            assertThat(slice.startsWith(new byte[1000])).isFalse();
+
+            assertThat(slice.indexOf((byte) 'O', 0)).isEqualTo(14);
+            assertThat(slice.indexOf((byte) 'O', -5)).isEqualTo(14);
+            assertThat(slice.indexOf((byte) 'z', 0)).isEqualTo(-1);
+            assertThat(slice.indexOf((byte) 'O', 500)).isEqualTo(-1);
 
             OutputSlice sub = slice.subSlice(14, 6);
             assertThat(sub.asUtf8String()).isEqualTo("Output");
@@ -151,6 +176,10 @@ class OutputSliceTest {
             emptyDrainer.waitForEof(100);
             assertThat(OutputSlice.from(emptyDrainer, 0, 10).isEmpty()).isTrue();
             assertThat(OutputSlice.from(emptyDrainer, -5, 10).isEmpty()).isTrue();
+            assertThat(emptyDrainer.startsWith(0, 10, new byte[] {1})).isFalse();
+            assertThat(emptyDrainer.startsWith(0, 10, null)).isTrue();
+            assertThat(emptyDrainer.startsWith(0, 10, new byte[0])).isTrue();
+            assertThat(emptyDrainer.indexOf(0, 10, (byte) 1, 0)).isEqualTo(-1);
         } // try
     } // testDrainerBackedSlice
 

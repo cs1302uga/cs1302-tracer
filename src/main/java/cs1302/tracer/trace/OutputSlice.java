@@ -1,5 +1,6 @@
 package cs1302.tracer.trace;
 
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -203,6 +204,25 @@ public final class OutputSlice {
     } // byteAt
 
     /**
+     * Streams all bytes in this slice to the given consumer without allocating a byte array.
+     *
+     * @param consumer Consumer called for each byte.
+     * @throws IOException If the consumer throws an IOException.
+     */
+    public void forEachByte(StreamDrainer.ByteConsumer consumer) throws IOException {
+        if (length == 0) {
+            return;
+        } // if
+        if (drainer != null) {
+            drainer.forEachByte(offset, length, consumer);
+            return;
+        } // if
+        for (int i = 0; i < length; i++) {
+            consumer.accept(directBytes[offset + i]);
+        } // for
+    } // forEachByte
+
+    /**
      * Checks if this slice starts with the specified byte prefix without allocating memory.
      *
      * @param prefix The byte sequence to look for.
@@ -215,8 +235,11 @@ public final class OutputSlice {
         if (this.length < prefix.length) {
             return false;
         } // if
+        if (drainer != null) {
+            return drainer.startsWith(offset, length, prefix);
+        } // if
         for (int i = 0; i < prefix.length; i++) {
-            if (this.byteAt(i) != prefix[i]) {
+            if (directBytes[offset + i] != prefix[i]) {
                 return false;
             } // if
         } // for
@@ -232,9 +255,15 @@ public final class OutputSlice {
      * @return The index of the byte within this slice, or -1 if not found.
      */
     public int indexOf(byte b, int fromIndex) {
+        if (fromIndex >= length) {
+            return -1;
+        } // if
         int start = Math.max(0, fromIndex);
+        if (drainer != null) {
+            return drainer.indexOf(offset, length, b, start);
+        } // if
         for (int i = start; i < length; i++) {
-            if (this.byteAt(i) == b) {
+            if (directBytes[offset + i] == b) {
                 return i;
             } // if
         } // for
@@ -253,6 +282,11 @@ public final class OutputSlice {
         } // if
         if (other == null || this.length != other.length) {
             return false;
+        } // if
+        if (this.directBytes != null && other.directBytes != null) {
+            return Arrays.equals(
+                    this.directBytes, this.offset, this.offset + this.length,
+                    other.directBytes, other.offset, other.offset + other.length);
         } // if
         for (int i = 0; i < length; i++) {
             if (this.byteAt(i) != other.byteAt(i)) {

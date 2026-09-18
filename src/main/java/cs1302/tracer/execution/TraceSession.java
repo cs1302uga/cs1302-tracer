@@ -1,13 +1,13 @@
 package cs1302.tracer.execution;
 
 import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -494,9 +494,7 @@ public final class TraceSession implements AutoCloseable {
                 return;
             } // if
             out.beginArray();
-            for (int i = 0; i < slice.length(); i++) {
-                out.value(slice.byteAt(i));
-            } // for
+            slice.forEachByte(b -> out.value(b));
             out.endArray();
         } // write
 

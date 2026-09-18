@@ -118,11 +118,20 @@ public final class SourceAnalysis {
                 classDecls.putIfAbsent(simpleName, Optional.of(decl));
 
                 for (FieldDeclaration fieldDecl : decl.getFields()) {
+                    if (!fieldDecl.isStatic()) {
+                        continue;
+                    } // if
                     for (VariableDeclarator vd : fieldDecl.getVariables()) {
                         vd.getInitializer()
                                 .filter(Expression::isLambdaExpr)
                                 .map(Expression::asLambdaExpr)
-                                .flatMap(DebugTraceHelper::tryImplementLambdaSam)
+                                .flatMap(lambda -> {
+                                    try {
+                                        return DebugTraceHelper.tryImplementLambdaSam(lambda);
+                                    } catch (RuntimeException e) {
+                                        return Optional.empty();
+                                    } // try
+                                })
                                 .ifPresent(impl -> {
                                     String name = vd.getNameAsString();
                                     staticLambdas.put(fqn + "#" + name, impl);
