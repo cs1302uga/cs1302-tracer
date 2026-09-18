@@ -333,7 +333,9 @@ whole document in memory and to avoid publishing a partially serialized payload.
 ## Optional future work
 
 Bare-line breakpoints retain the documented latest-per-line behavior across files.
-File-qualified selectors need an opt-in compatibility design. A deadline covering
+Qualified `--breakpoint-at` selectors are available with envelopes and retain state
+by exact source path and line. The [supervised job protocol](docs/JOB_PROTOCOL.md)
+defines the next runner integration contracts. A deadline covering
 parsing and compilation would require external process supervision for reliable
 termination; the current tracing deadline is not a whole-job deadline. Hosted
 execution still requires the separate isolated runner described in the

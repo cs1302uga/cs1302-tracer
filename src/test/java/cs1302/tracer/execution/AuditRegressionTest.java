@@ -11,6 +11,69 @@ import org.junit.jupiter.api.io.TempDir;
 class AuditRegressionTest {
     @TempDir Path directory;
 
+    private static final String QUALIFIED_SOURCE = """
+            // --- Main.java ---
+            public class Main {
+              public static void main(String[] args) {
+                for (int i=0;i<2;i++) { p.Helper.run(); q.Helper.run(); }
+              }
+            }
+            // --- p/Helper.java ---
+            package p;
+            public class Helper {
+              public static void run() {
+                System.out.print("p");
+              }
+            }
+            // --- q/Helper.java ---
+            package q;
+            public class Helper {
+              public static void run() {
+                System.out.print("q");
+              }
+            }
+            """;
+
+    @Test void qualifiedBreakpointsRetainIndependentFilesInBothFormatsAndCaptureModes()
+            throws Exception {
+        for (String format : List.of("modern", "pytutor")) {
+            for (String mode : List.of("latest", "accumulate", "chronological")) {
+                var options = new ArrayList<>(List.of("--result-envelope", "-f", format,
+                        "--breakpoint-at", "p/Helper.java:4", "--breakpoint-at", "q/Helper.java:4"));
+                if (mode.equals("accumulate")) options.add("--accumulate-breakpoints");
+                if (mode.equals("chronological")) options.add("-a");
+                var result = trace(QUALIFIED_SOURCE, options.toArray(String[]::new));
+                assertThat(result.get("complete").getAsBoolean()).as(result.toString()).isTrue();
+                assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt())
+                        .isEqualTo(4);
+                assertThat(result.getAsJsonObject("counters").get("snapshotsRetained").getAsInt())
+                        .isEqualTo(mode.equals("latest") ? 2 : 4);
+                String payload = result.getAsJsonObject("trace").toString();
+                assertThat(payload).contains("p/Helper.java", "q/Helper.java");
+                var steps = result.getAsJsonObject("trace")
+                        .getAsJsonArray(format.equals("modern") ? "steps" : "trace");
+                var files = new ArrayList<String>();
+                steps.forEach(step -> files.add(step.getAsJsonObject().get("file").getAsString()));
+                assertThat(files).containsExactlyElementsOf(mode.equals("latest")
+                        ? List.of("p/Helper.java", "q/Helper.java")
+                        : List.of("p/Helper.java", "q/Helper.java", "p/Helper.java", "q/Helper.java"));
+                assertThat(result.get("stdout").getAsString()).isEqualTo("pqpq");
+            }
+        }
+        var legacy = trace(QUALIFIED_SOURCE, "--result-envelope", "-b", "4");
+        assertThat(legacy.getAsJsonObject("counters").get("snapshotsRetained").getAsInt()).isEqualTo(1);
+    }
+
+    @Test void unknownQualifiedLocationsFailBeforeLaunchingTheGuest() throws Exception {
+        for (String selector : List.of("Helper.java:4", "p/Helper.java:999")) {
+            var result = trace(QUALIFIED_SOURCE, "--result-envelope", "--breakpoint-at", selector);
+            assertThat(result.get("phase").getAsString()).isEqualTo("compile");
+            assertThat(result.get("trace").isJsonNull()).isTrue();
+            assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt()).isZero();
+            assertThat(result.get("diagnostics").toString()).contains("No executable breakpoint");
+        }
+    }
+
     JsonObject trace(String source, String... options) throws Exception {
         Path file = directory.resolve("Main.java");
         Files.writeString(file, source);

@@ -343,6 +343,19 @@ Capture memory states only before executing lines 12 and 24:
 java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b 12 -b 24 -f modern
 ```
 
+For exact locations in different files, use qualified selectors with an envelope:
+
+```sh
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i Main.java \
+  --result-envelope --breakpoint-at package/First.java:12 \
+  --breakpoint-at package/Second.java:12
+```
+
+Qualified locations retain independent states even when their line numbers match.
+Use source-relative paths from `list-breakpoints --json`. Add
+`--accumulate-breakpoints` to keep every hit. Qualified selectors cannot be mixed
+with numeric `-b` selectors; see [bounded tracing](docs/BOUNDED_TRACING.md).
+
 #### 4. Multi-File Streaming via Standard Input
 
 Concatenate multiple source files separated by comment headers and stream to tracer:

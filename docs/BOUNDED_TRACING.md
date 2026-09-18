@@ -117,6 +117,24 @@ Envelope traces always use a root containing a sequence (`trace` for Python Tuto
 unless accumulation is requested; retained states appear in capture order. Existing
 non-envelope selected-breakpoint dictionary output is unchanged.
 
+Use repeatable `--breakpoint-at path/to/File.java:LINE` selectors with
+`--result-envelope` to retain the latest state independently for each exact source
+location. Paths match the source-relative identities reported by `list-breakpoints
+--json`; basename-only guessing is not performed. Separators and redundant `.`
+segments are normalized. Absolute paths, parent traversal, and nonpositive lines
+are rejected. Qualified selectors cannot be mixed with numeric `--breakpoint`.
+
+With qualified selectors, `--accumulate-breakpoints` retains every hit and `-a`
+returns hits in chronological order. Qualified chronological mode does not add an
+implicit main-exit snapshot; uncaught-exception reporting remains enabled. Duplicate
+selectors do not create duplicate requests. Both payload formats retain their
+existing envelope sequence shape and source-file metadata. Numeric selectors keep
+their existing cross-file latest-per-line behavior.
+
+Invalid selector syntax/combinations exit 2 before source reading. A syntactically
+valid selector that does not name a compiler-reported executable location produces
+a failed `compile`-phase envelope (`compile_error`, exit 1) before guest launch.
+
 An empty sequence means a guest was launched but no snapshot completed. Null means
 no usable trace payload was available, for example after compilation failure or
 serializer failure. Completed snapshots are committed atomically; an interrupted

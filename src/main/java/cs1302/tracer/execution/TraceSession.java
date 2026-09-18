@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.Snapshot;
+import cs1302.tracer.trace.BreakpointSelection;
 import cs1302.tracer.trace.OutputStorage;
 import cs1302.tracer.trace.StreamDrainer;
 import java.io.Writer;
@@ -33,8 +34,9 @@ public final class TraceSession implements AutoCloseable {
     private final Thread owner = Thread.currentThread();
     private final AtomicReference<String> reason = new AtomicReference<>();
     private final List<Snapshot> completed = new ArrayList<>();
-    private final Map<Integer, Snapshot> latest = new LinkedHashMap<>();
+    private final Map<BreakpointSelection.Location, Snapshot> latest = new LinkedHashMap<>();
     private final Map<Snapshot, Long> sizes = new java.util.IdentityHashMap<>();
+    private BreakpointSelection selection = new BreakpointSelection(List.of());
     private final Set<Long> objects = new HashSet<>();
     private final List<StreamDrainer> drainers = new ArrayList<>();
     private volatile Process process;
@@ -194,6 +196,22 @@ public final class TraceSession implements AutoCloseable {
     } // register
 
     /**
+     * Selects exact source locations before tracing begins.
+     * @param selected Validated immutable selection.
+     */
+    public void selectBreakpoints(BreakpointSelection selected) {
+        selection = selected;
+    } // selectBreakpoints
+
+    /**
+     * Returns the job's qualified breakpoint policy.
+     * @return Selection, empty for legacy line-only behavior.
+     */
+    public BreakpointSelection breakpointSelection() {
+        return selection;
+    } // breakpointSelection
+
+    /**
      * Returns the per-stream output cap.
      * @return Byte limit, or zero for unlimited.
      */
@@ -320,7 +338,9 @@ public final class TraceSession implements AutoCloseable {
         if (!accumulate) {
             int line = snapshot.stack().isEmpty() ? -1
                     : (int) snapshot.stack().getLast().methodLine();
-            Snapshot previous = latest.put(line, snapshot);
+            String path = selection.qualified() ? snapshot.sourcePath().orElse("") : "";
+            Snapshot previous = latest.put(
+                    new BreakpointSelection.Location(path, line), snapshot);
             if (previous != null) {
                 retainedBytes -= sizes.remove(previous);
                 completed.remove(previous);

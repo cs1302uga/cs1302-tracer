@@ -23,6 +23,7 @@ import cs1302.tracer.serialize.PyTutorSerializer;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.Snapshot;
+import cs1302.tracer.trace.BreakpointSelection;
 import cs1302.tracer.serialize.StepView;
 import cs1302.tracer.serialize.JsonOutput;
 import java.io.File;
@@ -276,6 +277,12 @@ public class App {
                 description = "Breakpoints at which to take snapshots.")
         List<Integer> breakpoints = null;
 
+        @Option(names = "--breakpoint-at",
+                description = "Select source-relative path:line; requires --result-envelope.")
+        List<String> qualifiedBreakpoints = new ArrayList<>();
+
+        private BreakpointSelection selection = new BreakpointSelection(List.of());
+
         @Option(
                 names = {"--stdin"},
                 description = "Input string provided to the traced program via standard input.")
@@ -346,6 +353,11 @@ public class App {
                 if (stdin != null && stdinFile != null) {
                     throw new IllegalArgumentException(
                             "Cannot specify both --stdin and --stdin-file");
+                } // if
+                selection = new BreakpointSelection(qualifiedBreakpoints);
+                if (selection.qualified() && (!job.envelope || breakpoints != null)) {
+                    throw new IllegalArgumentException("--breakpoint-at requires --result-envelope "
+                            + "and cannot be combined with --breakpoint");
                 } // if
                 selected = job.limits();
                 if (job.envelope) {
@@ -516,13 +528,20 @@ public class App {
                 List<CompilationUnit> units = discoverAllCompilationUnits(sources, root,
                         root.isPresent() ? root : Optional.of(compiled.classPath()),
                         cs1302.tracer.trace.BreakpointReader.sourcePaths(compiled));
+                if (selection.qualified()) {
+                    selection.validate(DebugTraceHelper.getValidBreakpointLinesByFile(compiled));
+                } // if
+                session.selectBreakpoints(selection);
                 session.phase("trace");
+                Collection<Integer> selectedLines = selection.qualified()
+                        ? selection.lines() : breakpoints;
                 if (allBreakpoints) {
-                    Collection<Integer> lines = breakpoints == null
-                            ? DebugTraceHelper.getValidBreakpointLines(compiled) : breakpoints;
-                    DebugTraceHelper.captureChronological(compiled, lines, units, true, guestStdin);
+                    Collection<Integer> lines = selectedLines == null
+                            ? DebugTraceHelper.getValidBreakpointLines(compiled) : selectedLines;
+                    DebugTraceHelper.captureChronological(
+                            compiled, lines, units, !selection.qualified(), guestStdin);
                 } else {
-                    DebugTraceHelper.capture(compiled, breakpoints, units, guestStdin);
+                    DebugTraceHelper.capture(compiled, selectedLines, units, guestStdin);
                 } // if
                 session.finishOutput();
                 return session.capturedSnapshots();

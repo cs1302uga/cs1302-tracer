@@ -541,12 +541,25 @@ public class DebugTraceHelper {
         if (breakPoints != null) {
             for (int breakLine : breakPoints) {
                 List<Location> locations = refType.locationsOfLine(breakLine);
-                if (!locations.isEmpty()) {
+                if (!locations.isEmpty() && acceptsLocation(locations.get(0))) {
                     vm.eventRequestManager().createBreakpointRequest(locations.get(0)).enable();
                 } // if
             } // for
         } // if
     } // registerBreakpoints
+
+    /**
+     * Applies qualified selection without changing legacy line matching.
+     * @param location Candidate debug location.
+     * @return Whether this job selected the location.
+     * @throws AbsentInformationException If qualified matching lacks source metadata.
+     */
+    private static boolean acceptsLocation(Location location) throws AbsentInformationException {
+        TraceSession session = TraceSession.current();
+        return session == null || !session.breakpointSelection().qualified()
+                || session.breakpointSelection().matches(
+                        location.sourcePath(), location.lineNumber());
+    } // acceptsLocation
 
     /**
      * Checks if a JDI method matches the main method signature.
@@ -644,7 +657,8 @@ public class DebugTraceHelper {
      */
     private static void awaitGuestExit(VirtualMachine vm) {
         try {
-            vm.process().waitFor(200, TimeUnit.MILLISECONDS);
+            // Linux JDWP shutdown can outlast 200 ms after the VM death event.
+            vm.process().waitFor(1000, TimeUnit.MILLISECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (RuntimeException ignored) {

@@ -13,6 +13,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AppFailureTest {
+    @Test void qualifiedSelectorsRejectMixedAndNonEnvelopeModesBeforeReadingInput() {
+        var status = new java.util.concurrent.atomic.AtomicInteger();
+        for (String[] args : List.of(
+                new String[] {"--breakpoint-at", "p/Helper.java:4"},
+                new String[] {"--result-envelope", "--breakpoint-at", "p/Helper.java:4", "-b", "4"},
+                new String[] {"--result-envelope", "--breakpoint-at", "invalid"})) {
+            var trace = new App.Trace();
+            trace.exitHandler = status::set;
+            new picocli.CommandLine(trace).parseArgs(args);
+            status.set(0);
+            trace.run();
+            assertThat(status.get()).isEqualTo(2);
+        }
+    }
+
     @Test
     void lexicalErrorsAreRejectedWithAndWithoutSymbolSolver() {
         var trace = new App.Trace();
