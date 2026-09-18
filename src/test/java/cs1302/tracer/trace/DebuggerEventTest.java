@@ -50,7 +50,7 @@ class DebuggerEventTest {
                     mirror(ExceptionEvent.class, Map.of("location", location("Foreign"))),
                     mirror(VMStartEvent.class, Map.of()),
                     mirror(VMDisconnectEvent.class, Map.of()));
-            Object snapshots = chronological ? new ArrayList<ExecutionSnapshot>() : new HashMap<Integer, List<ExecutionSnapshot>>();
+            Object snapshots = chronological ? new ArrayList<Snapshot>() : new HashMap<Integer, List<Snapshot>>();
             runLoop(chronological, vm(events), snapshots, false, null);
             assertThat(snapshots).isEqualTo(chronological ? List.of() : Map.of());
         }
@@ -77,19 +77,19 @@ class DebuggerEventTest {
         var main = mirror(MethodExitEvent.class, Map.of("method", mainMethod("()V"), "thread", thread));
         var exception = mirror(ExceptionEvent.class, Map.of("location", location("C"), "thread", thread));
         var stop = mirror(VMDisconnectEvent.class, Map.of());
-        var chronological = new ArrayList<ExecutionSnapshot>();
+        var chronological = new ArrayList<Snapshot>();
         runLoop(true, vm(List.of(main, main, exception, stop)), chronological, true, null);
         assertThat(chronological).hasSize(1);
         assertThat(chronological.getFirst().stdinConsumed()).isEmpty();
         assertThat(chronological.getFirst().stdinOffset()).isZero();
-        var mapped = new HashMap<Integer, List<ExecutionSnapshot>>();
+        var mapped = new HashMap<Integer, List<Snapshot>>();
         runLoop(false, vm(List.of(main, exception, stop)), mapped, false, null);
         assertThat(mapped.keySet()).containsExactlyInAnyOrder(-1, 1);
         var priorFinal = mapped.get(-1).getFirst();
         // Main exits without requested capture must not replace previously selected states.
         runLoop(false, vm(List.of(main, stop)), mapped, false, null);
         assertThat(mapped.get(-1).getFirst()).isSameAs(priorFinal);
-        var excluded = new ArrayList<ExecutionSnapshot>();
+        var excluded = new ArrayList<Snapshot>();
         runLoop(true, vm(List.of(main, stop)), excluded, false, null);
         assertThat(excluded).isEmpty();
     }
@@ -127,7 +127,7 @@ class DebuggerEventTest {
     void exceptionAtADifferentLocationAddsAChronologicalState() throws Exception {
         var previous = new ExecutionSnapshot(List.of(new ExecutionSnapshot.StackSnapshot(
                 "main", 2, List.of(), Optional.empty())), List.of(), Map.of(), new byte[0], new byte[0]);
-        var snapshots = new ArrayList<>(List.of(previous));
+        var snapshots = new ArrayList<Snapshot>(List.of(previous));
         var exception = mirror(ExceptionEvent.class, Map.of("location", location("C"), "thread", thread()));
         runLoop(true, vm(List.of(exception, mirror(VMDisconnectEvent.class, Map.of()))), snapshots, false, null);
         assertThat(snapshots).hasSize(2);

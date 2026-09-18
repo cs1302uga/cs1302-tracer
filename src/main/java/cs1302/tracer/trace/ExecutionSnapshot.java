@@ -24,7 +24,17 @@ public record ExecutionSnapshot(
         byte[] stderr,
         Optional<String> sourcePath,
         String stdinConsumed,
-        int stdinOffset) {
+        int stdinOffset) implements Snapshot {
+
+    @Override
+    public ExecutionSnapshot metadata() {
+        return this;
+    } // metadata
+
+    @Override
+    public ExecutionSnapshot materialize() {
+        return this;
+    } // materialize
 
     /**
      * Constructs a snapshot with an explicit source file path defaulting stdin tracking.

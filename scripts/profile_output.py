@@ -47,6 +47,7 @@ def main():
                         help="JDK home used for java, javac, and jar")
     parser.add_argument("--iterations", type=positive, nargs="+", default=[50, 100, 200])
     parser.add_argument("--chunk-bytes", type=positive, default=1024)
+    parser.add_argument("--compact", action="store_true", help="measure internal shared output storage")
     args = parser.parse_args()
     artifact = args.jar.resolve(strict=True)
     java = str(args.jdk / "bin/java")
@@ -55,7 +56,8 @@ def main():
         [java, "-version"], capture_output=True, text=True, check=True).stderr.strip(),
         artifactSha256=hashlib.sha256(artifact.read_bytes()).hexdigest(),
         harnessSha256=hashlib.sha256(harness.read_bytes()).hexdigest(),
-        measurement="Identity-deduplicated shallow size of snapshot stdout/stderr arrays",
+        measurement="Identity-deduplicated output array capacity and shallow JVM size; "
+                    "compact mode also counts capture and history bookkeeping objects",
         runs=[])
     with tempfile.TemporaryDirectory(prefix="tracer-output-profile-") as temp:
         classes = Path(temp) / "classes"
@@ -69,9 +71,11 @@ def main():
                         "--manifest", str(manifest), "-C", str(classes), "."], check=True)
         for workload in ["burst", "continuous"]:
             for iterations in args.iterations:
-                results["runs"].append(measure([java, "-Xmx512m", "-javaagent:" + str(agent),
+                results["runs"].append(measure([java, "-Xmx512m", "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "-javaagent:" + str(agent),
                     "-cp", os.pathsep.join([str(agent), str(artifact)]), "OutputMemoryProfile",
-                    workload, str(iterations), str(args.chunk_bytes)]))
+                    workload, str(iterations), str(args.chunk_bytes),
+                    "compact" if args.compact else "legacy"]))
     print(json.dumps(results, indent=2))
 
 

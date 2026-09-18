@@ -1,0 +1,102 @@
+{
+  "before": [
+    {
+      "seconds": 2.0275119158905,
+      "peakRssBytes": 194084864,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1290,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    },
+    {
+      "seconds": 1.8612708749715239,
+      "peakRssBytes": 174915584,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1246,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    },
+    {
+      "seconds": 1.874585459008813,
+      "peakRssBytes": 194052096,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1252,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    }
+  ],
+  "after": [
+    {
+      "seconds": 1.8399396250024438,
+      "peakRssBytes": 175063040,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1254,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    },
+    {
+      "seconds": 1.828474833164364,
+      "peakRssBytes": 193658880,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1241,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    },
+    {
+      "seconds": 1.8425403330475092,
+      "peakRssBytes": 194363392,
+      "outputBytes": 56420,
+      "counters": {
+        "guestExitCode": 0,
+        "snapshotsCaptured": 104,
+        "snapshotsRetained": 103,
+        "retainedBytes": 151521,
+        "droppedSnapshots": 0,
+        "elapsedMillis": 1245,
+        "stderrBytes": 0,
+        "stdoutBytes": 0
+      },
+      "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+    }
+  ]
+}

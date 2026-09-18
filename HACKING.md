@@ -21,7 +21,7 @@ graph TD
     Tracer --> GuestJVM["Guest JVM Process"]
     GuestJVM -. "JDI Events" .-> Tracer
     Tracer --> Extractor["Value Extractor: TraceValue.java"]
-    Extractor --> Snap["ExecutionSnapshot Record"]
+    Extractor --> Snap["Captured state and shared output prefixes"]
 
     Snap --> SerPy --> OutPy["PythonTutor JSON"]
     Snap --> SerMod --> OutMod["Modern JSON"]
@@ -230,8 +230,8 @@ Snapshot extraction accounts references/elements before retaining them and commi
 only complete states. Size accounting uses a streaming counter rather than an
 intermediate JSON string. Selected-breakpoint jobs can replace previous states
 instead of retaining every hit. Budgeted output drainers cap retained bytes and
-signal a stop while continuing to drain during teardown. The envelope is written
-to stdout through Gson's writer API.
+signal a stop while continuing to drain during teardown. Gson writes the envelope
+to a temporary spool before its completed contents are published to stdout.
 
 `BreakpointReader` uses ASM 9.10.1 to read SourceFile and line-number attributes
 without loading or executing compiled classes. This keeps the project compatible
@@ -293,7 +293,7 @@ in the repository. Git permits local hooks to be bypassed; the JDK 25 CI job
 independently enforces the strict profile.
 
 
-## Audit follow-up performance checks
+## Performance checks
 
 `python3 scripts/benchmark.py` starts fresh tracer processes for loops,
 output-heavy code, collections, and source-heavy programs. It reports median
@@ -305,20 +305,39 @@ optimizations must retain matching semantic hashes as well as pass fixtures.
 For output-specific retained memory, run:
 
 ```sh
-python3 scripts/profile_output.py --jdk "$JAVA_HOME" > output-memory.json
+python3 scripts/profile_output.py --jdk "$(jenv prefix)" --compact > output-memory.json
 ```
 
 Supply a JDK home explicitly (for example, `jenv prefix`); `--jar` selects a saved
 artifact. The profiler compiles a temporary instrumentation agent and runs six
-fresh JVMs on a POSIX host. It counts distinct stdout/stderr arrays reachable from
-real chronological snapshots, including each array's shallow JVM size. It checks
+fresh JVMs on a POSIX host. Compact mode counts shared output buffers and capture
+bookkeeping; omit `--compact` to measure public eager snapshots. It checks
 output contents, monotonic lengths, and final length. This isolates retained
 output arrays; it does not measure total trace heap, peak allocations, serializer
 memory, or RSS. Library tracing intentionally runs without CLI retention caps.
-See [the storage analysis](docs/OUTPUT_STORAGE.md) for results and design constraints.
+See [performance and storage](docs/PERFORMANCE.md) for results and design constraints.
+Run the test suite separately from profiling jobs: cleanup tests inspect temporary
+compilation directories and can mistake another process's active directory for a leak.
 
 Source-derived type, lambda, and local-final metadata is prepared once per trace.
 Runtime object identities and inferred object types remain snapshot-local. Source
 discovery reads only paths represented by compiled class debug attributes, under
 independent applications of the source byte/file budgets. Guest I/O ownership
 ensures process termination precedes closing streams that might be blocked.
+
+The CLI keeps compact captures and materializes cumulative output at serialization.
+Public trace methods retain their existing `ExecutionSnapshot` records and independent
+output arrays. JSON publication uses a temporary disk spool to avoid retaining the
+whole document in memory and to avoid publishing a partially serialized payload.
+
+## Optional future work
+
+Bare-line breakpoints retain the documented latest-per-line behavior across files.
+File-qualified selectors need an opt-in compatibility design. A deadline covering
+parsing and compilation would require external process supervision for reliable
+termination; the current tracing deadline is not a whole-job deadline. Hosted
+execution still requires the separate isolated runner described in the
+[runner contract](docs/RUNNER_CONTRACT.md). Checkpointed artifacts after forced
+process termination are a separate capability. Lambda reconstruction retains its
+source-name/line heuristics; the scoped local-final index does not broaden the
+lambda feature's guarantees.

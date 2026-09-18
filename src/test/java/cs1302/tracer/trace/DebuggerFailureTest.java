@@ -103,7 +103,7 @@ class DebuggerFailureTest {
 
     @Test
     void comparesOnlyPopulatedTopFrames() throws Exception {
-        var signature = new Class<?>[] {ExecutionSnapshot.class, ExecutionSnapshot.class};
+        var signature = new Class<?>[] {Snapshot.class, Snapshot.class};
         assertThat(call("isSameTopFrame", signature, snapshot(null, 0), snapshot("main", 1))).isEqualTo(false);
         assertThat(call("isSameTopFrame", signature, snapshot("main", 1), snapshot(null, 0))).isEqualTo(false);
         assertThat(call("isSameTopFrame", signature, snapshot("main", 1), snapshot("other", 1))).isEqualTo(false);
@@ -114,7 +114,7 @@ class DebuggerFailureTest {
     @Test
     void trailingOutputCopiesImmutableSnapshotLists() throws Exception {
         var original = snapshot("main", 1);
-        var snapshots = new java.util.HashMap<Integer, List<ExecutionSnapshot>>();
+        var snapshots = new java.util.HashMap<Integer, List<Snapshot>>();
         snapshots.put(1, List.of(original));
         snapshots.put(2, List.of());
         snapshots.put(3, null);

@@ -3,6 +3,8 @@ package cs1302.tracer.execution;
 import com.google.gson.Gson;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.Snapshot;
+import cs1302.tracer.trace.OutputStorage;
 import cs1302.tracer.trace.StreamDrainer;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -30,9 +32,9 @@ public final class TraceSession implements AutoCloseable {
     private final boolean accumulate;
     private final Thread owner = Thread.currentThread();
     private final AtomicReference<String> reason = new AtomicReference<>();
-    private final List<ExecutionSnapshot> completed = new ArrayList<>();
-    private final Map<Integer, ExecutionSnapshot> latest = new LinkedHashMap<>();
-    private final Map<ExecutionSnapshot, Long> sizes = new java.util.IdentityHashMap<>();
+    private final List<Snapshot> completed = new ArrayList<>();
+    private final Map<Integer, Snapshot> latest = new LinkedHashMap<>();
+    private final Map<Snapshot, Long> sizes = new java.util.IdentityHashMap<>();
     private final Set<Long> objects = new HashSet<>();
     private final List<StreamDrainer> drainers = new ArrayList<>();
     private volatile Process process;
@@ -296,9 +298,18 @@ public final class TraceSession implements AutoCloseable {
      * @param retain Whether the event selection keeps this state.
      */
     public void commit(ExecutionSnapshot snapshot, boolean retain) {
+        commit((Snapshot) snapshot, retain);
+    } // commit
+
+    /**
+     * Accounts and retains a compact capture without storing cumulative output arrays.
+     * @param snapshot Captured state.
+     * @param retain Whether this state is selected for retention.
+     */
+    public void commit(Snapshot snapshot, boolean retain) {
         check();
         SnapshotCounter counter = new SnapshotCounter();
-        GSON.toJson(snapshot, counter);
+        GSON.toJson(snapshot.materialize(), counter);
         long size = Math.max(buildingBytes, counter.bytes);
         enforce(Math.addExact(retainedBytes, size), limits.traceBytes(), "trace_limit");
         captured++;
@@ -309,7 +320,7 @@ public final class TraceSession implements AutoCloseable {
         if (!accumulate) {
             int line = snapshot.stack().isEmpty() ? -1
                     : (int) snapshot.stack().getLast().methodLine();
-            ExecutionSnapshot previous = latest.put(line, snapshot);
+            Snapshot previous = latest.put(line, snapshot);
             if (previous != null) {
                 retainedBytes -= sizes.remove(previous);
                 completed.remove(previous);
@@ -350,8 +361,16 @@ public final class TraceSession implements AutoCloseable {
      * @return Completed snapshots only.
      */
     public List<ExecutionSnapshot> snapshots() {
-        return List.copyOf(completed);
+        return completed.stream().map(Snapshot::materialize).toList();
     } // snapshots
+
+    /**
+     * Returns captured states without materializing output prefixes.
+     * @return Completed internal captures.
+     */
+    public List<Snapshot> capturedSnapshots() {
+        return List.copyOf(completed);
+    } // capturedSnapshots
 
     /**
      * Builds a result after tracing or a recoverable failure.
@@ -413,7 +432,7 @@ public final class TraceSession implements AutoCloseable {
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
-        updateOutput(completed.getLast(), drainers.get(1).getBytes(),
+        updateCapturedOutput(completed.getLast(), drainers.get(1).getBytes(),
                 cs1302.tracer.trace.DebugTraceHelper.sanitizeDebuggeeStderr(
                         drainers.get(0).getBytes()));
     } // finishOutput
@@ -426,6 +445,17 @@ public final class TraceSession implements AutoCloseable {
      * @return Refreshed state for both the session and legacy result containers.
      */
     public ExecutionSnapshot updateOutput(ExecutionSnapshot last, byte[] stdout, byte[] stderr) {
+        return updateCapturedOutput(last, stdout, stderr).materialize();
+    } // updateOutput
+
+    /**
+     * Refreshes internal output while preserving retention accounting.
+     * @param last Original state.
+     * @param stdout Final stdout.
+     * @param stderr Final sanitized stderr.
+     * @return Refreshed internal state.
+     */
+    public Snapshot updateCapturedOutput(Snapshot last, byte[] stdout, byte[] stderr) {
         check();
         long extra = Math.max(0, stderr.length - last.stderr().length)
                 + Math.max(0, stdout.length - last.stdout().length);
@@ -436,8 +466,10 @@ public final class TraceSession implements AutoCloseable {
         if (size != null) {
             enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
         } // if
-        ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
-                stdout, stderr, last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
+        Snapshot updated = last instanceof ExecutionSnapshot
+                ? new ExecutionSnapshot(last.stack(), last.statics(), last.heap(), stdout, stderr,
+                        last.sourcePath(), last.stdinConsumed(), last.stdinOffset())
+                : OutputStorage.refresh(last, stdout, stderr);
         if (size != null) {
             completed.set(completed.indexOf(last), updated);
             latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);

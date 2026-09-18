@@ -143,8 +143,9 @@ public class DebugTraceHelper {
         } // close
     } // GuestRuntime
 
-    /** Immutable-by-ownership source metadata shared throughout one trace. */
+    /** Per-trace source metadata and append-only output storage. */
     private static final class SnapshotSources {
+        private final OutputStorage output = new OutputStorage();
         private final List<CompilationUnit> units;
         private final AstTypeResolver types;
         private final LocalMetadata locals;
@@ -279,10 +280,45 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        Map<Integer, List<ExecutionSnapshot>> result = new HashMap<>();
+        capture(compilationResult, breakPoints, parsedSources, stdin).forEach((line, states) ->
+                result.put(line, states.stream().map(Snapshot::materialize)
+                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new))));
+        return result;
+    } // trace
+
+    /**
+     * Take snapshots of a program's execution state with stdin using multiple parsed source files.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param breakPoints The source line numbers to snapshot at.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param stdin The standard input string.
+     * @return A mapping from breakpoint line numbers to a list of execution snapshots.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static Map<Integer, List<Snapshot>> capture(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         boolean snapMainEnd =
                 breakPoints == null || breakPoints.isEmpty() || breakPoints.contains(-1);
-        Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
+        Map<Integer, List<Snapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         try (GuestRuntime runtime = new GuestRuntime(vm, stdin)) {
@@ -384,7 +420,7 @@ public class DebugTraceHelper {
             CompilationResult compilationResult,
             Collection<Integer> breakPoints,
             List<CompilationUnit> parsedSources,
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
+            Map<Integer, List<Snapshot>> snapshots,
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
@@ -413,7 +449,7 @@ public class DebugTraceHelper {
                     if (compilationResult.compiledClassNames().contains(
                             loc.declaringType().name())) {
                         Integer line = loc.lineNumber();
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                        Snapshot snapshot = snapshotTheWorld(
                                 bpe.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
                         storeSnapshot(snapshots, line, snapshot);
@@ -421,7 +457,7 @@ public class DebugTraceHelper {
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                        Snapshot snapshot = snapshotTheWorld(
                                 mee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
                         recordSnapshot(snapshot, true);
@@ -472,7 +508,7 @@ public class DebugTraceHelper {
             StreamDrainer vmErr,
             SnapshotSources sourceIndex,
             InputTracker inputTracker,
-            Map<Integer, List<ExecutionSnapshot>> snapshots)
+            Map<Integer, List<Snapshot>> snapshots)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
@@ -481,7 +517,7 @@ public class DebugTraceHelper {
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
             Integer line = loc.lineNumber();
-            ExecutionSnapshot snapshot = snapshotTheWorld(
+            Snapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                     inputTracker);
             storeSnapshot(snapshots, line, snapshot);
@@ -623,7 +659,7 @@ public class DebugTraceHelper {
      * @param s2 Second snapshot.
      * @return True if both have the same method and line number on top.
      */
-    private static boolean isSameTopFrame(ExecutionSnapshot s1, ExecutionSnapshot s2) {
+    private static boolean isSameTopFrame(Snapshot s1, Snapshot s2) {
         if (s1.stack().isEmpty() || s2.stack().isEmpty()) {
             return false;
         } // if
@@ -639,7 +675,7 @@ public class DebugTraceHelper {
      * @param current Current execution snapshot.
      * @return True if both snapshots share identical location and execution state.
      */
-    static boolean isRedundantSnapshot(ExecutionSnapshot prev, ExecutionSnapshot current) {
+    static boolean isRedundantSnapshot(Snapshot prev, Snapshot current) {
         if (prev == current) {
             return true;
         } // if
@@ -664,13 +700,13 @@ public class DebugTraceHelper {
      * @param vmErr Standard error drainer.
      */
     private static void syncTrailingStreamOutput(
-            List<ExecutionSnapshot> chronologicalSnapshots,
+            List<Snapshot> chronologicalSnapshots,
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
         if (!chronologicalSnapshots.isEmpty()) {
             byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
             byte[] finalOut = vmOut.getBytes();
-            ExecutionSnapshot last = chronologicalSnapshots.getLast();
+            Snapshot last = chronologicalSnapshots.getLast();
             if (finalErr.length > last.stderr().length || finalOut.length > last.stdout().length) {
                 chronologicalSnapshots.set(
                         chronologicalSnapshots.size() - 1,
@@ -687,18 +723,18 @@ public class DebugTraceHelper {
      * @param vmErr Standard error drainer.
      */
     private static void syncTrailingStreamOutput(
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
+            Map<Integer, List<Snapshot>> snapshots,
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
         byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
         byte[] finalOut = vmOut.getBytes();
-        for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
-            List<ExecutionSnapshot> list = entry.getValue();
+        for (Map.Entry<Integer, List<Snapshot>> entry : snapshots.entrySet()) {
+            List<Snapshot> list = entry.getValue();
             if (list != null && !list.isEmpty()) {
-                ExecutionSnapshot last = list.getLast();
+                Snapshot last = list.getLast();
                 if (finalErr.length > last.stderr().length
                         || finalOut.length > last.stdout().length) {
-                    List<ExecutionSnapshot> mutableList = (list instanceof ArrayList)
+                    List<Snapshot> mutableList = (list instanceof ArrayList)
                             ? list
                             : new ArrayList<>(list);
                     mutableList.set(
@@ -719,13 +755,12 @@ public class DebugTraceHelper {
      * @param stderr Final sanitized stderr.
      * @return Refreshed state.
      */
-    private static ExecutionSnapshot refreshOutput(
-            ExecutionSnapshot last, byte[] stdout, byte[] stderr) {
+    private static Snapshot refreshOutput(
+            Snapshot last, byte[] stdout, byte[] stderr) {
         TraceSession session = TraceSession.current();
         return session == null
-                ? new ExecutionSnapshot(last.stack(), last.statics(), last.heap(), stdout, stderr,
-                        last.sourcePath(), last.stdinConsumed(), last.stdinOffset())
-                : session.updateOutput(last, stdout, stderr);
+                ? OutputStorage.refresh(last, stdout, stderr)
+                : session.updateCapturedOutput(last, stdout, stderr);
     } // refreshOutput
 
     /**
@@ -994,10 +1029,46 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        return captureChronological(
+                compilationResult, breakPoints, parsedSources, includeMainExit, stdin)
+                .stream().map(Snapshot::materialize)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    } // traceChronological
+
+    /**
+     * Run a program under JDI and capture all snapshots in chronological order with stdin.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param breakPoints The collection of line numbers where breakpoints should be placed.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param includeMainExit If true, includes the snapshot when main exits at the end.
+     * @param stdin Standard input string.
+     * @return A list of execution snapshots in chronological order.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static List<Snapshot> captureChronological(
+            CompilationResult compilationResult,
+            Collection<Integer> breakPoints,
+            List<CompilationUnit> parsedSources,
+            boolean includeMainExit,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         try (GuestRuntime runtime = new GuestRuntime(vm, stdin)) {
-            List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
+            List<Snapshot> chronologicalSnapshots = new ArrayList<>();
             StreamDrainer vmErrDrainer = runtime.stderr;
             StreamDrainer vmOutDrainer = runtime.stdout;
             InputTracker inputTracker = new InputTracker(stdin);
@@ -1058,7 +1129,7 @@ public class DebugTraceHelper {
             CompilationResult compilationResult,
             Collection<Integer> breakPoints,
             List<CompilationUnit> parsedSources,
-            List<ExecutionSnapshot> chronologicalSnapshots,
+            List<Snapshot> chronologicalSnapshots,
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
@@ -1085,7 +1156,7 @@ public class DebugTraceHelper {
                     Location breakLocation = bpe.location();
                     if (compilationResult.compiledClassNames().contains(
                             breakLocation.declaringType().name())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                        Snapshot snapshot = snapshotTheWorld(
                                 bpe.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
                         recordSnapshot(snapshot, true);
@@ -1094,7 +1165,7 @@ public class DebugTraceHelper {
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && includeMainExit) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                        Snapshot snapshot = snapshotTheWorld(
                                 mee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                                 inputTracker);
                         boolean retain = chronologicalSnapshots.isEmpty()
@@ -1151,7 +1222,7 @@ public class DebugTraceHelper {
             StreamDrainer vmErr,
             SnapshotSources sourceIndex,
             InputTracker inputTracker,
-            List<ExecutionSnapshot> chronologicalSnapshots)
+            List<Snapshot> chronologicalSnapshots)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
@@ -1159,7 +1230,7 @@ public class DebugTraceHelper {
         Location loc = ee.location();
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
-            ExecutionSnapshot snapshot = snapshotTheWorld(
+            Snapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceIndex,
                     inputTracker);
             boolean retain = chronologicalSnapshots.isEmpty()
@@ -1454,7 +1525,7 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static ExecutionSnapshot snapshotTheWorld(
+    private static Snapshot snapshotTheWorld(
             ThreadReference mainThread,
             Iterable<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
@@ -1508,7 +1579,7 @@ public class DebugTraceHelper {
                 Optional.ofNullable(currentStepSourcePath),
                 stdinConsumed,
                 stdinOffset);
-        return snapshot;
+        return sourceIndex.output.capture(snapshot);
     } // snapshotTheWorld
 
     /**
@@ -2247,7 +2318,7 @@ public class DebugTraceHelper {
      * @param snapshot Completed extraction.
      * @param retain Whether this state is selected for output.
      */
-    private static void recordSnapshot(ExecutionSnapshot snapshot, boolean retain) {
+    private static void recordSnapshot(Snapshot snapshot, boolean retain) {
         if (TraceSession.current() != null) {
             TraceSession.current().commit(snapshot, retain);
         } // if
@@ -2259,10 +2330,10 @@ public class DebugTraceHelper {
      * @param line Breakpoint line.
      * @param snapshot Completed state.
      */
-    private static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
-            int line, ExecutionSnapshot snapshot) {
+    private static void storeSnapshot(Map<Integer, List<Snapshot>> snapshots,
+            int line, Snapshot snapshot) {
         recordSnapshot(snapshot, true);
-        List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
+        List<Snapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
         if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
             entries.clear();
         } // if

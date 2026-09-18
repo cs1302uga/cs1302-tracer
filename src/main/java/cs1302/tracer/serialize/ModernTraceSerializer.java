@@ -11,6 +11,7 @@ import cs1302.tracer.model.modern.Step;
 import cs1302.tracer.model.modern.Trace;
 import cs1302.tracer.model.modern.Variable;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.Snapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
@@ -164,6 +165,22 @@ public class ModernTraceSerializer {
     } // createTrace
 
     /**
+     * Creates a lazy trace model without retaining cumulative output strings per step.
+     * @param javaSource Source text.
+     * @param stdin Guest input.
+     * @param snapshots Internal captured states.
+     * @return Trace whose steps materialize during serialization.
+     */
+    public Trace createCapturedTrace(
+            String javaSource, String stdin, List<? extends Snapshot> snapshots) {
+        boolean multiFile = isMultiFileSource(javaSource,
+                snapshots.stream().map(Snapshot::metadata).toList());
+        List<Step> steps = new StepView<>(snapshots.size(),
+                index -> createStep(snapshots.get(index).materialize(), index + 1, multiFile));
+        return new Trace(javaSource, stdin, steps);
+    } // createCapturedTrace
+
+    /**
      * Creates a modern trace for a breakpoints map.
      *
      * @param javaSource The original Java source code.
@@ -201,6 +218,24 @@ public class ModernTraceSerializer {
         } // for
         return new Trace(javaSource, stdin, converted);
     } // createBreakpointsTrace
+
+    /**
+     * Creates a breakpoint model whose accumulated steps materialize on demand.
+     * @param javaSource Source text.
+     * @param stdin Guest input.
+     * @param snapshots Selected captured states.
+     * @param accumulate Whether each breakpoint value is an array.
+     * @return Breakpoint trace preserving legacy step numbering and shape.
+     */
+    public Trace createCapturedBreakpoints(String javaSource, String stdin,
+            Map<Integer, List<Snapshot>> snapshots, boolean accumulate) {
+        Map<Integer, Object> converted = new LinkedHashMap<>();
+        snapshots.forEach((line, states) -> converted.put(line, accumulate
+                ? new StepView<>(states.size(),
+                        index -> createStep(states.get(index).materialize(), index + 1, false))
+                : createStep(states.getLast().materialize(), 1, false)));
+        return new Trace(javaSource, stdin, converted);
+    } // createCapturedBreakpoints
 
     /**
      * Converts an individual {@link ExecutionSnapshot} into a {@link Step}.

@@ -36,6 +36,25 @@ class TracingApiTest {
     }
 
     @Test
+    void publicLatestCaptureWorksInsideAnExistingSession() throws Exception {
+        try (var compiled = CompilationHelper.compile(SOURCE);
+                var session = new cs1302.tracer.execution.TraceSession(
+                        cs1302.tracer.execution.TraceLimits.unlimited(),
+                        cs1302.tracer.execution.InspectionPolicy.TRUSTED, false)) {
+            session.phase("trace");
+            var snapshots = DebugTraceHelper.traceLatest(compiled, List.of(5),
+                    List.of(StaticJavaParser.parse(SOURCE)), "");
+            assertThat(snapshots.get(5)).hasSize(1);
+            var snapshot = snapshots.get(5).getFirst();
+            assertThat(snapshot.getClass().isRecord()).isTrue();
+            assertThat(snapshot.getClass().getRecordComponents()).hasSize(8);
+            assertThat(snapshot.stdout()).isEqualTo("3\n".getBytes());
+            snapshots.get(5).clear();
+            assertThat(session.snapshots()).hasSize(1);
+        }
+    }
+
+    @Test
     void chronologicalExceptionsRetainTheThrowingFrame() throws Exception {
         String source = """
                 public class Main {

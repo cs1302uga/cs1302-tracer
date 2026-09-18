@@ -5,6 +5,7 @@ import com.google.gson.*;
 import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.execution.*;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.Snapshot;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
@@ -57,7 +58,7 @@ class AppFailureTest {
     @Test
     void interruptedExecutionCancelsEnvelopeAndPreservesInterrupt() {
         var trace = new App.Trace() {
-            @Override List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session,
+            @Override List<Snapshot> executeBoundedSource(String source, TraceSession session,
                     TraceLimits limits, String guestStdin) throws Exception {
                 throw new InterruptedException("interrupted guest");
             }
@@ -72,9 +73,9 @@ class AppFailureTest {
     @Test
     void serializationFailureProducesAFailedEnvelope() {
         var trace = new App.Trace() {
-            @Override List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session,
+            @Override List<Snapshot> executeBoundedSource(String source, TraceSession session,
                     TraceLimits limits, String guestStdin) { return List.of(); }
-            @Override Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
+            @Override Object boundedPayload(String source, List<Snapshot> snapshots, String guestStdin) {
                 throw new IllegalStateException("serializer unavailable");
             }
         };
@@ -83,6 +84,43 @@ class AppFailureTest {
         assertThat(result.get("phase").getAsString()).isEqualTo("serialize");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("tracer_error");
         assertThat(result.get("trace").isJsonNull()).isTrue();
+    }
+
+    @Test
+    void lazySerializationFailureReplacesTheSpoolWithAFailedEnvelope() {
+        var trace = new App.Trace() {
+            @Override List<Snapshot> executeBoundedSource(String source, TraceSession session,
+                    TraceLimits limits, String guestStdin) { return List.of(); }
+            @Override Object boundedPayload(String source, List<Snapshot> snapshots, String guestStdin) {
+                return new cs1302.tracer.serialize.StepView<>(2, index -> {
+                    if (index == 1) throw new IllegalStateException("bad lazy step");
+                    return "first step must not escape the spool";
+                });
+            }
+        };
+        var result = envelope(trace);
+        assertThat(result.get("status").getAsString()).isEqualTo("failed");
+        assertThat(result.get("phase").getAsString()).isEqualTo("serialize");
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("tracer_error");
+        assertThat(result.get("trace").isJsonNull()).isTrue();
+    }
+
+    @Test
+    void unavailableSpoolStorageReportsAnIoFailure(@TempDir Path directory) throws Exception {
+        String previous = System.getProperty("java.io.tmpdir");
+        Path occupied = Files.writeString(directory.resolve("file"), "not a directory");
+        var emit = App.Trace.class.getDeclaredMethod("emitResult", TraceSession.class,
+                cs1302.tracer.execution.TraceResult.class);
+        emit.setAccessible(true);
+        try (var session = new TraceSession(TraceLimits.unlimited(),
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+            System.setProperty("java.io.tmpdir", occupied.toString());
+            assertThatThrownBy(() -> emit.invoke(new App.Trace(), session,
+                    session.result("modern", null, null)))
+                    .hasCauseInstanceOf(java.io.UncheckedIOException.class);
+        } finally {
+            System.setProperty("java.io.tmpdir", previous);
+        }
     }
 
     @Test

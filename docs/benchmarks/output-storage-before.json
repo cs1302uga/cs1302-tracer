@@ -1,0 +1,223 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "java": "openjdk version \"25.0.4.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 25.0.4.1)\nOpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)",
+  "workloads": {
+    "loop": {
+      "runs": [
+        {
+          "seconds": 1.9078640411607921,
+          "peakRssBytes": 175210496,
+          "outputBytes": 56420,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1251,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+        },
+        {
+          "seconds": 1.8615420418791473,
+          "peakRssBytes": 174899200,
+          "outputBytes": 56420,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1245,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+        },
+        {
+          "seconds": 1.850707541918382,
+          "peakRssBytes": 193822720,
+          "outputBytes": 56420,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1236,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "740face11522ae315bb87fd33d6fcf9c9bb8858db42dfd69795682d25d0ded0c"
+        }
+      ],
+      "medianSeconds": 1.8615420418791473,
+      "medianPeakRssBytes": 175210496
+    },
+    "output": {
+      "runs": [
+        {
+          "seconds": 2.7079764581285417,
+          "peakRssBytes": 297713664,
+          "outputBytes": 5210771,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 103,
+            "snapshotsRetained": 102,
+            "retainedBytes": 60772284,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 2003,
+            "stderrBytes": 0,
+            "stdoutBytes": 100100
+          },
+          "traceHash": "a7d20813e249c90acb0c19e8fcf8f5f355c3e1a82f2b599933e5e97581f27f82"
+        },
+        {
+          "seconds": 2.6354435000102967,
+          "peakRssBytes": 297533440,
+          "outputBytes": 5210771,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 103,
+            "snapshotsRetained": 102,
+            "retainedBytes": 60772284,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1962,
+            "stderrBytes": 0,
+            "stdoutBytes": 100100
+          },
+          "traceHash": "a7d20813e249c90acb0c19e8fcf8f5f355c3e1a82f2b599933e5e97581f27f82"
+        },
+        {
+          "seconds": 2.7201540409587324,
+          "peakRssBytes": 294666240,
+          "outputBytes": 5210771,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 103,
+            "snapshotsRetained": 102,
+            "retainedBytes": 60772284,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 2042,
+            "stderrBytes": 0,
+            "stdoutBytes": 100100
+          },
+          "traceHash": "a7d20813e249c90acb0c19e8fcf8f5f355c3e1a82f2b599933e5e97581f27f82"
+        }
+      ],
+      "medianSeconds": 2.7079764581285417,
+      "medianPeakRssBytes": 297533440
+    },
+    "collections": {
+      "runs": [
+        {
+          "seconds": 2.1081531250383705,
+          "peakRssBytes": 199131136,
+          "outputBytes": 265538,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 64,
+            "snapshotsRetained": 63,
+            "retainedBytes": 521540,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1256,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "b78232594ad9fa52f4b2dc531601255c2e7ddd93e5c65b887840add69ba90fc5"
+        },
+        {
+          "seconds": 2.0958937499672174,
+          "peakRssBytes": 195313664,
+          "outputBytes": 265538,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 64,
+            "snapshotsRetained": 63,
+            "retainedBytes": 521540,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1242,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "b78232594ad9fa52f4b2dc531601255c2e7ddd93e5c65b887840add69ba90fc5"
+        },
+        {
+          "seconds": 2.101827499922365,
+          "peakRssBytes": 198787072,
+          "outputBytes": 265538,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 64,
+            "snapshotsRetained": 63,
+            "retainedBytes": 521540,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1246,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "b78232594ad9fa52f4b2dc531601255c2e7ddd93e5c65b887840add69ba90fc5"
+        }
+      ],
+      "medianSeconds": 2.101827499922365,
+      "medianPeakRssBytes": 198787072
+    },
+    "sources": {
+      "runs": [
+        {
+          "seconds": 2.3263848330825567,
+          "peakRssBytes": 189644800,
+          "outputBytes": 64608,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1359,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "fba00606c7abb8cbbd30f9bd0d843cb148cbd19700196aa5e872930ded1a9607"
+        },
+        {
+          "seconds": 2.2550294168759137,
+          "peakRssBytes": 185303040,
+          "outputBytes": 64608,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1350,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "fba00606c7abb8cbbd30f9bd0d843cb148cbd19700196aa5e872930ded1a9607"
+        },
+        {
+          "seconds": 2.243451374815777,
+          "peakRssBytes": 186957824,
+          "outputBytes": 64608,
+          "counters": {
+            "guestExitCode": 0,
+            "snapshotsCaptured": 104,
+            "snapshotsRetained": 103,
+            "retainedBytes": 151521,
+            "droppedSnapshots": 0,
+            "elapsedMillis": 1346,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          "traceHash": "fba00606c7abb8cbbd30f9bd0d843cb148cbd19700196aa5e872930ded1a9607"
+        }
+      ],
+      "medianSeconds": 2.2550294168759137,
+      "medianPeakRssBytes": 186957824
+    }
+  },
+  "artifactSha256": "7a37854e94a970ccbfe735b1616c684c4360bb12d99de4b8d0ba3b6f58cdc21a"
+}

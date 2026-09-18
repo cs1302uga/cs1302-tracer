@@ -76,7 +76,8 @@ def main():
     if args.worker:
         print(json.dumps(worker(args)))
         return
-    results = {"platform": platform.platform(), "java": subprocess.run(
+    results = {"artifactSha256": hashlib.sha256(args.jar.read_bytes()).hexdigest(),
+               "platform": platform.platform(), "java": subprocess.run(
         [args.java, "-version"], capture_output=True, text=True, check=True).stderr.strip(), "workloads": {}}
     for workload in ["loop", "output", "collections", "sources"]:
         runs = []

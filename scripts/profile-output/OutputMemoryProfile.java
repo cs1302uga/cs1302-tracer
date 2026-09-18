@@ -19,6 +19,7 @@ public final class OutputMemoryProfile {
     }
 
     public static void main(String[] args) throws Exception {
+        boolean compact = args.length > 3 && args[3].equals("compact");
         String workload = args[0];
         int iterations = Integer.parseInt(args[1]);
         int chunk = Integer.parseInt(args[2]);
@@ -28,16 +29,27 @@ public final class OutputMemoryProfile {
                 + "int sum = 0;\nfor (int i = 0; i < " + iterations + "; i++) {\n"
                 + (workload.equals("continuous") ? emission : "")
                 + "sum += i;\n}\n}\n}\n";
-        List<ExecutionSnapshot> snapshots;
+        List<?> snapshots;
         try (var compiled = CompilationHelper.compile(source)) {
-            snapshots = DebugTraceHelper.traceChronological(compiled,
-                    DebugTraceHelper.getValidBreakpointLines(compiled),
-                    StaticJavaParser.parse(source), true);
+            snapshots = compact
+                    ? (List<?>) DebugTraceHelper.class.getMethod("captureChronological",
+                            CompilationHelper.CompilationResult.class, java.util.Collection.class,
+                            List.class, boolean.class, String.class).invoke(null, compiled,
+                            DebugTraceHelper.getValidBreakpointLines(compiled),
+                            List.of(StaticJavaParser.parse(source)), true, "")
+                    : DebugTraceHelper.traceChronological(compiled,
+                            DebugTraceHelper.getValidBreakpointLines(compiled),
+                            StaticJavaParser.parse(source), true);
         }
         Set<byte[]> arrays = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Object> bookkeeping = Collections.newSetFromMap(new IdentityHashMap<>());
         long logicalBytes = 0;
         int previousLength = 0;
-        for (var snapshot : snapshots) {
+        for (Object captured : snapshots) {
+            ExecutionSnapshot snapshot = compact
+                    ? (ExecutionSnapshot) Class.forName("cs1302.tracer.trace.Snapshot")
+                            .getMethod("materialize").invoke(captured)
+                    : (ExecutionSnapshot) captured;
             byte[] stdout = snapshot.stdout();
             byte[] stderr = snapshot.stderr();
             if (stdout.length < previousLength || stderr.length != 0) {
@@ -50,8 +62,12 @@ public final class OutputMemoryProfile {
             }
             previousLength = stdout.length;
             logicalBytes += stdout.length + stderr.length;
-            arrays.add(stdout);
-            arrays.add(stderr);
+            if (compact) {
+                collectStorage(captured, arrays, bookkeeping);
+            } else {
+                arrays.add(stdout);
+                arrays.add(stderr);
+            }
         }
         int expected = chunk * (workload.equals("continuous") ? iterations : 1);
         if (previousLength != expected) {
@@ -64,13 +80,16 @@ public final class OutputMemoryProfile {
             payloadBytes += array.length;
         }
         var result = new LinkedHashMap<String, Object>();
+        result.put("storageMode", compact ? "compact" : "legacy");
         result.put("workload", workload);
         result.put("iterations", iterations);
         result.put("chunkBytes", chunk);
         result.put("snapshots", snapshots.size());
         result.put("uniqueOutputArrays", arrays.size());
         result.put("logicalCumulativeOutputBytes", logicalBytes);
-        result.put("retainedOutputPayloadBytes", payloadBytes);
+        result.put("retainedOutputArrayCapacityBytes", payloadBytes);
+        result.put("retainedOutputBookkeepingBytes", bookkeeping.stream()
+                .mapToLong(instrumentation::getObjectSize).sum());
         result.put("retainedOutputArrayBytes", arrayBytes);
         result.put("finalOutputBytes", expected);
         // A lower bound, not an implementation measurement: excludes buffer slack,
@@ -78,4 +97,22 @@ public final class OutputMemoryProfile {
         result.put("sharedPayloadLowerBoundBytes", expected);
         System.out.println(new Gson().toJson(result));
     }
+    private static void collectStorage(Object captured, Set<byte[]> arrays,
+            Set<Object> bookkeeping) throws Exception {
+        bookkeeping.add(captured);
+        for (String name : List.of("out", "err")) {
+            var field = captured.getClass().getDeclaredField(name);
+            field.setAccessible(true);
+            Object history = field.get(captured);
+            bookkeeping.add(history);
+            var buffer = java.io.ByteArrayOutputStream.class.getDeclaredField("buf");
+            buffer.setAccessible(true);
+            arrays.add((byte[]) buffer.get(history));
+        }
+        var metadata = (ExecutionSnapshot) Class.forName("cs1302.tracer.trace.Snapshot")
+                .getMethod("metadata").invoke(captured);
+        arrays.add(metadata.stdout());
+        arrays.add(metadata.stderr());
+    }
+
 }

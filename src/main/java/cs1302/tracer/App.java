@@ -22,6 +22,9 @@ import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.Snapshot;
+import cs1302.tracer.serialize.StepView;
+import cs1302.tracer.serialize.JsonOutput;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -428,7 +431,7 @@ public class App {
                 String source = "";
                 String guestStdin = "";
                 Throwable failure = null;
-                List<ExecutionSnapshot> snapshots = null;
+                List<Snapshot> snapshots = null;
                 try {
                     guestStdin = resolveGuestStdin();
                     source = readBoundedSource(session, limits);
@@ -442,7 +445,7 @@ public class App {
                     } // if
                 } // try
                 if (snapshots == null && session.traceAvailable()) {
-                    snapshots = session.snapshots();
+                    snapshots = session.capturedSnapshots();
                 } // if
                 Object payload = null;
                 try {
@@ -455,8 +458,7 @@ public class App {
                 TraceResult result = session.result(
                         format.name().toLowerCase(java.util.Locale.ROOT),
                         payload, failure);
-                PyTutorSerializer.getGson(pretty).toJson(result, System.out);
-                System.out.println();
+                result = emitResult(session, result);
                 if (!result.complete()) {
                     exitHandler.accept(result.status().equals("stopped") ? 3 : 1);
                 } // if
@@ -500,7 +502,7 @@ public class App {
          * @return Completed snapshots.
          * @throws Exception On compilation or tracing failure.
          */
-        List<ExecutionSnapshot> executeBoundedSource(
+        List<Snapshot> executeBoundedSource(
                 String source, TraceSession session, TraceLimits limits, String guestStdin)
                 throws Exception {
             long files = CompilationHelper.DELIMITER_PATTERN.matcher(source).results().count();
@@ -518,12 +520,12 @@ public class App {
                 if (allBreakpoints) {
                     Collection<Integer> lines = breakpoints == null
                             ? DebugTraceHelper.getValidBreakpointLines(compiled) : breakpoints;
-                    DebugTraceHelper.traceChronological(compiled, lines, units, true, guestStdin);
+                    DebugTraceHelper.captureChronological(compiled, lines, units, true, guestStdin);
                 } else {
-                    DebugTraceHelper.trace(compiled, breakpoints, units, guestStdin);
+                    DebugTraceHelper.capture(compiled, breakpoints, units, guestStdin);
                 } // if
                 session.finishOutput();
-                return session.snapshots();
+                return session.capturedSnapshots();
             } // try
         } // executeBoundedSource
 
@@ -536,13 +538,15 @@ public class App {
          * @return Serializer model.
          */
         Object boundedPayload(
-                String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
+                String source, List<Snapshot> snapshots, String guestStdin) {
             if (format == TraceFormat.MODERN) {
                 return new ModernTraceSerializer(removeMainArgs, inlineStrings,
-                        removeMethodThis, typeStyle).createTrace(source, guestStdin, snapshots);
+                        removeMethodThis, typeStyle)
+                        .createCapturedTrace(source, guestStdin, snapshots);
             } // if
             return new PyTutorSerializer(removeMainArgs, inlineStrings,
-                    removeMethodThis, typeStyle).createTrace(source, guestStdin, snapshots);
+                    removeMethodThis, typeStyle)
+                        .createCapturedTrace(source, guestStdin, snapshots);
         } // boundedPayload
 
         /**
@@ -633,32 +637,30 @@ public class App {
                 Collection<Integer> targetLines = breakpoints != null
                         ? breakpoints
                         : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
+                List<Snapshot> chronological =
+                        DebugTraceHelper.captureChronological(
                                 compResult, targetLines, allCus, true, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
-                        serializer.createTrace(source, guestStdin, chronological);
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
+                        serializer.createCapturedTrace(source, guestStdin, chronological);
+                emitTrace(trace, ModernTraceSerializer.getGson());
             } else if (breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, snapshot);
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
+                emitTrace(trace, ModernTraceSerializer.getGson());
             } else {
-                Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                Map<Integer, List<Snapshot>> snapshots =
+                        DebugTraceHelper.capture(compResult, breakpoints, allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, snapshots);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
+                            serializer.createCapturedBreakpoints(
+                                    source, guestStdin, snapshots, true);
+                    emitTrace(trace, ModernTraceSerializer.getGson());
                 } else {
-                    Map<Integer, ExecutionSnapshot> singlePerBp = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey, e -> e.getValue().getLast()));
                     cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, singlePerBp);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
+                            serializer.createCapturedBreakpoints(
+                                    source, guestStdin, snapshots, false);
+                    emitTrace(trace, ModernTraceSerializer.getGson());
                 } // if
             } // if
         } // runModernTrace
@@ -685,48 +687,75 @@ public class App {
                 Collection<Integer> targetLines = breakpoints != null
                         ? breakpoints
                         : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
+                List<Snapshot> chronological =
+                        DebugTraceHelper.captureChronological(
                                 compResult, targetLines, allCus, true, guestStdin);
-                PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
-                emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
+                PyTutorTrace trace =
+                        serializer.createCapturedTrace(source, guestStdin, chronological);
+                emitTrace(trace, PyTutorSerializer.getGson(pretty));
             } else if (breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
-                String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
-                emitTrace(pyTutorSnapshot);
+                PyTutorTrace trace = serializer.createTrace(source, guestStdin, snapshot);
+                emitTrace(trace, PyTutorSerializer.getGson(pretty));
             } else {
-                Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                Map<Integer, List<Snapshot>> snapshots =
+                        DebugTraceHelper.capture(compResult, breakpoints, allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
                             snapshots.entrySet().stream()
                                      .collect(Collectors.toMap(
                                              Map.Entry::getKey,
-                                             e -> e.getValue().stream()
-                                                     .map(s -> serializer.createTrace(
-                                                             source, guestStdin, s))
-                                                     .toList()));
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
+                                             e -> new StepView<>(e.getValue().size(),
+                                                     index -> serializer.createCapturedTrace(
+                                                             source, guestStdin,
+                                                             List.of(e.getValue().get(index))))));
+                    emitTrace(pyTutorSnapshots, PyTutorSerializer.getGson(pretty));
                 } else {
                     Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
                             .collect(Collectors.toMap(
                                     Map.Entry::getKey,
-                                    e -> serializer.createTrace(
-                                            source, guestStdin, e.getValue().getLast())));
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
+                                    e -> serializer.createCapturedTrace(
+                                            source, guestStdin, List.of(e.getValue().getLast()))));
+                    emitTrace(pyTutorSnapshots, PyTutorSerializer.getGson(pretty));
                 } // if
             } // if
         } // runPyTutorTrace
 
         /**
-         * Publishes ordinary JSON only after confirming that no limit stopped the job.
-         * @param json Complete serialized payload.
+         * Publishes ordinary JSON after serialization and the final budget check.
+         * @param model Complete payload model.
+         * @param gson Configured serializer.
+         * @throws IOException If temporary output storage fails.
          */
-        private void emitTrace(String json) {
-            TraceSession.current().check();
-            System.out.println(json);
+        private void emitTrace(Object model, com.google.gson.Gson gson) throws IOException {
+            try (JsonOutput output = new JsonOutput()) {
+                output.write(gson, model);
+                TraceSession.current().check();
+                output.publish();
+            } // try
         } // emitTrace
+
+        /**
+         * Publishes an envelope, recovering from lazy step conversion failures before output.
+         * @param session Active session.
+         * @param result Completed envelope model.
+         * @return Published result, including a serialization failure when applicable.
+         */
+        private TraceResult emitResult(TraceSession session, TraceResult result) {
+            try (JsonOutput output = new JsonOutput()) {
+                try {
+                    output.write(PyTutorSerializer.getGson(pretty), result);
+                } catch (RuntimeException failure) {
+                    session.phase("serialize");
+                    result = session.result(result.format(), null, failure);
+                    output.write(PyTutorSerializer.getGson(pretty), result);
+                } // try
+                output.publish();
+                return result;
+            } catch (IOException failure) {
+                throw new java.io.UncheckedIOException(failure);
+            } // try
+        } // emitResult
     } // Trace
 
     /** List the breakpoint lines available for a compiled Java program. */

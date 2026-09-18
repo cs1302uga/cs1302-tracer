@@ -65,7 +65,8 @@ have a guaranteed ordering. To turn a cap off explicitly, set it to zero.
 
 `traceBytes` is deterministic accounting, not a measurement of Java heap use. Each
 snapshot starts at 256 units; encountered objects charge 128 units; inspected
-items charge 64 units; copied output charges its byte length. At commit, the
+items charge 64 units; cumulative output charges its logical byte length even
+when stored in shared buffers. At commit, the
 snapshot charge is at least three times the character count of its internal JSON
 representation. The previous snapshot remains charged while a replacement is
 built. This bounds retained data under the selected accounting model. It does
@@ -178,3 +179,14 @@ parsing. The legacy eight-argument `TraceLimits` constructor leaves input unlimi
 Chronological duplicate terminal states count as captured work but are omitted
 from retained output in both ordinary and envelope mode. Final output refresh
 uses the same retention accounting in both paths.
+
+Internal captures share append-only output histories and snapshot prefix lengths.
+The CLI materializes cumulative output as each step is serialized. Public library
+trace methods still return independent cumulative arrays. These storage changes
+do not change logical budgets or the cumulative wire schema.
+
+CLI serialization requires writable temporary storage for a JSON spool, which is
+deleted on success or failure. JSON is published only after serialization completes;
+ordinary mode also checks cancellation/limits before publication. Temporary disk
+usage can grow with the cumulative wire output. See [performance and storage](PERFORMANCE.md)
+for measured savings and the distinction between logical accounting and actual memory.

@@ -8,6 +8,7 @@ import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.model.pytutor.RenderStackFrame;
 import cs1302.tracer.model.pytutor.TraceStep;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.Snapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
@@ -154,6 +155,22 @@ public record PyTutorSerializer(
                 snapshots.stream().map(s -> createTraceStep(s, isMultiFile)).toList();
         return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
     } // createTrace
+
+    /**
+     * Creates a lazy trace model without retaining cumulative output strings per step.
+     * @param javaSource Source text.
+     * @param stdin Guest input.
+     * @param snapshots Internal captured states.
+     * @return Trace whose steps materialize during serialization.
+     */
+    public PyTutorTrace createCapturedTrace(
+            String javaSource, String stdin, List<? extends Snapshot> snapshots) {
+        boolean multiFile = isMultiFileSource(javaSource,
+                snapshots.stream().map(Snapshot::metadata).toList());
+        List<TraceStep> steps = new StepView<>(snapshots.size(),
+                index -> createTraceStep(snapshots.get(index).materialize(), multiFile));
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
+    } // createCapturedTrace
 
     /**
      * Create a {@link TraceStep} model representing the given snapshot.

@@ -1,0 +1,93 @@
+{
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 21.0.12.1)\nOpenJDK 64-Bit Server VM Homebrew (build 21.0.12.1, mixed mode, sharing)",
+  "artifactSha256": "e2104baf4e1ff866156875460b19d8c0abc8b1c2e53b5930faf4be3c66fcf2a1",
+  "harnessSha256": "97fe7f0c8ac801fc3e838ef22100f5b5946504b11b4f5c9844be49bffe6d2244",
+  "measurement": "Identity-deduplicated output array capacity and shallow JVM size; compact mode also counts capture and history bookkeeping objects",
+  "runs": [
+    {
+      "storageMode": "compact",
+      "workload": "burst",
+      "iterations": 50,
+      "chunkBytes": 1024,
+      "snapshots": 54,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 54272,
+      "retainedOutputArrayCapacityBytes": 1056,
+      "retainedOutputBookkeepingBytes": 1776,
+      "retainedOutputArrayBytes": 1104,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "storageMode": "compact",
+      "workload": "burst",
+      "iterations": 100,
+      "chunkBytes": 1024,
+      "snapshots": 104,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 105472,
+      "retainedOutputArrayCapacityBytes": 1056,
+      "retainedOutputBookkeepingBytes": 3376,
+      "retainedOutputArrayBytes": 1104,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "storageMode": "compact",
+      "workload": "burst",
+      "iterations": 200,
+      "chunkBytes": 1024,
+      "snapshots": 204,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 207872,
+      "retainedOutputArrayCapacityBytes": 1056,
+      "retainedOutputBookkeepingBytes": 6576,
+      "retainedOutputArrayBytes": 1104,
+      "finalOutputBytes": 1024,
+      "sharedPayloadLowerBoundBytes": 1024
+    },
+    {
+      "storageMode": "compact",
+      "workload": "continuous",
+      "iterations": 50,
+      "chunkBytes": 1024,
+      "snapshots": 103,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 2611200,
+      "retainedOutputArrayCapacityBytes": 65568,
+      "retainedOutputBookkeepingBytes": 3344,
+      "retainedOutputArrayBytes": 65616,
+      "finalOutputBytes": 51200,
+      "sharedPayloadLowerBoundBytes": 51200
+    },
+    {
+      "storageMode": "compact",
+      "workload": "continuous",
+      "iterations": 100,
+      "chunkBytes": 1024,
+      "snapshots": 203,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 10342400,
+      "retainedOutputArrayCapacityBytes": 131104,
+      "retainedOutputBookkeepingBytes": 6544,
+      "retainedOutputArrayBytes": 131152,
+      "finalOutputBytes": 102400,
+      "sharedPayloadLowerBoundBytes": 102400
+    },
+    {
+      "storageMode": "compact",
+      "workload": "continuous",
+      "iterations": 200,
+      "chunkBytes": 1024,
+      "snapshots": 403,
+      "uniqueOutputArrays": 3,
+      "logicalCumulativeOutputBytes": 41164800,
+      "retainedOutputArrayCapacityBytes": 262176,
+      "retainedOutputBookkeepingBytes": 12944,
+      "retainedOutputArrayBytes": 262224,
+      "finalOutputBytes": 204800,
+      "sharedPayloadLowerBoundBytes": 204800
+    }
+  ]
+}
