@@ -1,5 +1,9 @@
 package cs1302.tracer.execution;
 
+import cs1302.tracer.trace.BreakpointSpec;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import picocli.CommandLine.Option;
 
 /** CLI settings for tracing budgets and the opt-in versioned result envelope. */
@@ -32,6 +36,13 @@ public class JobOptions {
             description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
 
+    /** Configured breakpoint target specifications. */
+    @Option(names = {"--breakpoints", "-b"}, split = ",",
+            paramLabel = "<spec>",
+            description = "Breakpoints at which to take snapshots (e.g. '12', "
+                    + "'Main.java:12', or comma-separated '12,Helper.java:5').")
+    public List<String> breakpoints;
+
     /**
      * Sets whether enum hash codes should not be evaluated.
      * @param noEval True to disable enum hash evaluation.
@@ -58,6 +69,40 @@ public class JobOptions {
     public JobOptions() {} // JobOptions
 
     /**
+     * Parses a collection of raw breakpoint strings into BreakpointSpec objects.
+     *
+     * @param raw Raw breakpoint strings.
+     * @return List of parsed BreakpointSpec objects, or empty list if null.
+     */
+    public static List<BreakpointSpec> parseBreakpoints(Collection<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        } // if
+        List<BreakpointSpec> specs = new ArrayList<>();
+        for (String item : raw) {
+            if (item == null || item.isBlank()) {
+                continue;
+            } // if
+            for (String part : item.split(",")) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) {
+                    specs.add(BreakpointSpec.parse(trimmed));
+                } // if
+            } // for
+        } // for
+        return List.copyOf(specs);
+    } // parseBreakpoints
+
+    /**
+     * Returns the parsed breakpoint specifications for these options.
+     *
+     * @return List of BreakpointSpec instances.
+     */
+    public List<BreakpointSpec> breakpointSpecs() {
+        return parseBreakpoints(breakpoints);
+    } // breakpointSpecs
+
+    /**
      * Validates and returns the selected budgets.
      * @return Effective limits.
      */
@@ -74,12 +119,12 @@ public class JobOptions {
     } // limits
 
     /**
-     * Selects an explicit value, including zero, before applying a default.
-     * @param value Explicit setting, or null.
-     * @param fallback Default setting.
-     * @return Effective setting.
+     * Applies a default when an option was omitted.
+     * @param override Explicit value.
+     * @param fallback Default value.
+     * @return Effective value.
      */
-    private static long select(Long value, long fallback) {
-        return value == null ? fallback : value;
+    private static long select(Long override, long fallback) {
+        return override != null ? override : fallback;
     } // select
 } // JobOptions

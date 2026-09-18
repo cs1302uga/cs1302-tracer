@@ -185,15 +185,28 @@ public class ModernTraceSerializer {
      */
     public Trace createBreakpointsTrace(
             String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
+        List<ExecutionSnapshot> allSnapshots = new ArrayList<>();
+        for (Object val : breakpointSnapshots.values()) {
+            if (val instanceof ExecutionSnapshot single) {
+                allSnapshots.add(single);
+            } else if (val instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof ExecutionSnapshot s) {
+                        allSnapshots.add(s);
+                    } // if
+                } // for
+            } // if
+        } // for
+        boolean isMultiFile = isMultiFileSource(javaSource, allSnapshots);
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
-                converted.put(entry.getKey(), createStep(single, 1, false));
+                converted.put(entry.getKey(), createStep(single, 1, isMultiFile));
             } else if (entry.getValue() instanceof List<?> list) {
                 List<Step> steps = new ArrayList<>();
                 for (int i = 0; i < list.size(); i++) {
                     if (list.get(i) instanceof ExecutionSnapshot s) {
-                        steps.add(createStep(s, i + 1, false));
+                        steps.add(createStep(s, i + 1, isMultiFile));
                     } // if
                 } // for
                 converted.put(entry.getKey(), steps);

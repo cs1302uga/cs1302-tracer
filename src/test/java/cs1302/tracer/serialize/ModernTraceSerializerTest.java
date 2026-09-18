@@ -264,6 +264,50 @@ public class ModernTraceSerializerTest {
   }
 
   @Test
+  @DisplayName("should serialize multi-file breakpoints with step file paths")
+  void testMultiFileBreakpointsSerialization() {
+    ExecutionSnapshot s1 =
+        new ExecutionSnapshot(
+            List.of(
+                new StackSnapshot(
+                    "main", 4, List.of(), Optional.empty(), Optional.of("A.java"))),
+            List.of(),
+            Map.of(),
+            new byte[0],
+            new byte[0],
+            Optional.of("A.java"));
+
+    ExecutionSnapshot s2 =
+        new ExecutionSnapshot(
+            List.of(
+                new StackSnapshot(
+                    "helper", 4, List.of(), Optional.empty(), Optional.of("B.java"))),
+            List.of(),
+            Map.of(),
+            new byte[0],
+            new byte[0],
+            Optional.of("B.java"));
+
+    ModernTraceSerializer serializer = new ModernTraceSerializer(false, false, false);
+    Map<Integer, Object> bpMap = new LinkedHashMap<>();
+    bpMap.put(4, List.of(s1, s2));
+
+    Trace trace = serializer.createBreakpointsTrace("code", bpMap);
+    assertThat(trace.breakpoints()).containsKey(4);
+    @SuppressWarnings("unchecked")
+    List<Step> steps = (List<Step>) trace.breakpoints().get(4);
+    assertThat(steps).hasSize(2);
+    assertThat(steps.get(0).file()).isEqualTo("A.java");
+    assertThat(steps.get(1).file()).isEqualTo("B.java");
+
+    Map<Integer, Object> singleBpMap = new LinkedHashMap<>();
+    singleBpMap.put(4, s1);
+    Trace singleTrace = serializer.createBreakpointsTrace("code", singleBpMap);
+    Step singleStep = (Step) singleTrace.breakpoints().get(4);
+    assertThat(singleStep.file()).isNull();
+  }
+
+  @Test
   @DisplayName("should handle null fields and default heap values gracefully")
   void shouldHandleNullAndDefaultHeapValues() {
     Field nullField = new Field(false, "Object", "x", null);

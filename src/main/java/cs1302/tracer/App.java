@@ -20,6 +20,7 @@ import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
+import cs1302.tracer.trace.BreakpointSpec;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import java.io.File;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,7 +72,7 @@ public class App {
      * Constructs a new {@code App} command-line application instance.
      *
      * <p>Normative Reference: The Picocli command-line parsing specification requires a public
-     * zero-argument constructor for command dispatch and instantiation.
+     * zero-argument constructor for command dispatch and instantiation.</p>
      */
     public App() {} // App
 
@@ -268,10 +270,14 @@ public class App {
                 defaultValue = "fqn")
         TypeStyle typeStyle = TypeStyle.FQN;
 
-        @Option(
-                names = {"--breakpoints", "-b"},
-                description = "Breakpoints at which to take snapshots.")
-        List<Integer> breakpoints = null;
+        /**
+         * Parses the configured breakpoint strings into BreakpointSpec targets.
+         *
+         * @return List of parsed BreakpointSpec objects.
+         */
+        List<BreakpointSpec> parsedBreakpoints() {
+            return job.breakpointSpecs();
+        } // parsedBreakpoints
 
         @Option(
                 names = {"--stdin"},
@@ -311,6 +317,7 @@ public class App {
             try {
                 guestStdin = resolveGuestStdin();
                 selected = job.limits();
+                job.breakpointSpecs();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
                     return;
@@ -478,11 +485,18 @@ public class App {
                 List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
                 session.phase("trace");
                 if (allBreakpoints) {
-                    Collection<Integer> lines = breakpoints == null
-                            ? DebugTraceHelper.getValidBreakpointLines(compiled) : breakpoints;
-                    DebugTraceHelper.traceChronological(compiled, lines, units, true, guestStdin);
+                    if (job.breakpoints == null) {
+                        Collection<Integer> lines =
+                                DebugTraceHelper.getValidBreakpointLines(compiled);
+                        DebugTraceHelper.traceChronological(
+                                compiled, lines, units, true, guestStdin);
+                    } else {
+                        DebugTraceHelper.traceChronologicalWithSpecs(
+                                compiled, parsedBreakpoints(), units, true, guestStdin);
+                    } // if
                 } else {
-                    DebugTraceHelper.trace(compiled, breakpoints, units, guestStdin);
+                    DebugTraceHelper.traceWithSpecs(
+                            compiled, parsedBreakpoints(), units, guestStdin);
                 } // if
                 session.finishOutput();
                 return session.snapshots();
@@ -567,34 +581,42 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                Collection<Integer> targetLines = breakpoints != null
-                        ? breakpoints
-                        : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
-                                compResult, targetLines, allCus, true, guestStdin);
+                List<ExecutionSnapshot> chronological = job.breakpoints != null
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
+                        : DebugTraceHelper.traceChronological(
+                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
+                                allCus, true, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else if (breakpoints == null) {
+            } else if (job.breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, snapshot);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     cs1302.tracer.model.modern.Trace trace =
                             serializer.createBreakpointsTrace(source, guestStdin, snapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } else {
-                    Map<Integer, ExecutionSnapshot> singlePerBp = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey, e -> e.getValue().getLast()));
+                    Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
+                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
+                        List<ExecutionSnapshot> list = e.getValue();
+                        if (list.size() == 1) {
+                            latestSnapshots.put(e.getKey(), list.get(0));
+                        } else {
+                            latestSnapshots.put(e.getKey(), list);
+                        } // if
+                    } // for
                     cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, singlePerBp);
+                            serializer.createBreakpointsTrace(source, guestStdin, latestSnapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } // if
             } // if
@@ -619,22 +641,24 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                Collection<Integer> targetLines = breakpoints != null
-                        ? breakpoints
-                        : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
-                                compResult, targetLines, allCus, true, guestStdin);
+                List<ExecutionSnapshot> chronological = job.breakpoints != null
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
+                        : DebugTraceHelper.traceChronological(
+                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
+                                allCus, true, guestStdin);
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
-            } else if (breakpoints == null) {
+            } else if (job.breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
                 emitTrace(pyTutorSnapshot);
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
                             snapshots.entrySet().stream()
@@ -646,11 +670,18 @@ public class App {
                                                      .toList()));
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
-                    Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    e -> serializer.createTrace(
-                                            source, guestStdin, e.getValue().getLast())));
+                    Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
+                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
+                        List<ExecutionSnapshot> list = e.getValue();
+                        if (list.size() == 1) {
+                            pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
+                                    source, guestStdin, list.get(0)));
+                        } else {
+                            pyTutorSnapshots.put(e.getKey(), list.stream()
+                                    .map(s -> serializer.createTrace(source, guestStdin, s))
+                                    .toList());
+                        } // if
+                    } // for
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } // if
             } // if

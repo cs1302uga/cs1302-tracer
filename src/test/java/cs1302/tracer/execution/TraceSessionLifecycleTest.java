@@ -245,4 +245,43 @@ class TraceSessionLifecycleTest {
             assertThat(watchdog.isInterrupted()).isFalse();
         }
     }
+
+    @Test
+    void outputSliceTypeAdapterSerializesAndDeserializes() throws Exception {
+        Class<?> adapterClass = Class.forName("cs1302.tracer.execution.TraceSession$OutputSliceTypeAdapter");
+        var constructor = adapterClass.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        com.google.gson.TypeAdapter<cs1302.tracer.trace.OutputSlice> adapter =
+                (com.google.gson.TypeAdapter<cs1302.tracer.trace.OutputSlice>) constructor.newInstance();
+
+        // Test read null
+        try (var stringReader = new java.io.StringReader("null");
+                var jsonReader = new com.google.gson.stream.JsonReader(stringReader)) {
+            assertThat(adapter.read(jsonReader)).isNull();
+        }
+
+        // Test read array into OutputSlice
+        try (var stringReader = new java.io.StringReader("[65, 66]");
+                var jsonReader = new com.google.gson.stream.JsonReader(stringReader)) {
+            var slice = adapter.read(jsonReader);
+            assertThat(slice).isNotNull();
+            assertThat(slice.toByteArray()).containsExactly((byte) 65, (byte) 66);
+        }
+
+        // Test write null
+        java.io.StringWriter nullWriter = new java.io.StringWriter();
+        try (var jsonWriter = new com.google.gson.stream.JsonWriter(nullWriter)) {
+            adapter.write(jsonWriter, null);
+        }
+        assertThat(nullWriter.toString()).isEqualTo("null");
+
+        // Test write non-null OutputSlice
+        java.io.StringWriter sliceWriter = new java.io.StringWriter();
+        try (var jsonWriter = new com.google.gson.stream.JsonWriter(sliceWriter)) {
+            cs1302.tracer.trace.OutputSlice slice = cs1302.tracer.trace.OutputSlice.from(new byte[] {65, 66});
+            adapter.write(jsonWriter, slice);
+        }
+        assertThat(sliceWriter.toString()).isEqualTo("[65,66]");
+    }
 }

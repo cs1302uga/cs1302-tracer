@@ -1,9 +1,10 @@
 package cs1302.tracer.trace;
 
-import java.io.ByteArrayOutputStream;
 import cs1302.tracer.execution.TraceSession;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 
 /**
  * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides
@@ -15,10 +16,10 @@ public class StreamDrainer implements AutoCloseable {
     private static final long DEFAULT_MAX_WAIT_MILLIS = 50;
     private static final long DEFAULT_QUIET_PERIOD_MILLIS = 5;
 
-    private final TraceSession session;
+    private volatile TraceSession session;
     private final long limit;
     private final InputStream source;
-    private final ByteArrayOutputStream sink;
+    private final AccessibleByteArrayOutputStream sink;
     private final Thread readerThread;
 
     private volatile long lastReadNanos;
@@ -40,7 +41,7 @@ public class StreamDrainer implements AutoCloseable {
             session.register(this);
         } // if
         this.source = source;
-        this.sink = new ByteArrayOutputStream();
+        this.sink = new AccessibleByteArrayOutputStream();
         this.lastReadNanos = System.nanoTime();
         this.closed = false;
         this.eofReached = false;
@@ -64,7 +65,10 @@ public class StreamDrainer implements AutoCloseable {
                             : (int) Math.min(read, Math.max(0, limit - sink.size()));
                     sink.write(buffer, 0, retained);
                     if (retained < read) {
-                        session.stop("output_limit");
+                        TraceSession active = session;
+                        if (active != null) {
+                            active.stop("output_limit");
+                        } // if
                     } // if
                 } // synchronized
                 lastReadNanos = System.nanoTime();
@@ -73,6 +77,13 @@ public class StreamDrainer implements AutoCloseable {
             } // try
         } // while
     } // drainLoop
+
+    /**
+     * Detaches the active trace session so this drainer does not retain it.
+     */
+    public void detachSession() {
+        this.session = null;
+    } // detachSession
 
     /**
      * Synchronizes the stream using default wait and quiet-period thresholds.
@@ -148,6 +159,136 @@ public class StreamDrainer implements AutoCloseable {
     } // getBytes
 
     /**
+     * Returns an OutputSlice referencing the current accumulated bytes in this drainer.
+     *
+     * @return Captured OutputSlice.
+     */
+    public OutputSlice snapshotOutput() {
+        return OutputSlice.from(this, 0, size());
+    } // snapshotOutput
+
+    /**
+     * Returns a copy of the specified subrange of accumulated bytes.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to copy.
+     * @return Subrange byte array.
+     */
+    public byte[] getBytes(int offset, int length) {
+        synchronized (sink) {
+            return sink.copyRange(offset, length);
+        } // synchronized
+    } // getBytes
+
+    /**
+     * Returns the byte at the specified index in the captured buffer.
+     *
+     * @param index Byte index to inspect.
+     * @return Byte at specified index.
+     */
+    public byte byteAt(int index) {
+        synchronized (sink) {
+            return sink.byteAt(index);
+        } // synchronized
+    } // byteAt
+
+    /**
+     * Functional interface for streaming individual bytes with IO exceptions.
+     */
+    @FunctionalInterface
+    public interface ByteConsumer {
+        /**
+         * Consumes a single byte.
+         *
+         * @param b Byte value.
+         * @throws IOException On I/O failure.
+         */
+        void accept(byte b) throws IOException;
+    } // ByteConsumer
+
+    /**
+     * Streams a subrange of bytes under a single lock acquisition to the specified consumer.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to consume.
+     * @param consumer Consumer invoked for each byte.
+     * @throws IOException If the consumer throws an IOException.
+     */
+    public void forEachByte(int offset, int length, ByteConsumer consumer) throws IOException {
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            for (int i = 0; i < safeLength; i++) {
+                consumer.accept(sink.byteAt(safeOffset + i));
+            } // for
+        } // synchronized
+    } // forEachByte
+
+    /**
+     * Checks if a subrange of bytes starts with the given prefix under a single lock acquisition.
+     *
+     * @param offset Starting byte offset.
+     * @param length Available byte length.
+     * @param prefix Prefix to check.
+     * @return True if the subrange starts with the prefix.
+     */
+    public boolean startsWith(int offset, int length, byte[] prefix) {
+        if (prefix == null || prefix.length == 0) {
+            return true;
+        } // if
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            if (safeLength < prefix.length) {
+                return false;
+            } // if
+            for (int i = 0; i < prefix.length; i++) {
+                if (sink.byteAt(safeOffset + i) != prefix[i]) {
+                    return false;
+                } // if
+            } // for
+            return true;
+        } // synchronized
+    } // startsWith
+
+    /**
+     * Searches for the first occurrence of a byte in a subrange under a single lock acquisition.
+     *
+     * @param offset Starting byte offset.
+     * @param length Available byte length.
+     * @param b Byte to find.
+     * @param fromIndex Relative index within the subrange to start searching.
+     * @return Relative index of first match within the subrange, or -1 if not found.
+     */
+    public int indexOf(int offset, int length, byte b, int fromIndex) {
+        synchronized (sink) {
+            int safeOffset = Math.max(0, offset);
+            int safeLength = Math.min(length, sink.size() - safeOffset);
+            int start = Math.max(0, fromIndex);
+            for (int i = start; i < safeLength; i++) {
+                if (sink.byteAt(safeOffset + i) == b) {
+                    return i;
+                } // if
+            } // for
+            return -1;
+        } // synchronized
+    } // indexOf
+
+    /**
+     * Decodes the specified subrange of accumulated bytes into a string.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to decode.
+     * @param charset Character encoding to use.
+     * @return Decoded string.
+     */
+    public String getString(int offset, int length, Charset charset) {
+        synchronized (sink) {
+            return sink.toStringRange(offset, length, charset);
+        } // synchronized
+    } // getString
+
+    /**
      * Returns the number of bytes currently accumulated in the sink.
      *
      * @return Accumulated byte count.
@@ -183,6 +324,7 @@ public class StreamDrainer implements AutoCloseable {
     @Override
     public void close() {
         closed = true;
+        detachSession();
         try {
             source.close();
         } catch (IOException ignored) {
@@ -194,4 +336,55 @@ public class StreamDrainer implements AutoCloseable {
             Thread.currentThread().interrupt();
         } // try
     } // close
+
+    /**
+     * Internal ByteArrayOutputStream that allows direct subrange access without copying.
+     */
+    private static final class AccessibleByteArrayOutputStream extends ByteArrayOutputStream {
+
+        /**
+         * Copies a subrange of bytes from the internal buffer.
+         *
+         * @param offset Starting byte offset.
+         * @param length Number of bytes to copy.
+         * @return Copied byte array.
+         */
+        byte[] copyRange(int offset, int length) {
+            if (length <= 0 || offset >= count) {
+                return new byte[0];
+            } // if
+            int safeOffset = Math.max(0, offset);
+            int safeLen = Math.min(length, count - safeOffset);
+            byte[] result = new byte[safeLen];
+            System.arraycopy(buf, safeOffset, result, 0, safeLen);
+            return result;
+        } // copyRange
+
+        /**
+         * Decodes a subrange of bytes from the internal buffer as a string.
+         *
+         * @param offset Starting byte offset.
+         * @param length Number of bytes to decode.
+         * @param charset Character set to decode with.
+         * @return Decoded string.
+         */
+        String toStringRange(int offset, int length, Charset charset) {
+            if (length <= 0 || offset >= count) {
+                return "";
+            } // if
+            int safeOffset = Math.max(0, offset);
+            int safeLen = Math.min(length, count - safeOffset);
+            return new String(buf, safeOffset, safeLen, charset);
+        } // toStringRange
+
+        /**
+         * Returns the byte at the specified index within the buffer.
+         *
+         * @param index Byte index.
+         * @return Byte at index.
+         */
+        byte byteAt(int index) {
+            return buf[index];
+        } // byteAt
+    } // AccessibleByteArrayOutputStream
 } // StreamDrainer

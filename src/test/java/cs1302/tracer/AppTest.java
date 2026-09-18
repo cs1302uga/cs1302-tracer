@@ -481,6 +481,66 @@ public class AppTest {
   }
 
   @Test
+  @DisplayName("should trace with qualified breakpoints and comma-separated flags")
+  void shouldTraceWithQualifiedBreakpoints() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            int x = 10;
+            x = 20;
+          }
+        }
+        """;
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=Main.java:4",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(output).contains("\"4\"");
+
+    String outputSplit =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=4,5",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(outputSplit).contains("\"4\"");
+
+    String boundedEnvelope =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=4",
+                "-a",
+                "--result-envelope",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(boundedEnvelope).contains("\"trace\":[");
+
+    String boundedAllEnvelope =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-a",
+                "--result-envelope",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(boundedAllEnvelope).contains("\"trace\":[");
+  }
+
+  @Test
   @DisplayName("should trace multi-file package code via input file")
   void shouldTraceMultiFilePackageCode(@org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
     Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));
@@ -535,6 +595,137 @@ public class AppTest {
       assertThat(exitCodeBps.get()).isEqualTo(-1);
       assertThat(bpsExitCode).isEqualTo(0);
       assertThat(baosBps.toString()).contains("\"lineNumber\":4");
+    } finally {
+      System.setOut(originalOut);
+    }
+  }
+
+  @Test
+  @DisplayName("should trace multi-file project with qualified breakpoint selecting only matching file")
+  void shouldTraceMultiFileQualifiedBreakpoint(@org.junit.jupiter.api.io.TempDir Path tempDir)
+      throws IOException {
+    Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));
+    Path helperPath = pkgDir.resolve("Helper.java");
+    Path driverPath = pkgDir.resolve("Driver.java");
+
+    Files.writeString(
+        helperPath,
+        """
+        package my.app;
+        public class Helper {
+            public static int compute() {
+                int helperVal = 99;
+                return helperVal;
+            }
+        }
+        """);
+
+    String driverCode =
+        """
+        package my.app;
+        public class Driver {
+            public static void main(String[] args) {
+                int driverBefore = 10;
+                int res = Helper.compute();
+                int driverAfter = 20;
+                System.out.println(res);
+            }
+        }
+        """;
+    Files.writeString(driverPath, driverCode);
+
+    App.Trace traceApp = new App.Trace();
+    AtomicInteger exitCodeTrace = new AtomicInteger(-1);
+    traceApp.exitHandler = exitCodeTrace::set;
+    traceApp.verbose = true;
+
+    CommandLine cmdTrace = new CommandLine(traceApp);
+    PrintStream originalOut = System.out;
+    ByteArrayOutputStream baosTrace = new ByteArrayOutputStream();
+    try {
+      System.setOut(new PrintStream(baosTrace));
+      int exitCode =
+          cmdTrace.execute("-i", driverPath.toString(), "-b=Helper.java:5");
+      assertThat(exitCodeTrace.get()).isEqualTo(-1);
+      assertThat(exitCode).isEqualTo(0);
+      String output = baosTrace.toString();
+      assertThat(output).contains("\"helperVal\":99");
+      assertThat(output).doesNotContain("\"driverAfter\":20");
+      assertThat(output).contains("\"file\":\"my/app/Helper.java\"");
+    } finally {
+      System.setOut(originalOut);
+    }
+  }
+
+  @Test
+  @DisplayName("should retain all multi-file same-line breakpoint snapshots in CLI output")
+  void shouldRetainMultiFileSameLineBreakpointsInCli(@org.junit.jupiter.api.io.TempDir Path tempDir)
+      throws IOException {
+    Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));
+    Path helperPath = pkgDir.resolve("Helper.java");
+    Path driverPath = pkgDir.resolve("Driver.java");
+
+    Files.writeString(
+        helperPath,
+        """
+        package my.app;
+        public class Helper {
+            public static int compute() {
+                int helperVal = 99;
+                return helperVal;
+            }
+        }
+        """);
+
+    String driverCode =
+        """
+        package my.app;
+        public class Driver {
+            public static void main(String[] args) {
+                int driverVal = 10;
+                int res = Helper.compute();
+                System.out.println(res);
+            }
+        }
+        """;
+    Files.writeString(driverPath, driverCode);
+
+    App.Trace modernApp = new App.Trace();
+    CommandLine cmdModern = new CommandLine(modernApp);
+    ByteArrayOutputStream baosModern = new ByteArrayOutputStream();
+    PrintStream originalOut = System.out;
+    try {
+      System.setOut(new PrintStream(baosModern));
+      int exitCode =
+          cmdModern.execute(
+              "-i",
+              driverPath.toString(),
+              "-f=modern",
+              "-b=Helper.java:4,Driver.java:4");
+      assertThat(exitCode).isEqualTo(0);
+      String modernOutput = baosModern.toString();
+      assertThat(modernOutput).contains("\"file\": \"my/app/Helper.java\"");
+      assertThat(modernOutput).contains("\"file\": \"my/app/Driver.java\"");
+    } finally {
+      System.setOut(originalOut);
+    }
+
+    App.Trace pyTutorApp = new App.Trace();
+    CommandLine cmdPyTutor = new CommandLine(pyTutorApp);
+    ByteArrayOutputStream baosPyTutor = new ByteArrayOutputStream();
+    try {
+      System.setOut(new PrintStream(baosPyTutor));
+      int exitCode =
+          cmdPyTutor.execute(
+              "-i",
+              driverPath.toString(),
+              "-b=Helper.java:4,Driver.java:4");
+      assertThat(exitCode).isEqualTo(0);
+      String pyTutorOutput = baosPyTutor.toString();
+      assertThat(pyTutorOutput).contains("\"func_name\":\"compute\"");
+      assertThat(pyTutorOutput).contains("\"func_name\":\"main\"");
+      assertThat(pyTutorOutput).contains("\"driverVal\":10");
+      assertThat(pyTutorOutput).contains("\"file\":\"my/app/Helper.java\"");
     } finally {
       System.setOut(originalOut);
     }

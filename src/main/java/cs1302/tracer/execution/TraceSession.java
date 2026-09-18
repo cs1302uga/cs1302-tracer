@@ -1,15 +1,23 @@
 package cs1302.tracer.execution;
 
 import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonToken;
+import com.google.gson.stream.JsonWriter;
+import java.io.ByteArrayOutputStream;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
+import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -24,6 +32,7 @@ public final class TraceSession implements AutoCloseable {
             .registerTypeHierarchyAdapter(java.util.Optional.class,
                     (com.google.gson.JsonSerializer<java.util.Optional<?>>)
                     (value, type, context) -> context.serialize(value.orElse(null)))
+            .registerTypeAdapter(OutputSlice.class, new OutputSliceTypeAdapter().nullSafe())
             .create();
     private final TraceLimits limits;
     private final InspectionPolicy inspection;
@@ -31,7 +40,7 @@ public final class TraceSession implements AutoCloseable {
     private final Thread owner = Thread.currentThread();
     private final AtomicReference<String> reason = new AtomicReference<>();
     private final List<ExecutionSnapshot> completed = new ArrayList<>();
-    private final Map<Integer, ExecutionSnapshot> latest = new LinkedHashMap<>();
+    private final Map<SnapshotLineKey, ExecutionSnapshot> latest = new LinkedHashMap<>();
     private final Map<ExecutionSnapshot, Long> sizes = new java.util.IdentityHashMap<>();
     private final Set<Long> objects = new HashSet<>();
     private final List<StreamDrainer> drainers = new ArrayList<>();
@@ -295,7 +304,8 @@ public final class TraceSession implements AutoCloseable {
         if (!accumulate) {
             int line = snapshot.stack().isEmpty() ? -1
                     : (int) snapshot.stack().getLast().methodLine();
-            ExecutionSnapshot previous = latest.put(line, snapshot);
+            SnapshotLineKey key = new SnapshotLineKey(line, snapshot.sourcePath());
+            ExecutionSnapshot previous = latest.put(key, snapshot);
             if (previous != null) {
                 retainedBytes -= sizes.remove(previous);
                 completed.remove(previous);
@@ -402,18 +412,19 @@ public final class TraceSession implements AutoCloseable {
             return;
         } // if
         ExecutionSnapshot last = completed.getLast();
-        long extra = Math.max(0, drainers.get(0).size() - last.stderr().length)
-                + Math.max(0, drainers.get(1).size() - last.stdout().length);
+        long extra = Math.max(0, drainers.get(0).size() - last.stderrLength())
+                + Math.max(0, drainers.get(1).size() - last.stdoutLength());
         if (extra == 0) {
             return;
         } // if
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
         enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
-        ExecutionSnapshot updated = new ExecutionSnapshot(last.stack(), last.statics(), last.heap(),
-                drainers.get(1).getBytes(), drainers.get(0).getBytes(), last.sourcePath(),
-                last.stdinConsumed(), last.stdinOffset());
+        ExecutionSnapshot updated = new ExecutionSnapshot(
+                last.stack(), last.statics(), last.heap(),
+                drainers.get(1).snapshotOutput(), drainers.get(0).snapshotOutput(),
+                last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
         completed.set(completed.size() - 1, updated);
-        latest.replaceAll((line, snapshot) -> snapshot == last ? updated : snapshot);
+        latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
         retainedBytes += extra * 15;
     } // finishOutput
@@ -434,6 +445,12 @@ public final class TraceSession implements AutoCloseable {
             } // try
         } // if
         drainers.forEach(StreamDrainer::close);
+        drainers.forEach(StreamDrainer::detachSession);
+        drainers.clear();
+        completed.clear();
+        latest.clear();
+        sizes.clear();
+        process = null;
         CURRENT.remove();
     } // close
 
@@ -469,4 +486,36 @@ public final class TraceSession implements AutoCloseable {
         @Override
         public void close() {} // close
     } // SnapshotCounter
+
+    /** Streams OutputSlice byte elements without materializing a byte array. */
+    private static final class OutputSliceTypeAdapter extends TypeAdapter<OutputSlice> {
+        @Override
+        public void write(JsonWriter out, OutputSlice slice) throws IOException {
+            if (slice == null) {
+                out.nullValue();
+                return;
+            } // if
+            out.beginArray();
+            slice.forEachByte(b -> out.value(b));
+            out.endArray();
+        } // write
+
+        @Override
+        public OutputSlice read(JsonReader in) throws IOException {
+            if (in.peek() == JsonToken.NULL) {
+                in.nextNull();
+                return null;
+            } // if
+            in.beginArray();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            while (in.hasNext()) {
+                baos.write((byte) in.nextInt());
+            } // while
+            in.endArray();
+            return OutputSlice.from(baos.toByteArray());
+        } // read
+    } // OutputSliceTypeAdapter
+
+    /** Key for tracking latest snapshot per line and source file. */
+    private record SnapshotLineKey(int line, Optional<String> sourcePath) {}
 } // TraceSession
