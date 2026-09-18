@@ -35,6 +35,16 @@ class AppFailureTest {
         assertThat(status.get()).isEqualTo(2);
     }
 
+    @Test
+    void invalidBreakpointOptionFailsFastWithExitCode2() {
+        var invalidBp = new App.Trace();
+        new picocli.CommandLine(invalidBp).parseArgs("-b", "invalid");
+        var bpStatus = new java.util.concurrent.atomic.AtomicInteger();
+        invalidBp.exitHandler = bpStatus::set;
+        invalidBp.run();
+        assertThat(bpStatus.get()).isEqualTo(2);
+    }
+
     private static JsonObject envelope(App.Trace trace, String... options) {
         var status = new java.util.concurrent.atomic.AtomicInteger();
         trace.exitHandler = status::set;

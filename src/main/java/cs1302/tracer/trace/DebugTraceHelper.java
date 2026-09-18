@@ -586,9 +586,6 @@ public class DebugTraceHelper {
             VirtualMachine vm, ReferenceType refType, Collection<BreakpointSpec> breakPoints)
             throws AbsentInformationException {
         Set<Location> registeredLocations = new HashSet<>();
-        for (var req : vm.eventRequestManager().breakpointRequests()) {
-            registeredLocations.add(req.location());
-        } // for
         for (BreakpointSpec spec : breakPoints) {
             if (spec.lineNumber() <= 0) {
                 continue;

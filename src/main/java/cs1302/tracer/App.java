@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -316,6 +317,7 @@ public class App {
             try {
                 guestStdin = resolveGuestStdin();
                 selected = job.limits();
+                job.breakpointSpecs();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
                     return;
@@ -604,11 +606,17 @@ public class App {
                             serializer.createBreakpointsTrace(source, guestStdin, snapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } else {
-                    Map<Integer, ExecutionSnapshot> singlePerBp = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey, e -> e.getValue().getLast()));
+                    Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
+                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
+                        List<ExecutionSnapshot> list = e.getValue();
+                        if (list.size() == 1) {
+                            latestSnapshots.put(e.getKey(), list.get(0));
+                        } else {
+                            latestSnapshots.put(e.getKey(), list);
+                        } // if
+                    } // for
                     cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, singlePerBp);
+                            serializer.createBreakpointsTrace(source, guestStdin, latestSnapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } // if
             } // if
@@ -662,11 +670,18 @@ public class App {
                                                      .toList()));
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
-                    Map<Integer, PyTutorTrace> pyTutorSnapshots = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    e -> serializer.createTrace(
-                                            source, guestStdin, e.getValue().getLast())));
+                    Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
+                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
+                        List<ExecutionSnapshot> list = e.getValue();
+                        if (list.size() == 1) {
+                            pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
+                                    source, guestStdin, list.get(0)));
+                        } else {
+                            pyTutorSnapshots.put(e.getKey(), list.stream()
+                                    .map(s -> serializer.createTrace(source, guestStdin, s))
+                                    .toList());
+                        } // if
+                    } // for
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } // if
             } // if

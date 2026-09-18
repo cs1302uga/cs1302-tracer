@@ -658,6 +658,80 @@ public class AppTest {
   }
 
   @Test
+  @DisplayName("should retain all multi-file same-line breakpoint snapshots in CLI output")
+  void shouldRetainMultiFileSameLineBreakpointsInCli(@org.junit.jupiter.api.io.TempDir Path tempDir)
+      throws IOException {
+    Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));
+    Path helperPath = pkgDir.resolve("Helper.java");
+    Path driverPath = pkgDir.resolve("Driver.java");
+
+    Files.writeString(
+        helperPath,
+        """
+        package my.app;
+        public class Helper {
+            public static int compute() {
+                int helperVal = 99;
+                return helperVal;
+            }
+        }
+        """);
+
+    String driverCode =
+        """
+        package my.app;
+        public class Driver {
+            public static void main(String[] args) {
+                int driverVal = 10;
+                int res = Helper.compute();
+                System.out.println(res);
+            }
+        }
+        """;
+    Files.writeString(driverPath, driverCode);
+
+    App.Trace modernApp = new App.Trace();
+    CommandLine cmdModern = new CommandLine(modernApp);
+    ByteArrayOutputStream baosModern = new ByteArrayOutputStream();
+    PrintStream originalOut = System.out;
+    try {
+      System.setOut(new PrintStream(baosModern));
+      int exitCode =
+          cmdModern.execute(
+              "-i",
+              driverPath.toString(),
+              "-f=modern",
+              "-b=Helper.java:4,Driver.java:4");
+      assertThat(exitCode).isEqualTo(0);
+      String modernOutput = baosModern.toString();
+      assertThat(modernOutput).contains("\"file\": \"my/app/Helper.java\"");
+      assertThat(modernOutput).contains("\"file\": \"my/app/Driver.java\"");
+    } finally {
+      System.setOut(originalOut);
+    }
+
+    App.Trace pyTutorApp = new App.Trace();
+    CommandLine cmdPyTutor = new CommandLine(pyTutorApp);
+    ByteArrayOutputStream baosPyTutor = new ByteArrayOutputStream();
+    try {
+      System.setOut(new PrintStream(baosPyTutor));
+      int exitCode =
+          cmdPyTutor.execute(
+              "-i",
+              driverPath.toString(),
+              "-b=Helper.java:4,Driver.java:4");
+      assertThat(exitCode).isEqualTo(0);
+      String pyTutorOutput = baosPyTutor.toString();
+      assertThat(pyTutorOutput).contains("\"func_name\":\"compute\"");
+      assertThat(pyTutorOutput).contains("\"func_name\":\"main\"");
+      assertThat(pyTutorOutput).contains("\"driverVal\":10");
+      assertThat(pyTutorOutput).contains("\"file\":\"my/app/Helper.java\"");
+    } finally {
+      System.setOut(originalOut);
+    }
+  }
+
+  @Test
   @DisplayName("should trace all breakpoints chronologically without explicit -b flags")
   void shouldTraceAllBreakpointsWithoutBFlags() {
     String testProgram =
