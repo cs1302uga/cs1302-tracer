@@ -10,8 +10,8 @@ import java.util.Optional;
  * @param stack The program's stack. Index 0 is the bottommost frame, the last index is the topmost.
  * @param statics Loaded static variables.
  * @param heap The program's heap, a mapping of reference IDs to values.
- * @param stdout Bytes that have been output by the program to stdout up to the snapshot point.
- * @param stderr Bytes that have been output by the program to stderr up to the snapshot point.
+ * @param stdoutSlice Captured standard output slice.
+ * @param stderrSlice Captured standard error slice.
  * @param sourcePath Optional relative source file path for the currently executing line.
  * @param stdinConsumed Cumulative standard input consumed up to this snapshot point.
  * @param stdinOffset Character index reached in standard input up to this snapshot point.
@@ -20,11 +20,48 @@ public record ExecutionSnapshot(
         List<StackSnapshot> stack,
         List<Field> statics,
         Map<Long, TraceValue> heap,
-        byte[] stdout,
-        byte[] stderr,
+        OutputSlice stdoutSlice,
+        OutputSlice stderrSlice,
         Optional<String> sourcePath,
         String stdinConsumed,
         int stdinOffset) {
+
+    /**
+     * Compact constructor normalizing null slices, optionals, and strings.
+     */
+    public ExecutionSnapshot {
+        stdoutSlice = stdoutSlice != null ? stdoutSlice : OutputSlice.empty();
+        stderrSlice = stderrSlice != null ? stderrSlice : OutputSlice.empty();
+        sourcePath = sourcePath != null ? sourcePath : Optional.empty();
+        stdinConsumed = stdinConsumed != null ? stdinConsumed : "";
+    } // ExecutionSnapshot
+
+    /**
+     * Constructs a snapshot with raw byte arrays for standard output and error.
+     *
+     * @param stack The program's stack.
+     * @param statics Loaded static variables.
+     * @param heap The program's heap.
+     * @param stdout Bytes that have been output by the program to stdout.
+     * @param stderr Bytes that have been output by the program to stderr.
+     * @param sourcePath Optional relative source file path.
+     * @param stdinConsumed Cumulative standard input consumed up to this snapshot point.
+     * @param stdinOffset Character index reached in standard input up to this snapshot point.
+     */
+    public ExecutionSnapshot(
+            List<StackSnapshot> stack,
+            List<Field> statics,
+            Map<Long, TraceValue> heap,
+            byte[] stdout,
+            byte[] stderr,
+            Optional<String> sourcePath,
+            String stdinConsumed,
+            int stdinOffset) {
+        this(stack, statics, heap,
+                OutputSlice.from(stdout),
+                OutputSlice.from(stderr),
+                sourcePath, stdinConsumed, stdinOffset);
+    } // ExecutionSnapshot
 
     /**
      * Constructs a snapshot with an explicit source file path defaulting stdin tracking.
@@ -63,6 +100,42 @@ public record ExecutionSnapshot(
             byte[] stderr) {
         this(stack, statics, heap, stdout, stderr, Optional.empty(), "", 0);
     } // ExecutionSnapshot
+
+    /**
+     * Returns captured standard output bytes.
+     *
+     * @return Byte array of standard output.
+     */
+    public byte[] stdout() {
+        return stdoutSlice.toByteArray();
+    } // stdout
+
+    /**
+     * Returns captured standard error bytes.
+     *
+     * @return Byte array of standard error.
+     */
+    public byte[] stderr() {
+        return stderrSlice.toByteArray();
+    } // stderr
+
+    /**
+     * Returns the length in bytes of standard output without allocating.
+     *
+     * @return Standard output length in bytes.
+     */
+    public int stdoutLength() {
+        return stdoutSlice.length();
+    } // stdoutLength
+
+    /**
+     * Returns the length in bytes of standard error without allocating.
+     *
+     * @return Standard error length in bytes.
+     */
+    public int stderrLength() {
+        return stderrSlice.length();
+    } // stderrLength
 
     /**
      * A snapshot of the state of a method's stack.

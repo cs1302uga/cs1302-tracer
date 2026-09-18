@@ -481,6 +481,66 @@ public class AppTest {
   }
 
   @Test
+  @DisplayName("should trace with qualified breakpoints and comma-separated flags")
+  void shouldTraceWithQualifiedBreakpoints() {
+    String testProgram =
+        """
+        public class Main {
+          public static void main(String[] args) {
+            int x = 10;
+            x = 20;
+          }
+        }
+        """;
+    String output =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=Main.java:4",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(output).contains("\"4\"");
+
+    String outputSplit =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=4,5",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(outputSplit).contains("\"4\"");
+
+    String boundedEnvelope =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-b=4",
+                "-a",
+                "--result-envelope",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(boundedEnvelope).contains("\"trace\":[");
+
+    String boundedAllEnvelope =
+        executeCommand(
+                App.Trace::new,
+                testProgram,
+                "-a",
+                "--result-envelope",
+                "--remove-main-args",
+                "--inline-strings",
+                "--remove-method-this")
+            .get();
+    assertThat(boundedAllEnvelope).contains("\"trace\":[");
+  }
+
+  @Test
   @DisplayName("should trace multi-file package code via input file")
   void shouldTraceMultiFilePackageCode(@org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
     Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));

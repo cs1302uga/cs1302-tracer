@@ -103,7 +103,7 @@ public class DebugTraceHelper {
      * @param lineNumber Line number.
      * @param lambdaImplementation Lambda method implementation text.
      */
-    private record LambdaAssignment(
+    record LambdaAssignment(
             String variableName, int lineNumber, String lambdaImplementation) {} // LambdaAssignment
 
     /**
@@ -224,8 +224,41 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
 
-        boolean snapMainEnd =
-                breakPoints == null || breakPoints.isEmpty() || breakPoints.contains(-1);
+        return traceWithSpecs(compilationResult, toSpecs(breakPoints), parsedSources, stdin);
+    } // trace
+
+    /**
+     * Take snapshots of a program's execution state with stdin using breakpoint specifications.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param specs The breakpoint specifications to snapshot at.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param stdin The standard input string.
+     * @return A mapping from breakpoint line numbers to a list of execution snapshots.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> traceWithSpecs(
+            CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+
+        Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
+        boolean snapMainEnd = safeSpecs.isEmpty()
+                || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1);
         Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
@@ -249,11 +282,12 @@ public class DebugTraceHelper {
             exceptionRequest.enable();
 
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
+            SourceAnalysis sourceAnalysis = SourceAnalysis.from(parsedSources);
             processBreakpointsEventLoop(
                     vm,
                     compilationResult,
-                    breakPoints,
-                    parsedSources,
+                    safeSpecs,
+                    sourceAnalysis,
                     snapshots,
                     loadedClasses,
                     vmOutDrainer,
@@ -270,7 +304,7 @@ public class DebugTraceHelper {
         } finally {
             cleanupVm(vm);
         } // try
-    } // trace
+    } // traceWithSpecs
 
     /**
      * Captures only the latest state per selected line for non-accumulating CLI output.
@@ -298,20 +332,137 @@ public class DebugTraceHelper {
     public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
             CompilationResult compilationResult, Collection<Integer> breakPoints,
             List<CompilationUnit> parsedSources, String stdin) throws Exception {
+        return traceLatestWithSpecs(compilationResult, toSpecs(breakPoints), parsedSources, stdin);
+    } // traceLatest
+
+    /**
+     * Captures only the latest state per selected breakpoint specification.
+     *
+     * @param compilationResult Compiled program.
+     * @param specs Selected breakpoint specifications.
+     * @param parsedSources Parsed sources.
+     * @return Latest snapshot mapping in the existing breakpoint shape.
+     * @throws Exception On tracing or cleanup failure.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(
+            CompilationResult compilationResult, Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources) throws Exception {
+        return traceLatestWithSpecs(compilationResult, specs, parsedSources, "");
+    } // traceLatestWithSpecs
+
+    /**
+     * Captures only the latest state per selected breakpoint specification with stdin.
+     *
+     * @param compilationResult Compiled program.
+     * @param specs Selected breakpoint specifications.
+     * @param parsedSources Parsed sources.
+     * @param stdin Standard input string.
+     * @return Latest snapshot mapping in the existing breakpoint shape.
+     * @throws Exception On tracing or cleanup failure.
+     */
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(
+            CompilationResult compilationResult, Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources, String stdin) throws Exception {
         if (TraceSession.current() != null) {
-            return trace(compilationResult, breakPoints, parsedSources, stdin);
+            return traceWithSpecs(compilationResult, specs, parsedSources, stdin);
         } // if
         try (TraceSession session = new TraceSession(
                 cs1302.tracer.execution.TraceLimits.unlimited(),
                 cs1302.tracer.execution.InspectionPolicy.TRUSTED, false,
                 TraceSession.shouldEvalEnumHash())) {
             session.phase("trace");
-            return trace(compilationResult, breakPoints, parsedSources, stdin);
+            return traceWithSpecs(compilationResult, specs, parsedSources, stdin);
         } // try
-    } // traceLatest
+    } // traceLatestWithSpecs
 
     /**
      * Runs the event loop for the breakpoint trace.
+     *
+     * @param vm The JDI VirtualMachine.
+     * @param compilationResult The compilation result.
+     * @param breakPoints Breakpoint specifications.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param snapshots Target map to accumulate snapshots.
+     * @param loadedClasses Set of loaded reference types.
+     * @param vmOut Drainer for stdout.
+     * @param vmErr Drainer for stderr.
+     * @param snapMainEnd True if main exit should be captured.
+     * @param inputTracker Input tracker.
+     * @throws InterruptedException On interrupt.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    private static void processBreakpointsEventLoop(
+            VirtualMachine vm,
+            CompilationResult compilationResult,
+            Collection<BreakpointSpec> breakPoints,
+            SourceAnalysis sourceAnalysis,
+            Map<Integer, List<ExecutionSnapshot>> snapshots,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            boolean snapMainEnd,
+            InputTracker inputTracker)
+            throws InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+
+        ObjectReference systemIn = getSystemIn(vm);
+        boolean endEventLoop = false;
+        while (!endEventLoop) {
+            for (Event event : nextEvents(vm)) {
+                switch (event) {
+                case ClassPrepareEvent cpe -> {
+                    if (compilationResult.compiledClassNames().contains(
+                            cpe.referenceType().name())) {
+                        registerBreakpoints(vm, cpe.referenceType(), breakPoints);
+                        loadedClasses.add(cpe.referenceType());
+                    } // if
+                } // case
+                case BreakpointEvent bpe -> {
+                    Location loc = bpe.location();
+                    if (compilationResult.compiledClassNames().contains(
+                            loc.declaringType().name())) {
+                        Integer line = loc.lineNumber();
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+                                inputTracker);
+                        storeSnapshot(snapshots, line, snapshot);
+                    } // if
+                } // case
+                case MethodExitEvent mee -> {
+                    if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                mee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+                                inputTracker);
+                        snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
+                    } else {
+                        handleReaderMethodExit(mee, inputTracker, systemIn);
+                    } // if
+                } // case
+                case ExceptionEvent ee -> processBreakpointExceptionEvent(
+                        ee, compilationResult, loadedClasses, vmOut, vmErr,
+                        sourceAnalysis, inputTracker, snapshots);
+                case VMDeathEvent vde -> {
+                    endEventLoop = true;
+                } // case
+                case VMDisconnectEvent vde -> {
+                    endEventLoop = true;
+                } // case
+                default -> {
+                    // do nothing
+                } // default
+                } // switch
+
+                vm.resume();
+            } // for
+        } // while
+    } // processBreakpointsEventLoop
+
+    /**
+     * Runs the event loop for the breakpoint trace with raw parsed sources.
      *
      * @param vm The JDI VirtualMachine.
      * @param compilationResult The compilation result.
@@ -343,57 +494,17 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-
-        ObjectReference systemIn = getSystemIn(vm);
-        boolean endEventLoop = false;
-        while (!endEventLoop) {
-            for (Event event : nextEvents(vm)) {
-                switch (event) {
-                case ClassPrepareEvent cpe -> {
-                    if (compilationResult.compiledClassNames().contains(
-                            cpe.referenceType().name())) {
-                        registerBreakpoints(vm, cpe.referenceType(), breakPoints);
-                        loadedClasses.add(cpe.referenceType());
-                    } // if
-                } // case
-                case BreakpointEvent bpe -> {
-                    Location loc = bpe.location();
-                    if (compilationResult.compiledClassNames().contains(
-                            loc.declaringType().name())) {
-                        Integer line = loc.lineNumber();
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
-                                inputTracker);
-                        storeSnapshot(snapshots, line, snapshot);
-                    } // if
-                } // case
-                case MethodExitEvent mee -> {
-                    if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
-                                inputTracker);
-                        snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
-                    } else {
-                        handleReaderMethodExit(mee, inputTracker, systemIn);
-                    } // if
-                } // case
-                case ExceptionEvent ee -> processBreakpointExceptionEvent(
-                        ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        parsedSources, inputTracker, snapshots);
-                case VMDeathEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                case VMDisconnectEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                default -> {
-                    // do nothing
-                } // default
-                } // switch
-
-                vm.resume();
-            } // for
-        } // while
+        processBreakpointsEventLoop(
+                vm,
+                compilationResult,
+                toSpecs(breakPoints),
+                SourceAnalysis.from(parsedSources),
+                snapshots,
+                loadedClasses,
+                vmOut,
+                vmErr,
+                snapMainEnd,
+                inputTracker);
     } // processBreakpointsEventLoop
 
     /**
@@ -404,7 +515,7 @@ public class DebugTraceHelper {
      * @param loadedClasses Set of loaded classes.
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
-     * @param parsedSources List of compilation units.
+     * @param sourceAnalysis Precomputed source analysis.
      * @param inputTracker Input tracker.
      * @param snapshots Target snapshot map.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -417,7 +528,7 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SourceAnalysis sourceAnalysis,
             InputTracker inputTracker,
             Map<Integer, List<ExecutionSnapshot>> snapshots)
             throws IncompatibleThreadStateException,
@@ -429,7 +540,7 @@ public class DebugTraceHelper {
                 loc.declaringType().name())) {
             Integer line = loc.lineNumber();
             ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker);
             storeSnapshot(snapshots, line, snapshot);
             if (!snapshots.containsKey(-1)) {
@@ -447,17 +558,33 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If line info is absent.
      */
     private static void registerBreakpoints(
-            VirtualMachine vm, ReferenceType refType, Collection<Integer> breakPoints)
+            VirtualMachine vm, ReferenceType refType, Collection<BreakpointSpec> breakPoints)
             throws AbsentInformationException {
-        if (breakPoints != null) {
-            for (int breakLine : breakPoints) {
-                List<Location> locations = refType.locationsOfLine(breakLine);
+        for (BreakpointSpec spec : breakPoints) {
+            if (spec.lineNumber() <= 0) {
+                continue;
+            } // if
+            if (spec.matchesReferenceType(refType)) {
+                List<Location> locations = refType.locationsOfLine(spec.lineNumber());
                 if (!locations.isEmpty()) {
                     vm.eventRequestManager().createBreakpointRequest(locations.get(0)).enable();
                 } // if
-            } // for
-        } // if
+            } // if
+        } // for
     } // registerBreakpoints
+
+    /**
+     * Converts integer line numbers to BreakpointSpec instances.
+     *
+     * @param breakPoints The line numbers.
+     * @return Collection of BreakpointSpecs, or null if breakPoints is null.
+     */
+    static Collection<BreakpointSpec> toSpecs(Collection<Integer> breakPoints) {
+        if (breakPoints == null) {
+            return Collections.emptyList();
+        } // if
+        return breakPoints.stream().map(BreakpointSpec::of).toList();
+    } // toSpecs
 
     /**
      * Checks if a JDI method matches the main method signature.
@@ -597,8 +724,8 @@ public class DebugTraceHelper {
                 && Objects.equals(prev.stack(), current.stack())
                 && Objects.equals(prev.statics(), current.statics())
                 && Objects.equals(prev.heap(), current.heap())
-                && Arrays.equals(prev.stdout(), current.stdout())
-                && Arrays.equals(prev.stderr(), current.stderr())
+                && prev.stdoutSlice().contentEquals(current.stdoutSlice())
+                && prev.stderrSlice().contentEquals(current.stderrSlice())
                 && Objects.equals(prev.stdinConsumed(), current.stdinConsumed())
                 && prev.stdinOffset() == current.stdinOffset();
     } // isRedundantSnapshot
@@ -615,10 +742,11 @@ public class DebugTraceHelper {
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
         if (!chronologicalSnapshots.isEmpty()) {
-            byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
-            byte[] finalOut = vmOut.getBytes();
+            OutputSlice finalErr = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
+            OutputSlice finalOut = vmOut.snapshotOutput();
             ExecutionSnapshot last = chronologicalSnapshots.getLast();
-            if (finalErr.length > last.stderr().length || finalOut.length > last.stdout().length) {
+            if (finalErr.length() > last.stderrLength()
+                    || finalOut.length() > last.stdoutLength()) {
                 chronologicalSnapshots.set(
                         chronologicalSnapshots.size() - 1,
                         new ExecutionSnapshot(
@@ -645,14 +773,14 @@ public class DebugTraceHelper {
             Map<Integer, List<ExecutionSnapshot>> snapshots,
             StreamDrainer vmOut,
             StreamDrainer vmErr) {
-        byte[] finalErr = sanitizeDebuggeeStderr(vmErr.getBytes());
-        byte[] finalOut = vmOut.getBytes();
+        OutputSlice finalErr = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
+        OutputSlice finalOut = vmOut.snapshotOutput();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
             List<ExecutionSnapshot> list = entry.getValue();
             if (list != null && !list.isEmpty()) {
                 ExecutionSnapshot last = list.getLast();
-                if (finalErr.length > last.stderr().length
-                        || finalOut.length > last.stdout().length) {
+                if (finalErr.length() > last.stderrLength()
+                        || finalOut.length() > last.stdoutLength()) {
                     List<ExecutionSnapshot> mutableList = (list instanceof ArrayList)
                             ? list
                             : new ArrayList<>(list);
@@ -674,6 +802,24 @@ public class DebugTraceHelper {
             } // if
         } // for
     } // syncTrailingStreamOutput
+
+    /**
+     * Sanitizes captured standard error slice from the debuggee VM.
+     *
+     * @param rawStderr Raw stderr OutputSlice.
+     * @return Sanitized stderr OutputSlice.
+     */
+    static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
+        if (rawStderr == null || rawStderr.isEmpty()) {
+            return rawStderr != null ? rawStderr : OutputSlice.empty();
+        } // if
+        byte[] bytes = rawStderr.toByteArray();
+        byte[] sanitized = sanitizeDebuggeeStderr(bytes);
+        if (sanitized == bytes) {
+            return rawStderr;
+        } // if
+        return OutputSlice.from(sanitized);
+    } // sanitizeDebuggeeStderr
 
     /**
      * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic
@@ -942,6 +1088,41 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
 
+        return traceChronologicalWithSpecs(
+                compilationResult, toSpecs(breakPoints), parsedSources, includeMainExit, stdin);
+    } // traceChronological
+
+    /**
+     * Run a program under JDI and capture snapshots chronologically with BreakpointSpecs.
+     *
+     * @param compilationResult A properly filled CompilationResult.
+     * @param specs The collection of BreakpointSpecs where breakpoints should be placed.
+     * @param parsedSources Parsed source codes for the compiled program.
+     * @param includeMainExit If true, includes the snapshot when main exits at the end.
+     * @param stdin Standard input string.
+     * @return A list of execution snapshots in chronological order.
+     * @throws IOException On I/O error.
+     * @throws IllegalConnectorArgumentsException If JDI connector arguments are invalid.
+     * @throws VMStartException If target VM failed to start.
+     * @throws InterruptedException If thread is interrupted.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    public static List<ExecutionSnapshot> traceChronologicalWithSpecs(
+            CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources,
+            boolean includeMainExit,
+            String stdin)
+            throws IOException,
+            IllegalConnectorArgumentsException,
+            VMStartException,
+            InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+
         VirtualMachine vm = startVmWithCprs(compilationResult);
         writeGuestStdin(vm, stdin);
         InputTracker inputTracker = new InputTracker(stdin);
@@ -965,11 +1146,12 @@ public class DebugTraceHelper {
             exceptionRequest.enable();
 
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
+            SourceAnalysis sourceAnalysis = SourceAnalysis.from(parsedSources);
             processChronologicalEventLoop(
                     vm,
                     compilationResult,
-                    breakPoints,
-                    parsedSources,
+                    specs,
+                    sourceAnalysis,
                     chronologicalSnapshots,
                     loadedClasses,
                     vmOutDrainer,
@@ -986,10 +1168,100 @@ public class DebugTraceHelper {
         } finally {
             cleanupVm(vm);
         } // try
-    } // traceChronological
+    } // traceChronologicalWithSpecs
 
     /**
      * Processes the chronological event loop.
+     *
+     * @param vm Target VM.
+     * @param compilationResult Compilation result.
+     * @param breakPoints Breakpoint specifications.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param chronologicalSnapshots List to accumulate snapshots.
+     * @param loadedClasses Set of loaded classes.
+     * @param vmOut Drainer for stdout.
+     * @param vmErr Drainer for stderr.
+     * @param includeMainExit True to include main exit.
+     * @param inputTracker Input tracker.
+     * @throws InterruptedException On interrupt.
+     * @throws IncompatibleThreadStateException On thread error.
+     * @throws AbsentInformationException On absent debug info.
+     * @throws ClassNotLoadedException If class not loaded.
+     */
+    private static void processChronologicalEventLoop(
+            VirtualMachine vm,
+            CompilationResult compilationResult,
+            Collection<BreakpointSpec> breakPoints,
+            SourceAnalysis sourceAnalysis,
+            List<ExecutionSnapshot> chronologicalSnapshots,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            boolean includeMainExit,
+            InputTracker inputTracker)
+            throws InterruptedException,
+            IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        ObjectReference systemIn = getSystemIn(vm);
+        boolean endEventLoop = false;
+        while (!endEventLoop) {
+            for (Event event : nextEvents(vm)) {
+                switch (event) {
+                case ClassPrepareEvent cpe -> {
+                    if (compilationResult.compiledClassNames().contains(
+                            cpe.referenceType().name())) {
+                        registerBreakpoints(vm, cpe.referenceType(), breakPoints);
+                        loadedClasses.add(cpe.referenceType());
+                    } // if
+                } // case
+                case BreakpointEvent bpe -> {
+                    Location breakLocation = bpe.location();
+                    if (compilationResult.compiledClassNames().contains(
+                            breakLocation.declaringType().name())) {
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+                                inputTracker);
+                        chronologicalSnapshots.add(snapshot);
+                    } // if
+                } // case
+                case MethodExitEvent mee -> {
+                    if (isMainMethodExit(mee.method()) && includeMainExit) {
+                        ExecutionSnapshot snapshot = snapshotTheWorld(
+                                mee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+                                inputTracker);
+                        if (chronologicalSnapshots.isEmpty()
+                                || !isRedundantSnapshot(
+                                        chronologicalSnapshots.getLast(), snapshot)) {
+                            chronologicalSnapshots.add(snapshot);
+                        } // if
+                    } else {
+                        handleReaderMethodExit(mee, inputTracker, systemIn);
+                    } // if
+                } // case
+                case ExceptionEvent ee -> processChronologicalExceptionEvent(
+                        ee, compilationResult, loadedClasses, vmOut, vmErr,
+                        sourceAnalysis, inputTracker, chronologicalSnapshots);
+                case VMDeathEvent vde -> {
+                    endEventLoop = true;
+                } // case
+                case VMDisconnectEvent vde -> {
+                    endEventLoop = true;
+                } // case
+                default -> {
+                    // do nothing
+                } // default
+                } // switch
+                if (endEventLoop) {
+                    break;
+                } // if
+                vm.resume();
+            } // for
+        } // while
+    } // processChronologicalEventLoop
+
+    /**
+     * Processes the chronological event loop with raw parsed sources.
      *
      * @param vm Target VM.
      * @param compilationResult Compilation result.
@@ -1021,61 +1293,17 @@ public class DebugTraceHelper {
             IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
-        ObjectReference systemIn = getSystemIn(vm);
-        boolean endEventLoop = false;
-        while (!endEventLoop) {
-            for (Event event : nextEvents(vm)) {
-                switch (event) {
-                case ClassPrepareEvent cpe -> {
-                    if (compilationResult.compiledClassNames().contains(
-                            cpe.referenceType().name())) {
-                        registerBreakpoints(vm, cpe.referenceType(), breakPoints);
-                        loadedClasses.add(cpe.referenceType());
-                    } // if
-                } // case
-                case BreakpointEvent bpe -> {
-                    Location breakLocation = bpe.location();
-                    if (compilationResult.compiledClassNames().contains(
-                            breakLocation.declaringType().name())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, parsedSources,
-                                inputTracker);
-                        chronologicalSnapshots.add(snapshot);
-                    } // if
-                } // case
-                case MethodExitEvent mee -> {
-                    if (isMainMethodExit(mee.method()) && includeMainExit) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
-                                inputTracker);
-                        if (chronologicalSnapshots.isEmpty()
-                                || !isRedundantSnapshot(
-                                        chronologicalSnapshots.getLast(), snapshot)) {
-                            chronologicalSnapshots.add(snapshot);
-                        } // if
-                    } else {
-                        handleReaderMethodExit(mee, inputTracker, systemIn);
-                    } // if
-                } // case
-                case ExceptionEvent ee -> processChronologicalExceptionEvent(
-                        ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        parsedSources, inputTracker, chronologicalSnapshots);
-                case VMDeathEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                case VMDisconnectEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                default -> {
-                    // do nothing
-                } // default
-                } // switch
-                if (endEventLoop) {
-                    break;
-                } // if
-                vm.resume();
-            } // for
-        } // while
+        processChronologicalEventLoop(
+                vm,
+                compilationResult,
+                toSpecs(breakPoints),
+                SourceAnalysis.from(parsedSources),
+                chronologicalSnapshots,
+                loadedClasses,
+                vmOut,
+                vmErr,
+                includeMainExit,
+                inputTracker);
     } // processChronologicalEventLoop
 
     /**
@@ -1086,7 +1314,7 @@ public class DebugTraceHelper {
      * @param loadedClasses Set of loaded classes.
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
-     * @param parsedSources List of compilation units.
+     * @param sourceAnalysis Precomputed source analysis.
      * @param inputTracker Input tracker.
      * @param chronologicalSnapshots List to accumulate snapshots.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -1099,7 +1327,7 @@ public class DebugTraceHelper {
             HashSet<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SourceAnalysis sourceAnalysis,
             InputTracker inputTracker,
             List<ExecutionSnapshot> chronologicalSnapshots)
             throws IncompatibleThreadStateException,
@@ -1110,7 +1338,7 @@ public class DebugTraceHelper {
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
             ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, parsedSources,
+                    ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker);
             if (chronologicalSnapshots.isEmpty()
                     || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
@@ -1298,7 +1526,7 @@ public class DebugTraceHelper {
      * @param lambda The lambda expression to convert.
      * @return A string containing a valid method implementation.
      */
-    private static Optional<String> tryImplementLambdaSam(LambdaExpr lambda) {
+    static Optional<String> tryImplementLambdaSam(LambdaExpr lambda) {
         Optional<MethodUsage> maybeSam =
                 FunctionalInterfaceLogic.getFunctionalMethod(lambda.calculateResolvedType());
         if (maybeSam.isEmpty()) {
@@ -1359,7 +1587,7 @@ public class DebugTraceHelper {
      * @param loadedClasses The loaded classes.
      * @param vmOut Drainer for stdout.
      * @param vmErr Drainer for stderr.
-     * @param parsedSources Parsed source codes.
+     * @param sourceAnalysis Precomputed source analysis.
      * @param inputTracker Input tracker.
      * @return An execution snapshot.
      * @throws IncompatibleThreadStateException If thread state is incompatible.
@@ -1371,7 +1599,7 @@ public class DebugTraceHelper {
             Iterable<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
-            List<CompilationUnit> parsedSources,
+            SourceAnalysis sourceAnalysis,
             InputTracker inputTracker)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
@@ -1382,13 +1610,8 @@ public class DebugTraceHelper {
 
         List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
         Map<Long, TraceValue> heap = new HashMap<>();
-        AstTypeResolver astTypeResolver = new AstTypeResolver(parsedSources);
+        AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         Map<Long, String> objectTypeMap = new HashMap<>();
-
-        Map<String, List<LambdaAssignment>> lambdaMethodAssignments = new HashMap<>();
-        Map<String, Set<String>> finalMethodVariables = new HashMap<>();
-        buildLambdaAndFinalMaps(
-                parsedSources, lambdaMethodAssignments, finalMethodVariables);
 
         prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap);
 
@@ -1396,21 +1619,21 @@ public class DebugTraceHelper {
                 mainThread,
                 astTypeResolver,
                 objectTypeMap,
-                lambdaMethodAssignments,
-                finalMethodVariables,
+                sourceAnalysis.lambdaMethodAssignments(),
+                sourceAnalysis.finalMethodVariables(),
                 heapReferencesToWalk,
                 heap);
 
         List<ExecutionSnapshot.Field> statics = collectStatics(
-                loadedClasses, parsedSources, heapReferencesToWalk, heap);
+                loadedClasses, sourceAnalysis, heapReferencesToWalk, heap);
 
         drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
 
         if (session != null) {
             session.allocate((long) vmOut.size() + vmErr.size());
         } // if
-        byte[] vmOutBytes = vmOut.getBytes();
-        byte[] vmErrBytes = sanitizeDebuggeeStderr(vmErr.getBytes());
+        OutputSlice vmOutSlice = vmOut.snapshotOutput();
+        OutputSlice vmErrSlice = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
         String stdinConsumed = inputTracker == null ? "" : inputTracker.consumed();
@@ -1420,8 +1643,8 @@ public class DebugTraceHelper {
                 stackSnapshots,
                 statics,
                 heap,
-                vmOutBytes,
-                vmErrBytes,
+                vmOutSlice,
+                vmErrSlice,
                 Optional.ofNullable(currentStepSourcePath),
                 stdinConsumed,
                 stdinOffset);
@@ -1516,7 +1739,7 @@ public class DebugTraceHelper {
      * @param lambdaMap Target map for lambda assignments.
      * @param finalMap Target map for final variable names.
      */
-    private static void buildLambdaAndFinalMaps(
+    static void buildLambdaAndFinalMaps(
             List<CompilationUnit> parsedSources,
             Map<String, List<LambdaAssignment>> lambdaMap,
             Map<String, Set<String>> finalMap) {
@@ -2050,27 +2273,27 @@ public class DebugTraceHelper {
      * Collects static fields from all loaded classes.
      *
      * @param loadedClasses Loaded reference types.
-     * @param parsedSources Compilation units.
+     * @param sourceAnalysis Precomputed source analysis.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap map.
      * @return List of static Field snapshots.
      */
     private static List<ExecutionSnapshot.Field> collectStatics(
             Iterable<ReferenceType> loadedClasses,
-            List<CompilationUnit> parsedSources,
+            SourceAnalysis sourceAnalysis,
             List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap) {
         List<ExecutionSnapshot.Field> statics = new ArrayList<>();
         for (ReferenceType loadedClass : loadedClasses) {
             Optional<ClassOrInterfaceDeclaration> loadedClassDeclaration =
-                    findClassDeclaration(parsedSources, loadedClass.name());
+                    sourceAnalysis.findClassDeclaration(loadedClass.name());
             for (Field f : loadedClass.allFields()) {
                 TraceSession.elements(1);
                 if (!f.isStatic()) {
                     continue;
                 } // if
                 Optional<String> lambdaImplementation =
-                        findStaticLambdaImplementation(loadedClassDeclaration, f.name());
+                        sourceAnalysis.findStaticLambdaImplementation(loadedClass.name(), f.name());
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
                 case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(
@@ -2108,27 +2331,22 @@ public class DebugTraceHelper {
     } // collectStatics
 
     /**
-     * Finds class declaration in compilation units by FQN.
+     * Collects static fields from all loaded classes with raw parsed sources.
      *
+     * @param loadedClasses Loaded reference types.
      * @param parsedSources Compilation units.
-     * @param className Class FQN.
-     * @return Optional containing ClassOrInterfaceDeclaration.
+     * @param heapReferencesToWalk Heap references list.
+     * @param heap Heap map.
+     * @return List of static Field snapshots.
      */
-    private static Optional<ClassOrInterfaceDeclaration> findClassDeclaration(
-            List<CompilationUnit> parsedSources, String className) {
-        for (CompilationUnit cu : parsedSources) {
-            if (cu != null) {
-                Optional<ClassOrInterfaceDeclaration> decl = cu.findFirst(
-                        ClassOrInterfaceDeclaration.class,
-                        c -> className.equals(
-                                c.getFullyQualifiedName().orElseGet(c::getNameAsString)));
-                if (decl.isPresent()) {
-                    return decl;
-                } // if
-            } // if
-        } // for
-        return Optional.empty();
-    } // findClassDeclaration
+    private static List<ExecutionSnapshot.Field> collectStatics(
+            Iterable<ReferenceType> loadedClasses,
+            List<CompilationUnit> parsedSources,
+            List<ObjectReference> heapReferencesToWalk,
+            Map<Long, TraceValue> heap) {
+        return collectStatics(
+                loadedClasses, SourceAnalysis.from(parsedSources), heapReferencesToWalk, heap);
+    } // collectStatics
 
     /**
      * Finds static lambda implementation in class declaration.
@@ -2137,7 +2355,7 @@ public class DebugTraceHelper {
      * @param fieldName Field identifier.
      * @return Optional containing lambda implementation text.
      */
-    private static Optional<String> findStaticLambdaImplementation(
+    static Optional<String> findStaticLambdaImplementation(
             Optional<ClassOrInterfaceDeclaration> classDecl, String fieldName) {
         return classDecl.flatMap(d -> d.findFirst(
                 VariableDeclarator.class,

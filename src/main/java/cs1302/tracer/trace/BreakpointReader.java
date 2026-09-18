@@ -4,6 +4,7 @@ import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.execution.TraceSession;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -40,6 +41,46 @@ public final class BreakpointReader {
         } // for
         return lines;
     } // read
+
+    /**
+     * Resolves breakpoint specifications against the executable lines found in compiled classes.
+     *
+     * @param compiled Owned compilation output.
+     * @param specs Breakpoint specifications.
+     * @return Source paths mapped to matching executable lines.
+     * @throws IOException On class file read failure.
+     */
+    public static Map<String, Set<Integer>> resolve(
+            CompilationResult compiled, Collection<BreakpointSpec> specs) throws IOException {
+        return resolve(read(compiled), specs);
+    } // resolve
+
+    /**
+     * Resolves breakpoint specifications against a map of source paths to executable lines.
+     *
+     * @param availableLines Source paths mapped to valid executable lines.
+     * @param specs Breakpoint specifications.
+     * @return Source paths mapped to matching executable lines.
+     */
+    public static Map<String, Set<Integer>> resolve(
+            Map<String, Set<Integer>> availableLines, Collection<BreakpointSpec> specs) {
+        if (specs == null || specs.isEmpty()) {
+            return availableLines;
+        } // if
+        Map<String, Set<Integer>> resolved = new TreeMap<>();
+        for (BreakpointSpec spec : specs) {
+            for (Map.Entry<String, Set<Integer>> entry : availableLines.entrySet()) {
+                String sourcePath = entry.getKey();
+                if (spec.matchesSourcePath(sourcePath)) {
+                    if (spec.lineNumber() == -1 || entry.getValue().contains(spec.lineNumber())) {
+                        resolved.computeIfAbsent(sourcePath, k -> new TreeSet<>())
+                                .add(spec.lineNumber());
+                    } // if
+                } // if
+            } // for
+        } // for
+        return resolved;
+    } // resolve
 
     /** Accumulates line table entries under each class's SourceFile attribute. */
     private static final class LineVisitor extends ClassVisitor {

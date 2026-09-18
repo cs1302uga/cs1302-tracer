@@ -3,6 +3,7 @@ package cs1302.tracer.execution;
 import com.google.gson.Gson;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -24,6 +25,9 @@ public final class TraceSession implements AutoCloseable {
             .registerTypeHierarchyAdapter(java.util.Optional.class,
                     (com.google.gson.JsonSerializer<java.util.Optional<?>>)
                     (value, type, context) -> context.serialize(value.orElse(null)))
+            .registerTypeAdapter(OutputSlice.class,
+                    (com.google.gson.JsonSerializer<OutputSlice>)
+                    (slice, type, context) -> context.serialize(slice.toByteArray()))
             .create();
     private final TraceLimits limits;
     private final InspectionPolicy inspection;

@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import cs1302.tracer.execution.TraceSession;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 
 /**
  * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides
@@ -18,7 +19,7 @@ public class StreamDrainer implements AutoCloseable {
     private final TraceSession session;
     private final long limit;
     private final InputStream source;
-    private final ByteArrayOutputStream sink;
+    private final AccessibleByteArrayOutputStream sink;
     private final Thread readerThread;
 
     private volatile long lastReadNanos;
@@ -28,8 +29,7 @@ public class StreamDrainer implements AutoCloseable {
     /**
      * Constructs a new StreamDrainer for the specified source stream.
      *
-     * @param source The input stream to drain.
-     */
+     * @param source The input stream to drain.\n     */
     public StreamDrainer(InputStream source) {
         if (source == null) {
             throw new IllegalArgumentException("source input stream cannot be null");
@@ -40,7 +40,7 @@ public class StreamDrainer implements AutoCloseable {
             session.register(this);
         } // if
         this.source = source;
-        this.sink = new ByteArrayOutputStream();
+        this.sink = new AccessibleByteArrayOutputStream();
         this.lastReadNanos = System.nanoTime();
         this.closed = false;
         this.eofReached = false;
@@ -148,6 +148,42 @@ public class StreamDrainer implements AutoCloseable {
     } // getBytes
 
     /**
+     * Returns an OutputSlice referencing the current accumulated bytes in this drainer.
+     *
+     * @return Captured OutputSlice.
+     */
+    public OutputSlice snapshotOutput() {
+        return OutputSlice.from(this, 0, size());
+    } // snapshotOutput
+
+    /**
+     * Returns a copy of the specified subrange of accumulated bytes.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to copy.
+     * @return Subrange byte array.
+     */
+    public byte[] getBytes(int offset, int length) {
+        synchronized (sink) {
+            return sink.copyRange(offset, length);
+        } // synchronized
+    } // getBytes
+
+    /**
+     * Decodes the specified subrange of accumulated bytes into a string.
+     *
+     * @param offset Starting byte offset.
+     * @param length Number of bytes to decode.
+     * @param charset Character encoding to use.
+     * @return Decoded string.
+     */
+    public String getString(int offset, int length, Charset charset) {
+        synchronized (sink) {
+            return sink.toStringRange(offset, length, charset);
+        } // synchronized
+    } // getString
+
+    /**
      * Returns the number of bytes currently accumulated in the sink.
      *
      * @return Accumulated byte count.
@@ -194,4 +230,43 @@ public class StreamDrainer implements AutoCloseable {
             Thread.currentThread().interrupt();
         } // try
     } // close
+
+    /**
+     * Internal ByteArrayOutputStream that allows direct subrange access without copying.
+     */
+    private static final class AccessibleByteArrayOutputStream extends ByteArrayOutputStream {
+
+        /**
+         * Copies a subrange of bytes from the internal buffer.
+         *
+         * @param offset Starting byte offset.
+         * @param length Number of bytes to copy.
+         * @return Copied byte array.
+         */
+        byte[] copyRange(int offset, int length) {
+            if (length <= 0 || offset >= count) {
+                return new byte[0];
+            } // if
+            int safeLen = Math.min(length, count - offset);
+            byte[] result = new byte[safeLen];
+            System.arraycopy(buf, offset, result, 0, safeLen);
+            return result;
+        } // copyRange
+
+        /**
+         * Decodes a subrange of bytes from the internal buffer as a string.
+         *
+         * @param offset Starting byte offset.
+         * @param length Number of bytes to decode.
+         * @param charset Character set to decode with.
+         * @return Decoded string.
+         */
+        String toStringRange(int offset, int length, Charset charset) {
+            if (length <= 0 || offset >= count) {
+                return "";
+            } // if
+            int safeLen = Math.min(length, count - offset);
+            return new String(buf, offset, safeLen, charset);
+        } // toStringRange
+    } // AccessibleByteArrayOutputStream
 } // StreamDrainer

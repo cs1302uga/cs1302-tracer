@@ -20,6 +20,7 @@ import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
+import cs1302.tracer.trace.BreakpointSpec;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import java.io.File;
@@ -270,8 +271,18 @@ public class App {
 
         @Option(
                 names = {"--breakpoints", "-b"},
+                split = ",",
                 description = "Breakpoints at which to take snapshots.")
-        List<Integer> breakpoints = null;
+        List<String> breakpoints = null;
+
+        /**
+         * Parses the configured breakpoint strings into BreakpointSpec targets.
+         *
+         * @return List of parsed BreakpointSpec objects.
+         */
+        List<BreakpointSpec> parsedBreakpoints() {
+            return JobOptions.parseBreakpoints(breakpoints);
+        } // parsedBreakpoints
 
         @Option(
                 names = {"--stdin"},
@@ -478,11 +489,18 @@ public class App {
                 List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
                 session.phase("trace");
                 if (allBreakpoints) {
-                    Collection<Integer> lines = breakpoints == null
-                            ? DebugTraceHelper.getValidBreakpointLines(compiled) : breakpoints;
-                    DebugTraceHelper.traceChronological(compiled, lines, units, true, guestStdin);
+                    if (breakpoints == null) {
+                        Collection<Integer> lines =
+                                DebugTraceHelper.getValidBreakpointLines(compiled);
+                        DebugTraceHelper.traceChronological(
+                                compiled, lines, units, true, guestStdin);
+                    } else {
+                        DebugTraceHelper.traceChronologicalWithSpecs(
+                                compiled, parsedBreakpoints(), units, true, guestStdin);
+                    } // if
                 } else {
-                    DebugTraceHelper.trace(compiled, breakpoints, units, guestStdin);
+                    DebugTraceHelper.traceWithSpecs(
+                            compiled, parsedBreakpoints(), units, guestStdin);
                 } // if
                 session.finishOutput();
                 return session.snapshots();
@@ -567,12 +585,12 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                Collection<Integer> targetLines = breakpoints != null
-                        ? breakpoints
-                        : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
-                                compResult, targetLines, allCus, true, guestStdin);
+                List<ExecutionSnapshot> chronological = breakpoints != null
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
+                        : DebugTraceHelper.traceChronological(
+                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
+                                allCus, true, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
@@ -583,8 +601,10 @@ public class App {
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     cs1302.tracer.model.modern.Trace trace =
                             serializer.createBreakpointsTrace(source, guestStdin, snapshots);
@@ -619,12 +639,12 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                Collection<Integer> targetLines = breakpoints != null
-                        ? breakpoints
-                        : DebugTraceHelper.getValidBreakpointLines(compResult);
-                List<ExecutionSnapshot> chronological =
-                        DebugTraceHelper.traceChronological(
-                                compResult, targetLines, allCus, true, guestStdin);
+                List<ExecutionSnapshot> chronological = breakpoints != null
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
+                        : DebugTraceHelper.traceChronological(
+                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
+                                allCus, true, guestStdin);
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
             } else if (breakpoints == null) {
@@ -633,8 +653,10 @@ public class App {
                 emitTrace(pyTutorSnapshot);
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.trace(compResult, breakpoints, allCus, guestStdin)
-                        : DebugTraceHelper.traceLatest(compResult, breakpoints, allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(
+                                compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
                     Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
                             snapshots.entrySet().stream()

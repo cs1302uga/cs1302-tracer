@@ -28,6 +28,16 @@ class TracingApiTest {
             assertThat(full.get(5)).hasSize(3);
             var latest = DebugTraceHelper.traceLatest(compiled, List.of(5), List.of(ast));
             assertThat(latest.get(5)).hasSize(1);
+            var latestSpecs = DebugTraceHelper.traceLatestWithSpecs(compiled, List.of(BreakpointSpec.of(5)), List.of(ast));
+            assertThat(latestSpecs.get(5)).hasSize(1);
+            var nullSpecsTrace = DebugTraceHelper.traceWithSpecs(compiled, null, List.of(ast), "");
+            assertThat(nullSpecsTrace).containsKey(-1);
+            var mismatchedSpecTrace = DebugTraceHelper.traceWithSpecs(
+                    compiled,
+                    List.of(BreakpointSpec.of("Nonexistent.java", 5), BreakpointSpec.of(5)),
+                    List.of(ast),
+                    "");
+            assertThat(mismatchedSpecTrace.get(5)).hasSize(3);
             var chronological = DebugTraceHelper.traceChronological(compiled, List.of(5), ast, false, "");
             assertThat(chronological).hasSize(3);
             assertThat(chronological).allSatisfy(snapshot ->

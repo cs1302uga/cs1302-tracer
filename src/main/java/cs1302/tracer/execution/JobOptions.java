@@ -1,5 +1,9 @@
 package cs1302.tracer.execution;
 
+import cs1302.tracer.trace.BreakpointSpec;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import picocli.CommandLine.Option;
 
 /** CLI settings for tracing budgets and the opt-in versioned result envelope. */
@@ -32,6 +36,9 @@ public class JobOptions {
             description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
 
+    /** Configured breakpoint target specifications. */
+    public List<String> breakpoints;
+
     /**
      * Sets whether enum hash codes should not be evaluated.
      * @param noEval True to disable enum hash evaluation.
@@ -56,6 +63,40 @@ public class JobOptions {
 
     /** Constructs default trusted options. */
     public JobOptions() {} // JobOptions
+
+    /**
+     * Parses a collection of raw breakpoint strings into BreakpointSpec objects.
+     *
+     * @param raw Raw breakpoint strings.
+     * @return List of parsed BreakpointSpec objects, or empty list if null.
+     */
+    public static List<BreakpointSpec> parseBreakpoints(Collection<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        } // if
+        List<BreakpointSpec> specs = new ArrayList<>();
+        for (String item : raw) {
+            if (item == null || item.isBlank()) {
+                continue;
+            } // if
+            for (String part : item.split(",")) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty()) {
+                    specs.add(BreakpointSpec.parse(trimmed));
+                } // if
+            } // for
+        } // for
+        return List.copyOf(specs);
+    } // parseBreakpoints
+
+    /**
+     * Returns the parsed breakpoint specifications for these options.
+     *
+     * @return List of BreakpointSpec instances.
+     */
+    public List<BreakpointSpec> breakpointSpecs() {
+        return parseBreakpoints(breakpoints);
+    } // breakpointSpecs
 
     /**
      * Validates and returns the selected budgets.
