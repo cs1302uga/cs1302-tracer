@@ -116,10 +116,28 @@ class OutputSliceTest {
             OutputSlice zeroLenSlice = OutputSlice.from(drainer, 0, 0);
             assertThat(zeroLenSlice.isEmpty()).isTrue();
 
+            OutputSlice clampedSlice = OutputSlice.from(drainer, 0, 1000);
+            assertThat(clampedSlice.length()).isEqualTo(data.length);
+            assertThat(clampedSlice.toByteArray()).isEqualTo(data);
+
+            OutputSlice oobSlice = OutputSlice.from(drainer, 500, 10);
+            assertThat(oobSlice.isEmpty()).isTrue();
+
+            OutputSlice negOffsetSlice = OutputSlice.from(drainer, -5, 5);
+            assertThat(negOffsetSlice.length()).isEqualTo(5);
+            assertThat(negOffsetSlice.asUtf8String()).isEqualTo("Strea");
+
             assertThat(drainer.byteAt(0)).isEqualTo((byte) 'S');
             assertThat(drainer.getBytes(-5, 5)).isEqualTo("Strea".getBytes(StandardCharsets.UTF_8));
             assertThat(drainer.getString(-5, 5, StandardCharsets.UTF_8)).isEqualTo("Strea");
             assertThat(slice.byteAt(0)).isEqualTo((byte) 'S');
+        } // try
+
+        try (StreamDrainer emptyDrainer =
+                new StreamDrainer(new ByteArrayInputStream(new byte[0]))) {
+            emptyDrainer.waitForEof(100);
+            assertThat(OutputSlice.from(emptyDrainer, 0, 10).isEmpty()).isTrue();
+            assertThat(OutputSlice.from(emptyDrainer, -5, 10).isEmpty()).isTrue();
         } // try
     } // testDrainerBackedSlice
 

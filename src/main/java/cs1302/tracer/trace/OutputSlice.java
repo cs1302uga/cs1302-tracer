@@ -84,7 +84,13 @@ public final class OutputSlice {
         if (drainer == null || length <= 0) {
             return EMPTY_SLICE;
         } // if
-        return new OutputSlice(null, drainer, offset, length);
+        int drainerSize = drainer.size();
+        if (drainerSize <= 0 || offset >= drainerSize) {
+            return EMPTY_SLICE;
+        } // if
+        int safeOffset = Math.max(0, offset);
+        int safeLength = Math.min(length, drainerSize - safeOffset);
+        return new OutputSlice(null, drainer, safeOffset, safeLength);
     } // from
 
     /**
