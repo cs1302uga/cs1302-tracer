@@ -37,6 +37,8 @@ public class JobOptions {
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
 
     /** Configured breakpoint target specifications. */
+    @Option(names = {"--breakpoints", "-b"}, split = ",",
+            description = "Breakpoints at which to take snapshots.")
     public List<String> breakpoints;
 
     /**
@@ -115,12 +117,12 @@ public class JobOptions {
     } // limits
 
     /**
-     * Selects an explicit value, including zero, before applying a default.
-     * @param value Explicit setting, or null.
-     * @param fallback Default setting.
-     * @return Effective setting.
+     * Applies a default when an option was omitted.
+     * @param override Explicit value.
+     * @param fallback Default value.
+     * @return Effective value.
      */
-    private static long select(Long value, long fallback) {
-        return value == null ? fallback : value;
+    private static long select(Long override, long fallback) {
+        return override != null ? override : fallback;
     } // select
 } // JobOptions

@@ -5,6 +5,10 @@ import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
+import com.google.gson.TypeAdapter;
+import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
+import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,9 +29,7 @@ public final class TraceSession implements AutoCloseable {
             .registerTypeHierarchyAdapter(java.util.Optional.class,
                     (com.google.gson.JsonSerializer<java.util.Optional<?>>)
                     (value, type, context) -> context.serialize(value.orElse(null)))
-            .registerTypeAdapter(OutputSlice.class,
-                    (com.google.gson.JsonSerializer<OutputSlice>)
-                    (slice, type, context) -> context.serialize(slice.toByteArray()))
+            .registerTypeAdapter(OutputSlice.class, new OutputSliceTypeAdapter().nullSafe())
             .create();
     private final TraceLimits limits;
     private final InspectionPolicy inspection;
@@ -473,4 +475,25 @@ public final class TraceSession implements AutoCloseable {
         @Override
         public void close() {} // close
     } // SnapshotCounter
+
+    /** Streams OutputSlice byte elements without materializing a byte array. */
+    private static final class OutputSliceTypeAdapter extends TypeAdapter<OutputSlice> {
+        @Override
+        public void write(JsonWriter out, OutputSlice slice) throws IOException {
+            if (slice == null) {
+                out.nullValue();
+                return;
+            } // if
+            out.beginArray();
+            for (int i = 0; i < slice.length(); i++) {
+                out.value(slice.byteAt(i));
+            } // for
+            out.endArray();
+        } // write
+
+        @Override
+        public OutputSlice read(JsonReader in) {
+            return null;
+        } // read
+    } // OutputSliceTypeAdapter
 } // TraceSession

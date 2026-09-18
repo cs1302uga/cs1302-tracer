@@ -601,6 +601,63 @@ public class AppTest {
   }
 
   @Test
+  @DisplayName("should trace multi-file project with qualified breakpoint selecting only matching file")
+  void shouldTraceMultiFileQualifiedBreakpoint(@org.junit.jupiter.api.io.TempDir Path tempDir)
+      throws IOException {
+    Path pkgDir = Files.createDirectories(tempDir.resolve("my/app"));
+    Path helperPath = pkgDir.resolve("Helper.java");
+    Path driverPath = pkgDir.resolve("Driver.java");
+
+    Files.writeString(
+        helperPath,
+        """
+        package my.app;
+        public class Helper {
+            public static int compute() {
+                int helperVal = 99;
+                return helperVal;
+            }
+        }
+        """);
+
+    String driverCode =
+        """
+        package my.app;
+        public class Driver {
+            public static void main(String[] args) {
+                int driverBefore = 10;
+                int res = Helper.compute();
+                int driverAfter = 20;
+                System.out.println(res);
+            }
+        }
+        """;
+    Files.writeString(driverPath, driverCode);
+
+    App.Trace traceApp = new App.Trace();
+    AtomicInteger exitCodeTrace = new AtomicInteger(-1);
+    traceApp.exitHandler = exitCodeTrace::set;
+    traceApp.verbose = true;
+
+    CommandLine cmdTrace = new CommandLine(traceApp);
+    PrintStream originalOut = System.out;
+    ByteArrayOutputStream baosTrace = new ByteArrayOutputStream();
+    try {
+      System.setOut(new PrintStream(baosTrace));
+      int exitCode =
+          cmdTrace.execute("-i", driverPath.toString(), "-b=Helper.java:5");
+      assertThat(exitCodeTrace.get()).isEqualTo(-1);
+      assertThat(exitCode).isEqualTo(0);
+      String output = baosTrace.toString();
+      assertThat(output).contains("\"helperVal\":99");
+      assertThat(output).doesNotContain("\"driverAfter\":20");
+      assertThat(output).contains("\"file\":\"my/app/Helper.java\"");
+    } finally {
+      System.setOut(originalOut);
+    }
+  }
+
+  @Test
   @DisplayName("should trace all breakpoints chronologically without explicit -b flags")
   void shouldTraceAllBreakpointsWithoutBFlags() {
     String testProgram =

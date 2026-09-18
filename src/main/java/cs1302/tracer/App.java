@@ -71,7 +71,7 @@ public class App {
      * Constructs a new {@code App} command-line application instance.
      *
      * <p>Normative Reference: The Picocli command-line parsing specification requires a public
-     * zero-argument constructor for command dispatch and instantiation.
+     * zero-argument constructor for command dispatch and instantiation.</p>
      */
     public App() {} // App
 
@@ -269,19 +269,13 @@ public class App {
                 defaultValue = "fqn")
         TypeStyle typeStyle = TypeStyle.FQN;
 
-        @Option(
-                names = {"--breakpoints", "-b"},
-                split = ",",
-                description = "Breakpoints at which to take snapshots.")
-        List<String> breakpoints = null;
-
         /**
          * Parses the configured breakpoint strings into BreakpointSpec targets.
          *
          * @return List of parsed BreakpointSpec objects.
          */
         List<BreakpointSpec> parsedBreakpoints() {
-            return JobOptions.parseBreakpoints(breakpoints);
+            return job.breakpointSpecs();
         } // parsedBreakpoints
 
         @Option(
@@ -489,7 +483,7 @@ public class App {
                 List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
                 session.phase("trace");
                 if (allBreakpoints) {
-                    if (breakpoints == null) {
+                    if (job.breakpoints == null) {
                         Collection<Integer> lines =
                                 DebugTraceHelper.getValidBreakpointLines(compiled);
                         DebugTraceHelper.traceChronological(
@@ -585,7 +579,7 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                List<ExecutionSnapshot> chronological = breakpoints != null
+                List<ExecutionSnapshot> chronological = job.breakpoints != null
                         ? DebugTraceHelper.traceChronologicalWithSpecs(
                                 compResult, parsedBreakpoints(), allCus, true, guestStdin)
                         : DebugTraceHelper.traceChronological(
@@ -594,7 +588,7 @@ public class App {
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else if (breakpoints == null) {
+            } else if (job.breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 cs1302.tracer.model.modern.Trace trace =
                         serializer.createTrace(source, guestStdin, snapshot);
@@ -639,7 +633,7 @@ public class App {
                             removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
-                List<ExecutionSnapshot> chronological = breakpoints != null
+                List<ExecutionSnapshot> chronological = job.breakpoints != null
                         ? DebugTraceHelper.traceChronologicalWithSpecs(
                                 compResult, parsedBreakpoints(), allCus, true, guestStdin)
                         : DebugTraceHelper.traceChronological(
@@ -647,7 +641,7 @@ public class App {
                                 allCus, true, guestStdin);
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
-            } else if (breakpoints == null) {
+            } else if (job.breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
                 String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
                 emitTrace(pyTutorSnapshot);
