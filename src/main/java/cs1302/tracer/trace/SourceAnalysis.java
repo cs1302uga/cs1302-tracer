@@ -2,6 +2,9 @@ package cs1302.tracer.trace;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.Expression;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,6 +26,7 @@ public final class SourceAnalysis {
     private final Map<String, List<DebugTraceHelper.LambdaAssignment>> lambdaMethodAssignments;
     private final Map<String, Set<String>> finalMethodVariables;
     private final Map<String, Optional<ClassOrInterfaceDeclaration>> classDeclarations;
+    private final Map<String, String> staticLambdaImplementations;
 
     /**
      * Constructs a SourceAnalysis instance holding precomputed AST indexes.
@@ -32,13 +36,15 @@ public final class SourceAnalysis {
      * @param lambdaMethodAssignments Map of method signatures to lambda assignments.
      * @param finalMethodVariables Map of method signatures to final variable names.
      * @param classDeclarations Map of class FQNs to class declarations.
+     * @param staticLambdaImplementations Precomputed static lambda implementation text map.
      */
     private SourceAnalysis(
             List<CompilationUnit> parsedSources,
             AstTypeResolver astTypeResolver,
             Map<String, List<DebugTraceHelper.LambdaAssignment>> lambdaMethodAssignments,
             Map<String, Set<String>> finalMethodVariables,
-            Map<String, Optional<ClassOrInterfaceDeclaration>> classDeclarations) {
+            Map<String, Optional<ClassOrInterfaceDeclaration>> classDeclarations,
+            Map<String, String> staticLambdaImplementations) {
         this.parsedSources = Collections.unmodifiableList(new ArrayList<>(parsedSources));
         this.astTypeResolver = astTypeResolver;
         Map<String, List<DebugTraceHelper.LambdaAssignment>> unmodifiableLambdaMap =
@@ -51,6 +57,8 @@ public final class SourceAnalysis {
                 unmodifiableFinalMap.put(k, Collections.unmodifiableSet(new HashSet<>(v))));
         this.finalMethodVariables = Collections.unmodifiableMap(unmodifiableFinalMap);
         this.classDeclarations = Collections.unmodifiableMap(classDeclarations);
+        this.staticLambdaImplementations = Collections.unmodifiableMap(
+                new HashMap<>(staticLambdaImplementations));
     } // SourceAnalysis
 
     /**
@@ -62,6 +70,7 @@ public final class SourceAnalysis {
     private static final SourceAnalysis EMPTY = new SourceAnalysis(
             List.of(),
             new AstTypeResolver(List.of()),
+            Map.of(),
             Map.of(),
             Map.of(),
             Map.of());
@@ -99,12 +108,28 @@ public final class SourceAnalysis {
         DebugTraceHelper.buildLambdaAndFinalMaps(nonNull, lambdaMap, finalMap);
 
         Map<String, Optional<ClassOrInterfaceDeclaration>> classDecls = new HashMap<>();
+        Map<String, String> staticLambdas = new HashMap<>();
 
         for (CompilationUnit cu : nonNull) {
             for (ClassOrInterfaceDeclaration decl : cu.findAll(ClassOrInterfaceDeclaration.class)) {
                 String fqn = decl.getFullyQualifiedName().orElseGet(decl::getNameAsString);
+                String simpleName = decl.getNameAsString();
                 classDecls.put(fqn, Optional.of(decl));
-                classDecls.putIfAbsent(decl.getNameAsString(), Optional.of(decl));
+                classDecls.putIfAbsent(simpleName, Optional.of(decl));
+
+                for (FieldDeclaration fieldDecl : decl.getFields()) {
+                    for (VariableDeclarator vd : fieldDecl.getVariables()) {
+                        vd.getInitializer()
+                                .filter(Expression::isLambdaExpr)
+                                .map(Expression::asLambdaExpr)
+                                .flatMap(DebugTraceHelper::tryImplementLambdaSam)
+                                .ifPresent(impl -> {
+                                    String name = vd.getNameAsString();
+                                    staticLambdas.put(fqn + "#" + name, impl);
+                                    staticLambdas.putIfAbsent(simpleName + "#" + name, impl);
+                                });
+                    } // for
+                } // for
             } // for
         } // for
 
@@ -113,7 +138,8 @@ public final class SourceAnalysis {
                 resolver,
                 lambdaMap,
                 finalMap,
-                classDecls);
+                classDecls,
+                staticLambdas);
     } // from
 
     /**
@@ -173,7 +199,9 @@ public final class SourceAnalysis {
      * @return Optional containing lambda implementation text if present.
      */
     public Optional<String> findStaticLambdaImplementation(String className, String fieldName) {
-        Optional<ClassOrInterfaceDeclaration> decl = findClassDeclaration(className);
-        return DebugTraceHelper.findStaticLambdaImplementation(decl, fieldName);
+        if (className == null || fieldName == null) {
+            return Optional.empty();
+        } // if
+        return Optional.ofNullable(staticLambdaImplementations.get(className + "#" + fieldName));
     } // findStaticLambdaImplementation
 } // SourceAnalysis

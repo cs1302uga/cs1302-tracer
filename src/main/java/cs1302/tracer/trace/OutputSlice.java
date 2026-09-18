@@ -192,6 +192,10 @@ public final class OutputSlice {
      * @return The byte value at the index.
      */
     public byte byteAt(int index) {
+        if (index < 0 || index >= length) {
+            throw new IndexOutOfBoundsException(
+                    "Index " + index + " out of bounds for length " + length);
+        } // if
         if (drainer != null) {
             return drainer.byteAt(offset + index);
         } // if

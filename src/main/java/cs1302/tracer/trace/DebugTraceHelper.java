@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -380,17 +381,21 @@ public class DebugTraceHelper {
     } // traceLatestWithSpecs
 
     /**
-     * Reduces snapshot lists to only their latest entry per breakpoint line.
+     * Reduces snapshot lists to only their latest entry per distinct source file and line.
      *
      * @param snapshots Breakpoint snapshot mapping.
-     * @return Reduced mapping containing only the latest snapshot per line.
+     * @return Reduced mapping containing the latest snapshot per source file for each line.
      */
     private static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(
             Map<Integer, List<ExecutionSnapshot>> snapshots) {
         Map<Integer, List<ExecutionSnapshot>> latest = new TreeMap<>();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
             List<ExecutionSnapshot> list = entry.getValue();
-            latest.put(entry.getKey(), new ArrayList<>(List.of(list.get(list.size() - 1))));
+            Map<Optional<String>, ExecutionSnapshot> perSource = new LinkedHashMap<>();
+            for (ExecutionSnapshot snap : list) {
+                perSource.put(snap.sourcePath(), snap);
+            } // for
+            latest.put(entry.getKey(), new ArrayList<>(perSource.values()));
         } // for
         return latest;
     } // keepLatestOnly
@@ -2397,23 +2402,6 @@ public class DebugTraceHelper {
     } // collectStatics
 
     /**
-     * Finds static lambda implementation in class declaration.
-     *
-     * @param classDecl Class declaration.
-     * @param fieldName Field identifier.
-     * @return Optional containing lambda implementation text.
-     */
-    static Optional<String> findStaticLambdaImplementation(
-            Optional<ClassOrInterfaceDeclaration> classDecl, String fieldName) {
-        return classDecl.flatMap(d -> d.findFirst(
-                VariableDeclarator.class,
-                vd -> vd.getNameAsString().equals(fieldName)))
-                .filter(vd -> vd.getInitializer().map(Expression::isLambdaExpr).orElse(false))
-                .map(vd -> vd.getInitializer().get().asLambdaExpr())
-                .flatMap(DebugTraceHelper::tryImplementLambdaSam);
-    } // findStaticLambdaImplementation
-
-    /**
      * Records an uncaught guest exception for the job result.
      * @param event Exception event.
      */
@@ -2448,7 +2436,8 @@ public class DebugTraceHelper {
             int line, ExecutionSnapshot snapshot) {
         List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
         if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
-            entries.clear();
+            Optional<String> src = snapshot.sourcePath();
+            entries.removeIf(existing -> Objects.equals(existing.sourcePath(), src));
         } // if
         entries.add(snapshot);
     } // storeSnapshot

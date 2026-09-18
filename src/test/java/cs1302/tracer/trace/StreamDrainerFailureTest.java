@@ -133,4 +133,21 @@ class StreamDrainerFailureTest {
             drainer.close();
         }
     }
+
+    @Test
+    void detachedDrainerDoesNotNotifySessionWhenLimitExceeded() throws Exception {
+        var limits = new cs1302.tracer.execution.TraceLimits(0, 0, 5, 0, 0, 0, 0, 0);
+        try (var session = new cs1302.tracer.execution.TraceSession(
+                limits, cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+            var input = new java.io.PipedInputStream();
+            var output = new java.io.PipedOutputStream(input);
+            var drainer = new StreamDrainer(input);
+            drainer.detachSession();
+            output.write("0123456789extra".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            output.close();
+            drainer.waitForEof(1000);
+            drainer.close();
+            assertThatCode(session::check).doesNotThrowAnyException();
+        } // try
+    }
 }

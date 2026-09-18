@@ -16,7 +16,7 @@ public class StreamDrainer implements AutoCloseable {
     private static final long DEFAULT_MAX_WAIT_MILLIS = 50;
     private static final long DEFAULT_QUIET_PERIOD_MILLIS = 5;
 
-    private final TraceSession session;
+    private volatile TraceSession session;
     private final long limit;
     private final InputStream source;
     private final AccessibleByteArrayOutputStream sink;
@@ -65,7 +65,10 @@ public class StreamDrainer implements AutoCloseable {
                             : (int) Math.min(read, Math.max(0, limit - sink.size()));
                     sink.write(buffer, 0, retained);
                     if (retained < read) {
-                        session.stop("output_limit");
+                        TraceSession active = session;
+                        if (active != null) {
+                            active.stop("output_limit");
+                        } // if
                     } // if
                 } // synchronized
                 lastReadNanos = System.nanoTime();
@@ -74,6 +77,13 @@ public class StreamDrainer implements AutoCloseable {
             } // try
         } // while
     } // drainLoop
+
+    /**
+     * Detaches the active trace session so this drainer does not retain it.
+     */
+    public void detachSession() {
+        this.session = null;
+    } // detachSession
 
     /**
      * Synchronizes the stream using default wait and quiet-period thresholds.
@@ -232,6 +242,7 @@ public class StreamDrainer implements AutoCloseable {
     @Override
     public void close() {
         closed = true;
+        detachSession();
         try {
             source.close();
         } catch (IOException ignored) {

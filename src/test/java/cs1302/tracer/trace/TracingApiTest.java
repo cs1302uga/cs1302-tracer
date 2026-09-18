@@ -99,4 +99,47 @@ class TracingApiTest {
             }
         }
     }
+
+    @Test
+    void multiFileSameLineBreakpointsRetainedInLatest() throws Exception {
+        String fileA = """
+                public class Main {
+                  public static void main(String[] args) {
+                    Helper.doWork();
+                    System.out.println("done");
+                  }
+                }
+                """;
+        String fileB = """
+                public class Helper {
+                  public static void doWork() {
+                    int x = 42;
+                    int y = x + 1;
+                  }
+                }
+                """;
+        var astA = StaticJavaParser.parse(fileA);
+        var astB = StaticJavaParser.parse(fileB);
+        String combined = "// --- Main.java ---\n" + fileA + "\n// --- Helper.java ---\n" + fileB;
+        try (var compiled = CompilationHelper.compile(combined)) {
+            var specs = List.of(
+                    BreakpointSpec.of("Main.java", 4),
+                    BreakpointSpec.of("Helper.java", 4));
+            var latest = DebugTraceHelper.traceLatestWithSpecs(compiled, specs, List.of(astA, astB), "");
+            assertThat(latest.get(4)).hasSize(2);
+            assertThat(latest.get(4)).anySatisfy(s -> assertThat(s.sourcePath()).contains("Main.java"));
+            assertThat(latest.get(4)).anySatisfy(s -> assertThat(s.sourcePath()).contains("Helper.java"));
+
+            try (var session = new cs1302.tracer.execution.TraceSession(
+                    cs1302.tracer.execution.TraceLimits.unlimited(),
+                    cs1302.tracer.execution.InspectionPolicy.TRUSTED, false)) {
+                assertThat(session.accumulates()).isFalse();
+                var latestInSession = DebugTraceHelper.traceLatestWithSpecs(
+                        compiled, specs, List.of(astA, astB), "");
+                assertThat(latestInSession.get(4)).hasSize(2);
+                assertThat(latestInSession.get(4)).anySatisfy(s -> assertThat(s.sourcePath()).contains("Main.java"));
+                assertThat(latestInSession.get(4)).anySatisfy(s -> assertThat(s.sourcePath()).contains("Helper.java"));
+            } // try
+        }
+    }
 }

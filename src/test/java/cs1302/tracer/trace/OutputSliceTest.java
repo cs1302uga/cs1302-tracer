@@ -31,6 +31,8 @@ class OutputSliceTest {
         assertThat(OutputSlice.from(new byte[] {1, 2}, 0, 0)).isSameAs(empty);
         assertThat(OutputSlice.from(new byte[] {1, 2}, 5, 2)).isSameAs(empty);
         assertThat(OutputSlice.from((StreamDrainer) null, 0, 5)).isSameAs(empty);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> empty.byteAt(0))
+                .isInstanceOf(IndexOutOfBoundsException.class);
     } // testEmptySlice
 
     @Test
@@ -89,6 +91,11 @@ class OutputSliceTest {
         assertThat(slice.indexOf((byte) 'W', 0)).isEqualTo(7);
         assertThat(slice.indexOf((byte) 'W', -5)).isEqualTo(7);
         assertThat(slice.indexOf((byte) 'z', 0)).isEqualTo(-1);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> slice.byteAt(-1))
+                .isInstanceOf(IndexOutOfBoundsException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> slice.byteAt(slice.length()))
+                .isInstanceOf(IndexOutOfBoundsException.class);
     } // testDirectByteSlice
 
     @Test
@@ -133,6 +140,10 @@ class OutputSliceTest {
             assertThat(drainer.getBytes(-5, 5)).isEqualTo("Strea".getBytes(StandardCharsets.UTF_8));
             assertThat(drainer.getString(-5, 5, StandardCharsets.UTF_8)).isEqualTo("Strea");
             assertThat(slice.byteAt(0)).isEqualTo((byte) 'S');
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> slice.byteAt(-1))
+                    .isInstanceOf(IndexOutOfBoundsException.class);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> slice.byteAt(slice.length()))
+                    .isInstanceOf(IndexOutOfBoundsException.class);
         } // try
 
         try (StreamDrainer emptyDrainer =
