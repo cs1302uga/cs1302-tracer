@@ -319,4 +319,40 @@ class PersistentGuestSessionTest {
             } // try
         } // try
     } // testRunJobInternalBothFail
+
+    @Test
+    @DisplayName("traceWithSpecs with no hits yields empty snapshots")
+    void testTraceWithSpecsNoHits() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        cr, List.of(BreakpointSpec.of(999)), List.of(ast), "", false);
+                assertThat(snaps).containsKey(-1);
+            } // try
+        } // try
+    } // testTraceWithSpecsNoHits
+
+    @Test
+    @DisplayName("Handles standard error output from guest program")
+    void handlesStderrOutput() throws Exception {
+        String stderrSource = """
+                public class StderrJob {
+                    public static void main(String[] args) {
+                        System.err.println("Sample error output");
+                        int a = 1;
+                    }
+                }
+                """;
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(stderrSource);
+            try (var cr = CompilationHelper.compile(stderrSource)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        cr, List.of(BreakpointSpec.of(4)), List.of(ast), "", false);
+                assertThat(snaps).containsKey(4);
+            } // try
+        } // try
+    } // handlesStderrOutput
+
+
 }

@@ -37,6 +37,32 @@ class BatchJobModelTest {
                 true, true, true, true, true, "simple", limits, InspectionPolicy.FIELDS);
         assertThat(req.resolveFormat()).isEqualTo(TraceFormat.MODERN);
         assertThat(req.resolveTypeStyle()).isEqualTo(TypeStyle.SIMPLE);
+
+        BatchJobRequest blankReq = new BatchJobRequest(
+                "id-blank", "class C {}", "   ", null, null,
+                null, null, null, null, null, "   ", null, null);
+        assertThat(blankReq.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
+        assertThat(blankReq.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
+
+        BatchJobRequest pytutorFqnReq = new BatchJobRequest(
+                "id-pytutor", "class D {}", "pytutor", null, null,
+                null, null, null, null, null, "fqn", null, null);
+        assertThat(pytutorFqnReq.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
+        assertThat(pytutorFqnReq.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
+
+        BatchJobRequest invalidFmtReq = new BatchJobRequest(
+                "id-inv-fmt", "class E {}", "invalid-format", null, null,
+                null, null, null, null, null, null, null, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(invalidFmtReq::resolveFormat)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported trace format");
+
+        BatchJobRequest invalidTsReq = new BatchJobRequest(
+                "id-inv-ts", "class F {}", null, null, null,
+                null, null, null, null, null, "invalid-style", null, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(invalidTsReq::resolveTypeStyle)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported type style");
         assertThat(req.resolveLimits()).isEqualTo(limits);
         assertThat(req.stdin()).isEqualTo("input");
         assertThat(req.breakpoints()).containsExactly("5");

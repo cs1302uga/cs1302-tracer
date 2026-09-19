@@ -82,8 +82,7 @@ public class StreamDrainer implements AutoCloseable {
     /**
      * Attaches an active trace session so this drainer enforces its output limit.
      *
-     * @param session Active trace session.
-     */
+     * @param session Active trace session.\n     */
     public void attachSession(TraceSession session) {
         this.session = session;
     } // attachSession
@@ -166,6 +165,34 @@ public class StreamDrainer implements AutoCloseable {
             } // try
         } // while
     } // sync
+
+    /**
+     * Synchronizes the stream until at least the expected total bytes are read or timeout elapses.
+     *
+     * @param expectedTotalBytes Minimum total bytes expected to be read.
+     * @param maxWaitMillis Maximum milliseconds to wait.
+     */
+    public void syncUntil(long expectedTotalBytes, long maxWaitMillis) {
+        if (eofReached || closed) {
+            return;
+        } // if
+        long deadline = System.currentTimeMillis() + maxWaitMillis;
+        while (size() < expectedTotalBytes && !closed && !eofReached
+                && System.currentTimeMillis() < deadline) {
+            TraceSession active = session;
+            if (active != null && active.isStopped()) {
+                break;
+            } // if
+            Thread.onSpinWait();
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            } // try
+        } // while
+        sync(maxWaitMillis, DEFAULT_QUIET_PERIOD_MILLIS);
+    } // syncUntil
 
     /**
      * Returns a copy of the accumulated bytes.

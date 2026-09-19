@@ -133,4 +133,81 @@ public class StreamDrainerTest {
       pos.close();
     }
   }
+
+  @Test
+  @DisplayName("syncUntil waits for expected bytes, handles eof, timeouts, and interruption")
+  void testSyncUntil() throws Exception {
+    PipedOutputStream pos = new PipedOutputStream();
+    PipedInputStream pis = new PipedInputStream(pos);
+
+    try (StreamDrainer drainer = new StreamDrainer(pis)) {
+      // 1. Waits until threshold reached
+      pos.write("hello".getBytes(StandardCharsets.UTF_8));
+      pos.flush();
+      drainer.syncUntil(5, 500);
+      assertThat(drainer.size()).isEqualTo(5);
+
+      // 2. Timeout when expected bytes not reached
+      drainer.syncUntil(20, 10);
+      assertThat(drainer.size()).isEqualTo(5);
+
+      // 3. Active unstopped session continues until threshold reached
+      TraceLimits limits = TraceLimits.unlimited();
+      try (TraceSession session = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+        drainer.attachSession(session);
+        pos.write("world".getBytes(StandardCharsets.UTF_8));
+        pos.flush();
+        drainer.syncUntil(10, 500);
+        assertThat(drainer.size()).isEqualTo(10);
+
+        // 4. Stopped session breaks loop
+        session.stop("test_stop");
+        drainer.syncUntil(30, 200);
+        drainer.detachSession();
+      }
+
+      // 5. Interrupted thread breaks loop and restores interrupt status
+      Thread.currentThread().interrupt();
+      drainer.syncUntil(40, 200);
+      assertThat(Thread.interrupted()).isTrue();
+
+      // 6. Returns immediately if EOF reached
+      pos.close();
+      drainer.waitForEof(500);
+      assertThat(drainer.isEof()).isTrue();
+      drainer.syncUntil(100, 100);
+    }
+
+    // 7. Returns immediately if closed before EOF
+    StreamDrainer closedDrainer = new StreamDrainer(new ByteArrayInputStream(new byte[10]));
+    closedDrainer.close();
+    closedDrainer.syncUntil(100, 100);
+
+    // 8. While loop exits when EOF reached concurrently
+    PipedOutputStream pos2 = new PipedOutputStream();
+    PipedInputStream pis2 = new PipedInputStream(pos2);
+    try (StreamDrainer drainer2 = new StreamDrainer(pis2)) {
+      new Thread(() -> {
+        try {
+          Thread.sleep(15);
+          pos2.close();
+        } catch (Exception ignored) {
+        }
+      }).start();
+      drainer2.syncUntil(100, 500);
+    }
+
+    // 9. While loop exits when closed concurrently
+    PipedOutputStream pos3 = new PipedOutputStream();
+    PipedInputStream pis3 = new PipedInputStream(pos3);
+    StreamDrainer drainer3 = new StreamDrainer(pis3);
+    new Thread(() -> {
+      try {
+        Thread.sleep(15);
+        drainer3.close();
+      } catch (Exception ignored) {
+      }
+    }).start();
+    drainer3.syncUntil(100, 500);
+  }
 }

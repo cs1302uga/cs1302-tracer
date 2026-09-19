@@ -12,8 +12,11 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Resident execution harness running inside the persistent guest JVM.
@@ -37,12 +40,29 @@ public final class GuestHarness {
     /** Control flag: instructs harness event loop to terminate process. */
     public static volatile boolean shouldTerminate = false;
 
+    /** Monotonic byte counter for guest standard output. */
+    public static final AtomicLong OUT_BYTES = new AtomicLong(0);
+
+    /** Monotonic byte counter for guest standard error. */
+    public static final AtomicLong ERR_BYTES = new AtomicLong(0);
+
+    /** Barrier snapshot of total standard output bytes at last completion. */
+    public static volatile long outBytes = 0;
+
+    /** Barrier snapshot of total standard error bytes at last completion. */
+    public static volatile long errBytes = 0;
+
     private static final VirtualInputStream VIRTUAL_IN = new VirtualInputStream();
     private static final PrintStream ORIGINAL_OUT = System.out;
     private static final PrintStream ORIGINAL_ERR = System.err;
     private static final InputStream ORIGINAL_IN = System.in;
     private static final Properties ORIGINAL_PROPERTIES =
             (Properties) System.getProperties().clone();
+    private static final Locale ORIGINAL_DEFAULT_LOCALE = Locale.getDefault();
+    private static final Locale ORIGINAL_FORMAT_LOCALE = Locale.getDefault(Locale.Category.FORMAT);
+    private static final Locale ORIGINAL_DISPLAY_LOCALE =
+            Locale.getDefault(Locale.Category.DISPLAY);
+    private static final TimeZone ORIGINAL_TIME_ZONE = (TimeZone) TimeZone.getDefault().clone();
 
     /** Prevents instantiation of utility harness. */
     private GuestHarness() {} // GuestHarness
@@ -54,8 +74,8 @@ public final class GuestHarness {
      */
     public static void main(String[] args) {
         System.setIn(VIRTUAL_IN);
-        System.setOut(createForwardingPrintStream(ORIGINAL_OUT));
-        System.setErr(createForwardingPrintStream(ORIGINAL_ERR));
+        System.setOut(createForwardingPrintStream(ORIGINAL_OUT, OUT_BYTES));
+        System.setErr(createForwardingPrintStream(ORIGINAL_ERR, ERR_BYTES));
 
         while (true) {
             readyForJob();
@@ -122,6 +142,12 @@ public final class GuestHarness {
         } catch (Throwable t) {
             // Handled or ignored; snapshot or exception event captured by JDI
         } finally {
+            System.out.flush();
+            System.err.flush();
+            ORIGINAL_OUT.flush();
+            ORIGINAL_ERR.flush();
+            outBytes = OUT_BYTES.get();
+            errBytes = ERR_BYTES.get();
             onJobCompleted();
             cleanState();
         } // try
@@ -199,9 +225,14 @@ public final class GuestHarness {
         nextStdin = null;
         VIRTUAL_IN.reset("");
 
+        Locale.setDefault(ORIGINAL_DEFAULT_LOCALE);
+        Locale.setDefault(Locale.Category.FORMAT, ORIGINAL_FORMAT_LOCALE);
+        Locale.setDefault(Locale.Category.DISPLAY, ORIGINAL_DISPLAY_LOCALE);
+        TimeZone.setDefault((TimeZone) ORIGINAL_TIME_ZONE.clone());
+
         System.setIn(ORIGINAL_IN);
-        System.setOut(createForwardingPrintStream(ORIGINAL_OUT));
-        System.setErr(createForwardingPrintStream(ORIGINAL_ERR));
+        System.setOut(createForwardingPrintStream(ORIGINAL_OUT, OUT_BYTES));
+        System.setErr(createForwardingPrintStream(ORIGINAL_ERR, ERR_BYTES));
 
         System.setProperties((Properties) ORIGINAL_PROPERTIES.clone());
         System.setIn(VIRTUAL_IN);
@@ -211,18 +242,38 @@ public final class GuestHarness {
      * Filter stream preventing target student code from closing persistent system streams.
      */
     static final class UnclosableOutputStream extends FilterOutputStream {
+        private final AtomicLong counter;
+
         /**
          * Constructs an unclosable stream wrapping target stream.
          *
          * @param out Underlying output stream.
+         * @param counter Monotonic byte counter.
+         */
+        UnclosableOutputStream(OutputStream out, AtomicLong counter) {
+            super(out);
+            this.counter = counter;
+        } // UnclosableOutputStream
+
+        /**
+         * Constructs an unclosable stream defaulting to a zero counter.
+         *
+         * @param out Underlying output stream.
          */
         UnclosableOutputStream(OutputStream out) {
-            super(out);
+            this(out, new AtomicLong(0));
         } // UnclosableOutputStream
+
+        @Override
+        public void write(int b) throws IOException {
+            out.write(b);
+            counter.incrementAndGet();
+        } // write
 
         @Override
         public void write(byte[] b, int off, int len) throws IOException {
             out.write(b, off, len);
+            counter.addAndGet(len);
         } // write
 
         @Override
@@ -235,10 +286,12 @@ public final class GuestHarness {
      * Creates a forwarding print stream protected against student closing.
      *
      * @param original Underlying print stream.
+     * @param counter Monotonic byte counter.
      * @return Non-closeable forwarding print stream.
      */
-    static PrintStream createForwardingPrintStream(PrintStream original) {
-        return new PrintStream(new UnclosableOutputStream(original), true, StandardCharsets.UTF_8);
+    static PrintStream createForwardingPrintStream(PrintStream original, AtomicLong counter) {
+        return new PrintStream(
+                new UnclosableOutputStream(original, counter), true, StandardCharsets.UTF_8);
     } // createForwardingPrintStream
 
     /**

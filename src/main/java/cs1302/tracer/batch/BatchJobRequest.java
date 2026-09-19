@@ -42,24 +42,38 @@ public record BatchJobRequest(
      * Resolves the trace format, defaulting to PYTUTOR if not specified.
      *
      * @return Resolved TraceFormat.
+     * @throws IllegalArgumentException If format is unsupported.
      */
     public TraceFormat resolveFormat() {
-        if (format != null && format.equalsIgnoreCase("modern")) {
+        if (format == null || format.isBlank()) {
+            return TraceFormat.PYTUTOR;
+        } // if
+        if (format.equalsIgnoreCase("modern")) {
             return TraceFormat.MODERN;
         } // if
-        return TraceFormat.PYTUTOR;
+        if (format.equalsIgnoreCase("pytutor")) {
+            return TraceFormat.PYTUTOR;
+        } // if
+        throw new IllegalArgumentException("Unsupported trace format: " + format);
     } // resolveFormat
 
     /**
      * Resolves the type style, defaulting to FQN if not specified.
      *
      * @return Resolved TypeStyle.
+     * @throws IllegalArgumentException If typeStyle is unsupported.
      */
     public TypeStyle resolveTypeStyle() {
-        if (typeStyle != null && typeStyle.equalsIgnoreCase("simple")) {
+        if (typeStyle == null || typeStyle.isBlank()) {
+            return TypeStyle.FQN;
+        } // if
+        if (typeStyle.equalsIgnoreCase("simple")) {
             return TypeStyle.SIMPLE;
         } // if
-        return TypeStyle.FQN;
+        if (typeStyle.equalsIgnoreCase("fqn")) {
+            return TypeStyle.FQN;
+        } // if
+        throw new IllegalArgumentException("Unsupported type style: " + typeStyle);
     } // resolveTypeStyle
 
     /**

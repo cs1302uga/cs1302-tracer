@@ -40,6 +40,16 @@ class BatchTraceWorkerTest {
             }
             """;
 
+    private static final String LOOP_SOURCE = """
+            public class LoopProg {
+                public static void main(String[] args) {
+                    for (int i = 0; i < 2; i++) {
+                        int x = 42;
+                    }
+                }
+            }
+            """;
+
     private static final String BASIC_SOURCE = """
             public class BasicBatch {
                 public static void main(String[] args) {
@@ -227,21 +237,7 @@ class BatchTraceWorkerTest {
         } // try
     } // testWorkerEmptySnapshots
 
-    @Test
-    @DisplayName("canReconcileSnapshots returns true only when both lists are non-empty")
-    void testCanReconcileSnapshots() {
-        cs1302.tracer.trace.ExecutionSnapshot dummy =
-                new cs1302.tracer.trace.ExecutionSnapshot(
-                        List.of(), List.of(), java.util.Map.of(),
-                        cs1302.tracer.trace.OutputSlice.empty(),
-                        cs1302.tracer.trace.OutputSlice.empty(),
-                        java.util.Optional.empty(), "", 0);
 
-        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(), List.of())).isFalse();
-        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(dummy), List.of())).isFalse();
-        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(), List.of(dummy))).isFalse();
-        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(dummy), List.of(dummy))).isTrue();
-    } // testCanReconcileSnapshots
 
     @Test
     @DisplayName("Worker handles packaged source with default TRUSTED inspection policy")
@@ -380,4 +376,73 @@ class BatchTraceWorkerTest {
                     .isInstanceOf(IllegalArgumentException.class);
         } // try
     } // testExecuteNullRequest
+
+    @Test
+    @DisplayName("Worker returns validation failure response for invalid format or typeStyle")
+    void testWorkerValidationFailure() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest badFmtReq = new BatchJobRequest(
+                    "bad-fmt", BASIC_SOURCE, "invalid_fmt", null, List.of("5"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp1 = worker.execute(badFmtReq);
+            assertThat(resp1.result().status()).isEqualTo("failed");
+            assertThat(resp1.result().phase()).isEqualTo("validation");
+
+            BatchJobRequest badTsReq = new BatchJobRequest(
+                    "bad-ts", BASIC_SOURCE, "pytutor", null, List.of("5"),
+                    false, false, false, false, false, "invalid_ts", null, null);
+            BatchJobResponse resp2 = worker.execute(badTsReq);
+            assertThat(resp2.result().status()).isEqualTo("failed");
+            assertThat(resp2.result().phase()).isEqualTo("validation");
+        } // try
+    } // testWorkerValidationFailure
+
+    @Test
+    @DisplayName("Worker executes targeted breakpoints with multiple hits for PyTutor and Modern")
+    void testWorkerTargetedLoopMultipleHits() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            // Modern, accBps = false, loop hit > 1
+            BatchJobRequest reqModNoAcc = new BatchJobRequest(
+                    "mod-loop-noacc", LOOP_SOURCE, "modern", "in", List.of("4"),
+                    false, false, false, false, false, "simple", null, null);
+            BatchJobResponse respModNoAcc = worker.execute(reqModNoAcc);
+            assertThat(respModNoAcc.result().complete()).isTrue();
+
+            // Modern, accBps = true, loop hit > 1
+            BatchJobRequest reqModAcc = new BatchJobRequest(
+                    "mod-loop-acc", LOOP_SOURCE, "modern", "in", List.of("4"),
+                    false, true, false, false, false, "simple", null, null);
+            BatchJobResponse respModAcc = worker.execute(reqModAcc);
+            assertThat(respModAcc.result().complete()).isTrue();
+
+            // PyTutor, accBps = false, loop hit > 1
+            BatchJobRequest reqPyNoAcc = new BatchJobRequest(
+                    "py-loop-noacc", LOOP_SOURCE, "pytutor", "in", List.of("4"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse respPyNoAcc = worker.execute(reqPyNoAcc);
+            assertThat(respPyNoAcc.result().complete()).isTrue();
+
+            // PyTutor, accBps = true, loop hit > 1
+            BatchJobRequest reqPyAcc = new BatchJobRequest(
+                    "py-loop-acc", LOOP_SOURCE, "pytutor", "in", List.of("4"),
+                    false, true, false, false, false, "fqn", null, null);
+            BatchJobResponse respPyAcc = worker.execute(reqPyAcc);
+            assertThat(respPyAcc.result().complete()).isTrue();
+        } // try
+    } // testWorkerTargetedLoopMultipleHits
+
+
+
+    @Test
+    @DisplayName("Worker executes chronological trace with non-empty breakpoints, modern format, and stdin")
+    void testWorkerChronologicalWithNonEmptySpecs() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-chrono-specs", BASIC_SOURCE, "modern", "test-stdin", List.of("4", "5"),
+                    true, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-chrono-specs");
+            assertThat(resp.result().complete()).isTrue();
+        } // try
+    } // testWorkerChronologicalWithNonEmptySpecs
 }

@@ -19,6 +19,7 @@ import com.github.javaparser.resolution.types.ResolvedLambdaConstraintType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Bootstrap;
+import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.Field;
 import com.sun.jdi.IncompatibleThreadStateException;
@@ -1997,6 +1998,27 @@ public class DebugTraceHelper {
     } // resolveMethodSignature
 
     /**
+     * Returns true if declaring class corresponds to internal coordinator harness or reflection.
+     * Student classes named GuestHarness loaded by a URLClassLoader are preserved.
+     *
+     * @param declaringType Declaring ReferenceType.
+     * @return True if frame should be filtered from student trace.
+     */
+    static boolean isGuestHarnessOrReflect(ReferenceType declaringType) {
+        String declaringClassFqn = declaringType.name();
+        if (declaringClassFqn.startsWith("jdk.internal.reflect.")
+                || declaringClassFqn.startsWith("java.lang.reflect.")) {
+            return true;
+        } // if
+        if (declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
+                || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")) {
+            ClassLoaderReference cl = declaringType.classLoader();
+            return cl == null || !cl.referenceType().name().contains("URLClassLoader");
+        } // if
+        return false;
+    } // isGuestHarnessOrReflect
+
+    /**
      * Returns true if declaring class corresponds to the internal guest harness or reflection.
      *
      * @param declaringClassFqn Declaring class fully qualified name.
@@ -2030,10 +2052,11 @@ public class DebugTraceHelper {
         List<StackFrame> frameList = mainThread.frames();
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
-            String declaringClassFqn = frame.location().method().declaringType().name();
-            if (isGuestHarnessOrReflect(declaringClassFqn)) {
+            ReferenceType declaringType = frame.location().method().declaringType();
+            if (isGuestHarnessOrReflect(declaringType)) {
                 continue;
             } // if
+            String declaringClassFqn = declaringType.name();
             String methodName = frame.location().method().name();
             int currentLine = frame.location().lineNumber();
 
@@ -2264,10 +2287,11 @@ public class DebugTraceHelper {
         TraceSession.elements(mainThread.frameCount());
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
-            String declaringClassFqn = frameMethod.declaringType().name();
-            if (isGuestHarnessOrReflect(declaringClassFqn)) {
+            ReferenceType declaringType = frameMethod.declaringType();
+            if (isGuestHarnessOrReflect(declaringType)) {
                 continue;
             } // if
+            String declaringClassFqn = declaringType.name();
             String frameMethodSignature = String.format(
                     "%s.%s(%s)",
                     declaringClassFqn,

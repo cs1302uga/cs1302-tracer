@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -64,6 +65,8 @@ public final class PersistentGuestSession implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile boolean alive;
     private int completedJobCount;
+    private volatile OutputSlice lastJobOut;
+    private volatile OutputSlice lastJobErr;
 
     /**
      * Testing hook to simulate unexpected failures during cleanupJobRun.
@@ -311,9 +314,18 @@ public final class PersistentGuestSession implements AutoCloseable {
             String stdin,
             boolean accumulate) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new TreeMap<>();
+        AtomicReference<ExecutionSnapshot> lastCaptured = new AtomicReference<>();
+        AtomicInteger lastCapturedLine = new AtomicInteger(-1);
         runJobInternal(cr, specs, parsedSources, stdin, false, (line, snap) -> {
-            DebugTraceHelper.storeSnapshot(snapshots, line, snap.materializeOutput());
+            ExecutionSnapshot mat = snap.materializeOutput();
+            lastCaptured.set(mat);
+            lastCapturedLine.set(line);
+            DebugTraceHelper.storeSnapshot(snapshots, line, mat);
         });
+        ExecutionSnapshot last = lastCaptured.get();
+        ExecutionSnapshot updated = withUpdatedOutput(last, lastJobOut, lastJobErr);
+        List<ExecutionSnapshot> list = snapshots.get(lastCapturedLine.get());
+        list.set(list.lastIndexOf(last), updated);
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
     } // traceWithSpecs
 
@@ -340,8 +352,27 @@ public final class PersistentGuestSession implements AutoCloseable {
                 chronological.add(mat);
             } // if
         });
+        ExecutionSnapshot last = chronological.getLast();
+        chronological.set(chronological.size() - 1,
+                withUpdatedOutput(last, lastJobOut, lastJobErr));
         return chronological;
     } // traceChronologicalWithSpecs
+
+    /**
+     * Creates an ExecutionSnapshot updated with final stdout and stderr slices.
+     *
+     * @param last Target snapshot.
+     * @param stdout Updated stdout slice.
+     * @param stderr Updated stderr slice.
+     * @return New snapshot with updated output slices.
+     */
+    static ExecutionSnapshot withUpdatedOutput(
+            ExecutionSnapshot last, OutputSlice stdout, OutputSlice stderr) {
+        return new ExecutionSnapshot(
+                last.stack(), last.statics(), last.heap(),
+                stdout, stderr,
+                last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
+    } // withUpdatedOutput
 
     /**
      * Functional consumer for captured execution snapshots.
@@ -408,16 +439,13 @@ public final class PersistentGuestSession implements AutoCloseable {
             throw new IllegalStateException("Persistent guest session is not alive");
         } // if
 
-        vmOut.reset();
-        vmErr.reset();
+        int startOut = vmOut.size();
+        int startErr = vmErr.size();
         TraceSession currentSession = TraceSession.current();
         if (currentSession != null) {
             vmOut.attachSession(currentSession);
             vmErr.attachSession(currentSession);
         } // if
-
-        int startOut = 0;
-        int startErr = 0;
 
         List<EventRequest> jobRequests = new ArrayList<>();
         Throwable tracingFailure = null;
@@ -499,25 +527,8 @@ public final class PersistentGuestSession implements AutoCloseable {
             cleanupHookForTesting.run();
         } // if
         teardownJobRequests(jobRequests);
-        vmOut.sync();
-        vmErr.sync();
-        vmOut.detachSession();
-        vmErr.detachSession();
-        if (currentSession != null) {
-            OutputSlice finalOut = OutputSlice.from(
-                    vmOut, startOut, Math.max(0, vmOut.size() - startOut)).materialize();
-            OutputSlice finalErr = OutputSlice.from(
-                    vmErr, startErr, Math.max(0, vmErr.size() - startErr)).materialize();
-            currentSession.finishOutput(finalOut, finalErr);
-            currentSession.materializeSnapshots();
-            currentSession.setCapturedOutput(
-                    finalOut.asUtf8String(), finalErr.asUtf8String(),
-                    finalOut.length(), finalErr.length());
-            if (currentSession.isStopped()) {
-                alive = false;
-                vm.process().destroyForcibly();
-            } // if
-        } // if
+        drainJobStreams();
+        finalizeOutput(currentSession, startOut, startErr);
         try {
             com.sun.jdi.Value termVal = harnessType.getValue(shouldTerminateField);
             if (termVal instanceof com.sun.jdi.BooleanValue b && b.value()) {
@@ -532,6 +543,61 @@ public final class PersistentGuestSession implements AutoCloseable {
             waitForReadyBreakpoint();
         } // if
     } // cleanupJobRun
+
+    /**
+     * Drains guest stdout and stderr using barrier thresholds if available.
+     */
+    private void drainJobStreams() {
+        long expectedOut = 0;
+        long expectedErr = 0;
+        try {
+            expectedOut = ((com.sun.jdi.LongValue) harnessType.getValue(
+                    harnessType.fieldByName("outBytes"))).value();
+            expectedErr = ((com.sun.jdi.LongValue) harnessType.getValue(
+                    harnessType.fieldByName("errBytes"))).value();
+        } catch (Exception ignored) {
+            // ignore inspection error
+        } // try
+        if (expectedOut > 0) {
+            vmOut.syncUntil(expectedOut, 1000);
+        } else {
+            vmOut.sync();
+        } // if
+        if (expectedErr > 0) {
+            vmErr.syncUntil(expectedErr, 1000);
+        } else {
+            vmErr.sync();
+        } // if
+        vmOut.detachSession();
+        vmErr.detachSession();
+    } // drainJobStreams
+
+    /**
+     * Finalizes output slices and updates the active trace session if present.
+     *
+     * @param currentSession Active trace session.
+     * @param startOut Initial standard output stream length.
+     * @param startErr Initial standard error stream length.
+     */
+    private void finalizeOutput(TraceSession currentSession, int startOut, int startErr) {
+        OutputSlice finalOut = OutputSlice.from(
+                vmOut, startOut, Math.max(0, vmOut.size() - startOut)).materialize();
+        OutputSlice finalErr = OutputSlice.from(
+                vmErr, startErr, Math.max(0, vmErr.size() - startErr)).materialize();
+        this.lastJobOut = finalOut;
+        this.lastJobErr = finalErr;
+        if (currentSession != null) {
+            currentSession.finishOutput(finalOut, finalErr);
+            currentSession.materializeSnapshots();
+            currentSession.setCapturedOutput(
+                    finalOut.asUtf8String(), finalErr.asUtf8String(),
+                    finalOut.length(), finalErr.length());
+            if (currentSession.isStopped()) {
+                alive = false;
+                vm.process().destroyForcibly();
+            } // if
+        } // if
+    } // finalizeOutput
 
     /**
      * Populates and enables event requests for class preparation, exits, and exceptions.

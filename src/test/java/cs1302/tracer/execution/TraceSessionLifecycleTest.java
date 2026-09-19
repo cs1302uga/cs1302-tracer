@@ -345,6 +345,36 @@ class TraceSessionLifecycleTest {
             session.finishOutput(null, s2);
             assertThat(session.snapshots().getLast().stderrSlice()).isEqualTo(s2);
         } // try
+
+        TraceLimits limitWithRoom = new TraceLimits(0, 0, 0, 0, 0, 10_000, 0, 0);
+        try (var session = new TraceSession(limitWithRoom, InspectionPolicy.TRUSTED, true)) {
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65}),
+                    cs1302.tracer.trace.OutputSlice.empty());
+            assertThat(session.isStopped()).isFalse();
+        } // try
+
+        TraceLimits limitExceeded = new TraceLimits(0, 0, 0, 0, 0, 350, 0, 0);
+        try (var session = new TraceSession(limitExceeded, InspectionPolicy.TRUSTED, true)) {
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from("0123456789abcdef".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    cs1302.tracer.trace.OutputSlice.empty());
+
+            assertThat(session.isStopped()).isTrue();
+            assertThat(session.stopReason()).isEqualTo("trace_limit");
+        } // try
     } // testFinishOutputBranches
 
     @Test

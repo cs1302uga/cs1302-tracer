@@ -271,35 +271,55 @@ Generates modern JSON snapshot objects with distinct type discrimination and met
 ```json
 {
   "code": "public class Main {\n ... }",
-  "trace": [
+  "format": "modern",
+  "stdin": "",
+  "steps": [
     {
-      "event": "step_line",
+      "step": 1,
       "line": 4,
-      "funcName": "main",
-      "stackToRender": [
+      "event": "step_line",
+      "method": "main",
+      "callStack": [
         {
-          "frameId": 0,
-          "funcName": "main:4",
-          "orderedVarnames": ["alice"],
-          "encodedLocals": {
-            "alice": {
-              "kind": "REF",
-              "id": 65,
-              "type": "Person"
+          "methodName": "main",
+          "line": 4,
+          "isHighlighted": true,
+          "locals": [
+            {
+              "name": "alice",
+              "type": "Person",
+              "value": { "ref": 65 },
+              "final": false
             }
-          }
+          ]
         }
       ],
+      "statics": [],
       "heap": {
         "65": {
+          "id": 65,
           "type": "Person",
-          "fields": {
-            "name": "Alice",
-            "age": 42
-          }
+          "kind": "object",
+          "fields": [
+            {
+              "name": "name",
+              "type": "java.lang.String",
+              "value": "Alice",
+              "final": false
+            },
+            {
+              "name": "age",
+              "type": "int",
+              "value": 42,
+              "final": false
+            }
+          ]
         }
       },
-      "stdout": ""
+      "stdout": "",
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0
     }
   ]
 }

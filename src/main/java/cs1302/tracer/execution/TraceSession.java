@@ -497,7 +497,10 @@ public final class TraceSession implements AutoCloseable {
             return;
         } // if
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
-        enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
+        long newRetained = Math.addExact(retainedBytes, extra * 15);
+        if (limits.traceBytes() != 0 && newRetained > limits.traceBytes()) {
+            stop("trace_limit");
+        } // if
         ExecutionSnapshot updated = new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),
                 safeOut != null ? safeOut : last.stdoutSlice(),
@@ -506,7 +509,7 @@ public final class TraceSession implements AutoCloseable {
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
-        retainedBytes += extra * 15;
+        retainedBytes = newRetained;
         materializeSnapshots();
     } // finishOutput
 
