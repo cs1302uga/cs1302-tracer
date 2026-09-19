@@ -12,6 +12,8 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -223,6 +225,8 @@ public class StreamDrainerTest {
   void testSyncWaitsForRecentPreReadBytes() throws Exception {
     byte[] firstChunk = "12345".getBytes(StandardCharsets.UTF_8);
     byte[] secondChunk = "67".getBytes(StandardCharsets.UTF_8);
+    CountDownLatch secondReadStarted = new CountDownLatch(1);
+    CountDownLatch releaseSecondChunk = new CountDownLatch(1);
     InputStream source = new InputStream() {
       private int chunkIndex;
       private int chunkOffset;
@@ -233,8 +237,11 @@ public class StreamDrainerTest {
           return -1;
         }
         if (chunkIndex == 1 && chunkOffset == 0) {
+          secondReadStarted.countDown();
           try {
-            Thread.sleep(20);
+            if (!releaseSecondChunk.await(1, TimeUnit.SECONDS)) {
+              throw new IOException("timed out waiting to release second chunk");
+            }
           } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IOException("interrupted", interrupted);
@@ -265,9 +272,15 @@ public class StreamDrainerTest {
         Thread.sleep(1);
       }
       assertThat(drainer.size()).isEqualTo(firstChunk.length);
+      assertThat(secondReadStarted.await(1, TimeUnit.SECONDS)).isTrue();
 
-      drainer.sync(200, 30);
+      Thread syncThread = Thread.ofVirtual().start(() -> drainer.sync(1000, 250));
+      Thread.sleep(50);
+      assertThat(syncThread.isAlive()).isTrue();
+      releaseSecondChunk.countDown();
+      syncThread.join(java.time.Duration.ofSeconds(1));
 
+      assertThat(syncThread.isAlive()).isFalse();
       assertThat(drainer.size()).isEqualTo(firstChunk.length + secondChunk.length);
       drainer.waitForEof(500);
       assertThat(drainer.isEof()).isTrue();
