@@ -6,7 +6,6 @@ import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.Field;
 import com.sun.jdi.Location;
-import com.sun.jdi.Method;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.VirtualMachine;
@@ -34,11 +33,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
@@ -121,23 +118,62 @@ public final class PersistentGuestSession implements AutoCloseable {
         VirtualMachine vm = launchingConnector.launch(env);
         StreamDrainer vmOut = new StreamDrainer(vm.process().getInputStream());
         StreamDrainer vmErr = new StreamDrainer(vm.process().getErrorStream());
-
-        ClassPrepareRequest cpr = vm.eventRequestManager().createClassPrepareRequest();
-        cpr.addClassFilter(GuestHarness.class.getName());
-        cpr.enable();
-
-        vm.resume();
-
-        BreakpointRequest[] bps = new BreakpointRequest[2];
-        Location[] locs = new Location[2];
-        ClassType harnessType = awaitAndInstallSentinels(vm, cpr, bps, locs);
-
-        PersistentGuestSession session = new PersistentGuestSession(
-                vm, vmOut, vmErr, harnessType, locs[0], locs[1]);
-
-        session.waitForReadyBreakpoint();
-        return session;
+        return attach(vm, vmOut, vmErr);
     } // create
+
+    /**
+     * Completes handshake and initializes a persistent session from a launched VM.
+     *
+     * @param vm Target debuggee virtual machine.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @return Initialized PersistentGuestSession paused at the initial ready hook.
+     * @throws Exception If handshake or sentinel setup fails.
+     */
+    static PersistentGuestSession attach(
+            VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) throws Exception {
+        try {
+            ClassPrepareRequest cpr = vm.eventRequestManager().createClassPrepareRequest();
+            cpr.addClassFilter(GuestHarness.class.getName());
+            cpr.enable();
+
+            vm.resume();
+
+            BreakpointRequest[] bps = new BreakpointRequest[2];
+            Location[] locs = new Location[2];
+            ClassType harnessType = awaitAndInstallSentinels(vm, cpr, bps, locs);
+
+            PersistentGuestSession session = new PersistentGuestSession(
+                    vm, vmOut, vmErr, harnessType, locs[0], locs[1]);
+
+            session.waitForReadyBreakpoint();
+            return session;
+        } catch (Throwable t) {
+            cleanupLaunchFailure(vm, vmOut, vmErr);
+            throw t;
+        } // try
+    } // attach
+
+    /**
+     * Cleans up resources allocated during a failed guest JVM launch.
+     *
+     * @param vm Target debuggee virtual machine.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     */
+    static void cleanupLaunchFailure(
+            VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) {
+        try {
+            vm.dispose();
+        } catch (Throwable ignored) {
+            // ignore
+        } // try
+        if (vm.process().isAlive()) {
+            vm.process().destroyForcibly();
+        } // if
+        vmOut.close();
+        vmErr.close();
+    } // cleanupLaunchFailure
 
     /**
      * Awaits preparation of GuestHarness and installs sentinel breakpoints while suspended.
@@ -219,7 +255,8 @@ public final class PersistentGuestSession implements AutoCloseable {
     /**
      * Package-private setter for lifecycle state (testing only).
      *
-     * @param alive New alive flag value.\n     */
+     * @param alive New alive flag value.
+     */
     void setAlive(boolean alive) {
         this.alive = alive;
     } // setAlive
@@ -365,8 +402,16 @@ public final class PersistentGuestSession implements AutoCloseable {
             throw new IllegalStateException("Persistent guest session is not alive");
         } // if
 
-        int startOut = vmOut.size();
-        int startErr = vmErr.size();
+        vmOut.reset();
+        vmErr.reset();
+        TraceSession currentSession = TraceSession.current();
+        if (currentSession != null) {
+            vmOut.attachSession(currentSession);
+            vmErr.attachSession(currentSession);
+        } // if
+
+        int startOut = 0;
+        int startErr = 0;
 
         harnessType.setValue(nextClassPathField, vm.mirrorOf(cr.classPath().toString()));
         harnessType.setValue(nextMainClassField, vm.mirrorOf(cr.mainClass()));
@@ -386,32 +431,59 @@ public final class PersistentGuestSession implements AutoCloseable {
         try {
             executeJobEventLoop(ctx);
         } finally {
-            teardownJobRequests(jobRequests);
-            vmOut.sync();
-            vmErr.sync();
-            TraceSession currentSession = TraceSession.current();
-            if (currentSession != null) {
-                OutputSlice finalOut = OutputSlice.from(
-                        vmOut, startOut, Math.max(0, vmOut.size() - startOut));
-                OutputSlice finalErr = OutputSlice.from(
-                        vmErr, startErr, Math.max(0, vmErr.size() - startErr));
-                currentSession.finishOutput(finalOut, finalErr);
-                currentSession.setCapturedOutput(
-                        finalOut.asUtf8String(), finalErr.asUtf8String(),
-                        finalOut.length(), finalErr.length());
-                if (currentSession.isStopped()) {
-                    alive = false;
-                    vm.process().destroyForcibly();
-                } // if
-            } // if
-            if (isAlive()) {
-                vm.resume();
-                waitForReadyBreakpoint();
-            } // if
+            cleanupJobRun(currentSession, startOut, startErr, jobRequests);
         } // try
 
         completedJobCount++;
     } // runJobInternal
+
+    /**
+     * Cleans up event requests, output drainers, and checks harness termination after job run.
+     *
+     * @param currentSession Active trace session.
+     * @param startOut Initial standard output stream length.
+     * @param startErr Initial standard error stream length.
+     * @param jobRequests List of event requests to tear down.
+     * @throws InterruptedException On interruption while waiting for ready breakpoint.
+     */
+    void cleanupJobRun(
+            TraceSession currentSession,
+            int startOut,
+            int startErr,
+            List<EventRequest> jobRequests) throws InterruptedException {
+        teardownJobRequests(jobRequests);
+        vmOut.sync();
+        vmErr.sync();
+        vmOut.detachSession();
+        vmErr.detachSession();
+        if (currentSession != null) {
+            OutputSlice finalOut = OutputSlice.from(
+                    vmOut, startOut, Math.max(0, vmOut.size() - startOut));
+            OutputSlice finalErr = OutputSlice.from(
+                    vmErr, startErr, Math.max(0, vmErr.size() - startErr));
+            currentSession.finishOutput(finalOut, finalErr);
+            currentSession.setCapturedOutput(
+                    finalOut.asUtf8String(), finalErr.asUtf8String(),
+                    finalOut.length(), finalErr.length());
+            if (currentSession.isStopped()) {
+                alive = false;
+                vm.process().destroyForcibly();
+            } // if
+        } // if
+        try {
+            com.sun.jdi.Value termVal = harnessType.getValue(shouldTerminateField);
+            if (termVal instanceof com.sun.jdi.BooleanValue b && b.value()) {
+                alive = false;
+                vm.process().destroyForcibly();
+            } // if
+        } catch (Exception ignored) {
+            // ignore inspection error
+        } // try
+        if (isAlive()) {
+            vm.resume();
+            waitForReadyBreakpoint();
+        } // if
+    } // cleanupJobRun
 
     /**
      * Populates and enables event requests for class preparation, exits, and exceptions.

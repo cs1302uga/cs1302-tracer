@@ -19,6 +19,7 @@ import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.PersistentGuestSession;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
@@ -119,6 +120,14 @@ public final class BatchTraceWorker implements AutoCloseable {
         if (req.source() == null || req.source().isBlank()) {
             throw new IllegalArgumentException("Source code cannot be empty");
         } // if
+
+        TraceLimits limits = req.resolveLimits();
+        traceSession.enforce(
+                (long) req.source().getBytes(StandardCharsets.UTF_8).length,
+                limits.sourceBytes(), "source_limit");
+        long files = CompilationHelper.DELIMITER_PATTERN.matcher(req.source()).results().count();
+        traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
+
         traceSession.phase("compile");
         List<SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(req.source());
         SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);

@@ -61,11 +61,12 @@ public class StreamDrainer implements AutoCloseable {
                     break;
                 } // if
                 synchronized (sink) {
-                    int retained = limit == 0 ? read
-                            : (int) Math.min(read, Math.max(0, limit - sink.size()));
+                    TraceSession active = session;
+                    long currentLimit = active != null ? active.outputLimit() : limit;
+                    int retained = currentLimit == 0 ? read
+                            : (int) Math.min(read, Math.max(0, currentLimit - sink.size()));
                     sink.write(buffer, 0, retained);
                     if (retained < read) {
-                        TraceSession active = session;
                         if (active != null) {
                             active.stop("output_limit");
                         } // if
@@ -79,11 +80,30 @@ public class StreamDrainer implements AutoCloseable {
     } // drainLoop
 
     /**
+     * Attaches an active trace session so this drainer enforces its output limit.
+     *
+     * @param session Active trace session.
+     */
+    public void attachSession(TraceSession session) {
+        this.session = session;
+    } // attachSession
+
+    /**
      * Detaches the active trace session so this drainer does not retain it.
      */
     public void detachSession() {
         this.session = null;
     } // detachSession
+
+    /**
+     * Resets the accumulated byte buffer in the sink.
+     */
+    public void reset() {
+        synchronized (sink) {
+            sink.reset();
+            lastReadNanos = System.nanoTime();
+        } // synchronized
+    } // reset
 
     /**
      * Synchronizes the stream using default wait and quiet-period thresholds.
@@ -387,4 +407,4 @@ public class StreamDrainer implements AutoCloseable {
             return buf[index];
         } // byteAt
     } // AccessibleByteArrayOutputStream
-} // StreamDrainer
+}

@@ -670,4 +670,80 @@ class PersistentGuestSessionEventTest {
         // Calling close again returns immediately
         session.close();
     } // testCloseIdempotent
+
+    @Test
+    @DisplayName("attach failure cleans up resources and rethrows")
+    void testAttachFailureCleansUp() {
+        var proc = new FakeProcess(true);
+        var vm = mirror(VirtualMachine.class, Map.of(
+                "eventRequestManager", new RuntimeException("ERM failure"),
+                "process", proc));
+        var out = new StreamDrainer(InputStream.nullInputStream());
+        var err = new StreamDrainer(InputStream.nullInputStream());
+
+        assertThatThrownBy(() -> PersistentGuestSession.attach(vm, out, err))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("ERM failure");
+        assertThat(proc.isAlive()).isFalse();
+    } // testAttachFailureCleansUp
+
+    @Test
+    @DisplayName("cleanupLaunchFailure handles alive and dead processes with exception resilience")
+    void testCleanupLaunchFailureVariants() {
+        var procAlive = new FakeProcess(true);
+        var vmAlive = mirror(VirtualMachine.class, Map.of(
+                "process", procAlive,
+                "dispose", new RuntimeException("dispose failed")));
+        var out = new StreamDrainer(InputStream.nullInputStream());
+        var err = new StreamDrainer(InputStream.nullInputStream());
+
+        PersistentGuestSession.cleanupLaunchFailure(vmAlive, out, err);
+        assertThat(procAlive.isAlive()).isFalse();
+
+        var procDead = new FakeProcess(false);
+        var vmDead = mirror(VirtualMachine.class, Map.of(
+                "process", procDead));
+        PersistentGuestSession.cleanupLaunchFailure(vmDead, out, err);
+        assertThat(procDead.isAlive()).isFalse();
+    } // testCleanupLaunchFailureVariants
+
+    @Test
+    @DisplayName("cleanupJobRun terminates session when shouldTerminate is true")
+    void testCleanupJobRunShouldTerminate() throws Exception {
+        Location readyLoc = location("cs1302.tracer.guest.GuestHarness", 69);
+        Location completedLoc = location("cs1302.tracer.guest.GuestHarness", 79);
+        var proc = new FakeProcess(true);
+        var vm = mirror(VirtualMachine.class, Map.of(
+                "process", proc,
+                "eventQueue", mirror(EventQueue.class, Map.of())));
+        var termTrue = mirror(com.sun.jdi.BooleanValue.class, Map.of("value", true));
+        var harnessType = mirror(ClassType.class, Map.of(
+                "fieldByName", mirror(Field.class, Map.of()),
+                "getValue", termTrue));
+        var out = new StreamDrainer(InputStream.nullInputStream());
+        var err = new StreamDrainer(InputStream.nullInputStream());
+
+        var session = new PersistentGuestSession(vm, out, err, harnessType, readyLoc, completedLoc);
+        session.cleanupJobRun(null, 0, 0, new ArrayList<>());
+        assertThat(session.isAlive()).isFalse();
+        assertThat(proc.isAlive()).isFalse();
+
+        var termFalse = mirror(com.sun.jdi.BooleanValue.class, Map.of("value", false));
+        var harnessTypeFalse = mirror(ClassType.class, Map.of(
+                "fieldByName", mirror(Field.class, Map.of()),
+                "getValue", termFalse));
+        var proc2 = new FakeProcess(true);
+        var vm2 = mirror(VirtualMachine.class, Map.of(
+                "process", proc2));
+        var session2 = new PersistentGuestSession(vm2, out, err, harnessTypeFalse, readyLoc, completedLoc);
+        session2.setAlive(false);
+        session2.cleanupJobRun(null, 0, 0, new ArrayList<>());
+
+        var harnessTypeEx = mirror(ClassType.class, Map.of(
+                "fieldByName", mirror(Field.class, Map.of()),
+                "getValue", new RuntimeException("getValue failed")));
+        var session3 = new PersistentGuestSession(vm2, out, err, harnessTypeEx, readyLoc, completedLoc);
+        session3.setAlive(false);
+        session3.cleanupJobRun(null, 0, 0, new ArrayList<>());
+    } // testCleanupJobRunShouldTerminate
 }

@@ -22,6 +22,7 @@ public class GuestHarnessTest {
         GuestHarness.nextStdin = null;
         GuestHarness.shouldTerminate = false;
         GuestHarness.cleanState();
+        DummyTarget.MARKER.delete();
     } // resetHarness
 
     @Test
@@ -78,16 +79,16 @@ public class GuestHarnessTest {
 
     @Test
     void testRunJobExecution() throws Exception {
-        // Compile a dummy class or use current test class as target
         File targetDir = new File("target/test-classes");
         GuestHarness.nextClassPath = targetDir.getAbsolutePath();
         GuestHarness.nextMainClass = DummyTarget.class.getName();
         GuestHarness.nextStdin = "sample input";
 
-        DummyTarget.invoked = false;
+        DummyTarget.MARKER.delete();
         GuestHarness.runJob();
 
-        assertThat(DummyTarget.invoked).isTrue();
+        assertThat(DummyTarget.MARKER.exists()).isTrue();
+        DummyTarget.MARKER.delete();
         assertThat(GuestHarness.nextClassPath).isNull();
         assertThat(GuestHarness.nextMainClass).isNull();
     } // testRunJobExecution
@@ -135,12 +136,32 @@ public class GuestHarnessTest {
     } // testMainIteration
 
     public static class DummyTarget {
-        public static boolean invoked = false;
+        public static final File MARKER = new File("target/dummy-invoked.marker");
 
         public static void main(String[] args) {
-            invoked = true;
+            try {
+                MARKER.createNewFile();
+            } catch (Exception ignored) {
+                // ignore
+            } // try
         } // main
     } // DummyTarget
+
+    public static class LingeringTarget {
+        public static void main(String[] args) {
+            Thread t = new Thread(() -> {
+                for (int i = 0; i < 10; i++) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ignored) {
+                        // ignore and continue lingering
+                    } // try
+                } // for
+            });
+            t.setContextClassLoader(Thread.currentThread().getContextClassLoader());
+            t.start();
+        } // main
+    } // LingeringTarget
 
     public static class ThrowingTarget {
         public static void main(String[] args) {
@@ -160,11 +181,15 @@ public class GuestHarnessTest {
         });
         try {
             Thread.sleep(30);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
         GuestHarness.shouldTerminate = true;
         try {
             t1.join(500);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
 
         // nextClassPath null, nextMainClass set
         GuestHarness.shouldTerminate = false;
@@ -175,29 +200,49 @@ public class GuestHarnessTest {
         });
         try {
             Thread.sleep(30);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
         GuestHarness.shouldTerminate = true;
         try {
             t2.join(500);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
 
         // both set -> calls runJob
         GuestHarness.shouldTerminate = false;
         GuestHarness.nextClassPath = new File("target/test-classes").getAbsolutePath();
         GuestHarness.nextMainClass = DummyTarget.class.getName();
-        DummyTarget.invoked = false;
+        DummyTarget.MARKER.delete();
         Thread t3 = Thread.ofVirtual().start(() -> {
             GuestHarness.main(new String[0]);
         });
         try {
             Thread.sleep(50);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
         GuestHarness.shouldTerminate = true;
         try {
             t3.join(500);
-        } catch (InterruptedException ignored) {}
-        assertThat(DummyTarget.invoked).isTrue();
+        } catch (InterruptedException ignored) {
+            // ignore
+        } // try
+        assertThat(DummyTarget.MARKER.exists()).isTrue();
+        DummyTarget.MARKER.delete();
     } // testMainCombinations
+
+    @Test
+    void testMainTerminatesOnLingeringThreadAfterRunJob() {
+        GuestHarness.shouldTerminate = false;
+        GuestHarness.nextClassPath = new File("target/test-classes").getAbsolutePath();
+        GuestHarness.nextMainClass = LingeringTarget.class.getName();
+
+        GuestHarness.main(new String[0]);
+        assertThat(GuestHarness.shouldTerminate).isTrue();
+    } // testMainTerminatesOnLingeringThreadAfterRunJob
+
     @Test
     void testVirtualInputStreamZeroLengthRead() {
         GuestHarness.VirtualInputStream in = new GuestHarness.VirtualInputStream();

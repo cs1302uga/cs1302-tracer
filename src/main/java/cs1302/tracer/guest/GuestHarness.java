@@ -64,6 +64,10 @@ public final class GuestHarness {
             } // if
 
             runJob();
+
+            if (shouldTerminate) {
+                break;
+            } // if
         } // while
     } // main
 
@@ -163,29 +167,42 @@ public final class GuestHarness {
         nextMainClass = null;
         nextStdin = null;
         VIRTUAL_IN.reset("");
-        System.setIn(VIRTUAL_IN);
+
+        System.setIn(ORIGINAL_IN);
         System.setOut(ORIGINAL_OUT);
         System.setErr(ORIGINAL_ERR);
+
         System.setProperties((Properties) ORIGINAL_PROPERTIES.clone());
+        System.setIn(VIRTUAL_IN);
     } // cleanState
 
     /**
-     * Resettable virtual input stream simulating guest standard input.
+     * In-memory redirected input stream dynamically backed by string content.
      */
-    static final class VirtualInputStream extends InputStream {
-        private volatile byte[] buffer = new byte[0];
-        private int pos = 0;
+    public static final class VirtualInputStream extends InputStream {
 
-        /** Constructs a new VirtualInputStream. */
-        VirtualInputStream() {} // VirtualInputStream
+        private byte[] buffer;
+        private int pos;
 
         /**
-         * Resets the input buffer with new input string.
-         *
-         * @param input String to supply as standard input.
+         * Constructs an empty virtual input stream.
          */
-        synchronized void reset(String input) {
-            this.buffer = input != null ? input.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        public VirtualInputStream() {
+            this.buffer = new byte[0];
+            this.pos = 0;
+        } // VirtualInputStream
+
+        /**
+         * Resets the input content to the given string.
+         *
+         * @param content New standard input text.
+         */
+        public synchronized void reset(String content) {
+            if (content == null) {
+                this.buffer = new byte[0];
+            } else {
+                this.buffer = content.getBytes(StandardCharsets.UTF_8);
+            } // if
             this.pos = 0;
         } // reset
 
@@ -207,10 +224,10 @@ public final class GuestHarness {
                 return -1;
             } // if
             int available = buffer.length - pos;
-            int toRead = Math.min(len, available);
-            System.arraycopy(buffer, pos, b, off, toRead);
-            pos += toRead;
-            return toRead;
+            int count = Math.min(len, available);
+            System.arraycopy(buffer, pos, b, off, count);
+            pos += count;
+            return count;
         } // read
 
         @Override

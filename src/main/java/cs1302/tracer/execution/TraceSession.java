@@ -237,6 +237,14 @@ public final class TraceSession implements AutoCloseable {
     } // isStopped
 
     /**
+     * Returns the machine-readable stop reason if stopped, or null.
+     * @return Machine-readable stop reason.
+     */
+    public String stopReason() {
+        return reason.get();
+    } // stopReason
+
+    /**
      * Stops this job; the first observed reason wins.
      * @param value Machine-readable stop reason.
      */
