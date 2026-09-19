@@ -490,20 +490,19 @@ public final class TraceSession implements AutoCloseable {
         } // if
         OutputSlice safeOut = stdout != null ? stdout.materialize() : null;
         OutputSlice safeErr = stderr != null ? stderr.materialize() : null;
+        materializeSnapshots(safeOut, safeErr);
         ExecutionSnapshot last = completed.getLast();
         int outLen = safeOut != null ? safeOut.length() : last.stdoutLength();
         int errLen = safeErr != null ? safeErr.length() : last.stderrLength();
         long extra = Math.max(0, outLen - last.stdoutLength())
                 + Math.max(0, errLen - last.stderrLength());
         if (extra == 0) {
-            materializeSnapshots();
             return;
         } // if
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
         long newRetained = Math.addExact(retainedBytes, extra * 15);
         if (limits.traceBytes() != 0 && newRetained > limits.traceBytes()) {
             stop("trace_limit");
-            materializeSnapshots();
             return;
         } // if
         ExecutionSnapshot updated = new ExecutionSnapshot(
@@ -515,7 +514,6 @@ public final class TraceSession implements AutoCloseable {
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
         retainedBytes = newRetained;
-        materializeSnapshots();
     } // finishOutput
 
     /** Materializes all completed snapshot output slices into self-contained buffers. */
@@ -534,12 +532,26 @@ public final class TraceSession implements AutoCloseable {
      * @param sharedStderr Shared standard error buffer.
      */
     public synchronized void materializeSnapshots(byte[] sharedStdout, byte[] sharedStderr) {
+        materializeSnapshots(OutputSlice.from(sharedStdout), OutputSlice.from(sharedStderr));
+    } // materializeSnapshots
+
+    /**
+     * Detaches snapshot prefixes while sharing the finalized output slices.
+     * @param stdout Final standard output, or null to retain captured output.
+     * @param stderr Final standard error, or null to retain captured output.
+     */
+    private synchronized void materializeSnapshots(OutputSlice stdout, OutputSlice stderr) {
         for (int i = 0; i < completed.size(); i++) {
             ExecutionSnapshot oldSnap = completed.get(i);
+            if (oldSnap.stdoutLength() == 0 && oldSnap.stderrLength() == 0) {
+                continue;
+            } // if
             ExecutionSnapshot newSnap = new ExecutionSnapshot(
                     oldSnap.stack(), oldSnap.statics(), oldSnap.heap(),
-                    OutputSlice.from(sharedStdout, 0, oldSnap.stdoutLength()),
-                    OutputSlice.from(sharedStderr, 0, oldSnap.stderrLength()),
+                    stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength())
+                            : oldSnap.stdoutSlice().materialize(),
+                    stderr != null ? stderr.subSlice(0, oldSnap.stderrLength())
+                            : oldSnap.stderrSlice().materialize(),
                     oldSnap.sourcePath(), oldSnap.stdinConsumed(), oldSnap.stdinOffset());
             updateMaterializedSnapshot(i, oldSnap, newSnap);
         } // for

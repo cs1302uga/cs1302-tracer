@@ -407,6 +407,24 @@ public class GuestHarnessTest {
     } // testUnclosableOutputStream
 
     @Test
+    void forwardingPrintStreamRemainsWritableAfterClose() {
+        var bytes = new java.io.ByteArrayOutputStream();
+        var original = new java.io.PrintStream(bytes, true, java.nio.charset.StandardCharsets.UTF_8);
+        var counter = new java.util.concurrent.atomic.AtomicLong();
+        var stream = GuestHarness.createForwardingPrintStream(original, counter);
+        stream.print("before");
+        stream.close();
+        stream.print("after");
+        stream.close();
+        assertThat(stream.checkError()).isFalse();
+        assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("beforeafter");
+        assertThat(counter.get()).isEqualTo(11);
+        original.print("original");
+        assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("beforeafteroriginal");
+    } // forwardingPrintStreamRemainsWritableAfterClose
+
+    @Test
     void testVariousMainEntryPoints() {
         File targetDir = new File("target/test-classes");
 

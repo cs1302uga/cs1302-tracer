@@ -1,6 +1,7 @@
 package cs1302.tracer.batch;
 
 import cs1302.tracer.execution.TraceLimits;
+import cs1302.tracer.serialize.PyTutorSerializer;
 import cs1302.tracer.trace.PersistentGuestSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -9,6 +10,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for BatchTraceWorker lifecycle and execution.
@@ -149,6 +152,101 @@ class BatchTraceWorkerTest {
             assertThat(resp.result().counters().get("snapshotsRetained")).isEqualTo(1L);
         } // try
     } // testWorkerPreservesPartialTraceAtSnapshotLimit
+
+    @ParameterizedTest
+    @ValueSource(strings = {"modern", "pytutor"})
+    void targetedEnvelopesReduceInCaptureOrderOnSuccessAndFailure(String format) {
+        String root = format.equals("modern") ? "steps" : "trace";
+        String source = """
+                public class RepeatedCalls {
+                    static void visit(int i) {
+                        int x = i;
+                    }
+                    public static void main(String[] args) {
+                        for (int i = 0; i < 3; i++) {
+                            visit(i);
+                        }
+                    }
+                }
+                """;
+        try (BatchTraceWorker worker = new BatchTraceWorker(20)) {
+            for (boolean accumulate : List.of(false, true)) {
+                for (boolean limited : List.of(false, true)) {
+                    TraceLimits limits = new TraceLimits(0, limited ? 4 : 0, 0, 0, 0, 0, 0, 0);
+                    BatchJobResponse response = worker.execute(new BatchJobRequest(
+                            "targeted", source, format, null, List.of("3", "7"),
+                            false, accumulate, false, false, false, "fqn", limits, null));
+                    assertThat(response.result().complete()).isEqualTo(!limited);
+                    assertThat(response.result().stopReason())
+                            .isEqualTo(limited ? "snapshot_limit" : null);
+                    var payload = PyTutorSerializer.getGson(false)
+                            .toJsonTree(response.result().trace()).getAsJsonObject();
+                    assertThat(payload.has(root)).isTrue();
+                    List<Integer> lines = new java.util.ArrayList<>();
+                    payload.getAsJsonArray(root).forEach(
+                            step -> lines.add(step.getAsJsonObject().get("line").getAsInt()));
+                    assertThat(lines).containsExactlyElementsOf(accumulate
+                            ? (limited ? List.of(7, 3, 7, 3) : List.of(7, 3, 7, 3, 7, 3))
+                            : List.of(7, 3));
+                    if (!limited) {
+                        assertThat(response.result().phase()).isEqualTo("serialize");
+                    } // if
+                } // for
+            } // for
+        } // try
+    } // targetedEnvelopesReduceInCaptureOrderOnSuccessAndFailure
+
+    @ParameterizedTest
+    @ValueSource(strings = {"modern", "pytutor"})
+    void everyBatchModeUsesASequenceRoot(String format) {
+        String root = format.equals("modern") ? "steps" : "trace";
+        try (BatchTraceWorker worker = new BatchTraceWorker(10)) {
+            for (boolean chronological : List.of(false, true)) {
+                for (List<String> breakpoints : java.util.Arrays.asList(null, List.of("4", "5"))) {
+                    BatchJobResponse response = worker.execute(new BatchJobRequest(
+                            "schema", BASIC_SOURCE, format, null, breakpoints,
+                            chronological, false, false, false, false, "fqn", null, null));
+                    assertThat(response.result().complete()).isTrue();
+                    assertThat(response.result().phase()).isEqualTo("serialize");
+                    var payload = PyTutorSerializer.getGson(false)
+                            .toJsonTree(response.result().trace()).getAsJsonObject();
+                    assertThat(payload.has(root)).isTrue();
+                    assertThat(payload.getAsJsonArray(root).isEmpty()).isFalse();
+                    if (!chronological) {
+                        payload.getAsJsonArray(root).forEach(step -> assertThat(
+                                step.getAsJsonObject().get("stdout").getAsString())
+                                .isEqualTo("test:42\n"));
+                    } // if
+                } // for
+            } // for
+        } // try
+    } // everyBatchModeUsesASequenceRoot
+
+    @Test
+    void closingGuestPrintStreamsDoesNotLoseLaterOutput() {
+        String source = """
+                public class CloseStreams {
+                    public static void main(String[] args) {
+                        System.out.print("before");
+                        System.err.print("before");
+                        System.out.close();
+                        System.err.close();
+                        System.out.print("after");
+                        System.err.print("after");
+                    }
+                }
+                """;
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            for (int job = 0; job < 2; job++) {
+                BatchJobResponse response = worker.execute(new BatchJobRequest(
+                        "close-" + job, source, "modern", null, null,
+                        false, false, false, false, false, "fqn", null, null));
+                assertThat(response.result().complete()).isTrue();
+                assertThat(response.result().stdout()).isEqualTo("beforeafter");
+                assertThat(response.result().stderr()).isEqualTo("beforeafter");
+            } // for
+        } // try
+    } // closingGuestPrintStreamsDoesNotLoseLaterOutput
 
     @Test
     @DisplayName("Worker executes job with default chronological mode when breakpoints empty")

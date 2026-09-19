@@ -404,7 +404,12 @@ public final class GuestHarness {
      */
     static PrintStream createForwardingPrintStream(PrintStream original, AtomicLong counter) {
         return new PrintStream(
-                new UnclosableOutputStream(original, counter), true, StandardCharsets.UTF_8);
+                new UnclosableOutputStream(original, counter), true, StandardCharsets.UTF_8) {
+            @Override
+            public void close() {
+                flush();
+            } // close
+        };
     } // createForwardingPrintStream
 
     /**

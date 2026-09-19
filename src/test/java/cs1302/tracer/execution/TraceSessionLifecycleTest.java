@@ -3,6 +3,8 @@ package cs1302.tracer.execution;
 import static org.assertj.core.api.Assertions.*;
 
 import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.OutputSlice;
+import cs1302.tracer.trace.StreamDrainer;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
@@ -219,6 +221,47 @@ class TraceSessionLifecycleTest {
                 // Replacement must remove the updated snapshot, not the old identity.
                 session.commit(snapshot(2));
                 assertThat(session.snapshots()).hasSize(2);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void finalizedOutputPrefixesShareDetachedBuffers(boolean finishOutput) throws Exception {
+        byte[] stdout = "abcdefghijklmnopqrstuvwxyz".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] stderr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (var out = new StreamDrainer(new java.io.ByteArrayInputStream(stdout));
+                var err = new StreamDrainer(new java.io.ByteArrayInputStream(stderr));
+                var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            out.waitForEof(1000);
+            err.waitForEof(1000);
+            for (int length = 1; length <= stdout.length; length++) {
+                session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                        OutputSlice.from(out, 0, length), OutputSlice.from(err, 0, length),
+                        Optional.empty(), "", 0));
+            }
+            if (finishOutput) {
+                session.finishOutput(OutputSlice.from(stdout), OutputSlice.from(stderr));
+            } else {
+                session.materializeSnapshots(stdout, stderr);
+            }
+            out.reset();
+            err.reset();
+            java.util.Arrays.fill(stdout, (byte) 0);
+            java.util.Arrays.fill(stderr, (byte) 0);
+            var backing = OutputSlice.class.getDeclaredField("directBytes");
+            backing.setAccessible(true);
+            var snapshots = session.snapshots();
+            for (int i = 0; i < snapshots.size(); i++) {
+                var snapshot = snapshots.get(i);
+                assertThat(snapshot.stdoutSlice().asUtf8String())
+                        .isEqualTo("abcdefghijklmnopqrstuvwxyz".substring(0, i + 1));
+                assertThat(snapshot.stderrSlice().asUtf8String())
+                        .isEqualTo("ABCDEFGHIJKLMNOPQRSTUVWXYZ".substring(0, i + 1));
+                assertThat(backing.get(snapshot.stdoutSlice()))
+                        .isSameAs(backing.get(snapshots.getFirst().stdoutSlice()));
+                assertThat(backing.get(snapshot.stderrSlice()))
+                        .isSameAs(backing.get(snapshots.getFirst().stderrSlice()));
             }
         }
     }
