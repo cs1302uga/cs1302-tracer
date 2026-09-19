@@ -1,6 +1,7 @@
 package cs1302.tracer.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.gson.Gson;
 import cs1302.tracer.App;
@@ -238,4 +239,90 @@ class BatchTraceServiceTest {
         service.close();
         assertThat(Thread.interrupted()).isTrue();
     } // testCloseInterrupted
+
+    @Test
+    @DisplayName("readBoundedLine reads lines with various line terminators and handles bounds")
+    void testReadBoundedLine() throws Exception {
+        // Empty input returns null
+        java.io.BufferedReader emptyReader =
+                new java.io.BufferedReader(new java.io.StringReader(""));
+        assertThat(BatchTraceService.readBoundedLine(emptyReader, 100)).isNull();
+
+        // Standard LF, CRLF, CR-only, and EOF without newline
+        String content = "line1\nline2\r\nline3\rline4";
+        java.io.BufferedReader reader =
+                new java.io.BufferedReader(new java.io.StringReader(content));
+        assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line1");
+        assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line2");
+        assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line3");
+        assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line4");
+        assertThat(BatchTraceService.readBoundedLine(reader, 100)).isNull();
+
+        // Exceeding limit throws IOException and drains line
+        String oversized = "0123456789extra\nnextLine";
+        java.io.BufferedReader boundReader =
+                new java.io.BufferedReader(new java.io.StringReader(oversized));
+        assertThatThrownBy(() -> BatchTraceService.readBoundedLine(boundReader, 5))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("NDJSON record exceeds maximum size");
+        assertThat(BatchTraceService.readBoundedLine(boundReader, 100)).isEqualTo("nextLine");
+
+        // Exceeding limit at EOF without newline
+        String oversizedAtEof = "0123456789extra";
+        java.io.BufferedReader eofReader =
+                new java.io.BufferedReader(new java.io.StringReader(oversizedAtEof));
+        assertThatThrownBy(() -> BatchTraceService.readBoundedLine(eofReader, 5))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessageContaining("NDJSON record exceeds maximum size");
+    } // testReadBoundedLine
+
+    @Test
+    @DisplayName("Service close triggers shutdownNow when awaitTermination times out")
+    void testCloseTimeout() throws Exception {
+        BatchTraceService service = new BatchTraceService(1, 10);
+        var field = BatchTraceService.class.getDeclaredField("executor");
+        field.setAccessible(true);
+        java.util.concurrent.atomic.AtomicBoolean shutdownNowCalled =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.ExecutorService mockExec =
+                new java.util.concurrent.AbstractExecutorService() {
+                    @Override public void shutdown() {}
+                    @Override public List<Runnable> shutdownNow() {
+                        shutdownNowCalled.set(true);
+                        return List.of();
+                    } // shutdownNow
+                    @Override public boolean isShutdown() { return true; }
+                    @Override public boolean isTerminated() { return false; }
+                    @Override public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u) {
+                        return false;
+                    } // awaitTermination
+                    @Override public void execute(Runnable cmd) {}
+                };
+        field.set(service, mockExec);
+        service.close();
+        assertThat(shutdownNowCalled.get()).isTrue();
+    } // testCloseTimeout
+
+    @Test
+    @DisplayName("Service close handles secondary InterruptedException during awaitTermination")
+    void testCloseSecondaryInterrupted() throws Exception {
+        BatchTraceService service = new BatchTraceService(1, 10);
+        var field = BatchTraceService.class.getDeclaredField("executor");
+        field.setAccessible(true);
+        java.util.concurrent.ExecutorService mockExec =
+                new java.util.concurrent.AbstractExecutorService() {
+                    @Override public void shutdown() {}
+                    @Override public List<Runnable> shutdownNow() { return List.of(); }
+                    @Override public boolean isShutdown() { return true; }
+                    @Override public boolean isTerminated() { return false; }
+                    @Override public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u)
+                            throws InterruptedException {
+                        throw new InterruptedException("simulated interrupt");
+                    } // awaitTermination
+                    @Override public void execute(Runnable cmd) {}
+                };
+        field.set(service, mockExec);
+        service.close();
+        assertThat(Thread.interrupted()).isTrue();
+    } // testCloseSecondaryInterrupted
 }

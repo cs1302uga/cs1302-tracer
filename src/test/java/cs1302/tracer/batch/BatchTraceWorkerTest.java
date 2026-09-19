@@ -23,6 +23,23 @@ class BatchTraceWorkerTest {
             }
             """;
 
+    private static final String EXISTING_PACKAGE_SOURCE = """
+            package cs1302.tracer;
+            public class DummyPackaged {
+                public static void main(String[] args) {
+                    int x = 42;
+                }
+            }
+            """;
+
+    private static final String SYSTEM_EXIT_SOURCE = """
+            public class ExitProg {
+                public static void main(String[] args) {
+                    System.exit(0);
+                }
+            }
+            """;
+
     private static final String BASIC_SOURCE = """
             public class BasicBatch {
                 public static void main(String[] args) {
@@ -196,6 +213,59 @@ class BatchTraceWorkerTest {
             assertThat(resp.result().complete()).isTrue();
         } // try
     } // testWorkerTrustedInspection
+
+    @Test
+    @DisplayName("Worker handles case where no snapshots are captured without throwing NoSuchElementException")
+    void testWorkerEmptySnapshots() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-empty-snap", BASIC_SOURCE, "pytutor", null, List.of("999"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-empty-snap");
+            assertThat(resp.result().complete()).isTrue();
+        } // try
+    } // testWorkerEmptySnapshots
+
+    @Test
+    @DisplayName("canReconcileSnapshots returns true only when both lists are non-empty")
+    void testCanReconcileSnapshots() {
+        cs1302.tracer.trace.ExecutionSnapshot dummy =
+                new cs1302.tracer.trace.ExecutionSnapshot(
+                        List.of(), List.of(), java.util.Map.of(),
+                        cs1302.tracer.trace.OutputSlice.empty(),
+                        cs1302.tracer.trace.OutputSlice.empty(),
+                        java.util.Optional.empty(), "", 0);
+
+        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(), List.of())).isFalse();
+        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(dummy), List.of())).isFalse();
+        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(), List.of(dummy))).isFalse();
+        assertThat(BatchTraceWorker.canReconcileSnapshots(List.of(dummy), List.of(dummy))).isTrue();
+    } // testCanReconcileSnapshots
+
+    @Test
+    @DisplayName("Worker handles packaged source with default TRUSTED inspection policy")
+    void testWorkerPackagedTrusted() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-pkg-trusted", EXISTING_PACKAGE_SOURCE, "pytutor", null, List.of("4"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.result().complete()).isTrue();
+        } // try
+    } // testWorkerPackagedTrusted
+
+    @Test
+    @DisplayName("Worker handles early exit with empty snapshots taking false branch of reconciliation")
+    void testWorkerSystemExitEmptySnapshots() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-sys-exit", SYSTEM_EXIT_SOURCE, "pytutor", null, List.of("999"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-sys-exit");
+        } // try
+    } // testWorkerSystemExitEmptySnapshots
 
     @Test
     @DisplayName("Worker recovers when previous session was closed or killed")

@@ -133,15 +133,16 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.phase("compile");
         List<SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(req.source());
         SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(
-                entryFile.ast(), Optional.empty());
+        InspectionPolicy inspection = req.inspection() != null
+                ? req.inspection() : InspectionPolicy.TRUSTED;
+        Optional<Path> sourceRoot = inspection == InspectionPolicy.FIELDS
+                ? Optional.empty()
+                : CompilationHelper.findSourceRoot(entryFile.ast(), Optional.empty());
 
         try (CompilationResult compiled = CompilationHelper.compile(req.source(), sourceRoot)) {
-            InspectionPolicy inspection = req.inspection() != null
-                    ? req.inspection() : InspectionPolicy.TRUSTED;
             Optional<Path> parserRoot = inspection == InspectionPolicy.FIELDS
                     ? Optional.empty()
-                    : Optional.of(compiled.classPath());
+                    : (sourceRoot.isPresent() ? sourceRoot : Optional.of(compiled.classPath()));
             List<CompilationUnit> units = App.discoverAllCompilationUnits(
                     sourceFiles, sourceRoot, parserRoot);
 
@@ -150,15 +151,17 @@ public final class BatchTraceWorker implements AutoCloseable {
             List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
             List<ExecutionSnapshot> snapshots = dispatchGuestExecution(
                     compiled, specs, units, stdin, allBps, accBps);
-            ExecutionSnapshot lastFinalized = traceSession.snapshots().getLast();
-            ExecutionSnapshot lastGuest = snapshots.getLast();
-            snapshots.set(snapshots.size() - 1, new ExecutionSnapshot(
-                    lastGuest.stack(), lastGuest.statics(), lastGuest.heap(),
-                    lastFinalized.stdoutSlice(),
-                    lastFinalized.stderrSlice(),
-                    lastGuest.sourcePath(),
-                    lastGuest.stdinConsumed(),
-                    lastGuest.stdinOffset()));
+            if (canReconcileSnapshots(snapshots, traceSession.snapshots())) {
+                ExecutionSnapshot lastFinalized = traceSession.snapshots().getLast();
+                ExecutionSnapshot lastGuest = snapshots.getLast();
+                snapshots.set(snapshots.size() - 1, new ExecutionSnapshot(
+                        lastGuest.stack(), lastGuest.statics(), lastGuest.heap(),
+                        lastFinalized.stdoutSlice(),
+                        lastFinalized.stderrSlice(),
+                        lastGuest.sourcePath(),
+                        lastGuest.stdinConsumed(),
+                        lastGuest.stdinOffset()));
+            } // if
             return snapshots;
         } // try
     } // performTrace
@@ -224,6 +227,19 @@ public final class BatchTraceWorker implements AutoCloseable {
                 removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
                 .createTrace(req.source(), stdin, snapshots);
     } // serializePayload
+
+    /**
+     * Checks if guest snapshots and session finalized snapshots are both available.
+     *
+     * @param snapshots Guest snapshots list.
+     * @param sessionSnapshots Session snapshots list.
+     * @return True if neither list is empty.
+     */
+    static boolean canReconcileSnapshots(
+            List<ExecutionSnapshot> snapshots,
+            List<ExecutionSnapshot> sessionSnapshots) {
+        return !snapshots.isEmpty() && !sessionSnapshots.isEmpty();
+    } // canReconcileSnapshots
 
     /**
      * Restores interrupted status on current thread if caught throwable is an interruption.

@@ -128,6 +128,34 @@ public final class GuestHarness {
     } // runJob
 
     /**
+     * Enumerates all active threads in the specified thread group.
+     *
+     * @param rootGroup Root thread group to inspect.
+     * @return Array of all enumerated active threads.
+     */
+    static Thread[] enumerateAllThreads(ThreadGroup rootGroup) {
+        return enumerateAllThreads(rootGroup, Math.max(1, rootGroup.activeCount()));
+    } // enumerateAllThreads
+
+    /**
+     * Enumerates all active threads with specified initial capacity.
+     *
+     * @param rootGroup Root thread group to inspect.
+     * @param initialCapacity Initial array capacity.
+     * @return Array of all enumerated active threads.
+     */
+    static Thread[] enumerateAllThreads(ThreadGroup rootGroup, int initialCapacity) {
+        Thread[] threads = new Thread[Math.max(1, initialCapacity)];
+        int n;
+        while ((n = rootGroup.enumerate(threads, true)) == threads.length) {
+            threads = new Thread[threads.length * 2];
+        } // while
+        Thread[] result = new Thread[n];
+        System.arraycopy(threads, 0, result, 0, n);
+        return result;
+    } // enumerateAllThreads
+
+    /**
      * Interrupts and awaits termination of any background threads started by the target.
      *
      * @param loader Current job classloader.
@@ -137,12 +165,10 @@ public final class GuestHarness {
         while (rootGroup.getParent() != null) {
             rootGroup = rootGroup.getParent();
         } // while
-        Thread[] threads = new Thread[rootGroup.activeCount() * 2 + 16];
-        int n = rootGroup.enumerate(threads, true);
+        Thread[] threads = enumerateAllThreads(rootGroup);
         Thread current = Thread.currentThread();
         List<Thread> targets = new ArrayList<>();
-        for (int i = 0; i < n; i++) {
-            Thread t = threads[i];
+        for (Thread t : threads) {
             if (t != current && t.getContextClassLoader() == loader) {
                 targets.add(t);
                 t.interrupt();

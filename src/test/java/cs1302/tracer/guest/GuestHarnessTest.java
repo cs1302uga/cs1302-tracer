@@ -244,6 +244,16 @@ public class GuestHarnessTest {
     } // testMainTerminatesOnLingeringThreadAfterRunJob
 
     @Test
+    void testEnumerateAllThreadsWithResize() {
+        ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
+        while (rootGroup.getParent() != null) {
+            rootGroup = rootGroup.getParent();
+        } // while
+        Thread[] threads = GuestHarness.enumerateAllThreads(rootGroup, 1);
+        assertThat(threads).isNotEmpty();
+    } // testEnumerateAllThreadsWithResize
+
+    @Test
     void testVirtualInputStreamZeroLengthRead() {
         GuestHarness.VirtualInputStream in = new GuestHarness.VirtualInputStream();
         in.reset("ABC");

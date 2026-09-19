@@ -66,6 +66,11 @@ public final class PersistentGuestSession implements AutoCloseable {
     private int completedJobCount;
 
     /**
+     * Testing hook to simulate unexpected failures during cleanupJobRun.
+     */
+    static volatile Runnable cleanupHookForTesting;
+
+    /**
      * Private constructor initializing the persistent session components.
      *
      * @param vm The debuggee VirtualMachine.
@@ -415,6 +420,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         int startErr = 0;
 
         List<EventRequest> jobRequests = new ArrayList<>();
+        Throwable tracingFailure = null;
         try {
             harnessType.setValue(nextClassPathField, vm.mirrorOf(cr.classPath().toString()));
             harnessType.setValue(nextMainClassField, vm.mirrorOf(cr.mainClass()));
@@ -434,13 +440,46 @@ public final class PersistentGuestSession implements AutoCloseable {
         } catch (Throwable t) {
             alive = false;
             vm.process().destroyForcibly();
+            tracingFailure = t;
             throw t;
         } finally {
-            cleanupJobRun(currentSession, startOut, startErr, jobRequests);
+            try {
+                cleanupJobRun(currentSession, startOut, startErr, jobRequests);
+            } catch (Throwable cleanupFailure) {
+                handleCleanupFailure(tracingFailure, cleanupFailure);
+            } // try
         } // try
 
         completedJobCount++;
     } // runJobInternal
+
+    /**
+     * Handles cleanup failures by invalidating the VM and preserving primary failures.
+     *
+     * @param tracingFailure Primary exception caught during job execution, if any.
+     * @param cleanupFailure Exception caught during job cleanup.
+     * @throws Exception Propagated cleanup exception.
+     */
+    void handleCleanupFailure(
+            Throwable tracingFailure, Throwable cleanupFailure) throws Exception {
+        alive = false;
+        vm.process().destroyForcibly();
+        if (tracingFailure != null) {
+            tracingFailure.addSuppressed(cleanupFailure);
+            return;
+        } // if
+        if (cleanupFailure instanceof InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw ie;
+        } // if
+        if (cleanupFailure instanceof RuntimeException re) {
+            throw re;
+        } // if
+        if (cleanupFailure instanceof Error err) {
+            throw err;
+        } // if
+        throw new RuntimeException(cleanupFailure);
+    } // handleCleanupFailure
 
     /**
      * Cleans up event requests, output drainers, and checks harness termination after job run.
@@ -456,6 +495,9 @@ public final class PersistentGuestSession implements AutoCloseable {
             int startOut,
             int startErr,
             List<EventRequest> jobRequests) throws InterruptedException {
+        if (cleanupHookForTesting != null) {
+            cleanupHookForTesting.run();
+        } // if
         teardownJobRequests(jobRequests);
         vmOut.sync();
         vmErr.sync();

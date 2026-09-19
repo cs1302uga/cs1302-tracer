@@ -221,4 +221,102 @@ class PersistentGuestSessionTest {
             } // try
         } // try
     } // handlesHelperAndCaughtException
+
+    @Test
+    @DisplayName("handleCleanupFailure invalidates VM and handles various failure types")
+    void testHandleCleanupFailure() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            assertThat(session.isAlive()).isTrue();
+
+            // 1. With primary failure, cleanup failure is added as suppressed
+            Throwable primary = new RuntimeException("primary error");
+            Throwable cleanup = new java.io.IOException("cleanup error");
+            session.handleCleanupFailure(primary, cleanup);
+            assertThat(session.isAlive()).isFalse();
+            assertThat(primary.getSuppressed()).contains(cleanup);
+
+            // 2. InterruptedException
+            assertThatThrownBy(() -> session.handleCleanupFailure(null, new InterruptedException("intr")))
+                    .isInstanceOf(InterruptedException.class);
+            assertThat(Thread.interrupted()).isTrue();
+
+            // 3. RuntimeException
+            assertThatThrownBy(() -> session.handleCleanupFailure(null, new IllegalStateException("state")))
+                    .isInstanceOf(IllegalStateException.class);
+
+            // 4. Error
+            assertThatThrownBy(() -> session.handleCleanupFailure(null, new AssertionError("assert")))
+                    .isInstanceOf(AssertionError.class);
+
+            // 5. Generic checked exception wrapped in RuntimeException
+            assertThatThrownBy(() -> session.handleCleanupFailure(null, new Exception("generic")))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(Exception.class);
+        } // try
+    } // testHandleCleanupFailure
+
+    @Test
+    @DisplayName("runJobInternal handles cleanup failure when cleanupJobRun throws")
+    void testRunJobInternalCleanupFailure() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                PersistentGuestSession.cleanupHookForTesting = () -> {
+                    throw new RuntimeException("simulated cleanup error");
+                };
+                try {
+                    assertThatThrownBy(() -> session.traceWithSpecs(
+                            cr, List.of(BreakpointSpec.of(3)), List.of(ast), "", false))
+                            .isInstanceOf(RuntimeException.class)
+                            .hasMessage("simulated cleanup error");
+                    assertThat(session.isAlive()).isFalse();
+                } finally {
+                    PersistentGuestSession.cleanupHookForTesting = null;
+                } // try
+            } // try
+        } // try
+    } // testRunJobInternalCleanupFailure
+
+    @Test
+    @DisplayName("cleanupJobRun executes cleanupHookForTesting when set")
+    void testCleanupHookNormalExecution() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = com.github.javaparser.StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                java.util.concurrent.atomic.AtomicBoolean called = new java.util.concurrent.atomic.AtomicBoolean(false);
+                PersistentGuestSession.cleanupHookForTesting = () -> called.set(true);
+                try {
+                    session.traceWithSpecs(cr, List.of(BreakpointSpec.of(3)), List.of(ast), "", false);
+                    assertThat(called.get()).isTrue();
+                } finally {
+                    PersistentGuestSession.cleanupHookForTesting = null;
+                } // try
+            } // try
+        } // try
+    } // testCleanupHookNormalExecution
+
+    @Test
+    @DisplayName("runJobInternal handles cleanup failure when both job and cleanup fail")
+    void testRunJobInternalBothFail() throws Exception {
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                PersistentGuestSession.cleanupHookForTesting = () -> {
+                    throw new RuntimeException("simulated cleanup error");
+                };
+                try {
+                    assertThatThrownBy(() -> session.runJobInternal(
+                            cr, List.of(BreakpointSpec.of(3)), List.of(ast), "", false,
+                            (line, snap) -> {
+                                throw new RuntimeException("primary job error");
+                            }))
+                            .isInstanceOf(RuntimeException.class)
+                            .hasMessage("primary job error");
+                    assertThat(session.isAlive()).isFalse();
+                } finally {
+                    PersistentGuestSession.cleanupHookForTesting = null;
+                } // try
+            } // try
+        } // try
+    } // testRunJobInternalBothFail
 }

@@ -26,6 +26,9 @@ import java.util.concurrent.TimeUnit;
  */
 public final class BatchTraceService implements AutoCloseable {
 
+    /** Maximum allowed characters in a single NDJSON input record (16 MB). */
+    public static final int MAX_RECORD_CHARS = 16 * 1024 * 1024;
+
     private final int workerCount;
     private final int maxJobsPerWorker;
     private final ExecutorService executor;
@@ -55,6 +58,40 @@ public final class BatchTraceService implements AutoCloseable {
     } // BatchTraceService
 
     /**
+     * Reads a line bounded by maximum allowed characters.
+     *
+     * @param reader Reader to read characters from.
+     * @param maxChars Maximum characters before aborting line.
+     * @return Next line or null at EOF.
+     * @throws IOException If record exceeds maxChars or on I/O error.
+     */
+    static String readBoundedLine(BufferedReader reader, int maxChars) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        int c;
+        while ((c = reader.read()) != -1) {
+            if (c == '\n') {
+                break;
+            } else if (c == '\r') {
+                reader.mark(1);
+                int next = reader.read();
+                if (next != '\n') {
+                    reader.reset();
+                } // if
+                break;
+            } // if
+            sb.append((char) c);
+            if (sb.length() > maxChars) {
+                while ((c = reader.read()) != -1 && c != '\n') {
+                    sb.setLength(0);
+                } // while
+                throw new IOException("NDJSON record exceeds maximum size of "
+                        + maxChars + " characters");
+            } // if
+        } // while
+        return sb.length() == 0 && c == -1 ? null : sb.toString();
+    } // readBoundedLine
+
+    /**
      * Processes an NDJSON input stream and writes NDJSON responses to writer.
      *
      * @param input Input stream containing NDJSON lines.
@@ -69,7 +106,7 @@ public final class BatchTraceService implements AutoCloseable {
         Queue<CompletableFuture<Void>> inFlight = new ArrayDeque<>();
 
         String line;
-        while ((line = reader.readLine()) != null) {
+        while ((line = readBoundedLine(reader, MAX_RECORD_CHARS)) != null) {
             String trimmed = line.trim();
             if (trimmed.isEmpty()) {
                 continue;
@@ -161,10 +198,19 @@ public final class BatchTraceService implements AutoCloseable {
     public void close() {
         executor.shutdown();
         try {
-            executor.awaitTermination(30, TimeUnit.SECONDS);
+            if (!executor.awaitTermination(30, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+                executor.awaitTermination(30, TimeUnit.SECONDS);
+            } // if
         } catch (InterruptedException e) {
             executor.shutdownNow();
-            Thread.currentThread().interrupt();
+            try {
+                executor.awaitTermination(30, TimeUnit.SECONDS);
+            } catch (InterruptedException ignored) {
+                // Ignore during shutdown
+            } finally {
+                Thread.currentThread().interrupt();
+            } // try
         } finally {
             for (BatchTraceWorker worker : allWorkers) {
                 worker.close();
