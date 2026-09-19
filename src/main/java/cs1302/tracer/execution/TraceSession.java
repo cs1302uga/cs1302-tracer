@@ -455,7 +455,8 @@ public final class TraceSession implements AutoCloseable {
     /**
      * Returns bounded guest output even when no snapshot was completed.
      * @param index Registered drainer index (stderr first).
-     * @return UTF-8 output with replacement for incomplete byte sequences.\n     */
+     * @return UTF-8 output with replacement for incomplete byte sequences.
+     */
     private String output(int index) {
         if (index == 1 && explicitStdout != null) {
             return explicitStdout;
@@ -484,26 +485,37 @@ public final class TraceSession implements AutoCloseable {
         if (completed.isEmpty()) {
             return;
         } // if
+        OutputSlice safeOut = stdout != null ? stdout.materialize() : null;
+        OutputSlice safeErr = stderr != null ? stderr.materialize() : null;
         ExecutionSnapshot last = completed.getLast();
-        int outLen = stdout != null ? stdout.length() : last.stdoutLength();
-        int errLen = stderr != null ? stderr.length() : last.stderrLength();
+        int outLen = safeOut != null ? safeOut.length() : last.stdoutLength();
+        int errLen = safeErr != null ? safeErr.length() : last.stderrLength();
         long extra = Math.max(0, outLen - last.stdoutLength())
                 + Math.max(0, errLen - last.stderrLength());
         if (extra == 0) {
+            materializeSnapshots();
             return;
         } // if
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
         enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
         ExecutionSnapshot updated = new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),
-                stdout != null ? stdout : last.stdoutSlice(),
-                stderr != null ? stderr : last.stderrSlice(),
+                safeOut != null ? safeOut : last.stdoutSlice(),
+                safeErr != null ? safeErr : last.stderrSlice(),
                 last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
         retainedBytes += extra * 15;
+        materializeSnapshots();
     } // finishOutput
+
+    /** Materializes all completed snapshot output slices into self-contained buffers. */
+    public void materializeSnapshots() {
+        for (int i = 0; i < completed.size(); i++) {
+            completed.set(i, completed.get(i).materializeOutput());
+        } // for
+    } // materializeSnapshots
 
     @Override
     public void close() {

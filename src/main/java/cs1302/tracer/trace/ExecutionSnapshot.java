@@ -102,6 +102,21 @@ public record ExecutionSnapshot(
     } // ExecutionSnapshot
 
     /**
+     * Materializes the output slices of this snapshot into self-contained buffers.
+     *
+     * @return Snapshot with materialized output slices.
+     */
+    public ExecutionSnapshot materializeOutput() {
+        OutputSlice matOut = stdoutSlice.materialize();
+        OutputSlice matErr = stderrSlice.materialize();
+        if (matOut == stdoutSlice && matErr == stderrSlice) {
+            return this;
+        } // if
+        return new ExecutionSnapshot(
+                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset);
+    } // materializeOutput
+
+    /**
      * Returns captured standard output bytes.
      *
      * @return Byte array of standard output.

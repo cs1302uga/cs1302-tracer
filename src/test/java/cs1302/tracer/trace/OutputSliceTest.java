@@ -305,4 +305,47 @@ class OutputSliceTest {
         assertThat(snapshot.stdoutSlice().byteAt(0)).isEqualTo((byte) 'X');
         assertThat(snapshot.stderrSlice().byteAt(0)).isEqualTo((byte) 'X');
     } // testImmutabilityDefensiveCopy
+    @Test
+    @DisplayName("materialize detaches slices and snapshots from drainers")
+    void testMaterialize() throws Exception {
+        byte[] directBytes = "direct".getBytes(StandardCharsets.UTF_8);
+        OutputSlice directSlice = OutputSlice.from(directBytes);
+        assertThat(directSlice.materialize()).isSameAs(directSlice);
+
+        byte[] drainerBytes = "drainer output".getBytes(StandardCharsets.UTF_8);
+        try (StreamDrainer drainer = new StreamDrainer(new ByteArrayInputStream(drainerBytes))) {
+            drainer.waitForEof(1000);
+            OutputSlice drainerSlice = OutputSlice.from(drainer, 0, 7);
+            OutputSlice materialized = drainerSlice.materialize();
+
+            assertThat(materialized).isNotSameAs(drainerSlice);
+            assertThat(materialized.asUtf8String()).isEqualTo("drainer");
+
+            ExecutionSnapshot snapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    drainerSlice, directSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot materializedSnapshot = snapshot.materializeOutput();
+
+            assertThat(materializedSnapshot).isNotSameAs(snapshot);
+            assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
+            assertThat(materializedSnapshot.materializeOutput()).isSameAs(materializedSnapshot);
+
+            ExecutionSnapshot errDrainerSnapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    directSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot matErrSnapshot = errDrainerSnapshot.materializeOutput();
+            assertThat(matErrSnapshot).isNotSameAs(errDrainerSnapshot);
+            assertThat(matErrSnapshot.stderrSlice().asUtf8String()).isEqualTo("drainer");
+
+            ExecutionSnapshot bothDrainerSnapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    drainerSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot matBothSnapshot = bothDrainerSnapshot.materializeOutput();
+            assertThat(matBothSnapshot).isNotSameAs(bothDrainerSnapshot);
+
+            drainer.reset();
+            assertThat(materialized.asUtf8String()).isEqualTo("drainer");
+            assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
+        } // try
+    } // testMaterialize
 } // OutputSliceTest

@@ -97,6 +97,18 @@ public final class OutputSlice {
     } // from
 
     /**
+     * Materializes this slice into a self-contained slice detached from any drainer.
+     *
+     * @return Materialized OutputSlice instance.
+     */
+    public OutputSlice materialize() {
+        if (drainer == null) {
+            return this;
+        } // if
+        return from(toByteArray());
+    } // materialize
+
+    /**
      * Returns the number of bytes contained in this slice.
      *
      * @return Byte length.

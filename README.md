@@ -172,7 +172,8 @@ Usage: code-tracer [trace] [-ahpsvV] [--all-breakpoints]
 
 ```text
 Usage: code-tracer batch-trace [-hV] [-i=<input>]
-                               [--max-jobs-per-worker=<maxJobsPerWorker>]\n                               [-w=<workers>]
+                               [--max-jobs-per-worker=<maxJobsPerWorker>]
+                               [-w=<workers>]
 ```
 
 | Option | Flag | Default | Description |
@@ -313,26 +314,38 @@ When enabled, wraps output in a versioned envelope detailing execution status, a
 
 ```json
 {
-  "schemaVersion": "1.0",
-  "status": "success",
-  "phase": "complete",
+  "schemaVersion": 1,
+  "format": "modern",
+  "status": "completed",
   "stopReason": null,
-  "errorMessage": null,
-  "elapsedMillis": 34,
-  "accounting": {
-    "snapshots": 1,
-    "heapObjects": 1,
-    "elements": 2,
-    "traceBytes": 1420,
+  "phase": "trace",
+  "complete": true,
+  "trace": {
+    "code": "public class Main {\n ... }",
+    "trace": [ ... ]
+  },
+  "limits": {
+    "timeoutMillis": 10000,
+    "snapshots": 10000,
+    "outputBytes": 1048576,
+    "heapObjects": 10000,
+    "elements": 100000,
+    "traceBytes": 67108864,
+    "sourceBytes": 1048576,
+    "sourceFiles": 128
+  },
+  "counters": {
+    "snapshotsCaptured": 1,
+    "snapshotsRetained": 1,
+    "retainedBytes": 1420,
+    "droppedSnapshots": 0,
+    "elapsedMillis": 34,
     "stdoutBytes": 0,
     "stderrBytes": 0
   },
+  "diagnostics": [],
   "stdout": "",
-  "stderr": "",
-  "result": {
-    "code": "public class Main {\n ... }",
-    "trace": [ ... ]
-  }
+  "stderr": ""
 }
 ```
 

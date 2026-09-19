@@ -21,9 +21,11 @@ import cs1302.tracer.trace.PersistentGuestSession;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -62,7 +64,7 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @param req Job request specification.
      * @return Batch job response containing execution or error results.
      */
-    public BatchJobResponse execute(BatchJobRequest req) {
+    public synchronized BatchJobResponse execute(BatchJobRequest req) {
         if (req == null) {
             throw new IllegalArgumentException("BatchJobRequest cannot be null");
         } // if
@@ -141,8 +143,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             traceSession.phase("trace");
             String stdin = req.stdin() != null ? req.stdin() : "";
             List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
-            dispatchGuestExecution(compiled, specs, units, stdin, allBps, accBps);
-            return traceSession.snapshots();
+            return dispatchGuestExecution(compiled, specs, units, stdin, allBps, accBps);
         } // try
     } // performTrace
 
@@ -155,9 +156,10 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @param stdin Standard input string.
      * @param allBps Chronological flag.
      * @param accBps Accumulate flag.
+     * @return Captured execution snapshots.
      * @throws Exception On trace dispatch failure.
      */
-    private void dispatchGuestExecution(
+    private List<ExecutionSnapshot> dispatchGuestExecution(
             CompilationResult compiled,
             List<BreakpointSpec> specs,
             List<CompilationUnit> units,
@@ -170,10 +172,13 @@ public final class BatchTraceWorker implements AutoCloseable {
                 Collection<Integer> lines = DebugTraceHelper.getValidBreakpointLines(compiled);
                 effectiveSpecs = lines.stream().map(BreakpointSpec::of).toList();
             } // if
-            session.traceChronologicalWithSpecs(compiled, effectiveSpecs, units, stdin);
-        } else {
-            session.traceWithSpecs(compiled, specs, units, stdin, accBps);
+            return session.traceChronologicalWithSpecs(compiled, effectiveSpecs, units, stdin);
         } // if
+        Map<Integer, List<ExecutionSnapshot>> map =
+                session.traceWithSpecs(compiled, specs, units, stdin, accBps);
+        List<ExecutionSnapshot> list = new ArrayList<>();
+        map.values().forEach(list::addAll);
+        return list;
     } // dispatchGuestExecution
 
     /**
@@ -223,4 +228,4 @@ public final class BatchTraceWorker implements AutoCloseable {
             session = null;
         } // if
     } // close
-}
+} // BatchTraceWorker

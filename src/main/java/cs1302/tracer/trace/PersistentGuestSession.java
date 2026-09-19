@@ -307,7 +307,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             boolean accumulate) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new TreeMap<>();
         runJobInternal(cr, specs, parsedSources, stdin, false, (line, snap) -> {
-            DebugTraceHelper.storeSnapshot(snapshots, line, snap);
+            DebugTraceHelper.storeSnapshot(snapshots, line, snap.materializeOutput());
         });
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
     } // traceWithSpecs
@@ -329,9 +329,10 @@ public final class PersistentGuestSession implements AutoCloseable {
             String stdin) throws Exception {
         List<ExecutionSnapshot> chronological = new ArrayList<>();
         runJobInternal(cr, specs, parsedSources, stdin, true, (line, snap) -> {
+            ExecutionSnapshot mat = snap.materializeOutput();
             if (chronological.isEmpty()
-                    || !DebugTraceHelper.isSameTopFrame(chronological.getLast(), snap)) {
-                chronological.add(snap);
+                    || !DebugTraceHelper.isSameTopFrame(chronological.getLast(), mat)) {
+                chronological.add(mat);
             } // if
         });
         return chronological;
@@ -458,10 +459,11 @@ public final class PersistentGuestSession implements AutoCloseable {
         vmErr.detachSession();
         if (currentSession != null) {
             OutputSlice finalOut = OutputSlice.from(
-                    vmOut, startOut, Math.max(0, vmOut.size() - startOut));
+                    vmOut, startOut, Math.max(0, vmOut.size() - startOut)).materialize();
             OutputSlice finalErr = OutputSlice.from(
-                    vmErr, startErr, Math.max(0, vmErr.size() - startErr));
+                    vmErr, startErr, Math.max(0, vmErr.size() - startErr)).materialize();
             currentSession.finishOutput(finalOut, finalErr);
+            currentSession.materializeSnapshots();
             currentSession.setCapturedOutput(
                     finalOut.asUtf8String(), finalErr.asUtf8String(),
                     finalOut.length(), finalErr.length());
@@ -621,7 +623,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                     bpe.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                    ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                    ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
             ctx.sink().accept(loc.lineNumber(), snap);
             recorded[0] = true;
         } // if
@@ -650,7 +652,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             if (ctx.snapMainEnd() || !recorded[0]) {
                 ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                         mee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                        ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                        ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
                 ctx.sink().accept(-1, snap);
                 recorded[0] = true;
             } // if
@@ -687,7 +689,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             } // if
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                     ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                    ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                    ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
             ctx.sink().accept(loc.lineNumber(), snap);
             if (!recorded[0]) {
                 ctx.sink().accept(-1, snap);
@@ -778,4 +780,4 @@ public final class PersistentGuestSession implements AutoCloseable {
         vmOut.close();
         vmErr.close();
     } // close
-}
+} // PersistentGuestSession
