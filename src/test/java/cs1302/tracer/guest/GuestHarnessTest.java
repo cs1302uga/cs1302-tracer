@@ -327,4 +327,26 @@ public class GuestHarnessTest {
             } // try
         } // try
     } // testStopLingeringThreadsUncooperativeThread
+
+    @Test
+    void testOutputStreamsProtectedAgainstClosing() {
+        GuestHarness.cleanState();
+        System.out.println("Line 1");
+        System.out.close();
+        System.err.close();
+        GuestHarness.cleanState();
+        System.out.println("Line 2");
+        System.err.println("Error 2");
+    } // testOutputStreamsProtectedAgainstClosing
+
+    @Test
+    void testUnclosableOutputStream() throws Exception {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        GuestHarness.UnclosableOutputStream uos = new GuestHarness.UnclosableOutputStream(baos);
+        byte[] data = "test data".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        uos.write(data, 0, data.length);
+        uos.close();
+        uos.write((int) '!');
+        assertThat(baos.toString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("test data!");
+    } // testUnclosableOutputStream
 }

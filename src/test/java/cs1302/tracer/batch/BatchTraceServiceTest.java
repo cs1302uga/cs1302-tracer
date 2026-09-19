@@ -218,4 +218,24 @@ class BatchTraceServiceTest {
         String[] lines = out.toString().trim().split("\\R");
         assertThat(lines).hasSize(20);
     } // testExceedingInFlightCapacity
+
+    @Test
+    @DisplayName("Service close handles thread interruption during awaitTermination")
+    void testCloseInterrupted() throws Exception {
+        BatchTraceService service = new BatchTraceService(1, 10);
+        var field = BatchTraceService.class.getDeclaredField("executor");
+        field.setAccessible(true);
+        java.util.concurrent.ExecutorService exec =
+                (java.util.concurrent.ExecutorService) field.get(service);
+        exec.submit(() -> {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ignored) {
+                // ignore
+            } // try
+        });
+        Thread.currentThread().interrupt();
+        service.close();
+        assertThat(Thread.interrupted()).isTrue();
+    } // testCloseInterrupted
 }

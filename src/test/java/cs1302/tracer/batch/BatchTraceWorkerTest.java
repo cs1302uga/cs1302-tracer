@@ -184,6 +184,19 @@ class BatchTraceWorkerTest {
         } // try
     } // testWorkerPackagedAndInspection
 
+
+    @Test
+    @DisplayName("Worker handles explicit TRUSTED inspection policy")
+    void testWorkerTrustedInspection() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-trusted", BASIC_SOURCE, "pytutor", null, List.of("5"),
+                    false, false, false, false, false, "fqn", null, cs1302.tracer.execution.InspectionPolicy.TRUSTED);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.result().complete()).isTrue();
+        } // try
+    } // testWorkerTrustedInspection
+
     @Test
     @DisplayName("Worker recovers when previous session was closed or killed")
     void testWorkerRecoversFromKilledSession() throws Exception {

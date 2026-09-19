@@ -1,7 +1,10 @@
 package cs1302.tracer.guest;
 
 import java.io.File;
+import java.io.FilterOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.net.URL;
@@ -51,6 +54,8 @@ public final class GuestHarness {
      */
     public static void main(String[] args) {
         System.setIn(VIRTUAL_IN);
+        System.setOut(createForwardingPrintStream(ORIGINAL_OUT));
+        System.setErr(createForwardingPrintStream(ORIGINAL_ERR));
 
         while (true) {
             readyForJob();
@@ -169,12 +174,46 @@ public final class GuestHarness {
         VIRTUAL_IN.reset("");
 
         System.setIn(ORIGINAL_IN);
-        System.setOut(ORIGINAL_OUT);
-        System.setErr(ORIGINAL_ERR);
+        System.setOut(createForwardingPrintStream(ORIGINAL_OUT));
+        System.setErr(createForwardingPrintStream(ORIGINAL_ERR));
 
         System.setProperties((Properties) ORIGINAL_PROPERTIES.clone());
         System.setIn(VIRTUAL_IN);
     } // cleanState
+
+    /**
+     * Filter stream preventing target student code from closing persistent system streams.
+     */
+    static final class UnclosableOutputStream extends FilterOutputStream {
+        /**
+         * Constructs an unclosable stream wrapping target stream.
+         *
+         * @param out Underlying output stream.
+         */
+        UnclosableOutputStream(OutputStream out) {
+            super(out);
+        } // UnclosableOutputStream
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            out.write(b, off, len);
+        } // write
+
+        @Override
+        public void close() throws IOException {
+            flush();
+        } // close
+    } // UnclosableOutputStream
+
+    /**
+     * Creates a forwarding print stream protected against student closing.
+     *
+     * @param original Underlying print stream.
+     * @return Non-closeable forwarding print stream.
+     */
+    static PrintStream createForwardingPrintStream(PrintStream original) {
+        return new PrintStream(new UnclosableOutputStream(original), true, StandardCharsets.UTF_8);
+    } // createForwardingPrintStream
 
     /**
      * In-memory redirected input stream dynamically backed by string content.

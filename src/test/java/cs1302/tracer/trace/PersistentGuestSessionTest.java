@@ -146,7 +146,7 @@ class PersistentGuestSessionTest {
                 try (var crLoop = CompilationHelper.compile(LOOP_SOURCE)) {
                     List<ExecutionSnapshot> loopSnaps = session.traceChronologicalWithSpecs(
                             crLoop, List.of(BreakpointSpec.of(4)), List.of(astLoop), "");
-                    assertThat(loopSnaps).hasSize(1);
+                    assertThat(loopSnaps).hasSize(2);
                 } // try
                 // Chronological with duplicate line numbers to test suppression
                 List<ExecutionSnapshot> dups = session.traceChronologicalWithSpecs(

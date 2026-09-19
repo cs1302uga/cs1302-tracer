@@ -414,23 +414,27 @@ public final class PersistentGuestSession implements AutoCloseable {
         int startOut = 0;
         int startErr = 0;
 
-        harnessType.setValue(nextClassPathField, vm.mirrorOf(cr.classPath().toString()));
-        harnessType.setValue(nextMainClassField, vm.mirrorOf(cr.mainClass()));
-        harnessType.setValue(nextStdinField, vm.mirrorOf(stdin != null ? stdin : ""));
-
         List<EventRequest> jobRequests = new ArrayList<>();
-        Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
-        setupJobRequests(cr, safeSpecs, jobRequests);
-
-        JobContext ctx = new JobContext(
-                cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
-                sink, jobRequests, new HashSet<>(), new AtomicReference<>(), startOut, startErr,
-                safeSpecs.isEmpty() || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1));
-
-        vm.resume();
-
         try {
+            harnessType.setValue(nextClassPathField, vm.mirrorOf(cr.classPath().toString()));
+            harnessType.setValue(nextMainClassField, vm.mirrorOf(cr.mainClass()));
+            harnessType.setValue(nextStdinField, vm.mirrorOf(stdin != null ? stdin : ""));
+
+            Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
+            setupJobRequests(cr, safeSpecs, jobRequests);
+
+            JobContext ctx = new JobContext(
+                    cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
+                    sink, jobRequests, new HashSet<>(), new AtomicReference<>(), startOut, startErr,
+                    isChronological || safeSpecs.isEmpty()
+                            || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1));
+
+            vm.resume();
             executeJobEventLoop(ctx);
+        } catch (Throwable t) {
+            alive = false;
+            vm.process().destroyForcibly();
+            throw t;
         } finally {
             cleanupJobRun(currentSession, startOut, startErr, jobRequests);
         } // try
@@ -681,20 +685,21 @@ public final class PersistentGuestSession implements AutoCloseable {
         } // if
         boolean uncaughtInStudent = catchLoc == null
                 || !ctx.cr().compiledClassNames().contains(catchLoc.declaringType().name());
-        if (loc != null && ctx.cr().compiledClassNames().contains(loc.declaringType().name())
-                && uncaughtInStudent) {
-            TraceSession currentSession = TraceSession.current();
-            if (currentSession != null) {
-                currentSession.guestException(ee.exception().referenceType().name());
+        if (loc != null && ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
+            if (uncaughtInStudent) {
+                TraceSession currentSession = TraceSession.current();
+                if (currentSession != null) {
+                    currentSession.guestException(ee.exception().referenceType().name());
+                } // if
+                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
+                        ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
+                        ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
+                ctx.sink().accept(loc.lineNumber(), snap);
+                if (!recorded[0]) {
+                    ctx.sink().accept(-1, snap);
+                } // if
+                recorded[0] = true;
             } // if
-            ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
-                    ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                    ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
-            ctx.sink().accept(loc.lineNumber(), snap);
-            if (!recorded[0]) {
-                ctx.sink().accept(-1, snap);
-            } // if
-            recorded[0] = true;
         } // if
     } // handleExceptionEvent
 

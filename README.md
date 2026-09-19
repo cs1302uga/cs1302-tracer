@@ -56,13 +56,13 @@ cd cs1302-tracer
 The compiled standalone executable JAR will be located at:
 
 ```bash
-target/cs1302-tracer-jar-with-dependencies.jar
+target/code-tracer-jar-with-dependencies.jar
 ```
 
 You can run it directly with `java -jar` or create a convenient alias:
 
 ```bash
-alias code-tracer="java -jar $(pwd)/target/cs1302-tracer-jar-with-dependencies.jar"
+alias code-tracer="java -jar $(pwd)/target/code-tracer-jar-with-dependencies.jar"
 ```
 
 ---
@@ -195,7 +195,6 @@ Usage: code-tracer list-breakpoints [-hjpvV] [-i=<input>]
 | Option | Flag | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
-| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
 | `--json` | `-j` | `false` | Output available breakpoints in structured JSON format. |
 | `--pretty` | `-p` | `false` | Pretty-print JSON output with indentation. |
 | `--verbose` | `-v` | `false` | Output messages about what the tracer is doing. |

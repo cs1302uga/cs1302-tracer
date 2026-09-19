@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Service managing pool of batch trace workers and streaming NDJSON requests/responses.
@@ -159,8 +160,15 @@ public final class BatchTraceService implements AutoCloseable {
     @Override
     public void close() {
         executor.shutdown();
-        for (BatchTraceWorker worker : allWorkers) {
-            worker.close();
-        } // for
+        try {
+            executor.awaitTermination(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        } finally {
+            for (BatchTraceWorker worker : allWorkers) {
+                worker.close();
+            } // for
+        } // try
     } // close
 }

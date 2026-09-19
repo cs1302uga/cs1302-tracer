@@ -137,13 +137,29 @@ public final class BatchTraceWorker implements AutoCloseable {
                 entryFile.ast(), Optional.empty());
 
         try (CompilationResult compiled = CompilationHelper.compile(req.source(), sourceRoot)) {
+            InspectionPolicy inspection = req.inspection() != null
+                    ? req.inspection() : InspectionPolicy.TRUSTED;
+            Optional<Path> parserRoot = inspection == InspectionPolicy.FIELDS
+                    ? Optional.empty()
+                    : Optional.of(compiled.classPath());
             List<CompilationUnit> units = App.discoverAllCompilationUnits(
-                    sourceFiles, sourceRoot, Optional.of(compiled.classPath()));
+                    sourceFiles, sourceRoot, parserRoot);
 
             traceSession.phase("trace");
             String stdin = req.stdin() != null ? req.stdin() : "";
             List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
-            return dispatchGuestExecution(compiled, specs, units, stdin, allBps, accBps);
+            List<ExecutionSnapshot> snapshots = dispatchGuestExecution(
+                    compiled, specs, units, stdin, allBps, accBps);
+            ExecutionSnapshot lastFinalized = traceSession.snapshots().getLast();
+            ExecutionSnapshot lastGuest = snapshots.getLast();
+            snapshots.set(snapshots.size() - 1, new ExecutionSnapshot(
+                    lastGuest.stack(), lastGuest.statics(), lastGuest.heap(),
+                    lastFinalized.stdoutSlice(),
+                    lastFinalized.stderrSlice(),
+                    lastGuest.sourcePath(),
+                    lastGuest.stdinConsumed(),
+                    lastGuest.stdinOffset()));
+            return snapshots;
         } // try
     } // performTrace
 
