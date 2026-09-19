@@ -219,7 +219,7 @@ public final class GuestHarness {
                 stopLingeringThreads(loader, jobGroup);
             } // try
         } catch (Throwable t) {
-            // Handled or ignored; snapshot or exception event captured by JDI
+            lastHarnessFailure = t.toString();
         } finally {
             Thread.interrupted();
             ORIGINAL_OUT.flush();

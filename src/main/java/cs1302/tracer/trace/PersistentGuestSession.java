@@ -713,7 +713,6 @@ public final class PersistentGuestSession implements AutoCloseable {
         } // if
         if (currentSession != null) {
             currentSession.finishOutput(finalOut, finalErr);
-            currentSession.materializeSnapshots(sharedOut, sharedErr);
             currentSession.setCapturedOutput(
                     finalOut.asUtf8String(), finalErr.asUtf8String(),
                     finalOut.length(), finalErr.length());
@@ -788,9 +787,16 @@ public final class PersistentGuestSession implements AutoCloseable {
             jobRequests.add(mer);
         } // for
 
-        ExceptionRequest er = vm.eventRequestManager().createExceptionRequest(null, true, true);
+        ExceptionRequest er = vm.eventRequestManager().createExceptionRequest(null, false, true);
         er.enable();
         jobRequests.add(er);
+        for (String className : cr.compiledClassNames()) {
+            ExceptionRequest caught = vm.eventRequestManager()
+                    .createExceptionRequest(null, true, false);
+            caught.addClassFilter(className);
+            caught.enable();
+            jobRequests.add(caught);
+        } // for
     } // setupJobRequests
 
     /**
@@ -889,7 +895,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                     bpe.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                    ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                    ctx.inputTracker(), ctx.startOut(), ctx.startErr(), harnessType.classLoader());
             ctx.sink().accept(loc.lineNumber(), snap);
             recorded[0] = true;
         } // if
@@ -918,7 +924,8 @@ public final class PersistentGuestSession implements AutoCloseable {
             if (ctx.snapMainEnd()) {
                 ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                         mee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                        ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                        ctx.inputTracker(), ctx.startOut(), ctx.startErr(),
+                        harnessType.classLoader());
                 ctx.sink().accept(-1, snap);
                 recorded[0] = true;
             } // if
@@ -955,7 +962,8 @@ public final class PersistentGuestSession implements AutoCloseable {
                 } // if
                 ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                         ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                        ctx.inputTracker(), ctx.startOut(), ctx.startErr());
+                        ctx.inputTracker(), ctx.startOut(), ctx.startErr(),
+                        harnessType.classLoader());
                 ctx.sink().accept(loc.lineNumber(), snap);
                 if (!ctx.isChronological()) {
                     ctx.sink().accept(-1, snap);

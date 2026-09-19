@@ -126,12 +126,42 @@ public final class BatchTraceWorker implements AutoCloseable {
                 return new BatchJobResponse(req.id(), result);
             } catch (Throwable caught) {
                 restoreInterruptIfInterrupted(caught);
+                Object payload = serializePartialPayload(
+                        req, traceSession, format, typeStyle, caught);
                 TraceResult result = traceSession.result(
-                        format.name().toLowerCase(Locale.ROOT), null, caught);
+                        format.name().toLowerCase(Locale.ROOT), payload, caught);
                 return new BatchJobResponse(req.id(), result);
             } // try
         } // try
     } // execute
+
+    /**
+     * Serializes completed snapshots retained after a recoverable tracing failure.
+     *
+     * @param req Batch request.
+     * @param traceSession Active tracing session.
+     * @param format Output format.
+     * @param typeStyle Type styling.
+     * @param failure Original tracing failure.
+     * @return Partial trace payload, or null when no snapshot was completed.
+     */
+    private Object serializePartialPayload(
+            BatchJobRequest req,
+            TraceSession traceSession,
+            TraceFormat format,
+            TypeStyle typeStyle,
+            Throwable failure) {
+        if (!traceSession.traceAvailable() || traceSession.snapshots().isEmpty()) {
+            return null;
+        } // if
+        try {
+            return serializeChronologicalPayload(
+                    req, format, typeStyle, traceSession.snapshots());
+        } catch (RuntimeException serializationFailure) {
+            failure.addSuppressed(serializationFailure);
+            return null;
+        } // try
+    } // serializePartialPayload
 
     /**
      * Performs compilation and dispatches tracing to the persistent guest session.

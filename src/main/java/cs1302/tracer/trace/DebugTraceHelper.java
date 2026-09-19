@@ -1733,7 +1733,7 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
         return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
-                inputTracker, 0, 0);
+                inputTracker, 0, 0, null);
     } // snapshotTheWorld
 
     /**
@@ -1764,6 +1764,40 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                inputTracker, startOutOffset, startErrOffset, null);
+    } // snapshotTheWorld
+
+    /**
+     * Takes an execution snapshot with explicit internal harness class-loader identity.
+     *
+     * @param mainThread The main thread reference.
+     * @param loadedClasses Currently loaded reference types.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param inputTracker Input tracker.
+     * @param startOutOffset Starting standard output offset.
+     * @param startErrOffset Starting standard error offset.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
+     * @return An execution snapshot.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    static ExecutionSnapshot snapshotTheWorld(
+            ThreadReference mainThread,
+            Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker,
+            int startOutOffset,
+            int startErrOffset,
+            ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         TraceSession session = TraceSession.current();
         prepareSessionAndStreams(session, mainThread, vmOut, vmErr);
@@ -1773,7 +1807,7 @@ public class DebugTraceHelper {
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         Map<Long, String> objectTypeMap = new HashMap<>();
 
-        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap);
+        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, harnessClassLoader);
 
         List<StackSnapshot> stackSnapshots = collectStackSnapshots(
                 mainThread,
@@ -1782,7 +1816,8 @@ public class DebugTraceHelper {
                 sourceAnalysis.lambdaMethodAssignments(),
                 sourceAnalysis.finalMethodVariables(),
                 heapReferencesToWalk,
-                heap);
+                heap,
+                harnessClassLoader);
 
         List<ExecutionSnapshot.Field> statics = collectStatics(
                 loadedClasses, sourceAnalysis, heapReferencesToWalk, heap);
@@ -1999,12 +2034,14 @@ public class DebugTraceHelper {
 
     /**
      * Returns true if declaring class corresponds to internal coordinator harness or reflection.
-     * Student classes named GuestHarness loaded by a URLClassLoader are preserved.
+     * Student classes named GuestHarness are preserved unless loaded by the known harness loader.
      *
      * @param declaringType Declaring ReferenceType.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return True if frame should be filtered from student trace.
      */
-    static boolean isGuestHarnessOrReflect(ReferenceType declaringType) {
+    static boolean isGuestHarnessOrReflect(
+            ReferenceType declaringType, ClassLoaderReference harnessClassLoader) {
         String declaringClassFqn = declaringType.name();
         if (declaringClassFqn.startsWith("jdk.internal.reflect.")
                 || declaringClassFqn.startsWith("java.lang.reflect.")
@@ -2013,8 +2050,8 @@ public class DebugTraceHelper {
         } // if
         if (declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
                 || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")) {
-            ClassLoaderReference cl = declaringType.classLoader();
-            return cl == null || !cl.referenceType().name().contains("URLClassLoader");
+            return harnessClassLoader != null
+                    && harnessClassLoader.equals(declaringType.classLoader());
         } // if
         return false;
     } // isGuestHarnessOrReflect
@@ -2050,12 +2087,34 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, null);
+    } // prepassObjectTypes
+
+    /**
+     * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
+     *
+     * @param mainThread Suspended thread.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Target object type map.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException On absent debug info.
+     * @throws ClassNotLoadedException On unloaded class.
+     */
+    private static void prepassObjectTypes(
+            ThreadReference mainThread,
+            AstTypeResolver astTypeResolver,
+            Map<Long, String> objectTypeMap,
+            ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         List<StackFrame> frameList = mainThread.frames();
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
             ReferenceType declaringType = frame.location().method().declaringType();
-            if (isGuestHarnessOrReflect(declaringType)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
                 continue;
             } // if
             String declaringClassFqn = declaringType.name();
@@ -2268,6 +2327,7 @@ public class DebugTraceHelper {
      * @param finalMap Final variable names map.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap trace values map.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return List of StackSnapshots in call order.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException On absent debug info.
@@ -2281,18 +2341,19 @@ public class DebugTraceHelper {
             Map<String, List<LambdaAssignment>> lambdaMap,
             Map<String, Set<String>> finalMap,
             List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap)
+            Map<Long, TraceValue> heap,
+            ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
-        TraceSession.elements(mainThread.frameCount());
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
             ReferenceType declaringType = frameMethod.declaringType();
-            if (isGuestHarnessOrReflect(declaringType)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
                 continue;
             } // if
+            TraceSession.elements(1);
             String declaringClassFqn = declaringType.name();
             String frameMethodSignature = String.format(
                     "%s.%s(%s)",

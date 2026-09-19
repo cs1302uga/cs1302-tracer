@@ -134,6 +134,23 @@ class BatchTraceWorkerTest {
     } // testWorkerExecutesModernAllBreakpoints
 
     @Test
+    @DisplayName("Worker preserves completed snapshots when a snapshot limit stops tracing")
+    void testWorkerPreservesPartialTraceAtSnapshotLimit() {
+        TraceLimits limits = new TraceLimits(0, 1, 0, 0, 0, 0, 0, 0);
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-partial", LOOP_SOURCE, "modern", null, List.of("4", "5"),
+                    true, false, false, false, false, "fqn", limits, null);
+            BatchJobResponse resp = worker.execute(req);
+
+            assertThat(resp.result().complete()).isFalse();
+            assertThat(resp.result().stopReason()).isEqualTo("snapshot_limit");
+            assertThat(resp.result().trace()).isNotNull();
+            assertThat(resp.result().counters().get("snapshotsRetained")).isEqualTo(1L);
+        } // try
+    } // testWorkerPreservesPartialTraceAtSnapshotLimit
+
+    @Test
     @DisplayName("Worker executes job with default chronological mode when breakpoints empty")
     void testWorkerDefaultChronological() {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {

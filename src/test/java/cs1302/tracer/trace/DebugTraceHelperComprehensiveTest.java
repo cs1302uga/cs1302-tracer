@@ -777,40 +777,29 @@ public class DebugTraceHelperComprehensiveTest {
 
     // ReferenceType overload tests
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("jdk.internal.reflect.NativeMethodAccessorImpl", null))).isTrue();
+            mockRefType("jdk.internal.reflect.NativeMethodAccessorImpl", null), null)).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("java.lang.reflect.Method", null))).isTrue();
+            mockRefType("java.lang.reflect.Method", null), null)).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("java.lang.Thread", null))).isTrue();
+            mockRefType("java.lang.Thread", null), null)).isTrue();
+    var harnessLoader = mockClassLoader("jdk.internal.loader.ClassLoaders$AppClassLoader");
+    var studentLoader = mockClassLoader("java.net.URLClassLoader");
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.GuestHarness", null))).isTrue();
+            mockRefType("cs1302.tracer.guest.GuestHarness", harnessLoader), null)).isFalse();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.GuestHarness", "jdk.internal.loader.ClassLoaders$AppClassLoader"))).isTrue();
+            mockRefType("cs1302.tracer.guest.GuestHarness", harnessLoader),
+            harnessLoader)).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.GuestHarness", "java.net.URLClassLoader"))).isFalse();
+            mockRefType("cs1302.tracer.guest.GuestHarness", studentLoader),
+            harnessLoader)).isFalse();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.GuestHarness$Inner", "java.net.URLClassLoader"))).isFalse();
+            mockRefType("cs1302.tracer.guest.OtherClass", null), harnessLoader)).isFalse();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.GuestHarness$Inner", "jdk.internal.loader.ClassLoaders$AppClassLoader"))).isTrue();
-    assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("cs1302.tracer.guest.OtherClass", null))).isFalse();
-    assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
-            mockRefType("Student", null))).isFalse();
+            mockRefType("Student", null), harnessLoader)).isFalse();
   }
 
-  private static com.sun.jdi.ReferenceType mockRefType(String name, String classLoaderTypeName) {
-    com.sun.jdi.ClassLoaderReference clRef = null;
-    if (classLoaderTypeName != null) {
-      com.sun.jdi.ReferenceType clType = (com.sun.jdi.ReferenceType) java.lang.reflect.Proxy.newProxyInstance(
-              com.sun.jdi.ReferenceType.class.getClassLoader(),
-              new Class<?>[] {com.sun.jdi.ReferenceType.class},
-              (p, m, args) -> m.getName().equals("name") ? classLoaderTypeName : null);
-      clRef = (com.sun.jdi.ClassLoaderReference) java.lang.reflect.Proxy.newProxyInstance(
-              com.sun.jdi.ClassLoaderReference.class.getClassLoader(),
-              new Class<?>[] {com.sun.jdi.ClassLoaderReference.class},
-              (p, m, args) -> m.getName().equals("referenceType") ? clType : null);
-    }
-    com.sun.jdi.ClassLoaderReference finalCl = clRef;
+  private static com.sun.jdi.ReferenceType mockRefType(
+          String name, com.sun.jdi.ClassLoaderReference classLoader) {
     return (com.sun.jdi.ReferenceType) java.lang.reflect.Proxy.newProxyInstance(
             com.sun.jdi.ReferenceType.class.getClassLoader(),
             new Class<?>[] {com.sun.jdi.ReferenceType.class},
@@ -819,9 +808,25 @@ public class DebugTraceHelperComprehensiveTest {
                 return name;
               }
               if (m.getName().equals("classLoader")) {
-                return finalCl;
+                return classLoader;
               }
               return null;
+            });
+  }
+
+  private static com.sun.jdi.ClassLoaderReference mockClassLoader(String typeName) {
+    com.sun.jdi.ReferenceType clType = (com.sun.jdi.ReferenceType) java.lang.reflect.Proxy.newProxyInstance(
+            com.sun.jdi.ReferenceType.class.getClassLoader(),
+            new Class<?>[] {com.sun.jdi.ReferenceType.class},
+            (p, m, args) -> m.getName().equals("name") ? typeName : null);
+    return (com.sun.jdi.ClassLoaderReference) java.lang.reflect.Proxy.newProxyInstance(
+            com.sun.jdi.ClassLoaderReference.class.getClassLoader(),
+            new Class<?>[] {com.sun.jdi.ClassLoaderReference.class},
+            (p, m, args) -> switch (m.getName()) {
+              case "referenceType" -> clType;
+              case "equals" -> p == args[0];
+              case "hashCode" -> System.identityHashCode(p);
+              default -> null;
             });
   }
 }
