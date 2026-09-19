@@ -348,6 +348,7 @@ Usage: code-tracer list-breakpoints [-hjpvV] [-i=<input>]
 | Option | Flag | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
+| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
 | `--json` | `-j` | `false` | Output available breakpoints in structured JSON format. |
 | `--verbose` | `-v` | `false` | Output messages about what the tracer is doing. |
 | `--help` | `-h` | | Show help message and exit. |
