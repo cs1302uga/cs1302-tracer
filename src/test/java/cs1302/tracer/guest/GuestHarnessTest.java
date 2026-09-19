@@ -94,6 +94,17 @@ public class GuestHarnessTest {
     } // testRunJobExecution
 
     @Test
+    void testRunJobInterrupted() {
+        File targetDir = new File("target/test-classes");
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = DummyTarget.class.getName();
+
+        Thread.currentThread().interrupt();
+        GuestHarness.runJob();
+        assertThat(Thread.interrupted()).isFalse();
+    } // testRunJobInterrupted
+
+    @Test
     void testRunJobTargetThrows() {
         File targetDir = new File("target/test-classes");
         GuestHarness.nextClassPath = targetDir.getAbsolutePath();

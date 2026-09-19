@@ -2,6 +2,9 @@ package cs1302.tracer.trace;
 
 import com.github.javaparser.StaticJavaParser;
 import cs1302.tracer.CompilationHelper;
+import cs1302.tracer.execution.InspectionPolicy;
+import cs1302.tracer.execution.TraceLimits;
+import cs1302.tracer.execution.TraceSession;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -146,7 +149,7 @@ class PersistentGuestSessionTest {
                 try (var crLoop = CompilationHelper.compile(LOOP_SOURCE)) {
                     List<ExecutionSnapshot> loopSnaps = session.traceChronologicalWithSpecs(
                             crLoop, List.of(BreakpointSpec.of(4)), List.of(astLoop), "");
-                    assertThat(loopSnaps).hasSize(2);
+                    assertThat(loopSnaps).hasSize(3);
                 } // try
                 // Chronological with duplicate line numbers to test suppression
                 List<ExecutionSnapshot> dups = session.traceChronologicalWithSpecs(
@@ -173,11 +176,19 @@ class PersistentGuestSessionTest {
         try (PersistentGuestSession session = PersistentGuestSession.create()) {
             var astEx = StaticJavaParser.parse(EXCEPTION_JOB_SOURCE);
             try (var crEx = CompilationHelper.compile(EXCEPTION_JOB_SOURCE)) {
-                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                Map<Integer, List<ExecutionSnapshot>> noExitSnaps = session.traceWithSpecs(
                         crEx, List.of(BreakpointSpec.of(4)), List.of(astEx), "", false);
+                assertThat(noExitSnaps).containsKey(4);
+                assertThat(noExitSnaps).containsKey(5);
+                assertThat(noExitSnaps).doesNotContainKey(-1);
+
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        crEx, List.of(BreakpointSpec.of(4), BreakpointSpec.of(-1)), List.of(astEx), "", false);
+                assertThat(snaps).containsKey(4);
                 assertThat(snaps).containsKey(5);
+                assertThat(snaps).containsKey(-1);
             } // try
-            assertThat(session.completedJobCount()).isEqualTo(1);
+            assertThat(session.completedJobCount()).isEqualTo(2);
             assertThat(session.isAlive()).isTrue();
 
             // Run a clean job right after the exception to ensure warm recovery
@@ -187,9 +198,57 @@ class PersistentGuestSessionTest {
                         crClean, List.of(BreakpointSpec.of(4)), List.of(astClean), "", false);
                 assertThat(cleanSnaps).containsKey(4);
             } // try
-            assertThat(session.completedJobCount()).isEqualTo(2);
+            assertThat(session.completedJobCount()).isEqualTo(3);
         } // try
     } // handlesExceptionAndRecovers
+
+    private static final String SYSTEM_EXIT_JOB = """
+            public class ExitJob {
+                public static void main(String[] args) {
+                    int a = 10;
+                    System.out.println("Sum: 30");
+                    System.exit(0);
+                }
+            }
+            """;
+
+    @Test
+    @DisplayName("Suppresses output updates when trace limit reached")
+    void testTraceOutputSuppressedOnTraceLimit() throws Exception {
+        TraceLimits limit = new TraceLimits(10_000, 10, 10, 10_000, 10_000, 1380, 10_000, 10_000);
+        try (PersistentGuestSession session = PersistentGuestSession.create();
+                TraceSession ts = new TraceSession(limit, InspectionPolicy.TRUSTED, false)) {
+            var ast = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                Map<Integer, List<ExecutionSnapshot>> snaps = session.traceWithSpecs(
+                        cr, List.of(BreakpointSpec.of(4)), List.of(ast), "", false);
+                assertThat(snaps).containsKey(4);
+                assertThat(ts.stopReason()).isEqualTo("trace_limit");
+                assertThat(snaps.get(4).getLast().stdoutSlice().length()).isEqualTo(0);
+            } // try
+        } // try
+
+        try (PersistentGuestSession session = PersistentGuestSession.create();
+                TraceSession ts = new TraceSession(limit, InspectionPolicy.TRUSTED, false)) {
+            var ast = StaticJavaParser.parse(SYSTEM_EXIT_JOB);
+            try (var cr = CompilationHelper.compile(SYSTEM_EXIT_JOB)) {
+                List<ExecutionSnapshot> chrono = session.traceChronologicalWithSpecs(
+                        cr, List.of(BreakpointSpec.of(4)), List.of(ast), "");
+                assertThat(chrono).isNotEmpty();
+                assertThat(ts.stopReason()).isEqualTo("trace_limit");
+                assertThat(chrono.getLast().stdoutSlice().length()).isEqualTo(0);
+            } // try
+        } // try
+
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(JOB1_SOURCE);
+            try (var cr = CompilationHelper.compile(JOB1_SOURCE)) {
+                List<ExecutionSnapshot> chronoOnlyExit = session.traceChronologicalWithSpecs(
+                        cr, List.of(BreakpointSpec.of(-1)), List.of(ast), "");
+                assertThat(chronoOnlyExit).hasSize(1);
+            } // try
+        } // try
+    } // testTraceOutputSuppressedOnTraceLimit
 
     @Test
     @DisplayName("Throws IllegalStateException when attempting to trace on a closed session")

@@ -500,6 +500,8 @@ public final class TraceSession implements AutoCloseable {
         long newRetained = Math.addExact(retainedBytes, extra * 15);
         if (limits.traceBytes() != 0 && newRetained > limits.traceBytes()) {
             stop("trace_limit");
+            materializeSnapshots();
+            return;
         } // if
         ExecutionSnapshot updated = new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),

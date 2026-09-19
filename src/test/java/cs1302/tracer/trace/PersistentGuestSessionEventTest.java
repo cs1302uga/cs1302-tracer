@@ -488,7 +488,7 @@ class PersistentGuestSessionEventTest {
     } // testAwaitHarnessType
 
     @Test
-    @DisplayName("teardownJobRequests tolerates exceptions when disabling requests")
+    @DisplayName("teardownJobRequests propagates exception when disabling request fails")
     void testTeardownJobRequests() {
         Location readyLoc = location("cs1302.tracer.guest.GuestHarness", 69);
         Location completedLoc = location("cs1302.tracer.guest.GuestHarness", 79);
@@ -501,7 +501,9 @@ class PersistentGuestSessionEventTest {
         var goodReq = mirror(EventRequest.class, Map.of());
 
         List<EventRequest> requests = new ArrayList<>(List.of(badReq, goodReq));
-        session.teardownJobRequests(requests);
+        assertThatThrownBy(() -> session.teardownJobRequests(requests))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("fail");
         assertThat(requests).isEmpty();
     } // testTeardownJobRequests
 
@@ -631,6 +633,26 @@ class PersistentGuestSessionEventTest {
         PersistentGuestSession deadSession = createMockSession(deadVm, readyLoc, completedLoc, deadProc);
         assertThat(deadSession.isAlive()).isFalse();
     } // testIsAlive
+
+    @Test
+    @DisplayName("waitForReadyBreakpoint throws IllegalStateException when deadline expires")
+    void testWaitForReadyBreakpointTimeout() {
+        Location readyLoc = location("cs1302.tracer.guest.GuestHarness", 69);
+        Location completedLoc = location("cs1302.tracer.guest.GuestHarness", 79);
+        var proc = new FakeProcess(true);
+        var emptyEq = (EventQueue) java.lang.reflect.Proxy.newProxyInstance(
+                EventQueue.class.getClassLoader(),
+                new Class<?>[] {EventQueue.class},
+                (self, m, args) -> null);
+        var vm = mirror(VirtualMachine.class, Map.of(
+                "process", proc,
+                "eventQueue", emptyEq));
+        PersistentGuestSession session = createMockSession(vm, readyLoc, completedLoc, proc);
+        assertThatThrownBy(() -> session.waitForReadyBreakpoint(System.currentTimeMillis() - 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Timed out waiting for GuestHarness ready breakpoint");
+        assertThat(proc.isAlive()).isFalse();
+    } // testWaitForReadyBreakpointTimeout
 
     @Test
     @DisplayName("awaitAndInstallSentinels throws IllegalStateException when startup times out")

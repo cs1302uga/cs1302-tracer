@@ -374,6 +374,7 @@ class TraceSessionLifecycleTest {
 
             assertThat(session.isStopped()).isTrue();
             assertThat(session.stopReason()).isEqualTo("trace_limit");
+            assertThat(session.snapshots().get(0).stdoutLength()).isEqualTo(0);
         } // try
     } // testFinishOutputBranches
 

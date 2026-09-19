@@ -771,6 +771,7 @@ public class DebugTraceHelperComprehensiveTest {
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.guest.GuestHarness$Inner")).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect("jdk.internal.reflect.NativeMethodAccessorImpl")).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect("java.lang.reflect.Method")).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("java.lang.Thread")).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.guest.OtherClass")).isFalse();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect("Student")).isFalse();
 
@@ -779,6 +780,8 @@ public class DebugTraceHelperComprehensiveTest {
             mockRefType("jdk.internal.reflect.NativeMethodAccessorImpl", null))).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
             mockRefType("java.lang.reflect.Method", null))).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
+            mockRefType("java.lang.Thread", null))).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(
             mockRefType("cs1302.tracer.guest.GuestHarness", null))).isTrue();
     assertThat(DebugTraceHelper.isGuestHarnessOrReflect(

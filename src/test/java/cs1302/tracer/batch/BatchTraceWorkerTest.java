@@ -523,4 +523,24 @@ class BatchTraceWorkerTest {
             assertThat(respPy.result().complete()).isTrue();
         } // try
     } // testWorkerMultiFileSameLinePreserved
+
+    @Test
+    @DisplayName("Worker executes single snapshot trace when breakpoints is null and guest exits early")
+    void testWorkerSingleSnapshotEarlyExit() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest reqMod = new BatchJobRequest(
+                    "exit-single-mod", SYSTEM_EXIT_SOURCE, "modern", null, null,
+                    false, false, false, false, false, "simple", null, null);
+            BatchJobResponse respMod = worker.execute(reqMod);
+            assertThat(respMod.id()).isEqualTo("exit-single-mod");
+            assertThat(respMod.result().complete()).isTrue();
+
+            BatchJobRequest reqPy = new BatchJobRequest(
+                    "exit-single-py", SYSTEM_EXIT_SOURCE, "pytutor", null, null,
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse respPy = worker.execute(reqPy);
+            assertThat(respPy.id()).isEqualTo("exit-single-py");
+            assertThat(respPy.result().complete()).isTrue();
+        } // try
+    } // testWorkerSingleSnapshotEarlyExit
 }

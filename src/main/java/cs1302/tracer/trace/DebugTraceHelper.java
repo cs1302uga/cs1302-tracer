@@ -2007,7 +2007,8 @@ public class DebugTraceHelper {
     static boolean isGuestHarnessOrReflect(ReferenceType declaringType) {
         String declaringClassFqn = declaringType.name();
         if (declaringClassFqn.startsWith("jdk.internal.reflect.")
-                || declaringClassFqn.startsWith("java.lang.reflect.")) {
+                || declaringClassFqn.startsWith("java.lang.reflect.")
+                || declaringClassFqn.equals("java.lang.Thread")) {
             return true;
         } // if
         if (declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
@@ -2028,7 +2029,8 @@ public class DebugTraceHelper {
         return declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
                 || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")
                 || declaringClassFqn.startsWith("jdk.internal.reflect.")
-                || declaringClassFqn.startsWith("java.lang.reflect.");
+                || declaringClassFqn.startsWith("java.lang.reflect.")
+                || declaringClassFqn.equals("java.lang.Thread");
     } // isGuestHarnessOrReflect
 
     /**

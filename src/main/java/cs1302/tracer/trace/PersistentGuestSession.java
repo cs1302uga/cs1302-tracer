@@ -146,14 +146,15 @@ public final class PersistentGuestSession implements AutoCloseable {
 
             vm.resume();
 
+            long deadline = System.currentTimeMillis() + 15000;
             BreakpointRequest[] bps = new BreakpointRequest[2];
             Location[] locs = new Location[2];
-            ClassType harnessType = awaitAndInstallSentinels(vm, cpr, bps, locs);
+            ClassType harnessType = awaitAndInstallSentinelsUntil(vm, cpr, bps, locs, deadline);
 
             PersistentGuestSession session = new PersistentGuestSession(
                     vm, vmOut, vmErr, harnessType, locs[0], locs[1]);
 
-            session.waitForReadyBreakpoint();
+            session.waitForReadyBreakpoint(deadline);
             return session;
         } catch (Throwable t) {
             cleanupLaunchFailure(vm, vmOut, vmErr);
@@ -217,15 +218,36 @@ public final class PersistentGuestSession implements AutoCloseable {
             BreakpointRequest[] outBps,
             Location[] outLocs,
             long timeoutMs) throws InterruptedException {
+        return awaitAndInstallSentinelsUntil(
+                vm, cpr, outBps, outLocs, System.currentTimeMillis() + timeoutMs);
+    } // awaitAndInstallSentinels
+
+    /**
+     * Awaits preparation of GuestHarness and installs sentinel breakpoints until deadline.
+     *
+     * @param vm Debuggee VirtualMachine.
+     * @param cpr Class prepare request for GuestHarness.
+     * @param outBps Output array storing created BreakpointRequests (ready, completed).
+     * @param outLocs Output array storing sentinel Locations (ready, completed).
+     * @param deadline Absolute deadline timestamp in milliseconds.
+     * @return Prepared ClassType for GuestHarness.
+     * @throws InterruptedException On cancellation.
+     */
+    static ClassType awaitAndInstallSentinelsUntil(
+            VirtualMachine vm,
+            ClassPrepareRequest cpr,
+            BreakpointRequest[] outBps,
+            Location[] outLocs,
+            long deadline) throws InterruptedException {
         ClassType harnessType = null;
-        long deadline = System.currentTimeMillis() + timeoutMs;
         while (true) {
-            if (System.currentTimeMillis() >= deadline) {
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0) {
                 vm.process().destroyForcibly();
                 throw new IllegalStateException(
                         "Timed out waiting for GuestHarness startup handshake");
             } // if
-            EventSet eventSet = vm.eventQueue().remove(1000);
+            EventSet eventSet = vm.eventQueue().remove(Math.min(1000, remaining));
             if (eventSet != null) {
                 for (Event event : eventSet) {
                     if (event instanceof ClassPrepareEvent prep) {
@@ -317,11 +339,16 @@ public final class PersistentGuestSession implements AutoCloseable {
             ExecutionSnapshot mat = snap.materializeOutput();
             DebugTraceHelper.storeSnapshot(snapshots, line, mat);
         });
-        for (List<ExecutionSnapshot> list : snapshots.values()) {
-            int lastIdx = list.size() - 1;
-            ExecutionSnapshot last = list.get(lastIdx);
-            list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
-        } // for
+        TraceSession session = TraceSession.current();
+        boolean allowOutputUpdate = session == null
+                || !"trace_limit".equals(session.stopReason());
+        if (allowOutputUpdate) {
+            for (List<ExecutionSnapshot> list : snapshots.values()) {
+                int lastIdx = list.size() - 1;
+                ExecutionSnapshot last = list.get(lastIdx);
+                list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
+            } // for
+        } // if
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
     } // traceWithSpecs
 
@@ -343,12 +370,19 @@ public final class PersistentGuestSession implements AutoCloseable {
         List<ExecutionSnapshot> chronological = new ArrayList<>();
         runJobInternal(cr, specs, parsedSources, stdin, true, (line, snap) -> {
             ExecutionSnapshot mat = snap.materializeOutput();
-            if (chronological.isEmpty()
-                    || !DebugTraceHelper.isSameTopFrame(chronological.getLast(), mat)) {
+            if (line == -1) {
+                if (chronological.isEmpty()
+                        || !DebugTraceHelper.isRedundantSnapshot(chronological.getLast(), mat)) {
+                    chronological.add(mat);
+                } // if
+            } else {
                 chronological.add(mat);
             } // if
         });
-        if (!chronological.isEmpty()) {
+        TraceSession session = TraceSession.current();
+        boolean allowOutputUpdate = session == null
+                || !"trace_limit".equals(session.stopReason());
+        if (allowOutputUpdate && !chronological.isEmpty()) {
             int lastIdx = chronological.size() - 1;
             ExecutionSnapshot last = chronological.get(lastIdx);
             chronological.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
@@ -802,7 +836,7 @@ public final class PersistentGuestSession implements AutoCloseable {
                         ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
                         ctx.inputTracker(), ctx.startOut(), ctx.startErr()).materializeOutput();
                 ctx.sink().accept(loc.lineNumber(), snap);
-                if (!recorded[0]) {
+                if (ctx.snapMainEnd()) {
                     ctx.sink().accept(-1, snap);
                 } // if
                 recorded[0] = true;
@@ -816,26 +850,44 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param jobRequests List of event requests to clean up.
      */
     void teardownJobRequests(List<EventRequest> jobRequests) {
-        for (EventRequest req : jobRequests) {
-            try {
+        try {
+            for (EventRequest req : jobRequests) {
                 req.disable();
                 vm.eventRequestManager().deleteEventRequest(req);
-            } catch (Exception ignored) {
-                // ignore teardown errors
-            } // try
-        } // for
-        jobRequests.clear();
+            } // for
+        } catch (com.sun.jdi.VMDisconnectedException e) {
+            alive = false;
+        } finally {
+            jobRequests.clear();
+        } // try
     } // teardownJobRequests
 
     /**
      * Suspends execution and waits for the guest harness to reach the ready hook.
      */
     void waitForReadyBreakpoint() throws InterruptedException {
+        waitForReadyBreakpoint(System.currentTimeMillis() + 15000);
+    } // waitForReadyBreakpoint
+
+    /**
+     * Suspends execution and waits for the guest harness to reach the ready hook before deadline.
+     *
+     * @param deadline Absolute timestamp deadline in milliseconds.
+     * @throws InterruptedException On thread interruption.
+     */
+    void waitForReadyBreakpoint(long deadline) throws InterruptedException {
         boolean ready = false;
         while (!ready && isAlive()) {
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0) {
+                alive = false;
+                vm.process().destroyForcibly();
+                throw new IllegalStateException(
+                        "Timed out waiting for GuestHarness ready breakpoint");
+            } // if
             EventSet eventSet = null;
             try {
-                eventSet = vm.eventQueue().remove(100);
+                eventSet = vm.eventQueue().remove(Math.min(100, remaining));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw e;

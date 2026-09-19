@@ -127,21 +127,29 @@ public final class GuestHarness {
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
             try (URLClassLoader loader = new URLClassLoader(
                     urls, ClassLoader.getPlatformClassLoader())) {
-                ClassLoader originalContextLoader =
-                        Thread.currentThread().getContextClassLoader();
-                Thread.currentThread().setContextClassLoader(loader);
+                Thread jobThread = new Thread(() -> {
+                    try {
+                        Class<?> mainClass = Class.forName(mc, true, loader);
+                        Method mainMethod = mainClass.getMethod("main", String[].class);
+                        mainMethod.invoke(null, (Object) new String[0]);
+                    } catch (Throwable t) {
+                        // Handled or ignored; snapshot or exception event captured by JDI
+                    } // try
+                }, "student-main");
+                jobThread.setContextClassLoader(loader);
+                jobThread.start();
                 try {
-                    Class<?> mainClass = Class.forName(mc, true, loader);
-                    Method mainMethod = mainClass.getMethod("main", String[].class);
-                    mainMethod.invoke(null, (Object) new String[0]);
-                } finally {
-                    Thread.currentThread().setContextClassLoader(originalContextLoader);
-                    stopLingeringThreads(loader);
+                    jobThread.join();
+                } catch (InterruptedException e) {
+                    jobThread.interrupt();
+                    Thread.currentThread().interrupt();
                 } // try
+                stopLingeringThreads(loader);
             } // try
         } catch (Throwable t) {
             // Handled or ignored; snapshot or exception event captured by JDI
         } finally {
+            Thread.interrupted();
             System.out.flush();
             System.err.flush();
             ORIGINAL_OUT.flush();
@@ -220,6 +228,7 @@ public final class GuestHarness {
      * Cleans up transient state between jobs.
      */
     static void cleanState() {
+        Thread.interrupted();
         nextClassPath = null;
         nextMainClass = null;
         nextStdin = null;

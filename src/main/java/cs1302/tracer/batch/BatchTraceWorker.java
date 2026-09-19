@@ -12,6 +12,7 @@ import cs1302.tracer.execution.TraceResult;
 import cs1302.tracer.execution.TraceSession;
 import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.model.TypeStyle;
+import cs1302.tracer.model.modern.Trace;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
@@ -172,10 +173,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                 payload = serializeChronologicalPayload(req, format, typeStyle, snapshots);
             } else {
                 if (req.breakpoints() == null) {
-                    Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
-                            session.traceWithSpecs(compiled, List.of(), units, stdin, false);
-                    ExecutionSnapshot snapshot = snapshotsMap.get(-1).getLast();
-                    payload = serializeSingleSnapshotPayload(req, format, typeStyle, snapshot);
+                    payload = traceSingleSnapshot(req, compiled, units, stdin, format, typeStyle);
                 } else {
                     List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
                     Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
@@ -187,6 +185,34 @@ public final class BatchTraceWorker implements AutoCloseable {
         } // try
         return payload;
     } // performTrace
+
+    /**
+     * Executes single-snapshot trace when no breakpoints are specified.
+     *
+     * @param req Job request.
+     * @param compiled Compilation result.
+     * @param units Parsed compilation units.
+     * @param stdin Standard input string.
+     * @param format Output format.
+     * @param typeStyle Type styling.
+     * @return Serialized trace payload.
+     */
+    private Object traceSingleSnapshot(
+            BatchJobRequest req,
+            CompilationResult compiled,
+            List<CompilationUnit> units,
+            String stdin,
+            TraceFormat format,
+            TypeStyle typeStyle) throws Exception {
+        Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
+                session.traceWithSpecs(compiled, List.of(), units, stdin, false);
+        List<ExecutionSnapshot> mainSnaps = snapshotsMap.get(-1);
+        if (mainSnaps == null) {
+            return serializeChronologicalPayload(req, format, typeStyle, List.of());
+        } // if
+        ExecutionSnapshot snapshot = mainSnaps.getLast();
+        return serializeSingleSnapshotPayload(req, format, typeStyle, snapshot);
+    } // traceSingleSnapshot
 
     /**
      * Serializes chronological execution snapshots into the selected output format.
