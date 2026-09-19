@@ -25,6 +25,7 @@ public class StreamDrainer implements AutoCloseable {
     private volatile long lastReadNanos;
     private volatile boolean closed;
     private volatile boolean eofReached;
+    private long sessionStartSinkSize;
 
     /**
      * Constructs a new StreamDrainer for the specified source stream.
@@ -61,11 +62,15 @@ public class StreamDrainer implements AutoCloseable {
                     break;
                 } // if
                 synchronized (sink) {
-                    int retained = limit == 0 ? read
-                            : (int) Math.min(read, Math.max(0, limit - sink.size()));
+                    TraceSession active = session;
+                    long currentLimit = active != null ? active.outputLimit() : limit;
+                    long sessionBytes = active != null
+                            ? Math.max(0, sink.size() - sessionStartSinkSize)
+                            : sink.size();
+                    int retained = currentLimit == 0 ? read
+                            : (int) Math.min(read, Math.max(0, currentLimit - sessionBytes));
                     sink.write(buffer, 0, retained);
                     if (retained < read) {
-                        TraceSession active = session;
                         if (active != null) {
                             active.stop("output_limit");
                         } // if
@@ -79,11 +84,36 @@ public class StreamDrainer implements AutoCloseable {
     } // drainLoop
 
     /**
+     * Attaches an active trace session so this drainer enforces its output limit.
+     *
+     * @param session Active trace session.
+     */
+    public void attachSession(TraceSession session) {
+        synchronized (sink) {
+            this.session = session;
+            this.sessionStartSinkSize = sink.size();
+        } // synchronized
+    } // attachSession
+
+    /**
      * Detaches the active trace session so this drainer does not retain it.
      */
     public void detachSession() {
-        this.session = null;
+        synchronized (sink) {
+            this.session = null;
+            this.sessionStartSinkSize = 0;
+        } // synchronized
     } // detachSession
+
+    /**
+     * Resets the accumulated byte buffer in the sink.
+     */
+    public void reset() {
+        synchronized (sink) {
+            sink.reset();
+            lastReadNanos = System.nanoTime();
+        } // synchronized
+    } // reset
 
     /**
      * Synchronizes the stream using default wait and quiet-period thresholds.
@@ -128,8 +158,10 @@ public class StreamDrainer implements AutoCloseable {
 
             int currentSize = size();
             boolean bytesArrived = currentSize > initialSize;
+            boolean recentRead = currentSize > 0
+                    && System.nanoTime() - lastReadNanos < quietPeriodNanos;
 
-            if (bytesArrived) {
+            if (bytesArrived || recentRead) {
                 if (System.nanoTime() - lastReadNanos >= quietPeriodNanos) {
                     break;
                 } // if
@@ -146,6 +178,37 @@ public class StreamDrainer implements AutoCloseable {
             } // try
         } // while
     } // sync
+
+    /**
+     * Synchronizes the stream until at least the expected total bytes are read or timeout elapses.
+     *
+     * @param expectedTotalBytes Minimum total bytes expected to be read.
+     * @param maxWaitMillis Maximum milliseconds to wait.
+     */
+    public void syncUntil(long expectedTotalBytes, long maxWaitMillis) {
+        if (eofReached || closed) {
+            return;
+        } // if
+        long deadline = System.currentTimeMillis() + maxWaitMillis;
+        while (size() < expectedTotalBytes && !closed && !eofReached
+                && System.currentTimeMillis() < deadline) {
+            TraceSession active = session;
+            if (active != null && active.isStopped()) {
+                break;
+            } // if
+            Thread.onSpinWait();
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            } // try
+        } // while
+        long remainingMillis = Math.max(0, deadline - System.currentTimeMillis());
+        if (remainingMillis > 0) {
+            sync(remainingMillis, DEFAULT_QUIET_PERIOD_MILLIS);
+        } // if
+    } // syncUntil
 
     /**
      * Returns a copy of the accumulated bytes.
@@ -387,4 +450,4 @@ public class StreamDrainer implements AutoCloseable {
             return buf[index];
         } // byteAt
     } // AccessibleByteArrayOutputStream
-} // StreamDrainer
+}

@@ -19,6 +19,7 @@ import com.github.javaparser.resolution.types.ResolvedLambdaConstraintType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.Bootstrap;
+import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.Field;
 import com.sun.jdi.IncompatibleThreadStateException;
@@ -47,6 +48,7 @@ import com.sun.jdi.event.ExceptionEvent;
 import com.sun.jdi.event.MethodExitEvent;
 import com.sun.jdi.event.VMDeathEvent;
 import com.sun.jdi.event.VMDisconnectEvent;
+import com.sun.jdi.request.BreakpointRequest;
 import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.ExceptionRequest;
 import com.sun.jdi.request.MethodExitRequest;
@@ -386,7 +388,7 @@ public class DebugTraceHelper {
      * @param snapshots Breakpoint snapshot mapping.
      * @return Reduced mapping containing the latest snapshot per source file for each line.
      */
-    private static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(
+    static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(
             Map<Integer, List<ExecutionSnapshot>> snapshots) {
         Map<Integer, List<ExecutionSnapshot>> latest = new TreeMap<>();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
@@ -547,7 +549,7 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static void processBreakpointExceptionEvent(
+    static void processBreakpointExceptionEvent(
             ExceptionEvent ee,
             CompilationResult compilationResult,
             HashSet<ReferenceType> loadedClasses,
@@ -559,6 +561,41 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        processBreakpointExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr,
+                sourceAnalysis, inputTracker, snapshots, 0, 0);
+    } // processBreakpointExceptionEvent
+
+    /**
+     * Processes an unhandled ExceptionEvent with output offset bounds.
+     *
+     * @param ee The ExceptionEvent.
+     * @param compilationResult The compilation result.
+     * @param loadedClasses Set of loaded classes.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param inputTracker Input tracker.
+     * @param snapshots Target snapshot map.
+     * @param startOutOffset Starting standard output offset.
+     * @param startErrOffset Starting standard error offset.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    static void processBreakpointExceptionEvent(
+            ExceptionEvent ee,
+            CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker,
+            Map<Integer, List<ExecutionSnapshot>> snapshots,
+            int startOutOffset,
+            int startErrOffset)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
         recordException(ee);
         Location loc = ee.location();
         if (loc != null && compilationResult.compiledClassNames().contains(
@@ -566,7 +603,7 @@ public class DebugTraceHelper {
             Integer line = loc.lineNumber();
             ExecutionSnapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                    inputTracker);
+                    inputTracker, startOutOffset, startErrOffset);
             storeSnapshot(snapshots, line, snapshot);
             if (!snapshots.containsKey(-1)) {
                 snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
@@ -580,11 +617,13 @@ public class DebugTraceHelper {
      * @param vm The JDI VirtualMachine.
      * @param refType The loaded reference type.
      * @param breakPoints The collection of line numbers.
+     * @return List of created and enabled breakpoint requests.
      * @throws AbsentInformationException If line info is absent.
      */
-    private static void registerBreakpoints(
+    static List<BreakpointRequest> registerBreakpoints(
             VirtualMachine vm, ReferenceType refType, Collection<BreakpointSpec> breakPoints)
             throws AbsentInformationException {
+        List<BreakpointRequest> created = new ArrayList<>();
         Set<Location> registeredLocations = new HashSet<>();
         for (BreakpointSpec spec : breakPoints) {
             if (spec.lineNumber() <= 0) {
@@ -595,11 +634,15 @@ public class DebugTraceHelper {
                 if (!locations.isEmpty()) {
                     Location loc = locations.get(0);
                     if (registeredLocations.add(loc)) {
-                        vm.eventRequestManager().createBreakpointRequest(loc).enable();
+                        BreakpointRequest req =
+                                vm.eventRequestManager().createBreakpointRequest(loc);
+                        req.enable();
+                        created.add(req);
                     } // if
                 } // if
             } // if
         } // for
+        return created;
     } // registerBreakpoints
 
     /**
@@ -621,7 +664,7 @@ public class DebugTraceHelper {
      * @param method The JDI method.
      * @return True if method is main.
      */
-    private static boolean isMainMethodExit(Method method) {
+    static boolean isMainMethodExit(Method method) {
         String mainJniSignature = "([Ljava/lang/String;)V";
         String noArgJniSignature = "()V";
         return !method.isPrivate()
@@ -726,7 +769,7 @@ public class DebugTraceHelper {
      * @param s2 Second snapshot.
      * @return True if both have the same method and line number on top.
      */
-    private static boolean isSameTopFrame(ExecutionSnapshot s1, ExecutionSnapshot s2) {
+    static boolean isSameTopFrame(ExecutionSnapshot s1, ExecutionSnapshot s2) {
         if (s1.stack().isEmpty() || s2.stack().isEmpty()) {
             return false;
         } // if
@@ -850,7 +893,7 @@ public class DebugTraceHelper {
      * @param rawStderr Raw stderr OutputSlice.
      * @return Sanitized stderr OutputSlice.
      */
-    static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
+    public static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
         if (rawStderr == null || rawStderr.isEmpty()) {
             return rawStderr != null ? rawStderr : OutputSlice.empty();
         } // if
@@ -1371,7 +1414,7 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static void processChronologicalExceptionEvent(
+    static void processChronologicalExceptionEvent(
             ExceptionEvent ee,
             CompilationResult compilationResult,
             HashSet<ReferenceType> loadedClasses,
@@ -1383,13 +1426,48 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        processChronologicalExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr,
+                sourceAnalysis, inputTracker, chronologicalSnapshots, 0, 0);
+    } // processChronologicalExceptionEvent
+
+    /**
+     * Processes an unhandled ExceptionEvent in chronological mode with output offset bounds.
+     *
+     * @param ee The ExceptionEvent.
+     * @param compilationResult The compilation result.
+     * @param loadedClasses Set of loaded classes.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param inputTracker Input tracker.
+     * @param chronologicalSnapshots List to accumulate snapshots.
+     * @param startOutOffset Starting standard output offset.
+     * @param startErrOffset Starting standard error offset.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    static void processChronologicalExceptionEvent(
+            ExceptionEvent ee,
+            CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker,
+            List<ExecutionSnapshot> chronologicalSnapshots,
+            int startOutOffset,
+            int startErrOffset)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
         recordException(ee);
         Location loc = ee.location();
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
             ExecutionSnapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                    inputTracker);
+                    inputTracker, startOutOffset, startErrOffset);
             if (chronologicalSnapshots.isEmpty()
                     || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
                 chronologicalSnapshots.add(snapshot);
@@ -1509,7 +1587,7 @@ public class DebugTraceHelper {
      * @param vm The JDI VirtualMachine.
      * @return The ObjectReference for System.in, or null if not found.
      */
-    private static ObjectReference getSystemIn(VirtualMachine vm) {
+    static ObjectReference getSystemIn(VirtualMachine vm) {
         try {
             List<ReferenceType> systemClasses = vm.classesByName("java.lang.System");
             if (systemClasses != null && !systemClasses.isEmpty()) {
@@ -1533,7 +1611,7 @@ public class DebugTraceHelper {
      *
      * @param vm The debuggee VirtualMachine.
      */
-    private static void registerReaderMethodExitRequests(VirtualMachine vm) {
+    static void registerReaderMethodExitRequests(VirtualMachine vm) {
         String[] readerClasses = {
             "java.util.Scanner",
             "java.io.BufferedReader",
@@ -1555,7 +1633,7 @@ public class DebugTraceHelper {
      * @param inputTracker The active input tracker.
      * @param systemIn Cached reference to System.in in target VM.
      */
-    private static void handleReaderMethodExit(
+    static void handleReaderMethodExit(
             MethodExitEvent mee,
             InputTracker inputTracker,
             ObjectReference systemIn) {
@@ -1644,13 +1722,79 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static ExecutionSnapshot snapshotTheWorld(
+    static ExecutionSnapshot snapshotTheWorld(
             ThreadReference mainThread,
             Iterable<ReferenceType> loadedClasses,
             StreamDrainer vmOut,
             StreamDrainer vmErr,
             SourceAnalysis sourceAnalysis,
             InputTracker inputTracker)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                inputTracker, 0, 0, null);
+    } // snapshotTheWorld
+
+    /**
+     * Takes an execution snapshot with stream output sliced from specified offsets.
+     *
+     * @param mainThread The main thread reference.
+     * @param loadedClasses Currently loaded reference types.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param inputTracker Input tracker.
+     * @param startOutOffset Starting standard output offset.
+     * @param startErrOffset Starting standard error offset.
+     * @return An execution snapshot.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    static ExecutionSnapshot snapshotTheWorld(
+            ThreadReference mainThread,
+            Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker,
+            int startOutOffset,
+            int startErrOffset)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                inputTracker, startOutOffset, startErrOffset, null);
+    } // snapshotTheWorld
+
+    /**
+     * Takes an execution snapshot with explicit internal harness class-loader identity.
+     *
+     * @param mainThread The main thread reference.
+     * @param loadedClasses Currently loaded reference types.
+     * @param vmOut Standard output drainer.
+     * @param vmErr Standard error drainer.
+     * @param sourceAnalysis Precomputed source analysis.
+     * @param inputTracker Input tracker.
+     * @param startOutOffset Starting standard output offset.
+     * @param startErrOffset Starting standard error offset.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
+     * @return An execution snapshot.
+     * @throws IncompatibleThreadStateException If thread state is incompatible.
+     * @throws AbsentInformationException If debug info is missing.
+     * @throws ClassNotLoadedException If class is not loaded.
+     */
+    static ExecutionSnapshot snapshotTheWorld(
+            ThreadReference mainThread,
+            Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut,
+            StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker,
+            int startOutOffset,
+            int startErrOffset,
+            ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
@@ -1663,7 +1807,7 @@ public class DebugTraceHelper {
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         Map<Long, String> objectTypeMap = new HashMap<>();
 
-        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap);
+        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, harnessClassLoader);
 
         List<StackSnapshot> stackSnapshots = collectStackSnapshots(
                 mainThread,
@@ -1672,18 +1816,22 @@ public class DebugTraceHelper {
                 sourceAnalysis.lambdaMethodAssignments(),
                 sourceAnalysis.finalMethodVariables(),
                 heapReferencesToWalk,
-                heap);
+                heap,
+                harnessClassLoader);
 
         List<ExecutionSnapshot.Field> statics = collectStatics(
                 loadedClasses, sourceAnalysis, heapReferencesToWalk, heap);
 
         drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
 
+        int outLen = Math.max(0, vmOut.size() - startOutOffset);
+        int errLen = Math.max(0, vmErr.size() - startErrOffset);
         if (session != null) {
-            session.allocate((long) vmOut.size() + vmErr.size());
+            session.allocate((long) outLen + errLen);
         } // if
-        OutputSlice vmOutSlice = vmOut.snapshotOutput();
-        OutputSlice vmErrSlice = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
+        OutputSlice vmOutSlice = OutputSlice.from(vmOut, startOutOffset, outLen);
+        OutputSlice vmErrSlice = sanitizeDebuggeeStderrSlice(
+                OutputSlice.from(vmErr, startErrOffset, errLen));
 
         String currentStepSourcePath = resolveStepSourcePath(mainThread);
         String stdinConsumed = inputTracker == null ? "" : inputTracker.consumed();
@@ -1885,6 +2033,44 @@ public class DebugTraceHelper {
     } // resolveMethodSignature
 
     /**
+     * Returns true if declaring class corresponds to internal coordinator harness or reflection.
+     * Student classes named GuestHarness are preserved unless loaded by the known harness loader.
+     *
+     * @param declaringType Declaring ReferenceType.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
+     * @return True if frame should be filtered from student trace.
+     */
+    static boolean isGuestHarnessOrReflect(
+            ReferenceType declaringType, ClassLoaderReference harnessClassLoader) {
+        String declaringClassFqn = declaringType.name();
+        if (declaringClassFqn.startsWith("jdk.internal.reflect.")
+                || declaringClassFqn.startsWith("java.lang.reflect.")
+                || declaringClassFqn.equals("java.lang.Thread")) {
+            return true;
+        } // if
+        if (declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
+                || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")) {
+            return harnessClassLoader != null
+                    && harnessClassLoader.equals(declaringType.classLoader());
+        } // if
+        return false;
+    } // isGuestHarnessOrReflect
+
+    /**
+     * Returns true if declaring class corresponds to the internal guest harness or reflection.
+     *
+     * @param declaringClassFqn Declaring class fully qualified name.
+     * @return True if frame should be filtered from student trace.
+     */
+    static boolean isGuestHarnessOrReflect(String declaringClassFqn) {
+        return declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
+                || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")
+                || declaringClassFqn.startsWith("jdk.internal.reflect.")
+                || declaringClassFqn.startsWith("java.lang.reflect.")
+                || declaringClassFqn.equals("java.lang.Thread");
+    } // isGuestHarnessOrReflect
+
+    /**
      * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
      *
      * @param mainThread Suspended thread.
@@ -1901,11 +2087,37 @@ public class DebugTraceHelper {
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
+        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, null);
+    } // prepassObjectTypes
+
+    /**
+     * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
+     *
+     * @param mainThread Suspended thread.
+     * @param astTypeResolver AstTypeResolver instance.
+     * @param objectTypeMap Target object type map.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
+     * @throws IncompatibleThreadStateException On thread state error.
+     * @throws AbsentInformationException On absent debug info.
+     * @throws ClassNotLoadedException On unloaded class.
+     */
+    private static void prepassObjectTypes(
+            ThreadReference mainThread,
+            AstTypeResolver astTypeResolver,
+            Map<Long, String> objectTypeMap,
+            ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException,
+            AbsentInformationException,
+            ClassNotLoadedException {
 
         List<StackFrame> frameList = mainThread.frames();
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
-            String declaringClassFqn = frame.location().method().declaringType().name();
+            ReferenceType declaringType = frame.location().method().declaringType();
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
+                continue;
+            } // if
+            String declaringClassFqn = declaringType.name();
             String methodName = frame.location().method().name();
             int currentLine = frame.location().lineNumber();
 
@@ -1971,7 +2183,13 @@ public class DebugTraceHelper {
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap)
             throws AbsentInformationException {
-        for (LocalVariable lv : frame.visibleVariables()) {
+        List<LocalVariable> variables;
+        try {
+            variables = frame.visibleVariables();
+        } catch (AbsentInformationException ignored) {
+            return;
+        } // try
+        for (LocalVariable lv : variables) {
             Value val = frame.getValue(lv);
             if (val instanceof ObjectReference or) {
                 prepassVariableReference(
@@ -2048,6 +2266,58 @@ public class DebugTraceHelper {
     } // prepassVariableReference
 
     /**
+     * Processes visible local variables in a single stack frame and appends their fields.
+     *
+     * @param frame Stack frame.
+     * @param visibleVars Visible local variables.
+     * @param finalVariableNames Set of final variable names.
+     * @param methodLambdaAssignments Precomputed lambda assignments.
+     * @param currentLine Current execution line number.
+     * @param declaringClassFqn FQN of declaring class.
+     * @param methodName Method name.
+     * @param astTypeResolver AST type resolver.
+     * @param objectTypeMap Reified object type map.
+     * @param heapReferencesToWalk Heap reference queue.
+     * @param heap Heap mapping.
+     * @param stackFrameFields Target list for frame fields.
+     * @throws ClassNotLoadedException If a variable class is not loaded.
+     */
+    private static void processStackFrameVariables(
+            StackFrame frame,
+            List<LocalVariable> visibleVars,
+            Set<String> finalVariableNames,
+            List<LambdaAssignment> methodLambdaAssignments,
+            int currentLine,
+            String declaringClassFqn,
+            String methodName,
+            AstTypeResolver astTypeResolver,
+            Map<Long, String> objectTypeMap,
+            List<ObjectReference> heapReferencesToWalk,
+            Map<Long, TraceValue> heap,
+            List<ExecutionSnapshot.Field> stackFrameFields)
+            throws ClassNotLoadedException {
+        for (LocalVariable lv : visibleVars) {
+            TraceSession.elements(1);
+            boolean isFinal = finalVariableNames.contains(lv.name());
+            Optional<String> lvLambdaImplementation =
+                    findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
+            String resolvedTypeName = resolveLocalVariableType(
+                    frame, lv, astTypeResolver, objectTypeMap, declaringClassFqn, methodName);
+            appendStackField(
+                    frame,
+                    lv,
+                    isFinal,
+                    resolvedTypeName,
+                    lvLambdaImplementation,
+                    astTypeResolver,
+                    objectTypeMap,
+                    heapReferencesToWalk,
+                    heap,
+                    stackFrameFields);
+        } // for
+    } // processStackFrameVariables
+
+    /**
      * Collects stack frame snapshots for all visible frames on the main thread.
      *
      * @param mainThread Suspended thread.
@@ -2057,11 +2327,13 @@ public class DebugTraceHelper {
      * @param finalMap Final variable names map.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap trace values map.
+     * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return List of StackSnapshots in call order.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException On unloaded class.
      */
+
     private static List<StackSnapshot> collectStackSnapshots(
             ThreadReference mainThread,
             AstTypeResolver astTypeResolver,
@@ -2069,17 +2341,23 @@ public class DebugTraceHelper {
             Map<String, List<LambdaAssignment>> lambdaMap,
             Map<String, Set<String>> finalMap,
             List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap)
+            Map<Long, TraceValue> heap,
+            ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException,
             AbsentInformationException,
             ClassNotLoadedException {
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
-        TraceSession.elements(mainThread.frameCount());
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
+            ReferenceType declaringType = frameMethod.declaringType();
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
+                continue;
+            } // if
+            TraceSession.elements(1);
+            String declaringClassFqn = declaringType.name();
             String frameMethodSignature = String.format(
                     "%s.%s(%s)",
-                    frameMethod.declaringType().name(),
+                    declaringClassFqn,
                     frameMethod.name(),
                     frameMethod.argumentTypes().stream()
                             .map(Type::name)
@@ -2090,27 +2368,17 @@ public class DebugTraceHelper {
             List<LambdaAssignment> methodLambdaAssignments =
                     lambdaMap.getOrDefault(frameMethodSignature, Collections.emptyList());
             int currentLine = frame.location().lineNumber();
-            String declaringClassFqn = frameMethod.declaringType().name();
             String methodName = frameMethod.name();
-            for (LocalVariable lv : frame.visibleVariables()) {
-                TraceSession.elements(1);
-                boolean isFinal = finalVariableNames.contains(lv.name());
-                Optional<String> lvLambdaImplementation =
-                        findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
-                String resolvedTypeName = resolveLocalVariableType(
-                        frame, lv, astTypeResolver, objectTypeMap, declaringClassFqn, methodName);
-                appendStackField(
-                        frame,
-                        lv,
-                        isFinal,
-                        resolvedTypeName,
-                        lvLambdaImplementation,
-                        astTypeResolver,
-                        objectTypeMap,
-                        heapReferencesToWalk,
-                        heap,
-                        stackFrameFields);
-            } // for
+            List<LocalVariable> visibleVars;
+            try {
+                visibleVars = frame.visibleVariables();
+            } catch (AbsentInformationException ignored) {
+                continue;
+            } // try
+            processStackFrameVariables(
+                    frame, visibleVars, finalVariableNames, methodLambdaAssignments,
+                    currentLine, declaringClassFqn, methodName, astTypeResolver,
+                    objectTypeMap, heapReferencesToWalk, heap, stackFrameFields);
             Optional<ThisObject> thisObject = resolveThisObject(
                     frame, declaringClassFqn, objectTypeMap, heapReferencesToWalk);
             String frameSourcePath = resolveFrameSourcePath(frame);
@@ -2432,7 +2700,7 @@ public class DebugTraceHelper {
      * @return Events, possibly empty after a poll timeout.
      * @throws InterruptedException On thread cancellation.
      */
-    private static Iterable<Event> nextEvents(VirtualMachine vm) throws InterruptedException {
+    static Iterable<Event> nextEvents(VirtualMachine vm) throws InterruptedException {
         TraceSession session = TraceSession.current();
         if (session != null) {
             session.check();
@@ -2447,7 +2715,7 @@ public class DebugTraceHelper {
      * @param line Breakpoint line.
      * @param snapshot Completed state.
      */
-    private static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
+    static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
             int line, ExecutionSnapshot snapshot) {
         List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
         if (TraceSession.current() != null && !TraceSession.current().accumulates()) {

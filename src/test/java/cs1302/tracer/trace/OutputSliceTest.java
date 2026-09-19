@@ -90,6 +90,10 @@ class OutputSliceTest {
         OutputSlice fromSubrangeClamped = OutputSlice.from(bytes, -2, 5);
         assertThat(fromSubrangeClamped.asUtf8String()).isEqualTo("Hello");
 
+        bytes[0] = (byte) 'h';
+        assertThat(fromSubrange.asUtf8String()).isEqualTo("Hello");
+        assertThat(fromSubrangeClamped.asUtf8String()).isEqualTo("Hello");
+
         assertThat(slice.byteAt(0)).isEqualTo((byte) 'H');
         assertThat(slice.startsWith(null)).isTrue();
         assertThat(slice.startsWith(new byte[0])).isTrue();
@@ -305,4 +309,66 @@ class OutputSliceTest {
         assertThat(snapshot.stdoutSlice().byteAt(0)).isEqualTo((byte) 'X');
         assertThat(snapshot.stderrSlice().byteAt(0)).isEqualTo((byte) 'X');
     } // testImmutabilityDefensiveCopy
+    @Test
+    @DisplayName("materialize detaches slices and snapshots from drainers")
+    void testMaterialize() throws Exception {
+        byte[] directBytes = "direct".getBytes(StandardCharsets.UTF_8);
+        OutputSlice directSlice = OutputSlice.from(directBytes);
+        assertThat(directSlice.materialize()).isSameAs(directSlice);
+
+        byte[] drainerBytes = "drainer output".getBytes(StandardCharsets.UTF_8);
+        try (StreamDrainer drainer = new StreamDrainer(new ByteArrayInputStream(drainerBytes))) {
+            drainer.waitForEof(1000);
+            OutputSlice drainerSlice = OutputSlice.from(drainer, 0, 7);
+            OutputSlice materialized = drainerSlice.materialize();
+
+            assertThat(materialized).isNotSameAs(drainerSlice);
+            assertThat(materialized.asUtf8String()).isEqualTo("drainer");
+
+            ExecutionSnapshot snapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    drainerSlice, directSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot materializedSnapshot = snapshot.materializeOutput();
+
+            assertThat(materializedSnapshot).isNotSameAs(snapshot);
+            assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
+            assertThat(materializedSnapshot.materializeOutput()).isSameAs(materializedSnapshot);
+
+            ExecutionSnapshot errDrainerSnapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    directSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot matErrSnapshot = errDrainerSnapshot.materializeOutput();
+            assertThat(matErrSnapshot).isNotSameAs(errDrainerSnapshot);
+            assertThat(matErrSnapshot.stderrSlice().asUtf8String()).isEqualTo("drainer");
+
+            ExecutionSnapshot bothDrainerSnapshot = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    drainerSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot matBothSnapshot = bothDrainerSnapshot.materializeOutput();
+            assertThat(matBothSnapshot).isNotSameAs(bothDrainerSnapshot);
+
+            drainer.reset();
+            assertThat(materialized.asUtf8String()).isEqualTo("drainer");
+            assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
+        } // try
+    } // testMaterialize
+
+    @Test
+    @DisplayName("wrapShared covers null, zero-length, out of bounds, and valid offsets")
+    void testWrapShared() {
+        assertThat(OutputSlice.wrapShared(null, 0, 5).isEmpty()).isTrue();
+        byte[] bytes = "0123456789".getBytes(StandardCharsets.UTF_8);
+        assertThat(OutputSlice.wrapShared(bytes, 0, 0).isEmpty()).isTrue();
+        assertThat(OutputSlice.wrapShared(bytes, 0, -1).isEmpty()).isTrue();
+        assertThat(OutputSlice.wrapShared(bytes, 15, 5).isEmpty()).isTrue();
+
+        OutputSlice negativeOffset = OutputSlice.wrapShared(bytes, -2, 5);
+        assertThat(negativeOffset.asUtf8String()).isEqualTo("01234");
+
+        OutputSlice clampedLength = OutputSlice.wrapShared(bytes, 8, 10);
+        assertThat(clampedLength.asUtf8String()).isEqualTo("89");
+
+        OutputSlice normal = OutputSlice.wrapShared(bytes, 2, 4);
+        assertThat(normal.asUtf8String()).isEqualTo("2345");
+    } // testWrapShared
 } // OutputSliceTest

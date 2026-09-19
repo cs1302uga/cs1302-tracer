@@ -2,7 +2,11 @@ package cs1302.tracer.execution;
 
 import static org.assertj.core.api.Assertions.*;
 
+import cs1302.tracer.trace.ExecutionSnapshot;
+import cs1302.tracer.trace.OutputSlice;
+import cs1302.tracer.trace.StreamDrainer;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -165,6 +169,17 @@ class TraceSessionLifecycleTest {
     }
 
     @Test
+    void stopWithDeadProcessDoesNotDestroyProcess() {
+        var process = new GuestProcess();
+        process.alive = false;
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            session.attach(vm(process));
+            session.stop("dead_guest");
+            assertThat(process.alive).isFalse();
+        } // try
+    }
+
+    @Test
     void failuresAreClassifiedByPhaseWithoutRequiringAGuest() {
         for (String phase : List.of("source", "compile", "trace", "serialize")) {
             try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
@@ -207,6 +222,70 @@ class TraceSessionLifecycleTest {
                 session.commit(snapshot(2));
                 assertThat(session.snapshots()).hasSize(2);
             }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void finalizedOutputPrefixesShareDetachedBuffers(boolean finishOutput) throws Exception {
+        byte[] stdout = "abcdefghijklmnopqrstuvwxyz".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] stderr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (var out = new StreamDrainer(new java.io.ByteArrayInputStream(stdout));
+                var err = new StreamDrainer(new java.io.ByteArrayInputStream(stderr));
+                var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            out.waitForEof(1000);
+            err.waitForEof(1000);
+            for (int length = 1; length <= stdout.length; length++) {
+                session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                        OutputSlice.from(out, 0, length), OutputSlice.from(err, 0, length),
+                        Optional.empty(), "", 0));
+            }
+            if (finishOutput) {
+                session.finishOutput(OutputSlice.from(stdout), OutputSlice.from(stderr));
+            } else {
+                session.materializeSnapshots(stdout, stderr);
+            }
+            out.reset();
+            err.reset();
+            java.util.Arrays.fill(stdout, (byte) 0);
+            java.util.Arrays.fill(stderr, (byte) 0);
+            var backing = OutputSlice.class.getDeclaredField("directBytes");
+            backing.setAccessible(true);
+            var snapshots = session.snapshots();
+            for (int i = 0; i < snapshots.size(); i++) {
+                var snapshot = snapshots.get(i);
+                assertThat(snapshot.stdoutSlice().asUtf8String())
+                        .isEqualTo("abcdefghijklmnopqrstuvwxyz".substring(0, i + 1));
+                assertThat(snapshot.stderrSlice().asUtf8String())
+                        .isEqualTo("ABCDEFGHIJKLMNOPQRSTUVWXYZ".substring(0, i + 1));
+                assertThat(backing.get(snapshot.stdoutSlice()))
+                        .isSameAs(backing.get(snapshots.getFirst().stdoutSlice()));
+                assertThat(backing.get(snapshot.stderrSlice()))
+                        .isSameAs(backing.get(snapshots.getFirst().stderrSlice()));
+            }
+        }
+    }
+
+    @Test
+    void sharedFinalStderrPreservesSanitizedSnapshotPrefixes() throws Exception {
+        String banner = "Picked up JAVA_TOOL_OPTIONS: -Xmx64m\n"
+                + "Picked up _JAVA_OPTIONS: -Xms16m\n";
+        byte[] stderr = (banner + "errmore").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true);
+                var err = new StreamDrainer(new java.io.ByteArrayInputStream(stderr));
+                var out = new StreamDrainer(java.io.InputStream.nullInputStream())) {
+            err.waitForEof(1000);
+            out.waitForEof(1000);
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    OutputSlice.empty(), OutputSlice.from(err, banner.length(), 3),
+                    Optional.empty(), "", 0));
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    OutputSlice.empty(), OutputSlice.from(err, banner.length(), 4),
+                    Optional.empty(), "", 0));
+            session.finishOutput();
+            err.reset();
+            assertThat(session.snapshots().getFirst().stderrSlice().asUtf8String()).isEqualTo("err");
+            assertThat(session.snapshots().getLast().stderrSlice().asUtf8String()).isEqualTo("errmore");
         }
     }
 
@@ -284,4 +363,135 @@ class TraceSessionLifecycleTest {
         }
         assertThat(sliceWriter.toString()).isEqualTo("[65,66]");
     }
+    @Test
+    void testIsStoppedAndExplicitOutputCounts() throws Exception {
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            assertThat(session.isStopped()).isFalse();
+            session.phase("trace");
+            session.setCapturedOutput("hello", "world", 5L, 5L);
+            TraceResult result = session.result("modern", null, null);
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counters().get("stdoutBytes")).isEqualTo(5L);
+            assertThat(result.counters().get("stderrBytes")).isEqualTo(5L);
+            assertThat(result.stdout()).isEqualTo("hello");
+            assertThat(result.stderr()).isEqualTo("world");
+        } // try
+    } // testIsStoppedAndExplicitOutputCounts
+
+    @Test
+    void testFinishOutputBranches() throws Exception {
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            cs1302.tracer.trace.OutputSlice s1 =
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65});
+            cs1302.tracer.trace.OutputSlice s2 =
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {66});
+            // completed is empty
+            session.finishOutput(s1, s2);
+
+            // add snapshot
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+
+            // extra == 0
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty());
+
+            // stdout != null, stderr == null
+            session.finishOutput(s1, null);
+            assertThat(session.snapshots().getLast().stdoutSlice()).isEqualTo(s1);
+
+            // stdout == null, stderr != null
+            session.finishOutput(null, s2);
+            assertThat(session.snapshots().getLast().stderrSlice()).isEqualTo(s2);
+        } // try
+
+        TraceLimits limitWithRoom = new TraceLimits(0, 0, 0, 0, 0, 10_000, 0, 0);
+        try (var session = new TraceSession(limitWithRoom, InspectionPolicy.TRUSTED, true)) {
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65}),
+                    cs1302.tracer.trace.OutputSlice.empty());
+            assertThat(session.isStopped()).isFalse();
+        } // try
+
+        TraceLimits limitExceeded = new TraceLimits(0, 0, 0, 0, 0, 350, 0, 0);
+        try (var session = new TraceSession(limitExceeded, InspectionPolicy.TRUSTED, true)) {
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from("0123456789abcdef".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                    cs1302.tracer.trace.OutputSlice.empty());
+
+            assertThat(session.isStopped()).isTrue();
+            assertThat(session.stopReason()).isEqualTo("trace_limit");
+            assertThat(session.snapshots().get(0).stdoutLength()).isEqualTo(0);
+        } // try
+    } // testFinishOutputBranches
+
+    @Test
+    void testFinishOutputChecksCancellationBeforeBuildingResult() throws Exception {
+        try (var session = new TraceSession(
+                new TraceLimits(1, 0, 0, 0, 0, 0, 0, 0), InspectionPolicy.TRUSTED, true)) {
+            var started = TraceSession.class.getDeclaredField("started");
+            started.setAccessible(true);
+            started.setLong(session, System.nanoTime() - 5_000_000L);
+            assertThatThrownBy(() -> session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65}),
+                    cs1302.tracer.trace.OutputSlice.empty()))
+                    .isInstanceOf(TraceSession.Stopped.class)
+                    .hasMessage("timeout");
+        } // try
+    } // testFinishOutputChecksCancellationBeforeBuildingResult
+
+    @Test
+    void testAttachDestroyOnCloseFlag() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean destroyed =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        Process proc = new Process() {
+            @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
+            @Override public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public int waitFor() { return 0; }
+            @Override public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit) { return true; }
+            @Override public int exitValue() { return 0; }
+            @Override public void destroy() {}
+            @Override public Process destroyForcibly() {
+                destroyed.set(true);
+                return this;
+            } // destroyForcibly
+            @Override public boolean isAlive() { return true; }
+        };
+
+        // destroyOnClose = false, normal close
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            session.attach(proc, false);
+        } // try
+        assertThat(destroyed.get()).isFalse();
+
+        // destroyOnClose = false, but stopped with reason
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            session.attach(proc, false);
+            session.stop("timeout");
+            assertThat(session.isStopped()).isTrue();
+        } // try
+        assertThat(destroyed.get()).isTrue();
+    } // testAttachDestroyOnCloseFlag
 }

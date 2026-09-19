@@ -5,11 +5,12 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
-import java.io.ByteArrayOutputStream;
 import com.sun.jdi.VirtualMachine;
+import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -46,6 +47,11 @@ public final class TraceSession implements AutoCloseable {
     private final List<StreamDrainer> drainers = new ArrayList<>();
     private volatile Process process;
     private volatile boolean finished;
+    private boolean destroyOnClose = true;
+    private String explicitStdout;
+    private String explicitStderr;
+    private Long explicitStdoutBytes;
+    private Long explicitStderrBytes;
     private long started;
     private Thread watchdog;
     private long captured;
@@ -185,7 +191,17 @@ public final class TraceSession implements AutoCloseable {
      * @param vm Guest debugger connection.
      */
     public void attach(VirtualMachine vm) {
-        process = vm.process();
+        attach(vm.process(), true);
+    } // attach
+
+    /**
+     * Attaches a launched guest process with control over destruction on normal close.
+     * @param guest Launched process.
+     * @param destroyOnClose Whether process should be forcibly destroyed on normal close.
+     */
+    public void attach(Process guest, boolean destroyOnClose) {
+        this.process = guest;
+        this.destroyOnClose = destroyOnClose;
         if (reason.get() != null) {
             stop(reason.get());
         } // if
@@ -212,6 +228,22 @@ public final class TraceSession implements AutoCloseable {
     public void cancel() {
         stop("cancelled");
     } // cancel
+
+    /**
+     * Returns whether this session has been stopped or cancelled.
+     * @return True if stopped.
+     */
+    public boolean isStopped() {
+        return reason.get() != null;
+    } // isStopped
+
+    /**
+     * Returns the machine-readable stop reason if stopped, or null.
+     * @return Machine-readable stop reason.
+     */
+    public String stopReason() {
+        return reason.get();
+    } // stopReason
 
     /**
      * Stops this job; the first observed reason wins.
@@ -328,6 +360,21 @@ public final class TraceSession implements AutoCloseable {
     } // guestException
 
     /**
+     * Sets isolated guest process output explicitly.
+     * @param stdout Captured standard output string.
+     * @param stderr Captured standard error string.
+     * @param stdoutBytes Total standard output bytes.
+     * @param stderrBytes Total standard error bytes.
+     */
+    public void setCapturedOutput(
+            String stdout, String stderr, long stdoutBytes, long stderrBytes) {
+        this.explicitStdout = stdout;
+        this.explicitStderr = stderr;
+        this.explicitStdoutBytes = stdoutBytes;
+        this.explicitStderrBytes = stderrBytes;
+    } // setCapturedOutput
+
+    /**
      * Returns whether a guest was launched, even if it produced no snapshots.
      * @return Whether trace capture was available.
      */
@@ -384,9 +431,20 @@ public final class TraceSession implements AutoCloseable {
         counts.put("retainedBytes", retainedBytes);
         counts.put("droppedSnapshots", droppedSnapshot ? 1L : 0L);
         counts.put("elapsedMillis", started == 0 ? 0 : (System.nanoTime() - started) / 1_000_000);
-        for (int i = 0; i < drainers.size(); i++) {
-            counts.put(i == 0 ? "stderrBytes" : "stdoutBytes", (long) drainers.get(i).size());
-        } // for
+        if (explicitStderrBytes != null) {
+            counts.put("stderrBytes", explicitStderrBytes);
+        } else {
+            if (!drainers.isEmpty()) {
+                counts.put("stderrBytes", (long) drainers.get(0).size());
+            } // if
+        } // if
+        if (explicitStdoutBytes != null) {
+            counts.put("stdoutBytes", explicitStdoutBytes);
+        } else {
+            if (drainers.size() > 1) {
+                counts.put("stdoutBytes", (long) drainers.get(1).size());
+            } // if
+        } // if
         String status = stopped == null ? "completed"
                 : stopped.endsWith("error") || stopped.equals("guest_exception")
                         || stopped.equals("guest_exit")
@@ -401,33 +459,121 @@ public final class TraceSession implements AutoCloseable {
      * @return UTF-8 output with replacement for incomplete byte sequences.
      */
     private String output(int index) {
+        if (index == 1 && explicitStdout != null) {
+            return explicitStdout;
+        } // if
+        if (index == 0 && explicitStderr != null) {
+            return explicitStderr;
+        } // if
         return index >= drainers.size() ? "" : new String(drainers.get(index).getBytes(),
                 java.nio.charset.StandardCharsets.UTF_8);
     } // output
 
     /** Refreshes final output on the last complete snapshot after successful execution. */
     public void finishOutput() {
-        check();
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
+        finishOutput(drainers.get(1).snapshotOutput(),
+                DebugTraceHelper.sanitizeDebuggeeStderrSlice(drainers.get(0).snapshotOutput()));
+    } // finishOutput
+
+    /**
+     * Refreshes final output on the last complete snapshot using explicit slices.
+     * @param stdout Captured standard output slice.
+     * @param stderr Captured standard error slice.
+     */
+    public void finishOutput(OutputSlice stdout, OutputSlice stderr) {
+        if (reason.get() == null) {
+            check();
+        } // if
+        if (completed.isEmpty()) {
+            return;
+        } // if
+        OutputSlice safeOut = stdout != null ? stdout.materialize() : null;
+        OutputSlice safeErr = stderr != null ? stderr.materialize() : null;
+        materializeSnapshots(safeOut, safeErr);
         ExecutionSnapshot last = completed.getLast();
-        long extra = Math.max(0, drainers.get(0).size() - last.stderrLength())
-                + Math.max(0, drainers.get(1).size() - last.stdoutLength());
+        int outLen = safeOut != null ? safeOut.length() : last.stdoutLength();
+        int errLen = safeErr != null ? safeErr.length() : last.stderrLength();
+        long extra = Math.max(0, outLen - last.stdoutLength())
+                + Math.max(0, errLen - last.stderrLength());
         if (extra == 0) {
             return;
         } // if
         // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
-        enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
+        long newRetained = Math.addExact(retainedBytes, extra * 15);
+        if (limits.traceBytes() != 0 && newRetained > limits.traceBytes()) {
+            stop("trace_limit");
+            return;
+        } // if
         ExecutionSnapshot updated = new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),
-                drainers.get(1).snapshotOutput(), drainers.get(0).snapshotOutput(),
+                safeOut != null ? safeOut : last.stdoutSlice(),
+                safeErr != null ? safeErr : last.stderrSlice(),
                 last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
-        retainedBytes += extra * 15;
+        retainedBytes = newRetained;
     } // finishOutput
+
+    /** Materializes all completed snapshot output slices into self-contained buffers. */
+    public synchronized void materializeSnapshots() {
+        for (int i = 0; i < completed.size(); i++) {
+            ExecutionSnapshot oldSnap = completed.get(i);
+            ExecutionSnapshot newSnap = oldSnap.materializeOutput();
+            updateMaterializedSnapshot(i, oldSnap, newSnap);
+        } // for
+    } // materializeSnapshots
+
+    /**
+     * Materializes all completed snapshot output slices using shared output buffers.
+     *
+     * @param sharedStdout Shared standard output buffer.
+     * @param sharedStderr Shared standard error buffer.
+     */
+    public synchronized void materializeSnapshots(byte[] sharedStdout, byte[] sharedStderr) {
+        materializeSnapshots(OutputSlice.from(sharedStdout), OutputSlice.from(sharedStderr));
+    } // materializeSnapshots
+
+    /**
+     * Detaches snapshot prefixes while sharing the finalized output slices.
+     * @param stdout Final standard output, or null to retain captured output.
+     * @param stderr Final standard error, or null to retain captured output.
+     */
+    private synchronized void materializeSnapshots(OutputSlice stdout, OutputSlice stderr) {
+        for (int i = 0; i < completed.size(); i++) {
+            ExecutionSnapshot oldSnap = completed.get(i);
+            if (oldSnap.stdoutLength() == 0 && oldSnap.stderrLength() == 0) {
+                continue;
+            } // if
+            ExecutionSnapshot newSnap = new ExecutionSnapshot(
+                    oldSnap.stack(), oldSnap.statics(), oldSnap.heap(),
+                    stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength())
+                            : oldSnap.stdoutSlice().materialize(),
+                    stderr != null ? stderr.subSlice(0, oldSnap.stderrLength())
+                            : oldSnap.stderrSlice().materialize(),
+                    oldSnap.sourcePath(), oldSnap.stdinConsumed(), oldSnap.stdinOffset());
+            updateMaterializedSnapshot(i, oldSnap, newSnap);
+        } // for
+    } // materializeSnapshots
+
+    /**
+     * Updates completed snapshot reference and maintains sizes and latest maps.
+     *
+     * @param index Index in completed list.
+     * @param oldSnap Previous snapshot instance.
+     * @param newSnap Replaced snapshot instance.
+     */
+    private void updateMaterializedSnapshot(
+            int index, ExecutionSnapshot oldSnap, ExecutionSnapshot newSnap) {
+        if (oldSnap != newSnap) {
+            completed.set(index, newSnap);
+            sizes.put(newSnap, sizes.remove(oldSnap));
+            latest.replaceAll((key, snapshot) -> snapshot == oldSnap ? newSnap : snapshot);
+        } // if
+    } // updateMaterializedSnapshot
 
     @Override
     public void close() {
@@ -436,7 +582,7 @@ public final class TraceSession implements AutoCloseable {
             watchdog.interrupt();
         } // if
         Process guest = process;
-        if (guest != null && guest.isAlive()) {
+        if (guest != null && guest.isAlive() && (destroyOnClose || reason.get() != null)) {
             guest.destroyForcibly();
             try {
                 guest.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);

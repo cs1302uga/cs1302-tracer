@@ -1,227 +1,119 @@
-# Tracer
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2024-2025 Michael E. Cotterell and the University of Georgia
+SPDX-License-Identifier: CC-BY-NC-ND-4.0
+-->
 
-Tracer is a static analysis and execution tracing tool for Java programs. It compiles guest Java source code and inspects JVM runtime memory state using the Java Debug Interface (JDI) to produce structured execution snapshots.
+# cs1302-tracer
 
-Tracer supports both [Online Python Tutor](https://pythontutor.com/)-compatible JSON output (for visualizers like [cs1302-code-visualizer](https://github.com/cs1302uga/cs1302-code-visualizer/)) and a **Modern Clean JSON format** designed for IDEs, web visualizers, and automated analysis.
+Traces the execution of student-submitted Java programs.
+
+- [cs1302-tracer](#cs1302-tracer)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [CLI Reference](#cli-reference)
+    - [Global Options](#global-options)
+    - [Subcommands](#subcommands)
+    - [Common Trace Options](#common-trace-options)
+      - [Input & Breakpoint Selection](#input--breakpoint-selection)
+      - [Output Formatting & Representation](#output-formatting--representation)
+      - [Execution Budgets & Isolation Policy](#execution-budgets--isolation-policy)
+      - [Diagnostics & Help](#diagnostics--help)
+    - [`batch-trace` Options](#batch-trace-options)
+    - [`list-breakpoints` Options](#list-breakpoints-options)
+    - [`show-licenses` Options](#show-licenses-options)
+  - [Output Formats & Schema](#output-formats--schema)
+    - [1. PythonTutor Format (`--format=pytutor`, default)](#1-pythontutor-format---formatpytutor-default)
+    - [2. Modern Format (`--format=modern`)](#2-modern-format---formatmodern)
+    - [3. JSON Envelope Wrapper (`--result-envelope`)](#3-json-envelope-wrapper---result-envelope)
+  - [Execution Limits & Inspection Policies](#execution-limits--inspection-policies)
+    - [Execution Limits](#execution-limits)
+    - [Inspection Policies](#inspection-policies)
+  - [Benchmarking](#benchmarking)
+  - [Development & Pre-commit Quality Gate](#development--pre-commit-quality-gate)
+    - [Git Hook Setup](#git-hook-setup)
+    - [Pre-commit Validation Checks](#pre-commit-validation-checks)
+  - [License](#license)
 
 ---
 
-## Features
+## Prerequisites
 
-- **Dual Output Formats**: Generate legacy PythonTutor traces or modern object-graph JSON traces with explicit reference pointers.
-- **Reified Generics & Type Resolution**: Recovers erased generic type parameters for Java Collections and Maps (e.g., `ArrayList<String>`, `HashMap<Integer, Double>`) via static AST extraction and dynamic element sampling.
-- **Chronological, Breakpoint & Exit Tracing**: Record step-by-step execution across all valid lines (`-a`), capture memory at specific line numbers (`-b 12`), target specific files in multi-file projects (`-b Main.java:12`), specify comma-separated breakpoint targets, or capture program termination (`-b -1`).
-- **Multi-File & Streaming Support**: Trace multi-file Java packages from the filesystem or stream multiple sources via `stdin` using comment delimiters (`// --- path/to/File.java ---`).
-- **Guest Standard Input Simulation & Highlight Offsets**: Provide guest input strings (`--stdin`) or files (`--stdin-file`) and track logical character consumption offsets (`stdinConsumed`, `stdinOffset`).
-- **Bounded Resource Budgets & Result Envelopes**: Enforce configurable execution deadlines, snapshot caps, output byte caps, heap object limits, and trace byte limits with `--unlimited` overrides and an opt-in `--result-envelope`.
-- **Type Qualification Styles**: Render type signatures using fully qualified names (`--type-style=fqn`, e.g., `java.lang.String`) or simplified short names (`--type-style=simple`, e.g., `String`).
-- **Inspection Policies**: Choose between `TRUSTED` (rich helper inspection) and `FIELDS` (inspects fields without invoking guest methods for untrusted submissions).
-- **Enum Constant & Hash Tracking**: Emits qualified enum constant labels with configurable lazy enum hash evaluation (`--eval-enum-hash` / `--no-eval-enum-hash`).
-- **Lambda Reconstruction**: Extracts lambda expression bodies and creates concrete representations of functional interface implementations.
-- **Immutability & Final Tracking**: Automatically tags and distinguishes `final` variables, record components, and object fields.
-- **Breakpoint Introspection**: List all valid executable breakpoint lines per file in colorized console format or machine-readable JSON.
+- **Java Development Kit (JDK)**: Version 21 or later.
+- **Maven**: Version 3.8 or later (optional; Maven wrapper `./mvnw` is included).
 
 ---
 
-## Building and Installation
+## Installation
 
-### Prerequisites
-
-- **Java Development Kit (JDK)**: Version 21 or greater.
-- **Apache Maven**: Version 3.8 or greater.
-
-### Build Executable Fat JAR
+Clone the repository and build the executable jar using the included Maven wrapper:
 
 ```bash
-# Compile and build the self-contained JAR (with all dependencies) and source bundle
-mvn clean package
+git clone https://github.com/cs1302uga/cs1302-tracer.git
+cd cs1302-tracer
+./mvnw clean package -DskipTests
 ```
 
-The resulting JAR will be located at:
+The compiled standalone executable JAR will be located at:
 
-```text
+```bash
 target/code-tracer-jar-with-dependencies.jar
 ```
 
----
-
-## CLI Usage
-
-Run the JAR directly with Java:
+You can run it directly with `java -jar` or create a convenient alias:
 
 ```bash
-java -jar target/code-tracer-jar-with-dependencies.jar [COMMAND] [OPTIONS]
+alias code-tracer="java -jar $(pwd)/target/code-tracer-jar-with-dependencies.jar"
 ```
+
+---
+
+## CLI Reference
+
+```text
+Usage: code-tracer [-hV] [COMMAND]
+Traces the execution of student-submitted Java programs.
+```
+
+### Global Options
+
+| Option | Flag | Description |
+| :--- | :--- | :--- |
+| `--help` | `-h` | Show this help message and exit. |
+| `--version` | `-V` | Print version information and exit. |
+
+---
 
 ### Subcommands
 
 | Subcommand | Description |
 | :--- | :--- |
-| `trace` | Compiles and traces execution of a Java program. |
-| `list-breakpoints` | Lists valid executable breakpoint lines for the source. |
-| `show-licenses` | Displays open-source software license notices. |
+| `trace` | *(Default)* Compile and trace Java program execution at selected breakpoints. |
+| `batch-trace` | High-throughput batch tracing processing NDJSON requests over persistent guest JVM workers. |
+| `list-breakpoints` | List valid breakpoint lines for the input source. |
+| `show-licenses` | Display licensing information for third-party dependencies. |
 
 ---
 
-### Common Workflows
+### Common Trace Options
 
-#### 1. Trace End of Execution (Single Snapshot)
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java
-```
-
-Or explicitly target program exit using the `-1` breakpoint sentinel:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b -1
-```
-
-#### 2. Chronological Line-by-Line Execution Trace (`-a`)
-
-Record all execution steps in modern format:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -a -f modern
-```
-
-#### 3. Breakpoint-Specific Snapshots (`-b`)
-
-Capture memory states before executing line 12:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java -b 12 -f modern
-```
-
-Target specific files in multi-file projects or specify comma-separated lists:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  -b "Main.java:12,Helper.java:24" -f modern
-```
-
-Capture each time a breakpoint line is hit (rather than only the final hit) using `--accumulate-breakpoints`:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  -b 12 --accumulate-breakpoints -f modern
-```
-
-#### 4. Guest Standard Input Simulation
-
-Supply input strings or files to programs that read from `System.in`:
-
-```bash
-# Via literal string
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  --stdin "Alice 42\n" -a -f modern
-
-# Via input file
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  --stdin-file ./input.txt -a -f modern
-```
-
-#### 5. Simplified Type Formatting (`--type-style simple`)
-
-Render clean, unqualified type names in stack frames and heap objects:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  --type-style simple -a -f modern
-```
-
-#### 6. Multi-File Streaming via Standard Input
-
-Concatenate multiple source files separated by comment headers and stream to tracer:
-
-```bash
-cat << 'EOF' | java -jar target/code-tracer-jar-with-dependencies.jar trace -a -f modern
-// --- cs1302/model/Account.java ---
-package cs1302.model;
-public class Account {
-    private int balance = 100;
-    public int getBalance() { return balance; }
-}
-
-// --- cs1302/app/Driver.java ---
-package cs1302.app;
-import cs1302.model.Account;
-public class Driver {
-    public static void main(String[] args) {
-        Account acc = new Account();
-    }
-}
-EOF
-```
-
-#### 7. Bounded Execution & Result Envelope
-
-Wrap trace results in a structured status envelope with custom timeouts and snapshot bounds:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java \
-  --result-envelope --timeout-ms 5000 --max-snapshots 500 -a -f modern
-```
-
-Or disable default budget ceilings for large interactive runs:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i ./Main.java --unlimited -a
-```
-
-#### 8. Inspect Valid Breakpoints
-
-Show colorized executable lines in the terminal:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java
-```
-
-Or retrieve as structured JSON:
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints -i ./Main.java -j -p
-```
-
-#### 9. View Dependency Licenses
-
-```bash
-java -jar target/code-tracer-jar-with-dependencies.jar show-licenses
-```
-
----
-
-## Command Options Reference
-
-### Root Options
+The following options apply to the default execution command (`trace`):
 
 ```text
-Usage: code-tracer [-hV] [COMMAND]
-```
-
-| Option | Flag | Description |
-| :--- | :--- | :--- |
-| `--help` | `-h` | Show help message and exit. |
-| `--version` | `-V` | Print version information and exit. |
-
----
-
-### `trace` Options
-
-```text
-Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints]
-                         [--eval-enum-hash] [--no-eval-enum-hash]
+Usage: code-tracer [trace] [-ahpsvV] [--all-breakpoints]
+                         [--accumulate-breakpoints] [--eval-enum-hash]
+                         [--format=<format>] [--inline-strings]
+                         [--inspection=<inspection>] [-i=<input>]
+                         [--max-elements=<maxElements>]
+                         [--max-heap-objects=<maxHeapObjects>]
+                         [--max-output-bytes=<maxOutputBytes>]
+                         [--max-snapshots=<maxSnapshots>]
+                         [--max-source-bytes=<maxSourceBytes>]
+                         [--max-source-files=<maxSourceFiles>]
+                         [--max-trace-bytes=<maxTraceBytes>]
+                         [--no-eval-enum-hash] [--pretty]
                          [--remove-main-args] [--remove-method-this]
-                         [--result-envelope] [--unlimited] [-f=<format>]
-                         [-i=<input>] [--inspection=<inspection>]
-                         [--max-elements=<elements>]
-                         [--max-heap-objects=<heapObjects>]
-                         [--max-output-bytes=<outputBytes>]
-                         [--max-snapshots=<snapshots>]
-                         [--max-source-bytes=<sourceBytes>]
-                         [--max-source-files=<sourceFiles>]
-                         [--max-trace-bytes=<traceBytes>] [--stdin=<stdin>]
-                         [--stdin-file=<stdinFile>]
+                         [--result-envelope] [--stdin=<guestStdin>]
+                         [--stdin-file=<guestStdinFile>]
                          [--timeout-ms=<timeoutMillis>]
                          [--type-style=<typeStyle>] [-b=<spec>[,<spec>...]]...
 ```
@@ -276,6 +168,30 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints]
 
 ---
 
+### `batch-trace` Options
+
+```text
+Usage: code-tracer batch-trace [-hV] [-i=<input>]
+                               [--max-jobs-per-worker=<maxJobsPerWorker>]
+                               [-w=<workers>]
+```
+
+| Option | Flag | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--input=<file>` | `-i` | `stdin` | Input path to NDJSON file (defaults to `stdin` if omitted). |
+| `--workers=<workers>` | `-w` | `1` | Number of persistent worker sessions running concurrently. |
+| `--max-jobs-per-worker=<num>` | | `100` | Maximum jobs before recycling a worker process. |
+| `--help` | `-h` | | Show help message and exit. |
+| `--version` | `-V` | | Print version information and exit. |
+
+> [!WARNING]
+> **Security & Process Isolation**:
+> In accordance with [`docs/RUNNER_CONTRACT.md`](docs/RUNNER_CONTRACT.md), persistent guest JVM reuse in `batch-trace` employs child `URLClassLoader` isolation per job. A child class loader is **not** an OS-level security boundary against untrusted or hostile code.
+>
+> Reusing persistent guest JVMs is intended strictly for **trusted workloads** (such as test suites, instructor examples, or local development) or when jobs are already executed inside an external, disposable container or VM sandbox. For hosted untrusted student submissions, always execute one disposable Tracer process per job following the runner contract.
+
+---
+
 ### `list-breakpoints` Options
 
 ```text
@@ -286,7 +202,7 @@ Usage: code-tracer list-breakpoints [-hjpvV] [-i=<input>]
 | :--- | :--- | :--- | :--- |
 | `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
 | `--json` | `-j` | `false` | Output available breakpoints in structured JSON format. |
-| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
+| `--pretty` | `-p` | `false` | Pretty-print JSON output with indentation. |
 | `--verbose` | `-v` | `false` | Output messages about what the tracer is doing. |
 | `--help` | `-h` | | Show help message and exit. |
 | `--version` | `-V` | | Print version information and exit. |
@@ -346,32 +262,35 @@ record Person(String name, int age) { }
       "heap": {
         "65": ["INSTANCE", "Person", ["name", "Alice"], ["age", 42]]
       },
-      "heap_attrs": {
-        "65": { "type": ["java.lang.String", "int"], "final": [true, true] }
-      }
+      "stdout": ""
     }
   ]
 }
 ```
 
-### 2. Modern Clean Format (`--format=modern` or `-f modern`)
+---
 
-Produces an explicit, typed object graph with dictionary-backed heaps and pointer references:
+### 2. Modern Format (`--format=modern`)
+
+Generates modern JSON snapshot objects with distinct type discrimination and metadata:
 
 ```json
 {
   "code": "public class Main {\n ... }",
+  "format": "modern",
+  "stdin": "",
   "steps": [
     {
+      "step": 1,
       "line": 4,
       "event": "step_line",
-      "file": "Main.java",
-      "stack": [
+      "method": "main",
+      "callStack": [
         {
           "methodName": "main",
           "line": 4,
-          "file": "Main.java",
-          "variables": [
+          "isHighlighted": true,
+          "locals": [
             {
               "name": "alice",
               "type": "Person",
@@ -381,36 +300,42 @@ Produces an explicit, typed object graph with dictionary-backed heaps and pointe
           ]
         }
       ],
+      "statics": [],
       "heap": {
         "65": {
-          "kind": "object",
+          "id": 65,
           "type": "Person",
+          "kind": "object",
           "fields": [
-            { 
-              "name": "name", 
-              "type": "java.lang.String", 
-              "value": "Alice", 
-              "final": true 
+            {
+              "name": "name",
+              "type": "java.lang.String",
+              "value": "Alice",
+              "final": false
             },
-            {  
-              "name": "age", 
-              "type": "int", 
-              "value": 42, 
-              "final": true 
+            {
+              "name": "age",
+              "type": "int",
+              "value": 42,
+              "final": false
             }
           ]
         }
       },
       "stdout": "",
-      "stderr": ""
+      "stderr": "",
+      "stdinConsumed": "",
+      "stdinOffset": 0
     }
   ]
 }
 ```
 
-### 3. Result Envelope (`--result-envelope`)
+---
 
-For programmatic consumers, grading harnesses, and hosted runners, `--result-envelope` wraps the execution outcome in a versioned document:
+### 3. JSON Envelope Wrapper (`--result-envelope`)
+
+When enabled, wraps output in a versioned envelope detailing execution status, accounting metrics, and diagnostics:
 
 ```json
 {
@@ -420,89 +345,117 @@ For programmatic consumers, grading harnesses, and hosted runners, `--result-env
   "stopReason": null,
   "phase": "trace",
   "complete": true,
-  "trace": { ... },
-  "limits": {
-    "timeoutMillis": 5000,
-    "snapshots": 500,
-    "outputBytes": 65536,
-    "heapObjects": 1000,
-    "elements": 10000,
-    "traceBytes": 33554432,
-    "sourceBytes": 262144,
-    "sourceFiles": 32
+  "trace": {
+    "code": "public class Main {\n ... }",
+    "trace": [ ... ]
   },
-  "diagnostics": []
+  "limits": {
+    "timeoutMillis": 10000,
+    "snapshots": 10000,
+    "outputBytes": 1048576,
+    "heapObjects": 10000,
+    "elements": 100000,
+    "traceBytes": 67108864,
+    "sourceBytes": 1048576,
+    "sourceFiles": 128
+  },
+  "counters": {
+    "snapshotsCaptured": 1,
+    "snapshotsRetained": 1,
+    "retainedBytes": 1420,
+    "droppedSnapshots": 0,
+    "elapsedMillis": 34,
+    "stdoutBytes": 0,
+    "stderrBytes": 0
+  },
+  "diagnostics": [],
+  "stdout": "",
+  "stderr": ""
 }
 ```
 
-#### Exit Codes
+---
 
-| Exit Code | Meaning |
-| :--- | :--- |
-| `0` | Successful trace completed and emitted. |
-| `1` | General error (e.g., compilation failure, unhandled guest exception). |
-| `2` | Invalid command-line arguments or contradictory options. |
-| `3` | Resource budget limit exceeded during bounded trace execution. |
+## Execution Limits & Inspection Policies
+
+### Execution Limits
+
+Limits can be tuned using CLI flags to prevent unbounded memory usage or infinite loops:
+
+- `--timeout-ms=<ms>`: Wall-clock execution timeout in milliseconds.
+- `--max-snapshots=<num>`: Caps the number of snapshots recorded.
+- `--max-output-bytes=<bytes>`: Limits stdout and stderr capture buffers.
+- `--max-heap-objects=<num>`: Limits the number of distinct reachable objects captured in heap snapshots.
+- `--max-elements=<num>`: Limits inspected fields, array slots, and local variables.
+- `--max-trace-bytes=<bytes>`: Caps memory consumed by formatted snapshot traces.
+- `--max-source-bytes=<bytes>`: Maximum UTF-8 source code byte length before compilation.
+- `--max-source-files=<num>`: Maximum streamed source files per submission.
+
+### Inspection Policies
+
+- `TRUSTED` *(default)*: Invokes helper methods on the target VM to inspect rich structures (e.g. collections, maps).
+- `FIELDS`: Never invokes methods on the guest VM; inspects only primitive and object fields directly. Useful for running untrusted student code where method invocation might trigger side effects or infinite loops. Requires `--result-envelope`.
 
 ---
 
-## Advanced Execution & Type Capabilities
+## Benchmarking
 
-### Reified Generics for Collections & Maps
+A benchmarking script is provided under [`benchmark/benchmark.py`](benchmark/benchmark.py) to measure tracing throughput and latency across multiple workloads:
 
-In standard Java execution, generic type parameters are erased at runtime due to JVM type erasure. Tracer reconstructs and preserves generic type information across traces:
+```bash
+# Run standard benchmark suite
+python3 benchmark/benchmark.py
+```
 
-1. **Static AST Analysis**: Extracts declared type arguments (e.g. `List<Person>`, `Map<String, Integer>`) from local variable, parameter, and field declarations.
-2. **Dynamic Runtime Heap Sampling**: For raw collections or generic instances where declarations are absent, Tracer samples runtime element types to reconstruct type signatures (e.g., `ArrayList<java.lang.String>`, `HashMap<java.lang.Integer, java.lang.Double>`).
+### Batch Mode Performance
 
-### Input Highlighting & Stdin Tracking
+The `batch-trace` command achieves significant throughput improvements over repeated CLI invocations by maintaining persistent worker JVMs and reusing JDI debugger connections across jobs:
 
-When a guest program reads from standard input (via `Scanner`, `BufferedReader`, or `java.lang.IO.readln`), Tracer tracks the input logically consumed:
+```bash
+# Tracing 24 multi-class example programs:
+# Repeated one-shot CLI invocations: ~13.5s total (~560 ms/job)
+# Persistent batch-trace invocation:   ~4.5s total (~190 ms/job)
+# Speedup: ~3.0x faster
+```
 
-- `stdinConsumed`: The substring of input logically read by completed reader operations.
-- `stdinOffset`: The 0-based Java UTF-16 character index into the supplied input string.
+To run batch tracing:
 
-Reader lookahead buffers are excluded so that only data actually consumed by the program advances the offset. Raw UTF-8 bytes advance offsets once a full character sequence has completed.
+```bash
+# Stream NDJSON requests into batch-trace
+cat jobs.ndjson | code-tracer batch-trace --workers=4
+```
 
-### Bounded Jobs & Inspection Policies
-
-By default, ordinary `trace` runs enforce finite default budgets (10-second deadline, 10,000 snapshots, 1 MiB per output stream, 10,000 heap objects, 100,000 elements, 64 MiB trace data, 1 MiB source, and 128 source files).
-
-- **Budget Stops**: If a cap is exceeded, Tracer exits with code `3`. Under ordinary mode, stderr reports the stop reason. Under `--result-envelope`, a structured JSON envelope is produced with `status: "stopped"` and the specific `stopReason`.
-- **`TRUSTED` Policy**: Default policy. Inspects collections, maps, and wrappers using runtime helper methods (e.g., `toArray`, `entrySet`).
-- **`FIELDS` Policy**: Avoids invoking any guest methods during inspection. Inspects object states strictly via field reflection. Requires `--result-envelope` and self-contained source bundles.
-
-For details on limits, accounting models, and sandboxing requirements, see [docs/BOUNDED_TRACING.md](docs/BOUNDED_TRACING.md) and [docs/RUNNER_CONTRACT.md](docs/RUNNER_CONTRACT.md).
+> [!NOTE]
+> As noted in [`docs/RUNNER_CONTRACT.md`](docs/RUNNER_CONTRACT.md), persistent guest reuse in `batch-trace` requires that jobs originate from trusted sources or are dispatched within an externally isolated container or virtual machine sandbox.
 
 ---
 
-## Development & Testing
+## Development & Pre-commit Quality Gate
 
-- **Run Unit Tests & JaCoCo Coverage**:
+### Git Hook Setup
 
-  ```bash
-  mvn clean test
-  ```
+To install local git hooks (including the pre-commit quality gate):
 
-  *(Enforces 100% line and branch coverage across model and serialize packages.)*
+```bash
+./scripts/install-git-hooks.sh
+```
 
-- **Run Checkstyle Verification**:
+### Pre-commit Validation Checks
 
-  ```bash
-  mvn checkstyle:check
-  ```
+Before committing changes, run the pre-commit quality gate profile:
 
-- **Run Reference Verification**:
+```bash
+./mvnw -B -ntp -Ppre-commit-coverage clean test
+```
 
-  ```bash
-  mvn package
-  python3 examples/verify.py
-  ```
+This gate enforces:
+1. **Compilation**: Clean compile with `--enable-preview` on JDK 21+.
+2. **Checkstyle**: 100% adherence to project coding standards.
+3. **Tests**: All JUnit unit tests must pass.
+4. **Code Coverage**: 100% line coverage and 100% branch coverage across all production classes.
 
-- **Run an Individual Example**:
+---
 
-  ```bash
-  ./examples/test.sh examples/Simple.java -a -f modern
-  ```
+## License
 
-For architecture diagrams, subsystem design, value extraction mechanics, and contribution guidelines, see [HACKING.md](HACKING.md).
+This project is licensed under the terms of the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License ([CC-BY-NC-ND-4.0](LICENSE.md)).
