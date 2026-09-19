@@ -1,5 +1,6 @@
 package cs1302.tracer.batch;
 
+import cs1302.tracer.execution.TraceLimits;
 import cs1302.tracer.trace.PersistentGuestSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -121,12 +122,12 @@ class BatchTraceWorkerTest {
     } // testWorkerExecutesModernAllBreakpoints
 
     @Test
-    @DisplayName("Worker executes chronological trace with empty breakpoints defaulting to all lines")
+    @DisplayName("Worker executes job with default chronological mode when breakpoints empty")
     void testWorkerDefaultChronological() {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
             BatchJobRequest req = new BatchJobRequest(
                     "job-3", BASIC_SOURCE, "pytutor", null, List.of(),
-                    true, false, false, false, false, "fqn", null, null);
+                    false, false, false, false, false, "fqn", null, null);
             BatchJobResponse resp = worker.execute(req);
             assertThat(resp.id()).isEqualTo("job-3");
             assertThat(resp.result().complete()).isTrue();
@@ -137,15 +138,35 @@ class BatchTraceWorkerTest {
     @DisplayName("Worker rejects empty source code")
     void testWorkerRejectsEmptySource() {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            TraceLimits customLimits = TraceLimits.instructorDefaults();
             BatchJobRequest req = new BatchJobRequest(
                     "job-empty", "   ", "pytutor", null, List.of("1"),
-                    false, false, false, false, false, "fqn", null, null);
+                    false, false, false, false, false, "fqn", customLimits, null);
             BatchJobResponse resp = worker.execute(req);
             assertThat(resp.id()).isEqualTo("job-empty");
             assertThat(resp.result().complete()).isFalse();
             assertThat(resp.result().status()).isEqualTo("failed");
+            assertThat(resp.result().phase()).isEqualTo("source");
+            assertThat(resp.result().limits()).isEqualTo(customLimits);
         } // try
     } // testWorkerRejectsEmptySource
+
+    @Test
+    @DisplayName("Worker rejects null source code")
+    void testWorkerRejectsNullSource() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            TraceLimits customLimits = TraceLimits.instructorDefaults();
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-null", null, "pytutor", null, List.of("1"),
+                    false, false, false, false, false, "fqn", customLimits, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-null");
+            assertThat(resp.result().complete()).isFalse();
+            assertThat(resp.result().status()).isEqualTo("failed");
+            assertThat(resp.result().phase()).isEqualTo("source");
+            assertThat(resp.result().limits()).isEqualTo(customLimits);
+        } // try
+    } // testWorkerRejectsNullSource
 
     @Test
     @DisplayName("Worker handles compilation failure gracefully")
@@ -180,38 +201,33 @@ class BatchTraceWorkerTest {
     } // testWorkerRecycling
 
     @Test
-    @DisplayName("Worker rejects null source code")
-    void testWorkerRejectsNullSource() {
+    @DisplayName("Worker handles guest program throwing unhandled exception")
+    void testWorkerHandlesGuestException() {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
             BatchJobRequest req = new BatchJobRequest(
-                    "job-null", null, "pytutor", null, List.of("1"),
+                    "job-ex", EXCEPTION_SOURCE, "pytutor", null, List.of("4"),
                     false, false, false, false, false, "fqn", null, null);
             BatchJobResponse resp = worker.execute(req);
-            assertThat(resp.id()).isEqualTo("job-null");
+            assertThat(resp.id()).isEqualTo("job-ex");
             assertThat(resp.result().complete()).isFalse();
+            assertThat(resp.result().status()).isEqualTo("failed");
+            assertThat(resp.result().stopReason()).isEqualTo("guest_exception");
         } // try
-    } // testWorkerRejectsNullSource
+    } // testWorkerHandlesGuestException
 
     @Test
-    @DisplayName("Worker executes line-specific breakpoints with and without accumulate")
+    @DisplayName("Worker handles line-specific targeted breakpoints")
     void testWorkerLineSpecificBreakpoints() {
-        BatchTraceWorker worker = new BatchTraceWorker(5);
-        try {
-            // accBps = true
-            BatchJobRequest reqAcc = new BatchJobRequest(
-                    "job-acc", BASIC_SOURCE, "pytutor", "test stdin", List.of("5"),
-                    false, true, false, false, false, "fqn", null, null);
-            BatchJobResponse respAcc = worker.execute(reqAcc);
-            assertThat(respAcc.result().complete()).isTrue();
-
-            // accBps = false
-            BatchJobRequest reqNoAcc = new BatchJobRequest(
-                    "job-no-acc", BASIC_SOURCE, "modern", "test stdin", List.of("5"),
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-lines", BASIC_SOURCE, "pytutor", null, List.of("4"),
                     false, false, false, false, false, "fqn", null, null);
-            BatchJobResponse respNoAcc = worker.execute(reqNoAcc);
-            assertThat(respNoAcc.result().complete()).isTrue();
-        } finally {
-            worker.close();
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-lines");
+            assertThat(resp.result().complete()).isTrue();
+            assertThat(resp.result().status()).isEqualTo("completed");
+
+            // Explicitly close worker while session is active
             worker.close();
         } // try
     } // testWorkerLineSpecificBreakpoints
@@ -222,7 +238,8 @@ class BatchTraceWorkerTest {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
             BatchJobRequest req = new BatchJobRequest(
                     "job-pkg", PACKAGE_SOURCE, "pytutor", null, List.of("4"),
-                    false, false, false, false, false, "fqn", null, cs1302.tracer.execution.InspectionPolicy.FIELDS);
+                    false, false, false, false, false, "fqn", null,
+                    cs1302.tracer.execution.InspectionPolicy.FIELDS);
             BatchJobResponse resp = worker.execute(req);
             assertThat(resp.result().complete()).isTrue();
         } // try
@@ -235,7 +252,8 @@ class BatchTraceWorkerTest {
         try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
             BatchJobRequest req = new BatchJobRequest(
                     "job-trusted", BASIC_SOURCE, "pytutor", null, List.of("5"),
-                    false, false, false, false, false, "fqn", null, cs1302.tracer.execution.InspectionPolicy.TRUSTED);
+                    false, false, false, false, false, "fqn", null,
+                    cs1302.tracer.execution.InspectionPolicy.TRUSTED);
             BatchJobResponse resp = worker.execute(req);
             assertThat(resp.result().complete()).isTrue();
         } // try
@@ -328,19 +346,21 @@ class BatchTraceWorkerTest {
     } // testRestoreInterruptIfInterrupted
 
     @Test
-    @DisplayName("Worker recycles session when completedJobCount reaches maxJobsPerWorker")
-    void testWorkerRecyclesSessionAtLimit() {
+    @DisplayName("Worker recycles session when completedJobCount equals maxJobsPerWorker")
+    void testWorkerRecyclesSessionAtLimit() throws Exception {
         try (BatchTraceWorker worker = new BatchTraceWorker(1)) {
             BatchJobRequest req = new BatchJobRequest(
-                    "job-lim-1", BASIC_SOURCE, "pytutor", null, List.of("5"),
+                    "job-recycle-limit", BASIC_SOURCE, "pytutor", null, List.of("5"),
                     false, false, false, false, false, "fqn", null, null);
             BatchJobResponse resp1 = worker.execute(req);
-                        assertThat(resp1.result().complete()).isTrue();
+            assertThat(resp1.result().complete()).isTrue();
 
+            // Next execution will recycle because completedJobCount >= maxJobsPerWorker (1 >= 1)
             BatchJobResponse resp2 = worker.execute(req);
             assertThat(resp2.result().complete()).isTrue();
         } // try
     } // testWorkerRecyclesSessionAtLimit
+
     @Test
     @DisplayName("Worker handles launch failure in ensureSession")
     void testWorkerLaunchFailure() throws Exception {
@@ -348,14 +368,28 @@ class BatchTraceWorkerTest {
         java.lang.reflect.Field field = BatchTraceWorker.class.getDeclaredField("session");
         field.setAccessible(true);
         Process proc = new Process() {
-            @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
-            @Override public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
-            @Override public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
-            @Override public int waitFor() { return 0; }
-            @Override public int exitValue() { return 0; }
+            @Override public java.io.OutputStream getOutputStream() {
+                return java.io.OutputStream.nullOutputStream();
+            } // getOutputStream
+            @Override public java.io.InputStream getInputStream() {
+                return java.io.InputStream.nullInputStream();
+            } // getInputStream
+            @Override public java.io.InputStream getErrorStream() {
+                return java.io.InputStream.nullInputStream();
+            } // getErrorStream
+            @Override public int waitFor() {
+                return 0;
+            } // waitFor
+            @Override public int exitValue() {
+                return 0;
+            } // exitValue
             @Override public void destroy() {}
-            @Override public Process destroyForcibly() { return this; }
-            @Override public boolean isAlive() { throw new RuntimeException("Simulated VM crash"); }
+            @Override public Process destroyForcibly() {
+                return this;
+            } // destroyForcibly
+            @Override public boolean isAlive() {
+                throw new RuntimeException("Simulated VM crash");
+            } // isAlive
         };
         var vm = (com.sun.jdi.VirtualMachine) java.lang.reflect.Proxy.newProxyInstance(
                 com.sun.jdi.VirtualMachine.class.getClassLoader(),
@@ -376,15 +410,18 @@ class BatchTraceWorkerTest {
                 vm, null, null, harnessType, null, null);
         field.set(worker, session);
 
+        TraceLimits customLimits = TraceLimits.instructorDefaults();
         BatchJobRequest req = new BatchJobRequest(
                 "job-fail", BASIC_SOURCE, "pytutor", null, List.of("5"),
-                false, false, false, false, false, "fqn", null, null);
+                false, false, false, false, false, "fqn", customLimits, null);
         BatchJobResponse resp = worker.execute(req);
         assertThat(resp.result().status()).isEqualTo("failed");
         assertThat(resp.result().phase()).isEqualTo("tracer");
         assertThat(resp.result().stopReason()).isEqualTo("tracer_error");
         assertThat(resp.result().diagnostics()).anyMatch(d -> d.contains("Simulated VM crash"));
+        assertThat(resp.result().limits()).isEqualTo(customLimits);
     } // testWorkerLaunchFailure
+
     @Test
     @DisplayName("execute rejects null request")
     void testExecuteNullRequest() {
@@ -404,6 +441,7 @@ class BatchTraceWorkerTest {
             BatchJobResponse resp1 = worker.execute(badFmtReq);
             assertThat(resp1.result().status()).isEqualTo("failed");
             assertThat(resp1.result().phase()).isEqualTo("validation");
+            assertThat(resp1.result().limits()).isEqualTo(TraceLimits.unlimited());
 
             BatchJobRequest badTsReq = new BatchJobRequest(
                     "bad-ts", BASIC_SOURCE, "modern", null, List.of("5"),
@@ -412,6 +450,7 @@ class BatchTraceWorkerTest {
             assertThat(resp2.result().status()).isEqualTo("failed");
             assertThat(resp2.result().phase()).isEqualTo("validation");
             assertThat(resp2.result().format()).isEqualTo("modern");
+            assertThat(resp2.result().limits()).isEqualTo(TraceLimits.unlimited());
         } // try
     } // testWorkerValidationFailure
 
@@ -449,8 +488,6 @@ class BatchTraceWorkerTest {
         } // try
     } // testWorkerTargetedLoopMultipleHits
 
-
-
     @Test
     @DisplayName("Worker executes chronological trace with non-empty breakpoints, modern format, and stdin")
     void testWorkerChronologicalWithNonEmptySpecs() {
@@ -463,6 +500,7 @@ class BatchTraceWorkerTest {
             assertThat(resp.result().complete()).isTrue();
         } // try
     } // testWorkerChronologicalWithNonEmptySpecs
+
     @Test
     @DisplayName("Worker executes single snapshot trace when breakpoints is null for PyTutor")
     void testWorkerSingleSnapshotTracePyTutor() {
@@ -543,4 +581,4 @@ class BatchTraceWorkerTest {
             assertThat(respPy.result().complete()).isTrue();
         } // try
     } // testWorkerSingleSnapshotEarlyExit
-}
+} // BatchTraceWorkerTest

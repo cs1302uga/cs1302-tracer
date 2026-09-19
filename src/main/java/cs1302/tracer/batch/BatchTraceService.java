@@ -2,6 +2,7 @@ package cs1302.tracer.batch;
 
 import com.google.gson.Gson;
 import cs1302.tracer.execution.TraceResult;
+import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -180,9 +181,15 @@ public final class BatchTraceService implements AutoCloseable {
             return worker.execute(req);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
+            TraceFormat format = TraceFormat.PYTUTOR;
+            try {
+                format = req.resolveFormat();
+            } catch (Exception ignored) {
+                // fallback to default
+            } // try
             TraceResult errResult = TraceResult.stopped(
-                    req.resolveFormat().name().toLowerCase(java.util.Locale.ROOT),
-                    "interrupted", "Worker execution interrupted");
+                    format.name().toLowerCase(java.util.Locale.ROOT),
+                    "interrupted", "Worker execution interrupted", req.resolveLimits());
             return new BatchJobResponse(req.id(), errResult);
         } finally {
             if (worker != null) {

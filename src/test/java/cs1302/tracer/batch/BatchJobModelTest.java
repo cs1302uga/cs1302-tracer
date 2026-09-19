@@ -20,17 +20,18 @@ class BatchJobModelTest {
     @DisplayName("BatchJobRequest defaults format and limits when null")
     void testRequestDefaults() {
         BatchJobRequest req = new BatchJobRequest(
-                "id-1", "class A {}", null, null, null, null, null, null, null, null, null, null, null);
+                "id-1", "class A {}", null, null, null,
+                null, null, null, null, null, null, null, null);
         assertThat(req.id()).isEqualTo("id-1");
         assertThat(req.source()).isEqualTo("class A {}");
         assertThat(req.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
         assertThat(req.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
-        assertThat(req.resolveLimits()).isEqualTo(TraceLimits.instructorDefaults());
+        assertThat(req.resolveLimits()).isEqualTo(TraceLimits.unlimited());
 
-        BatchJobRequest unlimReq = new BatchJobRequest(
-                "id-unlim", "class A {}", null, null, null, null,
-                null, null, null, null, null, TraceLimits.unlimited(), null);
-        assertThat(unlimReq.resolveLimits()).isEqualTo(TraceLimits.unlimited());
+        BatchJobRequest instrReq = new BatchJobRequest(
+                "id-instr", "class A {}", null, null, null, null,
+                null, null, null, null, null, TraceLimits.instructorDefaults(), null);
+        assertThat(instrReq.resolveLimits()).isEqualTo(TraceLimits.instructorDefaults());
     } // testRequestDefaults
 
     @Test
@@ -88,14 +89,33 @@ class BatchJobModelTest {
         assertThat(failed.phase()).isEqualTo("compile");
         assertThat(failed.complete()).isFalse();
         assertThat(failed.diagnostics()).contains("Syntax error");
+        assertThat(failed.limits()).isEqualTo(TraceLimits.unlimited());
+
+        TraceLimits customLimits = TraceLimits.instructorDefaults();
+        TraceResult failedWithLimits = TraceResult.failed(
+                "modern", "validation", "Invalid config", customLimits);
+        assertThat(failedWithLimits.limits()).isEqualTo(customLimits);
+
+        TraceResult failedWithNullLimits = TraceResult.failed(
+                "modern", "validation", "Invalid config", null);
+        assertThat(failedWithNullLimits.limits()).isEqualTo(TraceLimits.unlimited());
 
         TraceResult stopped = TraceResult.stopped("modern", "step_limit", "Too many steps");
         assertThat(stopped.status()).isEqualTo("stopped");
         assertThat(stopped.stopReason()).isEqualTo("step_limit");
         assertThat(stopped.complete()).isFalse();
+        assertThat(stopped.limits()).isEqualTo(TraceLimits.unlimited());
+
+        TraceResult stoppedWithLimits = TraceResult.stopped(
+                "pytutor", "interrupted", "Worker interrupted", customLimits);
+        assertThat(stoppedWithLimits.limits()).isEqualTo(customLimits);
+
+        TraceResult stoppedWithNullLimits = TraceResult.stopped(
+                "pytutor", "interrupted", "Worker interrupted", null);
+        assertThat(stoppedWithNullLimits.limits()).isEqualTo(TraceLimits.unlimited());
 
         BatchJobResponse resp = new BatchJobResponse("req-99", failed);
         assertThat(resp.id()).isEqualTo("req-99");
         assertThat(resp.result()).isSameAs(failed);
     } // testResponseAndTraceResultFactories
-}
+} // BatchJobModelTest

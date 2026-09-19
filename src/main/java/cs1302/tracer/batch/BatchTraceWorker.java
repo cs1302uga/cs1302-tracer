@@ -79,6 +79,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             throw new IllegalArgumentException("BatchJobRequest cannot be null");
         } // if
 
+        TraceLimits limits = req.resolveLimits();
         TraceFormat format = TraceFormat.PYTUTOR;
         TypeStyle typeStyle;
         try {
@@ -86,11 +87,11 @@ public final class BatchTraceWorker implements AutoCloseable {
             typeStyle = req.resolveTypeStyle();
         } catch (IllegalArgumentException valErr) {
             TraceResult errResult = TraceResult.failed(
-                    format.name().toLowerCase(Locale.ROOT), "validation", valErr.getMessage());
+                    format.name().toLowerCase(Locale.ROOT), "validation",
+                    valErr.getMessage(), limits);
             return new BatchJobResponse(req.id(), errResult);
         } // try
 
-        TraceLimits limits = req.resolveLimits();
         InspectionPolicy inspection = req.inspection() != null
                 ? req.inspection() : InspectionPolicy.TRUSTED;
         boolean allBps = Boolean.TRUE.equals(req.allBreakpoints());
@@ -102,7 +103,8 @@ public final class BatchTraceWorker implements AutoCloseable {
             restoreInterruptIfInterrupted(launchErr);
             TraceResult errResult = TraceResult.failed(
                     format.name().toLowerCase(Locale.ROOT), "tracer",
-                    "Failed to launch persistent guest session: " + launchErr.getMessage());
+                    "Failed to launch persistent guest session: " + launchErr.getMessage(),
+                    limits);
             return new BatchJobResponse(req.id(), errResult);
         } // try
 

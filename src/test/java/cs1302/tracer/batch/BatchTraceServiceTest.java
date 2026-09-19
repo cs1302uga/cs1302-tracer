@@ -201,6 +201,21 @@ class BatchTraceServiceTest {
             assertThat(resp.result().status()).isEqualTo("stopped");
         } // try
     } // testExecuteJobInterrupted
+
+    @Test
+    @DisplayName("Service handles thread interruption when executing job with invalid format")
+    void testExecuteJobInterruptedInvalidFormat() throws Exception {
+        BatchJobRequest req = new BatchJobRequest(
+                "job-intr-inv", SIMPLE_SOURCE, "unknown_format", null, List.of("4"),
+                false, false, false, false, false, "fqn", null, null);
+        try (BatchTraceService service = new BatchTraceService(1, 10)) {
+            Thread.currentThread().interrupt();
+            BatchJobResponse resp = service.executeJob(req);
+            assertThat(Thread.interrupted()).isTrue();
+            assertThat(resp.id()).isEqualTo("job-intr-inv");
+            assertThat(resp.result().status()).isEqualTo("stopped");
+        } // try
+    } // testExecuteJobInterruptedInvalidFormat
     @Test
     @DisplayName("Service handles stream exceeding in-flight capacity")
     void testExceedingInFlightCapacity() throws Exception {

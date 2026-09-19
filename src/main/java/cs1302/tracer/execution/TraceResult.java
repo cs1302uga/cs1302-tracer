@@ -26,7 +26,7 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
         String stdout, String stderr) {
 
     /**
-     * Creates a failed TraceResult with specified failure details.
+     * Creates a failed TraceResult with default unlimited limits.
      *
      * @param format Output format.
      * @param phase Failure phase.
@@ -34,13 +34,27 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
      * @return New failed TraceResult instance.
      */
     public static TraceResult failed(String format, String phase, String diagnostic) {
+        return failed(format, phase, diagnostic, TraceLimits.unlimited());
+    } // failed
+
+    /**
+     * Creates a failed TraceResult with specified effective limits.
+     *
+     * @param format Output format.
+     * @param phase Failure phase.
+     * @param diagnostic Human-readable diagnostic.
+     * @param limits Effective trace limits.
+     * @return New failed TraceResult instance.
+     */
+    public static TraceResult failed(
+            String format, String phase, String diagnostic, TraceLimits limits) {
         return new TraceResult(1, format, "failed", phase + "_error", phase, false,
-                null, TraceLimits.unlimited(), Collections.emptyMap(),
+                null, limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(),
                 List.of(diagnostic), "", "");
     } // failed
 
     /**
-     * Creates a stopped TraceResult with specified stop reason.
+     * Creates a stopped TraceResult with default unlimited limits.
      *
      * @param format Output format.
      * @param reason Machine-readable reason.
@@ -48,8 +62,22 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
      * @return New stopped TraceResult instance.
      */
     public static TraceResult stopped(String format, String reason, String diagnostic) {
+        return stopped(format, reason, diagnostic, TraceLimits.unlimited());
+    } // stopped
+
+    /**
+     * Creates a stopped TraceResult with specified effective limits.
+     *
+     * @param format Output format.
+     * @param reason Machine-readable reason.
+     * @param diagnostic Human-readable diagnostic.
+     * @param limits Effective trace limits.
+     * @return New stopped TraceResult instance.
+     */
+    public static TraceResult stopped(
+            String format, String reason, String diagnostic, TraceLimits limits) {
         return new TraceResult(1, format, "stopped", reason, "trace", false,
-                null, TraceLimits.unlimited(), Collections.emptyMap(),
+                null, limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(),
                 List.of(diagnostic), "", "");
     } // stopped
 } // TraceResult
