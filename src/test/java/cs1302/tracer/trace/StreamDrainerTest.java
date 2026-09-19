@@ -16,11 +16,16 @@ import org.junit.jupiter.api.Test;
 public class StreamDrainerTest {
 
   @Test
-  void testStartsEmpty() {
-    try (StreamDrainer drainer = new StreamDrainer(new ByteArrayInputStream(new byte[0]))) {
+  void testStartsEmpty() throws Exception {
+    PipedOutputStream pos = new PipedOutputStream();
+    PipedInputStream pis = new PipedInputStream(pos);
+    try (StreamDrainer drainer = new StreamDrainer(pis)) {
       assertThat(drainer.size()).isZero();
       assertThat(drainer.isEof()).isFalse();
       assertThat(drainer.getBytes()).isEmpty();
+      pos.close();
+      drainer.waitForEof(1000);
+      assertThat(drainer.isEof()).isTrue();
     }
   }
 
