@@ -177,7 +177,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             if (allBps) {
                 List<BreakpointSpec> specs = resolveChronologicalSpecs(req, compiled);
                 List<ExecutionSnapshot> snapshots =
-                        session.traceChronologicalWithSpecs(compiled, specs, units, stdin);
+                        session.traceChronologicalWithSpecs(compiled, specs, units, true, stdin);
                 payload = serializeChronologicalPayload(req, format, typeStyle, snapshots);
             } else {
                 if (req.breakpoints() == null) {
@@ -199,11 +199,12 @@ public final class BatchTraceWorker implements AutoCloseable {
      *
      * @param req Job request.
      * @param compiled Compilation result.
-     * @param units Parsed compilation units.
-     * @param stdin Standard input string.
+     * @param units Parsed AST units.
+     * @param stdin Guest input.
      * @param format Output format.
      * @param typeStyle Type styling.
      * @return Serialized trace payload.
+     * @throws Exception On compilation or execution error.
      */
     private Object traceSingleSnapshot(
             BatchJobRequest req,
@@ -387,4 +388,4 @@ public final class BatchTraceWorker implements AutoCloseable {
         } // if
     } // close
 
-}
+} // BatchTraceWorker

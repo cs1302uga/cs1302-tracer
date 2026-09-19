@@ -13,10 +13,14 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -175,6 +179,8 @@ public final class GuestHarness {
      * Executes the target job using a disposable classloader and redirected input.
      */
     static void runJob() {
+        OUT_BYTES.set(0);
+        ERR_BYTES.set(0);
         String cp = nextClassPath;
         String mc = nextMainClass;
         String stdin = nextStdin;
@@ -184,9 +190,16 @@ public final class GuestHarness {
         try {
             File cpFile = new File(cp);
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
+            ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
+            while (rootGroup.getParent() != null) {
+                rootGroup = rootGroup.getParent();
+            } // while
+            Set<Thread> baselineThreads = new HashSet<>(
+                    Arrays.asList(enumerateAllThreads(rootGroup)));
+            ThreadGroup jobGroup = new ThreadGroup("student-job-group");
             try (URLClassLoader loader = new URLClassLoader(
                     urls, ClassLoader.getPlatformClassLoader())) {
-                Thread jobThread = new Thread(() -> {
+                Thread jobThread = new Thread(jobGroup, () -> {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
                         invokeMain(mainClass);
@@ -202,14 +215,12 @@ public final class GuestHarness {
                     jobThread.interrupt();
                     Thread.currentThread().interrupt();
                 } // try
-                stopLingeringThreads(loader);
+                stopLingeringThreads(loader, baselineThreads, jobGroup);
             } // try
         } catch (Throwable t) {
             // Handled or ignored; snapshot or exception event captured by JDI
         } finally {
             Thread.interrupted();
-            System.out.flush();
-            System.err.flush();
             ORIGINAL_OUT.flush();
             ORIGINAL_ERR.flush();
             outBytes = OUT_BYTES.get();
@@ -253,6 +264,18 @@ public final class GuestHarness {
      * @param loader Current job classloader.
      */
     static void stopLingeringThreads(ClassLoader loader) {
+        stopLingeringThreads(loader, null, null);
+    } // stopLingeringThreads
+
+    /**
+     * Interrupts and awaits termination of lingering background threads.
+     *
+     * @param loader Current job classloader.
+     * @param baseline Baseline active threads before job execution.
+     * @param jobGroup Job-owned thread group.
+     */
+    static void stopLingeringThreads(
+            ClassLoader loader, Set<Thread> baseline, ThreadGroup jobGroup) {
         ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
         while (rootGroup.getParent() != null) {
             rootGroup = rootGroup.getParent();
@@ -261,14 +284,14 @@ public final class GuestHarness {
         Thread current = Thread.currentThread();
         List<Thread> targets = new ArrayList<>();
         for (Thread t : threads) {
-            if (t != current && t.getContextClassLoader() == loader) {
+            if (t != current && isJobThread(t, loader, baseline, jobGroup)) {
                 targets.add(t);
                 t.interrupt();
             } // if
         } // for
         for (Thread t : targets) {
             try {
-                t.join(50);
+                t.join(250);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
                 break;
@@ -281,6 +304,33 @@ public final class GuestHarness {
             } // if
         } // for
     } // stopLingeringThreads
+
+    /**
+     * Checks if a thread was created by or belongs to the current job.
+     *
+     * @param t Target thread to test.
+     * @param loader Current job classloader.
+     * @param baseline Baseline active threads before job execution.
+     * @param jobGroup Job-owned thread group.
+     * @return True if thread belongs to current job.
+     */
+    static boolean isJobThread(
+            Thread t, ClassLoader loader, Set<Thread> baseline, ThreadGroup jobGroup) {
+        if (t.getContextClassLoader() == loader) {
+            return true;
+        } // if
+        ThreadGroup g = t.getThreadGroup();
+        while (g != null) {
+            if (g == jobGroup) {
+                return true;
+            } // if
+            g = g.getParent();
+        } // while
+        if (baseline != null) {
+            return !baseline.contains(t);
+        } // if
+        return false;
+    } // isJobThread
 
     /**
      * Cleans up transient state between jobs.
@@ -420,4 +470,4 @@ public final class GuestHarness {
             return Math.max(0, buffer.length - pos);
         } // available
     } // VirtualInputStream
-}
+} // GuestHarness

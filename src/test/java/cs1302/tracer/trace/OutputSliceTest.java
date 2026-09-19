@@ -348,4 +348,23 @@ class OutputSliceTest {
             assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
         } // try
     } // testMaterialize
+
+    @Test
+    @DisplayName("wrapShared covers null, zero-length, out of bounds, and valid offsets")
+    void testWrapShared() {
+        assertThat(OutputSlice.wrapShared(null, 0, 5).isEmpty()).isTrue();
+        byte[] bytes = "0123456789".getBytes(StandardCharsets.UTF_8);
+        assertThat(OutputSlice.wrapShared(bytes, 0, 0).isEmpty()).isTrue();
+        assertThat(OutputSlice.wrapShared(bytes, 0, -1).isEmpty()).isTrue();
+        assertThat(OutputSlice.wrapShared(bytes, 15, 5).isEmpty()).isTrue();
+
+        OutputSlice negativeOffset = OutputSlice.wrapShared(bytes, -2, 5);
+        assertThat(negativeOffset.asUtf8String()).isEqualTo("01234");
+
+        OutputSlice clampedLength = OutputSlice.wrapShared(bytes, 8, 10);
+        assertThat(clampedLength.asUtf8String()).isEqualTo("89");
+
+        OutputSlice normal = OutputSlice.wrapShared(bytes, 2, 4);
+        assertThat(normal.asUtf8String()).isEqualTo("2345");
+    } // testWrapShared
 } // OutputSliceTest

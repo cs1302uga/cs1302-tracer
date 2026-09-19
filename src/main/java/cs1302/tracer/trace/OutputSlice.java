@@ -70,10 +70,25 @@ public final class OutputSlice {
         } // if
         int safeOffset = Math.max(0, offset);
         int safeLength = Math.min(length, bytes.length - safeOffset);
-        return new OutputSlice(
-                Arrays.copyOfRange(bytes, safeOffset, safeOffset + safeLength),
-                null, 0, safeLength);
+        return new OutputSlice(bytes.clone(), null, safeOffset, safeLength);
     } // from
+
+    /**
+     * Wraps a shared immutable byte array without defensive copying.
+     *
+     * @param bytes Direct shared byte array, or null.
+     * @param offset Starting byte index.
+     * @param length Number of bytes in slice.
+     * @return OutputSlice instance.
+     */
+    static OutputSlice wrapShared(byte[] bytes, int offset, int length) {
+        if (bytes == null || length <= 0 || offset >= bytes.length) {
+            return EMPTY_SLICE;
+        } // if
+        int safeOffset = Math.max(0, offset);
+        int safeLength = Math.min(length, bytes.length - safeOffset);
+        return new OutputSlice(bytes, null, safeOffset, safeLength);
+    } // wrapShared
 
     /**
      * Creates an OutputSlice backed by an active StreamDrainer sink.
@@ -289,7 +304,7 @@ public final class OutputSlice {
      * @return True if byte contents match.
      */
     public boolean contentEquals(OutputSlice other) {
-        if (this == other) {
+        if (this == normalSlice(other)) {
             return true;
         } // if
         if (other == null || this.length != other.length) {
@@ -307,6 +322,16 @@ public final class OutputSlice {
         } // for
         return true;
     } // contentEquals
+
+    /**
+     * Helper returning normalized reference for self-comparison.
+     *
+     * @param other Target slice.
+     * @return Same slice if identical.
+     */
+    private OutputSlice normalSlice(OutputSlice other) {
+        return this == other ? this : null;
+    } // normalSlice
 
     @Override
     public boolean equals(Object obj) {

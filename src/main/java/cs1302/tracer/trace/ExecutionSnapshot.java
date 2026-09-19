@@ -117,6 +117,20 @@ public record ExecutionSnapshot(
     } // materializeOutput
 
     /**
+     * Replaces the output slices of this snapshot with slices from shared backing buffers.
+     *
+     * @param sharedStdout Shared standard output buffer.
+     * @param sharedStderr Shared standard error buffer.
+     * @return New snapshot referencing shared output slices.
+     */
+    public ExecutionSnapshot withSharedOutput(byte[] sharedStdout, byte[] sharedStderr) {
+        OutputSlice matOut = OutputSlice.wrapShared(sharedStdout, 0, stdoutSlice.length());
+        OutputSlice matErr = OutputSlice.wrapShared(sharedStderr, 0, stderrSlice.length());
+        return new ExecutionSnapshot(
+                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset);
+    } // withSharedOutput
+
+    /**
      * Returns captured standard output bytes.
      *
      * @return Byte array of standard output.

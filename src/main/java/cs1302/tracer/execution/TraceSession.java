@@ -516,11 +516,43 @@ public final class TraceSession implements AutoCloseable {
     } // finishOutput
 
     /** Materializes all completed snapshot output slices into self-contained buffers. */
-    public void materializeSnapshots() {
+    public synchronized void materializeSnapshots() {
         for (int i = 0; i < completed.size(); i++) {
-            completed.set(i, completed.get(i).materializeOutput());
+            ExecutionSnapshot oldSnap = completed.get(i);
+            ExecutionSnapshot newSnap = oldSnap.materializeOutput();
+            updateMaterializedSnapshot(i, oldSnap, newSnap);
         } // for
     } // materializeSnapshots
+
+    /**
+     * Materializes all completed snapshot output slices using shared output buffers.
+     *
+     * @param sharedStdout Shared standard output buffer.
+     * @param sharedStderr Shared standard error buffer.
+     */
+    public synchronized void materializeSnapshots(byte[] sharedStdout, byte[] sharedStderr) {
+        for (int i = 0; i < completed.size(); i++) {
+            ExecutionSnapshot oldSnap = completed.get(i);
+            ExecutionSnapshot newSnap = oldSnap.withSharedOutput(sharedStdout, sharedStderr);
+            updateMaterializedSnapshot(i, oldSnap, newSnap);
+        } // for
+    } // materializeSnapshots
+
+    /**
+     * Updates completed snapshot reference and maintains sizes and latest maps.
+     *
+     * @param index Index in completed list.
+     * @param oldSnap Previous snapshot instance.
+     * @param newSnap Replaced snapshot instance.
+     */
+    private void updateMaterializedSnapshot(
+            int index, ExecutionSnapshot oldSnap, ExecutionSnapshot newSnap) {
+        if (oldSnap != newSnap) {
+            completed.set(index, newSnap);
+            sizes.put(newSnap, sizes.remove(oldSnap));
+            latest.replaceAll((key, snapshot) -> snapshot == oldSnap ? newSnap : snapshot);
+        } // if
+    } // updateMaterializedSnapshot
 
     @Override
     public void close() {

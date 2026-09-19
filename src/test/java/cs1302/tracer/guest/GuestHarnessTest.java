@@ -512,4 +512,52 @@ public class GuestHarnessTest {
         /** Not a main method. */
         public static void notMain() {}
     } // NoMainTarget
-}
+
+    @Test
+    void testStopLingeringThreadsCooperativeExits() throws Exception {
+        GuestHarness.shouldTerminate = false;
+        ClassLoader dummyLoader = new ClassLoader() {};
+        Thread cooperative = new Thread(() -> {
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException ignored) {
+                // exits immediately
+            } // try
+        });
+        cooperative.setContextClassLoader(dummyLoader);
+        cooperative.start();
+        try {
+            GuestHarness.stopLingeringThreads(dummyLoader);
+            assertThat(cooperative.isAlive()).isFalse();
+            assertThat(GuestHarness.shouldTerminate).isFalse();
+        } finally {
+            cooperative.interrupt();
+            cooperative.join(500);
+        } // try
+    } // testStopLingeringThreadsCooperativeExits
+
+    @Test
+    void testIsJobThreadDirect() {
+        ClassLoader loader = new ClassLoader() {};
+        ClassLoader otherLoader = new ClassLoader() {};
+        ThreadGroup jobGroup = new ThreadGroup("test-job-group");
+        ThreadGroup childGroup = new ThreadGroup(jobGroup, "test-child-group");
+        ThreadGroup otherGroup = new ThreadGroup("other-group");
+
+        Thread tLoader = new Thread(() -> {});
+        tLoader.setContextClassLoader(loader);
+        assertThat(GuestHarness.isJobThread(tLoader, loader, java.util.Set.of(), null)).isTrue();
+
+        Thread tChildGroup = new Thread(childGroup, () -> {});
+        tChildGroup.setContextClassLoader(otherLoader);
+        assertThat(GuestHarness.isJobThread(tChildGroup, loader, java.util.Set.of(), jobGroup))
+                .isTrue();
+
+        Thread tOther = new Thread(otherGroup, () -> {});
+        tOther.setContextClassLoader(otherLoader);
+        assertThat(GuestHarness.isJobThread(tOther, loader, java.util.Set.of(), jobGroup)).isTrue();
+        assertThat(GuestHarness.isJobThread(tOther, loader, java.util.Set.of(tOther), jobGroup))
+                .isFalse();
+        assertThat(GuestHarness.isJobThread(tOther, loader, null, jobGroup)).isFalse();
+    } // testIsJobThreadDirect
+} // GuestHarnessTest
