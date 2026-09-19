@@ -893,7 +893,7 @@ public class DebugTraceHelper {
      * @param rawStderr Raw stderr OutputSlice.
      * @return Sanitized stderr OutputSlice.
      */
-    static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
+    public static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
         if (rawStderr == null || rawStderr.isEmpty()) {
             return rawStderr != null ? rawStderr : OutputSlice.empty();
         } // if

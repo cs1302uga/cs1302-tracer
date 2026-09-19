@@ -266,6 +266,29 @@ class TraceSessionLifecycleTest {
         }
     }
 
+    @Test
+    void sharedFinalStderrPreservesSanitizedSnapshotPrefixes() throws Exception {
+        String banner = "Picked up JAVA_TOOL_OPTIONS: -Xmx64m\n"
+                + "Picked up _JAVA_OPTIONS: -Xms16m\n";
+        byte[] stderr = (banner + "errmore").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true);
+                var err = new StreamDrainer(new java.io.ByteArrayInputStream(stderr));
+                var out = new StreamDrainer(java.io.InputStream.nullInputStream())) {
+            err.waitForEof(1000);
+            out.waitForEof(1000);
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    OutputSlice.empty(), OutputSlice.from(err, banner.length(), 3),
+                    Optional.empty(), "", 0));
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    OutputSlice.empty(), OutputSlice.from(err, banner.length(), 4),
+                    Optional.empty(), "", 0));
+            session.finishOutput();
+            err.reset();
+            assertThat(session.snapshots().getFirst().stderrSlice().asUtf8String()).isEqualTo("err");
+            assertThat(session.snapshots().getLast().stderrSlice().asUtf8String()).isEqualTo("errmore");
+        }
+    }
+
     private static cs1302.tracer.trace.ExecutionSnapshot snapshot(int line) {
         return new cs1302.tracer.trace.ExecutionSnapshot(List.of(
                 new cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot("main", line, List.of(), java.util.Optional.empty())),

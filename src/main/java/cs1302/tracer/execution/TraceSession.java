@@ -6,6 +6,7 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.sun.jdi.VirtualMachine;
+import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
@@ -473,7 +474,8 @@ public final class TraceSession implements AutoCloseable {
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
-        finishOutput(drainers.get(1).snapshotOutput(), drainers.get(0).snapshotOutput());
+        finishOutput(drainers.get(1).snapshotOutput(),
+                DebugTraceHelper.sanitizeDebuggeeStderrSlice(drainers.get(0).snapshotOutput()));
     } // finishOutput
 
     /**
