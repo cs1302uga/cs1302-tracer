@@ -27,7 +27,6 @@ public final class BatchTraceService implements AutoCloseable {
 
     private final int workerCount;
     private final int maxJobsPerWorker;
-    private final boolean pretty;
     private final ExecutorService executor;
     private final BlockingQueue<BatchTraceWorker> workerPool;
     private final List<BatchTraceWorker> allWorkers;
@@ -38,12 +37,10 @@ public final class BatchTraceService implements AutoCloseable {
      *
      * @param workerCount Number of concurrent worker sessions.
      * @param maxJobsPerWorker Maximum jobs before recycling a worker.
-     * @param pretty Pretty-print output JSON.
      */
-    public BatchTraceService(int workerCount, int maxJobsPerWorker, boolean pretty) {
+    public BatchTraceService(int workerCount, int maxJobsPerWorker) {
         this.workerCount = Math.max(1, workerCount);
         this.maxJobsPerWorker = maxJobsPerWorker;
-        this.pretty = pretty;
         this.executor = Executors.newFixedThreadPool(this.workerCount);
         this.workerPool = new LinkedBlockingQueue<>();
         this.allWorkers = new ArrayList<>();

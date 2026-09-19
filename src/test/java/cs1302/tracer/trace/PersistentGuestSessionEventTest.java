@@ -631,4 +631,43 @@ class PersistentGuestSessionEventTest {
         PersistentGuestSession deadSession = createMockSession(deadVm, readyLoc, completedLoc, deadProc);
         assertThat(deadSession.isAlive()).isFalse();
     } // testIsAlive
+
+    @Test
+    @DisplayName("awaitAndInstallSentinels throws IllegalStateException when startup times out")
+    void testAwaitAndInstallSentinelsTimeout() {
+        var proc = new FakeProcess(true);
+        var emptyEq = (EventQueue) java.lang.reflect.Proxy.newProxyInstance(
+                EventQueue.class.getClassLoader(),
+                new Class<?>[] {EventQueue.class},
+                (self, m, args) -> null);
+        var vm = mirror(VirtualMachine.class, Map.of(
+                "process", proc,
+                "eventQueue", emptyEq));
+        var cpr = mirror(ClassPrepareRequest.class, Map.of());
+        BreakpointRequest[] bps = new BreakpointRequest[2];
+        Location[] locs = new Location[2];
+
+        assertThatThrownBy(() -> PersistentGuestSession.awaitAndInstallSentinels(
+                vm, cpr, bps, locs, 0))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Timed out waiting for GuestHarness startup handshake");
+        assertThat(proc.isAlive()).isFalse();
+    } // testAwaitAndInstallSentinelsTimeout
+
+    @Test
+    @DisplayName("close is idempotent and handles already dead sessions")
+    void testCloseIdempotent() {
+        Location readyLoc = location("cs1302.tracer.guest.GuestHarness", 69);
+        Location completedLoc = location("cs1302.tracer.guest.GuestHarness", 79);
+        var proc = new FakeProcess(true);
+        var vm = mirror(VirtualMachine.class, Map.of("process", proc));
+
+        PersistentGuestSession session = createMockSession(vm, readyLoc, completedLoc, proc);
+        session.setAlive(false);
+        session.close();
+        assertThat(session.isAlive()).isFalse();
+
+        // Calling close again returns immediately
+        session.close();
+    } // testCloseIdempotent
 }

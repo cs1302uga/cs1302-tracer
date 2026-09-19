@@ -78,7 +78,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         } catch (Throwable launchErr) {
             restoreInterruptIfInterrupted(launchErr);
             TraceResult errResult = TraceResult.failed(
-                    format.name().toLowerCase(Locale.ROOT), "tracer_error",
+                    format.name().toLowerCase(Locale.ROOT), "tracer",
                     "Failed to launch persistent guest session: " + launchErr.getMessage());
             return new BatchJobResponse(req.id(), errResult);
         } // try

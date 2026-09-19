@@ -42,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -63,6 +64,7 @@ public final class PersistentGuestSession implements AutoCloseable {
     private final Field shouldTerminateField;
     private final Location readyLocation;
     private final Location completedLocation;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile boolean alive;
     private int completedJobCount;
 
@@ -152,8 +154,34 @@ public final class PersistentGuestSession implements AutoCloseable {
             ClassPrepareRequest cpr,
             BreakpointRequest[] outBps,
             Location[] outLocs) throws InterruptedException {
+        return awaitAndInstallSentinels(vm, cpr, outBps, outLocs, 15000);
+    } // awaitAndInstallSentinels
+
+    /**
+     * Awaits preparation of GuestHarness and installs sentinel breakpoints with bounded timeout.
+     *
+     * @param vm Debuggee VirtualMachine.
+     * @param cpr Class prepare request for GuestHarness.
+     * @param outBps Output array storing created BreakpointRequests (ready, completed).
+     * @param outLocs Output array storing sentinel Locations (ready, completed).
+     * @param timeoutMs Timeout in milliseconds for the handshake.
+     * @return Prepared ClassType for GuestHarness.
+     * @throws InterruptedException On cancellation.
+     */
+    static ClassType awaitAndInstallSentinels(
+            VirtualMachine vm,
+            ClassPrepareRequest cpr,
+            BreakpointRequest[] outBps,
+            Location[] outLocs,
+            long timeoutMs) throws InterruptedException {
         ClassType harnessType = null;
+        long deadline = System.currentTimeMillis() + timeoutMs;
         while (true) {
+            if (System.currentTimeMillis() >= deadline) {
+                vm.process().destroyForcibly();
+                throw new IllegalStateException(
+                        "Timed out waiting for GuestHarness startup handshake");
+            } // if
             EventSet eventSet = vm.eventQueue().remove(1000);
             if (eventSet != null) {
                 for (Event event : eventSet) {
@@ -420,12 +448,9 @@ public final class PersistentGuestSession implements AutoCloseable {
             jobRequests.add(mer);
         } // for
 
-        for (String className : cr.compiledClassNames()) {
-            ExceptionRequest er = vm.eventRequestManager().createExceptionRequest(null, true, true);
-            er.addClassFilter(className);
-            er.enable();
-            jobRequests.add(er);
-        } // for
+        ExceptionRequest er = vm.eventRequestManager().createExceptionRequest(null, true, true);
+        er.enable();
+        jobRequests.add(er);
     } // setupJobRequests
 
     /**
@@ -656,27 +681,29 @@ public final class PersistentGuestSession implements AutoCloseable {
 
     @Override
     public void close() {
-        if (!alive) {
+        if (!closed.compareAndSet(false, true)) {
             return;
         } // if
+        boolean wasAlive = alive;
         alive = false;
-        try {
-            harnessType.setValue(shouldTerminateField, vm.mirrorOf(true));
-            vm.resume();
-            vm.process().waitFor(500, TimeUnit.MILLISECONDS);
-        } catch (Exception ignored) {
-            // ignore termination errors
-        } finally {
+        if (wasAlive) {
             try {
-                vm.dispose();
+                harnessType.setValue(shouldTerminateField, vm.mirrorOf(true));
+                vm.resume();
+                vm.process().waitFor(500, TimeUnit.MILLISECONDS);
             } catch (Exception ignored) {
-                // ignore dispose errors
+                // ignore termination errors
             } // try
-            if (vm.process().isAlive()) {
-                vm.process().destroyForcibly();
-            } // if
-            vmOut.close();
-            vmErr.close();
+        } // if
+        try {
+            vm.dispose();
+        } catch (Exception ignored) {
+            // ignore dispose errors
         } // try
+        if (vm.process().isAlive()) {
+            vm.process().destroyForcibly();
+        } // if
+        vmOut.close();
+        vmErr.close();
     } // close
 }

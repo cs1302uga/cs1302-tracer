@@ -754,11 +754,6 @@ public class App {
                 defaultValue = "100")
         int maxJobsPerWorker = 100;
 
-        @Option(
-                names = {"--pretty", "-p"},
-                description = "Pretty-print output JSON.")
-        boolean pretty = false;
-
         public Consumer<Integer> exitHandler = System::exit;
 
         /** Constructs a BatchTrace command. */
@@ -767,7 +762,7 @@ public class App {
         @Override
         public void run() {
             try (BatchTraceService service = new BatchTraceService(
-                    workers, maxJobsPerWorker, pretty)) {
+                    workers, maxJobsPerWorker)) {
                 InputStream is = input != null
                         ? Files.newInputStream(input.toPath()) : System.in;
                 try {

@@ -285,7 +285,8 @@ class BatchTraceWorkerTest {
                 false, false, false, false, false, "fqn", null, null);
         BatchJobResponse resp = worker.execute(req);
         assertThat(resp.result().status()).isEqualTo("failed");
-        assertThat(resp.result().phase()).isEqualTo("tracer_error");
+        assertThat(resp.result().phase()).isEqualTo("tracer");
+        assertThat(resp.result().stopReason()).isEqualTo("tracer_error");
         assertThat(resp.result().diagnostics()).anyMatch(d -> d.contains("Simulated VM crash"));
     } // testWorkerLaunchFailure
     @Test

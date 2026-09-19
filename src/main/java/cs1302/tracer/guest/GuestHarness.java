@@ -98,11 +98,15 @@ public final class GuestHarness {
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
             try (URLClassLoader loader = new URLClassLoader(
                     urls, GuestHarness.class.getClassLoader())) {
+                ClassLoader originalContextLoader =
+                        Thread.currentThread().getContextClassLoader();
+                Thread.currentThread().setContextClassLoader(loader);
                 try {
                     Class<?> mainClass = Class.forName(mc, true, loader);
                     Method mainMethod = mainClass.getMethod("main", String[].class);
                     mainMethod.invoke(null, (Object) new String[0]);
                 } finally {
+                    Thread.currentThread().setContextClassLoader(originalContextLoader);
                     stopLingeringThreads(loader);
                 } // try
             } // try
@@ -142,6 +146,12 @@ public final class GuestHarness {
                 Thread.currentThread().interrupt();
                 break;
             } // try
+        } // for
+        for (Thread t : targets) {
+            if (t.isAlive()) {
+                shouldTerminate = true;
+                break;
+            } // if
         } // for
     } // stopLingeringThreads
 

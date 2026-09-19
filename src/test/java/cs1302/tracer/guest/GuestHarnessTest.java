@@ -254,4 +254,32 @@ public class GuestHarnessTest {
             lingering.join(500);
         } // try
     } // testStopLingeringThreadsInterrupted
+
+    @Test
+    void testStopLingeringThreadsUncooperativeThread() {
+        GuestHarness.shouldTerminate = false;
+        ClassLoader dummyLoader = new ClassLoader() {};
+        Thread rogue = new Thread(() -> {
+            for (int i = 0; i < 5; i++) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {
+                    // ignore and stay alive
+                } // try
+            } // for
+        });
+        rogue.setContextClassLoader(dummyLoader);
+        rogue.start();
+        try {
+            GuestHarness.stopLingeringThreads(dummyLoader);
+            assertThat(GuestHarness.shouldTerminate).isTrue();
+        } finally {
+            rogue.interrupt();
+            try {
+                rogue.join(500);
+            } catch (InterruptedException ignored) {
+                // ignore
+            } // try
+        } // try
+    } // testStopLingeringThreadsUncooperativeThread
 }

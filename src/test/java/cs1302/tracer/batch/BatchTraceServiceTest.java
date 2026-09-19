@@ -47,7 +47,7 @@ class BatchTraceServiceTest {
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.getBytes(StandardCharsets.UTF_8));
         StringWriter out = new StringWriter();
 
-        try (BatchTraceService service = new BatchTraceService(1, 10, false)) {
+        try (BatchTraceService service = new BatchTraceService(1, 10)) {
             service.processStream(in, out);
         } // try
 
@@ -71,7 +71,7 @@ class BatchTraceServiceTest {
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.getBytes(StandardCharsets.UTF_8));
         StringWriter out = new StringWriter();
 
-        try (BatchTraceService service = new BatchTraceService(1, 10, false)) {
+        try (BatchTraceService service = new BatchTraceService(1, 10)) {
             service.processStream(in, out);
         } // try
 
@@ -143,7 +143,7 @@ class BatchTraceServiceTest {
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.getBytes(StandardCharsets.UTF_8));
         StringWriter out = new StringWriter();
 
-        try (BatchTraceService service = new BatchTraceService(1, 10, false)) {
+        try (BatchTraceService service = new BatchTraceService(1, 10)) {
             service.processStream(in, out);
         } // try
 
@@ -192,7 +192,7 @@ class BatchTraceServiceTest {
         BatchJobRequest req = new BatchJobRequest(
                 "job-intr", SIMPLE_SOURCE, "pytutor", null, List.of("4"),
                 false, false, false, false, false, "fqn", null, null);
-        try (BatchTraceService service = new BatchTraceService(1, 10, false)) {
+        try (BatchTraceService service = new BatchTraceService(1, 10)) {
             Thread.currentThread().interrupt();
             BatchJobResponse resp = service.executeJob(req);
             assertThat(Thread.interrupted()).isTrue();
@@ -211,7 +211,7 @@ class BatchTraceServiceTest {
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.toString().getBytes(StandardCharsets.UTF_8));
         StringWriter out = new StringWriter();
 
-        try (BatchTraceService service = new BatchTraceService(1, 100, false)) {
+        try (BatchTraceService service = new BatchTraceService(1, 100)) {
             service.processStream(in, out);
         } // try
 

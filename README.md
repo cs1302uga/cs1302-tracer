@@ -197,7 +197,7 @@ Each line is a JSON object with job options:
 Each output line contains the job correlation `id` and versioned `TraceResult`:
 
 ```json
-{"id":"job-1","result":{"schemaVersion":1,"format":"modern","status":"completed","complete":true,"payload":{"source":"...","steps":[...]}}}
+{"id":"job-1","result":{"schemaVersion":1,"format":"modern","status":"completed","complete":true,"trace":{"code":"...","steps":[...]}}}
 ```
 
 ##### Performance Comparison
@@ -324,7 +324,7 @@ Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints]
 ### `batch-trace` Options
 
 ```text
-Usage: code-tracer batch-trace [-hpV] [-i=<input>]
+Usage: code-tracer batch-trace [-hV] [-i=<input>]
                                [--max-jobs-per-worker=<maxJobsPerWorker>]
                                [-w=<workers>]
 ```
@@ -334,7 +334,6 @@ Usage: code-tracer batch-trace [-hpV] [-i=<input>]
 | `--input=<file>` | `-i` | `stdin` | Input path to NDJSON file (defaults to `stdin` if omitted). |
 | `--workers=<workers>` | `-w` | `1` | Number of persistent worker sessions running concurrently. |
 | `--max-jobs-per-worker=<num>` | | `100` | Maximum jobs before recycling a worker process. |
-| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
 | `--help` | `-h` | | Show help message and exit. |
 | `--version` | `-V` | | Print version information and exit. |
 
@@ -350,7 +349,6 @@ Usage: code-tracer list-breakpoints [-hjpvV] [-i=<input>]
 | :--- | :--- | :--- | :--- |
 | `--input=<file>` | `-i` | `stdin` | Input path to Java source file (defaults to `stdin` if omitted). |
 | `--json` | `-j` | `false` | Output available breakpoints in structured JSON format. |
-| `--pretty` | `-p` | `false` | Pretty-print JSON output. |
 | `--verbose` | `-v` | `false` | Output messages about what the tracer is doing. |
 | `--help` | `-h` | | Show help message and exit. |
 | `--version` | `-V` | | Print version information and exit. |
