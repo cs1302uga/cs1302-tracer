@@ -267,6 +267,22 @@ class BatchTraceServiceTest {
                 .hasMessageContaining("NDJSON record exceeds maximum size");
         assertThat(BatchTraceService.readBoundedLine(boundReader, 100)).isEqualTo("nextLine");
 
+        // Exceeding limit with CR-only drain
+        String oversizedCr = "0123456789extra\rnextLineCr";
+        java.io.BufferedReader crReader =
+                new java.io.BufferedReader(new java.io.StringReader(oversizedCr));
+        assertThatThrownBy(() -> BatchTraceService.readBoundedLine(crReader, 5))
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(BatchTraceService.readBoundedLine(crReader, 100)).isEqualTo("nextLineCr");
+
+        // Exceeding limit with CRLF drain
+        String oversizedCrlf = "0123456789extra\r\nnextLineCrlf";
+        java.io.BufferedReader crlfReader =
+                new java.io.BufferedReader(new java.io.StringReader(oversizedCrlf));
+        assertThatThrownBy(() -> BatchTraceService.readBoundedLine(crlfReader, 5))
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(BatchTraceService.readBoundedLine(crlfReader, 100)).isEqualTo("nextLineCrlf");
+
         // Exceeding limit at EOF without newline
         String oversizedAtEof = "0123456789extra";
         java.io.BufferedReader eofReader =

@@ -25,6 +25,7 @@ public class StreamDrainer implements AutoCloseable {
     private volatile long lastReadNanos;
     private volatile boolean closed;
     private volatile boolean eofReached;
+    private long sessionStartSinkSize;
 
     /**
      * Constructs a new StreamDrainer for the specified source stream.
@@ -63,8 +64,11 @@ public class StreamDrainer implements AutoCloseable {
                 synchronized (sink) {
                     TraceSession active = session;
                     long currentLimit = active != null ? active.outputLimit() : limit;
+                    long sessionBytes = active != null
+                            ? Math.max(0, sink.size() - sessionStartSinkSize)
+                            : sink.size();
                     int retained = currentLimit == 0 ? read
-                            : (int) Math.min(read, Math.max(0, currentLimit - sink.size()));
+                            : (int) Math.min(read, Math.max(0, currentLimit - sessionBytes));
                     sink.write(buffer, 0, retained);
                     if (retained < read) {
                         if (active != null) {
@@ -82,16 +86,23 @@ public class StreamDrainer implements AutoCloseable {
     /**
      * Attaches an active trace session so this drainer enforces its output limit.
      *
-     * @param session Active trace session.\n     */
+     * @param session Active trace session.
+     */
     public void attachSession(TraceSession session) {
-        this.session = session;
+        synchronized (sink) {
+            this.session = session;
+            this.sessionStartSinkSize = sink.size();
+        } // synchronized
     } // attachSession
 
     /**
      * Detaches the active trace session so this drainer does not retain it.
      */
     public void detachSession() {
-        this.session = null;
+        synchronized (sink) {
+            this.session = null;
+            this.sessionStartSinkSize = 0;
+        } // synchronized
     } // detachSession
 
     /**

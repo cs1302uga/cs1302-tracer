@@ -210,4 +210,43 @@ public class StreamDrainerTest {
     }).start();
     drainer3.syncUntil(100, 500);
   }
+  @Test
+  @DisplayName("Successive attached sessions enforce limits relative to their attach point")
+  void testAttachSessionSuccessiveJobsAccounting() throws Exception {
+    PipedOutputStream pos = new PipedOutputStream();
+    PipedInputStream pis = new PipedInputStream(pos);
+
+    TraceLimits limits = new TraceLimits(100, 5000, 5, 100, 100, 10000, 10000, 10);
+    try (StreamDrainer drainer = new StreamDrainer(pis)) {
+      // Session 1: 3 bytes (under limit of 5)
+      try (TraceSession s1 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+        drainer.attachSession(s1);
+        pos.write("123".getBytes(StandardCharsets.UTF_8));
+        pos.flush();
+        drainer.sync(100, 5);
+        assertThat(s1.isStopped()).isFalse();
+        drainer.detachSession();
+      }
+
+      // Session 2: attached when sink already has 3 bytes.
+      // Emitting 4 bytes should bring session bytes to 4 (< 5), not trigger limit.
+      try (TraceSession s2 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+        drainer.attachSession(s2);
+        pos.write("4567".getBytes(StandardCharsets.UTF_8));
+        pos.flush();
+        drainer.sync(100, 5);
+        assertThat(drainer.size()).isEqualTo(7);
+        assertThat(s2.isStopped()).isFalse();
+
+        // Emitting 2 more bytes brings session 2 bytes to 6 (> 5), triggering output_limit
+        pos.write("89".getBytes(StandardCharsets.UTF_8));
+        pos.flush();
+        drainer.sync(100, 5);
+        assertThat(s2.isStopped()).isTrue();
+        assertThat(s2.stopReason()).isEqualTo("output_limit");
+        drainer.detachSession();
+      }
+      pos.close();
+    }
+  }
 }

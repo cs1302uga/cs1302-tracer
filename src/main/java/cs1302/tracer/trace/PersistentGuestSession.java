@@ -40,7 +40,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -314,18 +313,15 @@ public final class PersistentGuestSession implements AutoCloseable {
             String stdin,
             boolean accumulate) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new TreeMap<>();
-        AtomicReference<ExecutionSnapshot> lastCaptured = new AtomicReference<>();
-        AtomicInteger lastCapturedLine = new AtomicInteger(-1);
         runJobInternal(cr, specs, parsedSources, stdin, false, (line, snap) -> {
             ExecutionSnapshot mat = snap.materializeOutput();
-            lastCaptured.set(mat);
-            lastCapturedLine.set(line);
             DebugTraceHelper.storeSnapshot(snapshots, line, mat);
         });
-        ExecutionSnapshot last = lastCaptured.get();
-        ExecutionSnapshot updated = withUpdatedOutput(last, lastJobOut, lastJobErr);
-        List<ExecutionSnapshot> list = snapshots.get(lastCapturedLine.get());
-        list.set(list.lastIndexOf(last), updated);
+        for (List<ExecutionSnapshot> list : snapshots.values()) {
+            int lastIdx = list.size() - 1;
+            ExecutionSnapshot last = list.get(lastIdx);
+            list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
+        } // for
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
     } // traceWithSpecs
 
@@ -352,9 +348,11 @@ public final class PersistentGuestSession implements AutoCloseable {
                 chronological.add(mat);
             } // if
         });
-        ExecutionSnapshot last = chronological.getLast();
-        chronological.set(chronological.size() - 1,
-                withUpdatedOutput(last, lastJobOut, lastJobErr));
+        if (!chronological.isEmpty()) {
+            int lastIdx = chronological.size() - 1;
+            ExecutionSnapshot last = chronological.get(lastIdx);
+            chronological.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
+        } // if
         return chronological;
     } // traceChronologicalWithSpecs
 
@@ -582,8 +580,9 @@ public final class PersistentGuestSession implements AutoCloseable {
     private void finalizeOutput(TraceSession currentSession, int startOut, int startErr) {
         OutputSlice finalOut = OutputSlice.from(
                 vmOut, startOut, Math.max(0, vmOut.size() - startOut)).materialize();
-        OutputSlice finalErr = OutputSlice.from(
-                vmErr, startErr, Math.max(0, vmErr.size() - startErr)).materialize();
+        OutputSlice rawErr = OutputSlice.from(
+                vmErr, startErr, Math.max(0, vmErr.size() - startErr));
+        OutputSlice finalErr = DebugTraceHelper.sanitizeDebuggeeStderrSlice(rawErr).materialize();
         this.lastJobOut = finalOut;
         this.lastJobErr = finalErr;
         if (currentSession != null) {

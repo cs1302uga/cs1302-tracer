@@ -14,6 +14,23 @@ import org.junit.jupiter.api.Test;
  */
 class BatchTraceWorkerTest {
 
+    private static final String MULTI_FILE_SOURCE = """
+            // --- A.java ---
+            public class A {
+                public static int foo() {
+                    int x = 1;
+                    return x;
+                }
+            }
+            // --- B.java ---
+            public class B {
+                public static void main(String[] args) {
+                    int y = A.foo();
+                    System.out.println(y);
+                }
+            }
+            """;
+
     private static final String PACKAGE_SOURCE = """
             package com.example;
             public class Packaged {
@@ -389,11 +406,12 @@ class BatchTraceWorkerTest {
             assertThat(resp1.result().phase()).isEqualTo("validation");
 
             BatchJobRequest badTsReq = new BatchJobRequest(
-                    "bad-ts", BASIC_SOURCE, "pytutor", null, List.of("5"),
+                    "bad-ts", BASIC_SOURCE, "modern", null, List.of("5"),
                     false, false, false, false, false, "invalid_ts", null, null);
             BatchJobResponse resp2 = worker.execute(badTsReq);
             assertThat(resp2.result().status()).isEqualTo("failed");
             assertThat(resp2.result().phase()).isEqualTo("validation");
+            assertThat(resp2.result().format()).isEqualTo("modern");
         } // try
     } // testWorkerValidationFailure
 
@@ -445,4 +463,64 @@ class BatchTraceWorkerTest {
             assertThat(resp.result().complete()).isTrue();
         } // try
     } // testWorkerChronologicalWithNonEmptySpecs
+    @Test
+    @DisplayName("Worker executes single snapshot trace when breakpoints is null for PyTutor")
+    void testWorkerSingleSnapshotTracePyTutor() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-single-py", BASIC_SOURCE, "pytutor", null, null,
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-single-py");
+            assertThat(resp.result().complete()).isTrue();
+            assertThat(resp.result().trace()).isNotNull();
+        } // try
+    } // testWorkerSingleSnapshotTracePyTutor
+
+    @Test
+    @DisplayName("Worker executes single snapshot trace when breakpoints is null for Modern")
+    void testWorkerSingleSnapshotTraceModern() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-single-mod", BASIC_SOURCE, "modern", "sample-input", null,
+                    false, false, false, false, false, "simple", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-single-mod");
+            assertThat(resp.result().complete()).isTrue();
+            assertThat(resp.result().trace()).isNotNull();
+        } // try
+    } // testWorkerSingleSnapshotTraceModern
+
+    @Test
+    @DisplayName("Worker executes chronological trace with null breakpoints defaulting to all lines")
+    void testWorkerChronologicalNullBreakpoints() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-chrono-null-bp", BASIC_SOURCE, "pytutor", null, null,
+                    true, false, false, false, false, "fqn", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.id()).isEqualTo("job-chrono-null-bp");
+            assertThat(resp.result().complete()).isTrue();
+        } // try
+    } // testWorkerChronologicalNullBreakpoints
+
+    @Test
+    @DisplayName("Worker preserves snapshot list when multiple files hit the same line")
+    void testWorkerMultiFileSameLinePreserved() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            // Modern format
+            BatchJobRequest reqMod = new BatchJobRequest(
+                    "mf-mod", MULTI_FILE_SOURCE, "modern", null, List.of("4"),
+                    false, false, false, false, false, "simple", null, null);
+            BatchJobResponse respMod = worker.execute(reqMod);
+            assertThat(respMod.result().complete()).isTrue();
+
+            // PyTutor format
+            BatchJobRequest reqPy = new BatchJobRequest(
+                    "mf-py", MULTI_FILE_SOURCE, "pytutor", null, List.of("4"),
+                    false, false, false, false, false, "fqn", null, null);
+            BatchJobResponse respPy = worker.execute(reqPy);
+            assertThat(respPy.result().complete()).isTrue();
+        } // try
+    } // testWorkerMultiFileSameLinePreserved
 }

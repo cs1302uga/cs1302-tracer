@@ -355,4 +355,23 @@ class PersistentGuestSessionTest {
     } // handlesStderrOutput
 
 
+    @Test
+    @DisplayName("traceChronologicalWithSpecs with early exit and no hits yields empty snapshots")
+    void testTraceChronologicalWithSpecsNoHits() throws Exception {
+        String exitSource = """
+                public class ExitEarly {
+                    public static void main(String[] args) {
+                        System.exit(0);
+                    }
+                }
+                """;
+        try (PersistentGuestSession session = PersistentGuestSession.create()) {
+            var ast = StaticJavaParser.parse(exitSource);
+            try (var cr = CompilationHelper.compile(exitSource)) {
+                List<ExecutionSnapshot> snaps = session.traceChronologicalWithSpecs(
+                        cr, List.of(BreakpointSpec.of(999)), List.of(ast), "");
+                assertThat(snaps).isEmpty();
+            } // try
+        } // try
+    } // testTraceChronologicalWithSpecsNoHits
 }

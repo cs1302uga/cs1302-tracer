@@ -72,14 +72,14 @@ public final class BatchTraceWorker implements AutoCloseable {
             throw new IllegalArgumentException("BatchJobRequest cannot be null");
         } // if
 
-        TraceFormat format;
+        TraceFormat format = TraceFormat.PYTUTOR;
         TypeStyle typeStyle;
         try {
             format = req.resolveFormat();
             typeStyle = req.resolveTypeStyle();
         } catch (IllegalArgumentException valErr) {
             TraceResult errResult = TraceResult.failed(
-                    "pytutor", "validation", valErr.getMessage());
+                    format.name().toLowerCase(Locale.ROOT), "validation", valErr.getMessage());
             return new BatchJobResponse(req.id(), errResult);
         } // try
 
@@ -165,20 +165,24 @@ public final class BatchTraceWorker implements AutoCloseable {
 
             traceSession.phase("trace");
             String stdin = req.stdin() != null ? req.stdin() : "";
-            List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
             if (allBps) {
-                List<BreakpointSpec> effectiveSpecs = specs;
-                if (specs.isEmpty()) {
-                    Collection<Integer> lines = DebugTraceHelper.getValidBreakpointLines(compiled);
-                    effectiveSpecs = lines.stream().map(BreakpointSpec::of).toList();
-                } // if
+                List<BreakpointSpec> specs = resolveChronologicalSpecs(req, compiled);
                 List<ExecutionSnapshot> snapshots =
-                        session.traceChronologicalWithSpecs(compiled, effectiveSpecs, units, stdin);
+                        session.traceChronologicalWithSpecs(compiled, specs, units, stdin);
                 payload = serializeChronologicalPayload(req, format, typeStyle, snapshots);
             } else {
-                Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
-                        session.traceWithSpecs(compiled, specs, units, stdin, accBps);
-                payload = serializeTargetedPayload(req, format, typeStyle, snapshotsMap, accBps);
+                if (req.breakpoints() == null) {
+                    Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
+                            session.traceWithSpecs(compiled, List.of(), units, stdin, false);
+                    ExecutionSnapshot snapshot = snapshotsMap.get(-1).getLast();
+                    payload = serializeSingleSnapshotPayload(req, format, typeStyle, snapshot);
+                } else {
+                    List<BreakpointSpec> specs = JobOptions.parseBreakpoints(req.breakpoints());
+                    Map<Integer, List<ExecutionSnapshot>> snapshotsMap =
+                            session.traceWithSpecs(compiled, specs, units, stdin, accBps);
+                    payload = serializeTargetedPayload(
+                            req, format, typeStyle, snapshotsMap, accBps);
+                } // if
             } // if
         } // try
         return payload;
@@ -214,6 +218,55 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // serializeChronologicalPayload
 
     /**
+     * Resolves effective breakpoint specifications for chronological tracing.
+     *
+     * @param req Batch job request.
+     * @param compiled Compilation result.
+     * @return Effective breakpoint specifications.
+     * @throws Exception If breakpoint lines cannot be determined.
+     */
+    static List<BreakpointSpec> resolveChronologicalSpecs(
+            BatchJobRequest req, CompilationResult compiled) throws Exception {
+        List<BreakpointSpec> specs = req.breakpoints() != null
+                ? JobOptions.parseBreakpoints(req.breakpoints())
+                : List.of();
+        if (specs.isEmpty()) {
+            return DebugTraceHelper.getValidBreakpointLines(compiled).stream()
+                    .map(BreakpointSpec::of).toList();
+        } // if
+        return specs;
+    } // resolveChronologicalSpecs
+
+    /**
+     * Serializes a single execution snapshot into the selected output format.
+     *
+     * @param req Job request.
+     * @param format Output format.
+     * @param typeStyle Type styling.
+     * @param snapshot Captured snapshot.
+     * @return Formatted trace model.
+     */
+    private Object serializeSingleSnapshotPayload(
+            BatchJobRequest req,
+            TraceFormat format,
+            TypeStyle typeStyle,
+            ExecutionSnapshot snapshot) {
+        boolean removeMainArgs = Boolean.TRUE.equals(req.removeMainArgs());
+        boolean inlineStrings = Boolean.TRUE.equals(req.inlineStrings());
+        boolean removeMethodThis = Boolean.TRUE.equals(req.removeMethodThis());
+        String stdin = req.stdin() != null ? req.stdin() : "";
+
+        if (format == TraceFormat.MODERN) {
+            return new ModernTraceSerializer(
+                    removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
+                    .createTrace(req.source(), stdin, snapshot);
+        } // if
+        return new PyTutorSerializer(
+                removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
+                .createTrace(req.source(), stdin, snapshot);
+    } // serializeSingleSnapshotPayload
+
+    /**
      * Serializes line-targeted execution snapshot maps into the selected output format.
      *
      * @param req Job request.
@@ -243,7 +296,11 @@ public final class BatchTraceWorker implements AutoCloseable {
                 Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
                 for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshotsMap.entrySet()) {
                     List<ExecutionSnapshot> list = e.getValue();
-                    latestSnapshots.put(e.getKey(), list.get(0));
+                    if (list.size() == 1) {
+                        latestSnapshots.put(e.getKey(), list.get(0));
+                    } else {
+                        latestSnapshots.put(e.getKey(), list);
+                    } // if
                 } // for
                 return serializer.createBreakpointsTrace(req.source(), stdin, latestSnapshots);
             } // if
@@ -263,8 +320,14 @@ public final class BatchTraceWorker implements AutoCloseable {
             Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
             for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshotsMap.entrySet()) {
                 List<ExecutionSnapshot> list = e.getValue();
-                pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
-                        req.source(), stdin, list.get(0)));
+                if (list.size() == 1) {
+                    pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
+                            req.source(), stdin, list.get(0)));
+                } else {
+                    pyTutorSnapshots.put(e.getKey(), list.stream()
+                            .map(s -> serializer.createTrace(req.source(), stdin, s))
+                            .toList());
+                } // if
             } // for
             return pyTutorSnapshots;
         } // if

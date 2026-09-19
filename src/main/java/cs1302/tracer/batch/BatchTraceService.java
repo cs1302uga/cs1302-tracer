@@ -81,8 +81,17 @@ public final class BatchTraceService implements AutoCloseable {
             } // if
             sb.append((char) c);
             if (sb.length() > maxChars) {
-                while ((c = reader.read()) != -1 && c != '\n') {
-                    sb.setLength(0);
+                while ((c = reader.read()) != -1) {
+                    if (c == '\n') {
+                        break;
+                    } else if (c == '\r') {
+                        reader.mark(1);
+                        int next = reader.read();
+                        if (next != '\n') {
+                            reader.reset();
+                        } // if
+                        break;
+                    } // if
                 } // while
                 throw new IOException("NDJSON record exceeds maximum size of "
                         + maxChars + " characters");
