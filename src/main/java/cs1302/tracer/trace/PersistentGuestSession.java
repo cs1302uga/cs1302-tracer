@@ -2,6 +2,7 @@ package cs1302.tracer.trace;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.sun.jdi.Bootstrap;
+import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.Field;
 import com.sun.jdi.Location;
@@ -41,6 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Manages a persistent guest JVM worker process and its JDI debugger session.
@@ -124,37 +126,34 @@ public final class PersistentGuestSession implements AutoCloseable {
 
         vm.resume();
 
-        ClassType harnessType = awaitHarnessType(vm);
-
-        cpr.disable();
-        vm.eventRequestManager().deleteEventRequest(cpr);
-
-        Location readyLoc = harnessType.methodsByName("readyForJob").getFirst().location();
-        Location completedLoc = harnessType.methodsByName("onJobCompleted").getFirst().location();
-
-        BreakpointRequest readyBp = vm.eventRequestManager().createBreakpointRequest(readyLoc);
-        readyBp.enable();
-        BreakpointRequest completedBp =
-                vm.eventRequestManager().createBreakpointRequest(completedLoc);
-        completedBp.enable();
+        BreakpointRequest[] bps = new BreakpointRequest[2];
+        Location[] locs = new Location[2];
+        ClassType harnessType = awaitAndInstallSentinels(vm, cpr, bps, locs);
 
         PersistentGuestSession session = new PersistentGuestSession(
-                vm, vmOut, vmErr, harnessType, readyLoc, completedLoc);
+                vm, vmOut, vmErr, harnessType, locs[0], locs[1]);
 
         session.waitForReadyBreakpoint();
         return session;
     } // create
 
     /**
-     * Awaits preparation of the GuestHarness class in the target VM.
+     * Awaits preparation of GuestHarness and installs sentinel breakpoints while suspended.
      *
      * @param vm Debuggee VirtualMachine.
+     * @param cpr Class prepare request for GuestHarness.
+     * @param outBps Output array storing created BreakpointRequests (ready, completed).
+     * @param outLocs Output array storing sentinel Locations (ready, completed).
      * @return Prepared ClassType for GuestHarness.
      * @throws InterruptedException On cancellation.
      */
-    static ClassType awaitHarnessType(VirtualMachine vm) throws InterruptedException {
+    static ClassType awaitAndInstallSentinels(
+            VirtualMachine vm,
+            ClassPrepareRequest cpr,
+            BreakpointRequest[] outBps,
+            Location[] outLocs) throws InterruptedException {
         ClassType harnessType = null;
-        while (harnessType == null) {
+        while (true) {
             EventSet eventSet = vm.eventQueue().remove(1000);
             if (eventSet != null) {
                 for (Event event : eventSet) {
@@ -164,23 +163,50 @@ public final class PersistentGuestSession implements AutoCloseable {
                         } // if
                     } // if
                 } // for
+                if (harnessType != null) {
+                    cpr.disable();
+                    vm.eventRequestManager().deleteEventRequest(cpr);
+                    Location readyLoc = harnessType.methodsByName(
+                            "readyForJob").getFirst().location();
+                    Location completedLoc = harnessType.methodsByName(
+                            "onJobCompleted").getFirst().location();
+                    BreakpointRequest readyBp =
+                            vm.eventRequestManager().createBreakpointRequest(readyLoc);
+                    readyBp.enable();
+                    BreakpointRequest completedBp =
+                            vm.eventRequestManager().createBreakpointRequest(completedLoc);
+                    completedBp.enable();
+                    outBps[0] = readyBp;
+                    outBps[1] = completedBp;
+                    outLocs[0] = readyLoc;
+                    outLocs[1] = completedLoc;
+                    eventSet.resume();
+                    return harnessType;
+                } // if
                 eventSet.resume();
             } // if
         } // while
-        return harnessType;
-    } // awaitHarnessType
+    } // awaitAndInstallSentinels
 
     /**
      * Package-private setter for lifecycle state (testing only).
      *
-     * @param alive New alive flag value.
-     */
+     * @param alive New alive flag value.\n     */
     void setAlive(boolean alive) {
         this.alive = alive;
     } // setAlive
 
     /**
-     * Returns whether the persistent guest VM is alive and ready to process jobs.
+     * Returns the underlying target Process.
+     *
+     * @return Target process.
+     */
+    public Process process() {
+        return vm.process();
+    } // process
+
+    /**
+     * Returns whether the persistent guest JVM is alive and ready to process jobs.
      *
      * @return True if session is alive.
      */
@@ -270,6 +296,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param sink Snapshot consumer.
      * @param jobRequests List collecting active event requests.
      * @param loadedClasses Loaded reference types.
+     * @param jobLoader Tracked child classloader for active job.
      * @param startOut Initial standard output stream length.
      * @param startErr Initial standard error stream length.
      * @param snapMainEnd Whether to capture main exit.
@@ -282,6 +309,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             SnapshotSink sink,
             List<EventRequest> jobRequests,
             HashSet<ReferenceType> loadedClasses,
+            AtomicReference<ClassLoaderReference> jobLoader,
             int startOut,
             int startErr,
             boolean snapMainEnd) {} // JobContext
@@ -322,7 +350,7 @@ public final class PersistentGuestSession implements AutoCloseable {
 
         JobContext ctx = new JobContext(
                 cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
-                sink, jobRequests, new HashSet<>(), startOut, startErr,
+                sink, jobRequests, new HashSet<>(), new AtomicReference<>(), startOut, startErr,
                 safeSpecs.isEmpty() || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1));
 
         vm.resume();
@@ -333,6 +361,21 @@ public final class PersistentGuestSession implements AutoCloseable {
             teardownJobRequests(jobRequests);
             vmOut.sync();
             vmErr.sync();
+            TraceSession currentSession = TraceSession.current();
+            if (currentSession != null) {
+                OutputSlice finalOut = OutputSlice.from(
+                        vmOut, startOut, Math.max(0, vmOut.size() - startOut));
+                OutputSlice finalErr = OutputSlice.from(
+                        vmErr, startErr, Math.max(0, vmErr.size() - startErr));
+                currentSession.finishOutput(finalOut, finalErr);
+                currentSession.setCapturedOutput(
+                        finalOut.asUtf8String(), finalErr.asUtf8String(),
+                        finalOut.length(), finalErr.length());
+                if (currentSession.isStopped()) {
+                    alive = false;
+                    vm.process().destroyForcibly();
+                } // if
+            } // if
             if (isAlive()) {
                 vm.resume();
                 waitForReadyBreakpoint();
@@ -423,10 +466,14 @@ public final class PersistentGuestSession implements AutoCloseable {
         switch (event) {
         case ClassPrepareEvent cpe -> {
             if (ctx.cr().compiledClassNames().contains(cpe.referenceType().name())) {
-                List<BreakpointRequest> bprs = DebugTraceHelper.registerBreakpoints(
-                        vm, cpe.referenceType(), ctx.safeSpecs());
-                ctx.jobRequests().addAll(bprs);
-                ctx.loadedClasses().add(cpe.referenceType());
+                ClassLoaderReference cl = cpe.referenceType().classLoader();
+                ctx.jobLoader().compareAndSet(null, cl);
+                if (Objects.equals(ctx.jobLoader().get(), cl)) {
+                    List<BreakpointRequest> bprs = DebugTraceHelper.registerBreakpoints(
+                            vm, cpe.referenceType(), ctx.safeSpecs());
+                    ctx.jobRequests().addAll(bprs);
+                    ctx.loadedClasses().add(cpe.referenceType());
+                } // if
             } // if
         } // case
         case BreakpointEvent bpe -> {
@@ -470,6 +517,10 @@ public final class PersistentGuestSession implements AutoCloseable {
         if (loc.equals(completedLocation)) {
             return true;
         } // if
+        ClassLoaderReference cl = loc.declaringType().classLoader();
+        if (ctx.jobLoader().get() != null && !Objects.equals(ctx.jobLoader().get(), cl)) {
+            return false;
+        } // if
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                     bpe.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
@@ -492,6 +543,11 @@ public final class PersistentGuestSession implements AutoCloseable {
     void handleMethodExit(
             MethodExitEvent mee, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
             throws Exception {
+        ClassLoaderReference cl = mee.method().declaringType().classLoader();
+        if (ctx.jobLoader().get() != null && cl != null
+                && !Objects.equals(ctx.jobLoader().get(), cl)) {
+            return;
+        } // if
         if (DebugTraceHelper.isMainMethodExit(mee.method())
                 && ctx.cr().mainClass().equals(mee.method().declaringType().name())) {
             if (ctx.snapMainEnd() || !recorded[0]) {
@@ -519,10 +575,19 @@ public final class PersistentGuestSession implements AutoCloseable {
             ExceptionEvent ee, JobContext ctx, boolean[] recorded) throws Exception {
         Location loc = ee.location();
         Location catchLoc = ee.catchLocation();
+        ClassLoaderReference cl = loc != null ? loc.declaringType().classLoader() : null;
+        if (ctx.jobLoader().get() != null && cl != null
+                && !Objects.equals(ctx.jobLoader().get(), cl)) {
+            return;
+        } // if
         boolean uncaughtInStudent = catchLoc == null
                 || !ctx.cr().compiledClassNames().contains(catchLoc.declaringType().name());
         if (loc != null && ctx.cr().compiledClassNames().contains(loc.declaringType().name())
                 && uncaughtInStudent) {
+            TraceSession currentSession = TraceSession.current();
+            if (currentSession != null) {
+                currentSession.guestException(ee.exception().referenceType().name());
+            } // if
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
                     ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
                     ctx.inputTracker(), ctx.startOut(), ctx.startErr());

@@ -3,6 +3,7 @@ package cs1302.tracer.batch;
 import cs1302.tracer.trace.PersistentGuestSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -150,7 +151,8 @@ class BatchTraceWorkerTest {
     @Test
     @DisplayName("Worker executes line-specific breakpoints with and without accumulate")
     void testWorkerLineSpecificBreakpoints() {
-        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+        BatchTraceWorker worker = new BatchTraceWorker(5);
+        try {
             // accBps = true
             BatchJobRequest reqAcc = new BatchJobRequest(
                     "job-acc", BASIC_SOURCE, "pytutor", "test stdin", List.of("5"),
@@ -164,7 +166,7 @@ class BatchTraceWorkerTest {
                     false, false, false, false, false, "fqn", null, null);
             BatchJobResponse respNoAcc = worker.execute(reqNoAcc);
             assertThat(respNoAcc.result().complete()).isTrue();
-
+        } finally {
             worker.close();
             worker.close();
         } // try
@@ -243,4 +245,55 @@ class BatchTraceWorkerTest {
             assertThat(resp2.result().complete()).isTrue();
         } // try
     } // testWorkerRecyclesSessionAtLimit
+    @Test
+    @DisplayName("Worker handles launch failure in ensureSession")
+    void testWorkerLaunchFailure() throws Exception {
+        BatchTraceWorker worker = new BatchTraceWorker(5);
+        java.lang.reflect.Field field = BatchTraceWorker.class.getDeclaredField("session");
+        field.setAccessible(true);
+        Process proc = new Process() {
+            @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
+            @Override public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public int waitFor() { return 0; }
+            @Override public int exitValue() { return 0; }
+            @Override public void destroy() {}
+            @Override public Process destroyForcibly() { return this; }
+            @Override public boolean isAlive() { throw new RuntimeException("Simulated VM crash"); }
+        };
+        var vm = (com.sun.jdi.VirtualMachine) java.lang.reflect.Proxy.newProxyInstance(
+                com.sun.jdi.VirtualMachine.class.getClassLoader(),
+                new Class<?>[] {com.sun.jdi.VirtualMachine.class},
+                (self, m, args) -> {
+                    if ("process".equals(m.getName())) {
+                        return proc;
+                    } // if
+                    return null;
+                });
+        var harnessType = (com.sun.jdi.ClassType) java.lang.reflect.Proxy.newProxyInstance(
+                com.sun.jdi.ClassType.class.getClassLoader(),
+                new Class<?>[] {com.sun.jdi.ClassType.class},
+                (self, m, args) -> null);
+        var constructor = PersistentGuestSession.class.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        var session = (PersistentGuestSession) constructor.newInstance(
+                vm, null, null, harnessType, null, null);
+        field.set(worker, session);
+
+        BatchJobRequest req = new BatchJobRequest(
+                "job-fail", BASIC_SOURCE, "pytutor", null, List.of("5"),
+                false, false, false, false, false, "fqn", null, null);
+        BatchJobResponse resp = worker.execute(req);
+        assertThat(resp.result().status()).isEqualTo("failed");
+        assertThat(resp.result().phase()).isEqualTo("tracer_error");
+        assertThat(resp.result().diagnostics()).anyMatch(d -> d.contains("Simulated VM crash"));
+    } // testWorkerLaunchFailure
+    @Test
+    @DisplayName("execute rejects null request")
+    void testExecuteNullRequest() {
+        try (var worker = new BatchTraceWorker(10)) {
+            assertThatThrownBy(() -> worker.execute(null))
+                    .isInstanceOf(IllegalArgumentException.class);
+        } // try
+    } // testExecuteNullRequest
 }

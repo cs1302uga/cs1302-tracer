@@ -200,4 +200,22 @@ class BatchTraceServiceTest {
             assertThat(resp.result().status()).isEqualTo("stopped");
         } // try
     } // testExecuteJobInterrupted
+    @Test
+    @DisplayName("Service handles stream exceeding in-flight capacity")
+    void testExceedingInFlightCapacity() throws Exception {
+        StringBuilder ndjson = new StringBuilder();
+        for (int i = 0; i < 20; i++) {
+            ndjson.append("{\"id\":\"job-").append(i).append("\",\"source\":\"public class InFlight")
+                    .append(i).append(" { public static void main(String[] args) {} }\"}\n");
+        } // for
+        ByteArrayInputStream in = new ByteArrayInputStream(ndjson.toString().getBytes(StandardCharsets.UTF_8));
+        StringWriter out = new StringWriter();
+
+        try (BatchTraceService service = new BatchTraceService(1, 100, false)) {
+            service.processStream(in, out);
+        } // try
+
+        String[] lines = out.toString().trim().split("\\R");
+        assertThat(lines).hasSize(20);
+    } // testExceedingInFlightCapacity
 }

@@ -2,10 +2,14 @@ package cs1302.tracer.guest;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
 /**
@@ -31,6 +35,9 @@ public final class GuestHarness {
     public static volatile boolean shouldTerminate = false;
 
     private static final VirtualInputStream VIRTUAL_IN = new VirtualInputStream();
+    private static final PrintStream ORIGINAL_OUT = System.out;
+    private static final PrintStream ORIGINAL_ERR = System.err;
+    private static final InputStream ORIGINAL_IN = System.in;
     private static final Properties ORIGINAL_PROPERTIES =
             (Properties) System.getProperties().clone();
 
@@ -91,9 +98,13 @@ public final class GuestHarness {
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
             try (URLClassLoader loader = new URLClassLoader(
                     urls, GuestHarness.class.getClassLoader())) {
-                Class<?> mainClass = Class.forName(mc, true, loader);
-                Method mainMethod = mainClass.getMethod("main", String[].class);
-                mainMethod.invoke(null, (Object) new String[0]);
+                try {
+                    Class<?> mainClass = Class.forName(mc, true, loader);
+                    Method mainMethod = mainClass.getMethod("main", String[].class);
+                    mainMethod.invoke(null, (Object) new String[0]);
+                } finally {
+                    stopLingeringThreads(loader);
+                } // try
             } // try
         } catch (Throwable t) {
             // Handled or ignored; snapshot or exception event captured by JDI
@@ -104,12 +115,47 @@ public final class GuestHarness {
     } // runJob
 
     /**
+     * Interrupts and awaits termination of any background threads started by the target.
+     *
+     * @param loader Current job classloader.
+     */
+    static void stopLingeringThreads(ClassLoader loader) {
+        ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
+        while (rootGroup.getParent() != null) {
+            rootGroup = rootGroup.getParent();
+        } // while
+        Thread[] threads = new Thread[rootGroup.activeCount() * 2 + 16];
+        int n = rootGroup.enumerate(threads, true);
+        Thread current = Thread.currentThread();
+        List<Thread> targets = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            Thread t = threads[i];
+            if (t != current && t.getContextClassLoader() == loader) {
+                targets.add(t);
+                t.interrupt();
+            } // if
+        } // for
+        for (Thread t : targets) {
+            try {
+                t.join(50);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                break;
+            } // try
+        } // for
+    } // stopLingeringThreads
+
+    /**
      * Cleans up transient state between jobs.
      */
     static void cleanState() {
         nextClassPath = null;
         nextMainClass = null;
         nextStdin = null;
+        VIRTUAL_IN.reset("");
+        System.setIn(VIRTUAL_IN);
+        System.setOut(ORIGINAL_OUT);
+        System.setErr(ORIGINAL_ERR);
         System.setProperties((Properties) ORIGINAL_PROPERTIES.clone());
     } // cleanState
 
@@ -143,6 +189,10 @@ public final class GuestHarness {
 
         @Override
         public synchronized int read(byte[] b, int off, int len) {
+            Objects.checkFromIndexSize(off, len, b.length);
+            if (len == 0) {
+                return 0;
+            } // if
             if (pos >= buffer.length) {
                 return -1;
             } // if

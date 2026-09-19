@@ -1997,6 +1997,19 @@ public class DebugTraceHelper {
     } // resolveMethodSignature
 
     /**
+     * Returns true if declaring class corresponds to the internal guest harness or reflection.
+     *
+     * @param declaringClassFqn Declaring class fully qualified name.
+     * @return True if frame should be filtered from student trace.
+     */
+    static boolean isGuestHarnessOrReflect(String declaringClassFqn) {
+        return declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
+                || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")
+                || declaringClassFqn.startsWith("jdk.internal.reflect.")
+                || declaringClassFqn.startsWith("java.lang.reflect.");
+    } // isGuestHarnessOrReflect
+
+    /**
      * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
      *
      * @param mainThread Suspended thread.
@@ -2018,9 +2031,7 @@ public class DebugTraceHelper {
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
             String declaringClassFqn = frame.location().method().declaringType().name();
-            if (declaringClassFqn.startsWith("cs1302.tracer.guest.")
-                    || declaringClassFqn.startsWith("jdk.internal.reflect.")
-                    || declaringClassFqn.startsWith("java.lang.reflect.")) {
+            if (isGuestHarnessOrReflect(declaringClassFqn)) {
                 continue;
             } // if
             String methodName = frame.location().method().name();
@@ -2254,9 +2265,7 @@ public class DebugTraceHelper {
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
             String declaringClassFqn = frameMethod.declaringType().name();
-            if (declaringClassFqn.startsWith("cs1302.tracer.guest.")
-                    || declaringClassFqn.startsWith("jdk.internal.reflect.")
-                    || declaringClassFqn.startsWith("java.lang.reflect.")) {
+            if (isGuestHarnessOrReflect(declaringClassFqn)) {
                 continue;
             } // if
             String frameMethodSignature = String.format(

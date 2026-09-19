@@ -197,7 +197,7 @@ Each line is a JSON object with job options:
 Each output line contains the job correlation `id` and versioned `TraceResult`:
 
 ```json
-{"id":"job-1","result":{"version":"1.0","format":"modern","status":"completed","complete":true,"trace":{"source":"...","steps":[...]}}}
+{"id":"job-1","result":{"schemaVersion":1,"format":"modern","status":"completed","complete":true,"payload":{"source":"...","steps":[...]}}}
 ```
 
 ##### Performance Comparison

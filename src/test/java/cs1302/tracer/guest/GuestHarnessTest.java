@@ -198,4 +198,60 @@ public class GuestHarnessTest {
         } catch (InterruptedException ignored) {}
         assertThat(DummyTarget.invoked).isTrue();
     } // testMainCombinations
+    @Test
+    void testVirtualInputStreamZeroLengthRead() {
+        GuestHarness.VirtualInputStream in = new GuestHarness.VirtualInputStream();
+        in.reset("ABC");
+        byte[] buf = new byte[10];
+        assertThat(in.read(buf, 0, 0)).isEqualTo(0);
+    } // testVirtualInputStreamZeroLengthRead
+
+    @Test
+    void testStopLingeringThreads() throws Exception {
+        ClassLoader loader = new java.net.URLClassLoader(new java.net.URL[0]);
+        java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicBoolean interrupted =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        Thread lingering = new Thread(() -> {
+            started.countDown();
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+            } // try
+        });
+        lingering.setContextClassLoader(loader);
+        lingering.start();
+        started.await();
+
+        GuestHarness.stopLingeringThreads(loader);
+        assertThat(interrupted.get()).isTrue();
+        lingering.join(500);
+        assertThat(lingering.isAlive()).isFalse();
+
+        GuestHarness.stopLingeringThreads(Thread.currentThread().getContextClassLoader());
+    } // testStopLingeringThreads
+
+    @Test
+    void testStopLingeringThreadsInterrupted() throws Exception {
+        ClassLoader loader = new java.net.URLClassLoader(new java.net.URL[0]);
+        Thread lingering = new Thread(() -> {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+                // ignore
+            } // try
+        });
+        lingering.setContextClassLoader(loader);
+        lingering.start();
+
+        Thread.currentThread().interrupt();
+        try {
+            GuestHarness.stopLingeringThreads(loader);
+            assertThat(Thread.interrupted()).isTrue();
+        } finally {
+            lingering.interrupt();
+            lingering.join(500);
+        } // try
+    } // testStopLingeringThreadsInterrupted
 }

@@ -5,11 +5,11 @@ import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
-import java.io.ByteArrayOutputStream;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
@@ -46,6 +46,11 @@ public final class TraceSession implements AutoCloseable {
     private final List<StreamDrainer> drainers = new ArrayList<>();
     private volatile Process process;
     private volatile boolean finished;
+    private boolean destroyOnClose = true;
+    private String explicitStdout;
+    private String explicitStderr;
+    private Long explicitStdoutBytes;
+    private Long explicitStderrBytes;
     private long started;
     private Thread watchdog;
     private long captured;
@@ -185,7 +190,17 @@ public final class TraceSession implements AutoCloseable {
      * @param vm Guest debugger connection.
      */
     public void attach(VirtualMachine vm) {
-        process = vm.process();
+        attach(vm.process(), true);
+    } // attach
+
+    /**
+     * Attaches a launched guest process with control over destruction on normal close.
+     * @param guest Launched process.
+     * @param destroyOnClose Whether process should be forcibly destroyed on normal close.
+     */
+    public void attach(Process guest, boolean destroyOnClose) {
+        this.process = guest;
+        this.destroyOnClose = destroyOnClose;
         if (reason.get() != null) {
             stop(reason.get());
         } // if
@@ -212,6 +227,14 @@ public final class TraceSession implements AutoCloseable {
     public void cancel() {
         stop("cancelled");
     } // cancel
+
+    /**
+     * Returns whether this session has been stopped or cancelled.
+     * @return True if stopped.
+     */
+    public boolean isStopped() {
+        return reason.get() != null;
+    } // isStopped
 
     /**
      * Stops this job; the first observed reason wins.
@@ -328,6 +351,21 @@ public final class TraceSession implements AutoCloseable {
     } // guestException
 
     /**
+     * Sets isolated guest process output explicitly.
+     * @param stdout Captured standard output string.
+     * @param stderr Captured standard error string.
+     * @param stdoutBytes Total standard output bytes.
+     * @param stderrBytes Total standard error bytes.
+     */
+    public void setCapturedOutput(
+            String stdout, String stderr, long stdoutBytes, long stderrBytes) {
+        this.explicitStdout = stdout;
+        this.explicitStderr = stderr;
+        this.explicitStdoutBytes = stdoutBytes;
+        this.explicitStderrBytes = stderrBytes;
+    } // setCapturedOutput
+
+    /**
      * Returns whether a guest was launched, even if it produced no snapshots.
      * @return Whether trace capture was available.
      */
@@ -384,9 +422,20 @@ public final class TraceSession implements AutoCloseable {
         counts.put("retainedBytes", retainedBytes);
         counts.put("droppedSnapshots", droppedSnapshot ? 1L : 0L);
         counts.put("elapsedMillis", started == 0 ? 0 : (System.nanoTime() - started) / 1_000_000);
-        for (int i = 0; i < drainers.size(); i++) {
-            counts.put(i == 0 ? "stderrBytes" : "stdoutBytes", (long) drainers.get(i).size());
-        } // for
+        if (explicitStderrBytes != null) {
+            counts.put("stderrBytes", explicitStderrBytes);
+        } else {
+            if (!drainers.isEmpty()) {
+                counts.put("stderrBytes", (long) drainers.get(0).size());
+            } // if
+        } // if
+        if (explicitStdoutBytes != null) {
+            counts.put("stdoutBytes", explicitStdoutBytes);
+        } else {
+            if (drainers.size() > 1) {
+                counts.put("stdoutBytes", (long) drainers.get(1).size());
+            } // if
+        } // if
         String status = stopped == null ? "completed"
                 : stopped.endsWith("error") || stopped.equals("guest_exception")
                         || stopped.equals("guest_exit")
@@ -398,22 +447,40 @@ public final class TraceSession implements AutoCloseable {
     /**
      * Returns bounded guest output even when no snapshot was completed.
      * @param index Registered drainer index (stderr first).
-     * @return UTF-8 output with replacement for incomplete byte sequences.
-     */
+     * @return UTF-8 output with replacement for incomplete byte sequences.\n     */
     private String output(int index) {
+        if (index == 1 && explicitStdout != null) {
+            return explicitStdout;
+        } // if
+        if (index == 0 && explicitStderr != null) {
+            return explicitStderr;
+        } // if
         return index >= drainers.size() ? "" : new String(drainers.get(index).getBytes(),
                 java.nio.charset.StandardCharsets.UTF_8);
     } // output
 
     /** Refreshes final output on the last complete snapshot after successful execution. */
     public void finishOutput() {
-        check();
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
+        finishOutput(drainers.get(1).snapshotOutput(), drainers.get(0).snapshotOutput());
+    } // finishOutput
+
+    /**
+     * Refreshes final output on the last complete snapshot using explicit slices.
+     * @param stdout Captured standard output slice.
+     * @param stderr Captured standard error slice.
+     */
+    public void finishOutput(OutputSlice stdout, OutputSlice stderr) {
+        if (completed.isEmpty()) {
+            return;
+        } // if
         ExecutionSnapshot last = completed.getLast();
-        long extra = Math.max(0, drainers.get(0).size() - last.stderrLength())
-                + Math.max(0, drainers.get(1).size() - last.stdoutLength());
+        int outLen = stdout != null ? stdout.length() : last.stdoutLength();
+        int errLen = stderr != null ? stderr.length() : last.stderrLength();
+        long extra = Math.max(0, outLen - last.stdoutLength())
+                + Math.max(0, errLen - last.stderrLength());
         if (extra == 0) {
             return;
         } // if
@@ -421,7 +488,8 @@ public final class TraceSession implements AutoCloseable {
         enforce(Math.addExact(retainedBytes, extra * 15), limits.traceBytes(), "trace_limit");
         ExecutionSnapshot updated = new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),
-                drainers.get(1).snapshotOutput(), drainers.get(0).snapshotOutput(),
+                stdout != null ? stdout : last.stdoutSlice(),
+                stderr != null ? stderr : last.stderrSlice(),
                 last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
@@ -436,7 +504,7 @@ public final class TraceSession implements AutoCloseable {
             watchdog.interrupt();
         } // if
         Process guest = process;
-        if (guest != null && guest.isAlive()) {
+        if (guest != null && guest.isAlive() && (destroyOnClose || reason.get() != null)) {
             guest.destroyForcibly();
             try {
                 guest.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS);

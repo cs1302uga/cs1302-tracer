@@ -6,6 +6,7 @@ import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.CompilationHelper.SourceFile;
 import cs1302.tracer.execution.InspectionPolicy;
+import cs1302.tracer.execution.JobOptions;
 import cs1302.tracer.execution.TraceLimits;
 import cs1302.tracer.execution.TraceResult;
 import cs1302.tracer.execution.TraceSession;
@@ -13,7 +14,6 @@ import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
-import cs1302.tracer.execution.JobOptions;
 import cs1302.tracer.trace.BreakpointSpec;
 import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
@@ -26,7 +26,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * Worker managing a single persistent guest session and executing sequential trace jobs.
+ * Worker managing a persistent guest JVM session and executing batch trace jobs sequentially.
  */
 public final class BatchTraceWorker implements AutoCloseable {
 
@@ -45,7 +45,7 @@ public final class BatchTraceWorker implements AutoCloseable {
     /**
      * Ensures an active, healthy persistent guest session.
      *
-     * @throws IOException If spawning the guest JVM fails.
+     * @throws Exception If spawning the guest JVM fails.
      */
     private synchronized void ensureSession() throws Exception {
         if (session == null || !session.isAlive()
@@ -62,6 +62,10 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @return Batch job response containing execution or error results.
      */
     public BatchJobResponse execute(BatchJobRequest req) {
+        if (req == null) {
+            throw new IllegalArgumentException("BatchJobRequest cannot be null");
+        } // if
+
         TraceFormat format = req.resolveFormat();
         TraceLimits limits = req.resolveLimits();
         InspectionPolicy inspection = req.inspection() != null
@@ -69,10 +73,20 @@ public final class BatchTraceWorker implements AutoCloseable {
         boolean allBps = Boolean.TRUE.equals(req.allBreakpoints());
         boolean accBps = Boolean.TRUE.equals(req.accumulateBreakpoints());
 
+        try {
+            ensureSession();
+        } catch (Throwable launchErr) {
+            restoreInterruptIfInterrupted(launchErr);
+            TraceResult errResult = TraceResult.failed(
+                    format.name().toLowerCase(Locale.ROOT), "tracer_error",
+                    "Failed to launch persistent guest session: " + launchErr.getMessage());
+            return new BatchJobResponse(req.id(), errResult);
+        } // try
+
         try (TraceSession traceSession = new TraceSession(
                 limits, inspection, allBps || accBps, false)) {
+            traceSession.attach(session.process(), false);
             try {
-                ensureSession();
                 List<ExecutionSnapshot> snapshots = performTrace(req, traceSession, allBps, accBps);
                 Object payload = serializePayload(req, format, snapshots);
                 TraceResult result = traceSession.result(

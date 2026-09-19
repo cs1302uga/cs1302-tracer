@@ -2,7 +2,9 @@ package cs1302.tracer.execution;
 
 import static org.assertj.core.api.Assertions.*;
 
+import cs1302.tracer.trace.ExecutionSnapshot;
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -295,4 +297,89 @@ class TraceSessionLifecycleTest {
         }
         assertThat(sliceWriter.toString()).isEqualTo("[65,66]");
     }
+    @Test
+    void testIsStoppedAndExplicitOutputCounts() throws Exception {
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            assertThat(session.isStopped()).isFalse();
+            session.phase("trace");
+            session.setCapturedOutput("hello", "world", 5L, 5L);
+            TraceResult result = session.result("modern", null, null);
+            assertThat(result.complete()).isTrue();
+            assertThat(result.counters().get("stdoutBytes")).isEqualTo(5L);
+            assertThat(result.counters().get("stderrBytes")).isEqualTo(5L);
+            assertThat(result.stdout()).isEqualTo("hello");
+            assertThat(result.stderr()).isEqualTo("world");
+        } // try
+    } // testIsStoppedAndExplicitOutputCounts
+
+    @Test
+    void testFinishOutputBranches() throws Exception {
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            cs1302.tracer.trace.OutputSlice s1 =
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65});
+            cs1302.tracer.trace.OutputSlice s2 =
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {66});
+            // completed is empty
+            session.finishOutput(s1, s2);
+
+            // add snapshot
+            ExecutionSnapshot snap = new ExecutionSnapshot(
+                    List.of(), List.of(), Map.of(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    Optional.empty(), "", 0);
+            session.commit(snap);
+
+            // extra == 0
+            session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.empty(),
+                    cs1302.tracer.trace.OutputSlice.empty());
+
+            // stdout != null, stderr == null
+            session.finishOutput(s1, null);
+            assertThat(session.snapshots().getLast().stdoutSlice()).isEqualTo(s1);
+
+            // stdout == null, stderr != null
+            session.finishOutput(null, s2);
+            assertThat(session.snapshots().getLast().stderrSlice()).isEqualTo(s2);
+        } // try
+    } // testFinishOutputBranches
+
+    @Test
+    void testAttachDestroyOnCloseFlag() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean destroyed =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        Process proc = new Process() {
+            @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
+            @Override public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
+            @Override public int waitFor() { return 0; }
+            @Override public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit) { return true; }
+            @Override public int exitValue() { return 0; }
+            @Override public void destroy() {}
+            @Override public Process destroyForcibly() {
+                destroyed.set(true);
+                return this;
+            } // destroyForcibly
+            @Override public boolean isAlive() { return true; }
+        };
+
+        // destroyOnClose = false, normal close
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            session.attach(proc, false);
+        } // try
+        assertThat(destroyed.get()).isFalse();
+
+        // destroyOnClose = false, but stopped with reason
+        try (var session = new TraceSession(
+                TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
+            session.attach(proc, false);
+            session.stop("timeout");
+            assertThat(session.isStopped()).isTrue();
+        } // try
+        assertThat(destroyed.get()).isTrue();
+    } // testAttachDestroyOnCloseFlag
 }

@@ -764,4 +764,14 @@ public class DebugTraceHelperComprehensiveTest {
       }
     }
   }
+  @Test
+  @DisplayName("isGuestHarnessOrReflect correctly identifies harness and reflection classes")
+  void testIsGuestHarnessOrReflect() {
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.guest.GuestHarness")).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.guest.GuestHarness$Inner")).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("jdk.internal.reflect.NativeMethodAccessorImpl")).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("java.lang.reflect.Method")).isTrue();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.guest.OtherClass")).isFalse();
+    assertThat(DebugTraceHelper.isGuestHarnessOrReflect("Student")).isFalse();
+  }
 }

@@ -10,8 +10,10 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +47,7 @@ public final class BatchTraceService implements AutoCloseable {
         this.executor = Executors.newFixedThreadPool(this.workerCount);
         this.workerPool = new LinkedBlockingQueue<>();
         this.allWorkers = new ArrayList<>();
-        this.gson = PyTutorSerializer.getGson(pretty);
+        this.gson = PyTutorSerializer.getGson(false);
 
         for (int i = 0; i < this.workerCount; i++) {
             BatchTraceWorker worker = new BatchTraceWorker(this.maxJobsPerWorker);
@@ -65,7 +67,8 @@ public final class BatchTraceService implements AutoCloseable {
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(input, StandardCharsets.UTF_8));
         PrintWriter printWriter = new PrintWriter(output, true);
-        List<CompletableFuture<Void>> pending = new ArrayList<>();
+        int maxInFlight = Math.max(16, workerCount * 2);
+        Queue<CompletableFuture<Void>> inFlight = new ArrayDeque<>();
 
         String line;
         while ((line = reader.readLine()) != null) {
@@ -73,11 +76,16 @@ public final class BatchTraceService implements AutoCloseable {
             if (trimmed.isEmpty()) {
                 continue;
             } // if
+            while (inFlight.size() >= maxInFlight) {
+                inFlight.poll().join();
+            } // while
             CompletableFuture<Void> future = submitJob(trimmed, printWriter);
-            pending.add(future);
+            inFlight.add(future);
         } // while
 
-        CompletableFuture.allOf(pending.toArray(new CompletableFuture<?>[0])).join();
+        while (!inFlight.isEmpty()) {
+            inFlight.poll().join();
+        } // while
         printWriter.flush();
     } // processStream
 

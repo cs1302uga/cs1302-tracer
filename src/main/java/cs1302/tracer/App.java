@@ -770,9 +770,11 @@ public class App {
                     workers, maxJobsPerWorker, pretty)) {
                 InputStream is = input != null
                         ? Files.newInputStream(input.toPath()) : System.in;
-                try (OutputStreamWriter writer = new OutputStreamWriter(
-                        System.out, StandardCharsets.UTF_8)) {
+                try {
+                    OutputStreamWriter writer = new OutputStreamWriter(
+                            System.out, StandardCharsets.UTF_8);
                     service.processStream(is, writer);
+                    writer.flush();
                 } finally {
                     if (input != null) {
                         is.close();

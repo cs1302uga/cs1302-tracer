@@ -25,6 +25,7 @@ import com.sun.jdi.event.VMDeathEvent;
 import com.sun.jdi.event.VMDisconnectEvent;
 import com.sun.jdi.event.VMStartEvent;
 import com.sun.jdi.request.BreakpointRequest;
+import com.sun.jdi.request.ClassPrepareRequest;
 import com.sun.jdi.request.EventRequest;
 import com.sun.jdi.request.EventRequestManager;
 import cs1302.tracer.CompilationHelper.CompilationResult;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -154,7 +156,7 @@ class PersistentGuestSessionEventTest {
 
         var ctx = new PersistentGuestSession.JobContext(
                 cr, List.of(BreakpointSpec.of(10)), SourceAnalysis.empty(),
-                new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(), 0, 0, true);
+                new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(), 0, 0, true);
 
         boolean[] recorded = new boolean[] {false};
 
@@ -200,7 +202,7 @@ class PersistentGuestSessionEventTest {
         // 7. MethodExitEvent main with snapMainEnd = false and recorded = true
         var ctxNoMain = new PersistentGuestSession.JobContext(
                 cr, List.of(BreakpointSpec.of(10)), SourceAnalysis.empty(),
-                new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(), 0, 0, false);
+                new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(), 0, 0, false);
         var mainMethod = method("Student", "main", "([Ljava/lang/String;)V");
         var meeMain = mirror(MethodExitEvent.class, Map.of(
                 "method", mainMethod,
@@ -234,14 +236,67 @@ class PersistentGuestSessionEventTest {
                 "catchLocation", location("Student", 25)));
         session.dispatchJobEvent(eeCaught, ctx, recorded, null);
 
-        // 11. ExceptionEvent uncaught in student
+        // 11. ExceptionEvent uncaught in student with active TraceSession
         recorded[0] = false;
+        var exRef = mirror(com.sun.jdi.ObjectReference.class, Map.of(
+                "referenceType", mirror(ReferenceType.class, Map.of("name", "java.lang.RuntimeException"))));
         var eeUncaught = mirror(ExceptionEvent.class, Map.of(
                 "location", location("Student", 15),
                 "catchLocation", location("ForeignClass", 50),
+                "exception", exRef,
                 "thread", thread(location("Student", 15))));
-        session.dispatchJobEvent(eeUncaught, ctx, recorded, null);
-        assertThat(recorded[0]).isTrue();
+        try (var ts = new cs1302.tracer.execution.TraceSession(
+                cs1302.tracer.execution.TraceLimits.unlimited(),
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+            assertThat(ts).isNotNull();
+            session.dispatchJobEvent(eeUncaught, ctx, recorded, null);
+            assertThat(recorded[0]).isTrue();
+        } // try
+
+        // 11b. ClassLoader mismatch tests for event filtering
+        var otherLoader = mirror(com.sun.jdi.ClassLoaderReference.class, Map.of());
+        var studentLoader = mirror(com.sun.jdi.ClassLoaderReference.class, Map.of());
+        ctx.jobLoader().set(studentLoader);
+
+        var studentDiffRef = mirror(ReferenceType.class, Map.of(
+                "name", "Student",
+                "classLoader", otherLoader));
+        var cpeStudentDiff = mirror(ClassPrepareEvent.class, Map.of("referenceType", studentDiffRef));
+        session.dispatchJobEvent(cpeStudentDiff, ctx, recorded, null);
+
+        var diffLoc = (Location) java.lang.reflect.Proxy.newProxyInstance(
+                Location.class.getClassLoader(),
+                new Class<?>[] {Location.class},
+                (self, m, args) -> {
+                    if ("equals".equals(m.getName())) return false;
+                    if ("declaringType".equals(m.getName())) {
+                        return mirror(ReferenceType.class, Map.of(
+                                "classLoader", otherLoader,
+                                "name", "Student"));
+                    } // if
+                    return null;
+                });
+        var bpeDiffLoader = mirror(BreakpointEvent.class, Map.of("location", diffLoc));
+        assertThat(session.dispatchJobEvent(bpeDiffLoader, ctx, recorded, null)).isFalse();
+
+        var diffMethod = (Method) java.lang.reflect.Proxy.newProxyInstance(
+                Method.class.getClassLoader(),
+                new Class<?>[] {Method.class},
+                (self, m, args) -> {
+                    if ("declaringType".equals(m.getName())) {
+                        return mirror(ReferenceType.class, Map.of(
+                                "classLoader", otherLoader,
+                                "name", "Student"));
+                    } // if
+                    return null;
+                });
+        var meeDiffLoader = mirror(MethodExitEvent.class, Map.of("method", diffMethod));
+        session.dispatchJobEvent(meeDiffLoader, ctx, recorded, null);
+
+        var eeDiffLoader = mirror(ExceptionEvent.class, Map.of(
+                "location", diffLoc,
+                "catchLocation", location("Student", 25)));
+        session.dispatchJobEvent(eeDiffLoader, ctx, recorded, null);
 
         // 12. ExceptionEvent in foreign class
         var eeForeign = mirror(ExceptionEvent.class, Map.of(
@@ -349,8 +404,15 @@ class PersistentGuestSessionEventTest {
         var nonPrepEvent = mirror(Event.class, Map.of());
         var foreignPrep = mirror(ClassPrepareEvent.class, Map.of(
                 "referenceType", mirror(ReferenceType.class, Map.of("name", "Foreign"))));
-        var foreignSet = mirror(EventSet.class, Map.of(
-                "iterator", List.of((Event) foreignPrep).iterator()));
+        var foreignSet = (EventSet) java.lang.reflect.Proxy.newProxyInstance(
+                EventSet.class.getClassLoader(),
+                new Class<?>[] {EventSet.class},
+                (self, m, args) -> {
+                    if ("iterator".equals(m.getName())) {
+                        return List.of((Event) foreignPrep).iterator();
+                    } // if
+                    return null;
+                });
 
         var harnessType = mirror(ClassType.class, Map.of(
                 "name", GuestHarness.class.getName()));
@@ -372,9 +434,57 @@ class PersistentGuestSessionEventTest {
                     return null;
                 });
 
-        var vm = mirror(VirtualMachine.class, Map.of("eventQueue", customEq));
-        ClassType resolved = PersistentGuestSession.awaitHarnessType(vm);
-        assertThat(resolved).isSameAs(harnessType);
+        Location readyLoc = location("cs1302.tracer.guest.GuestHarness", 69);
+        Location completedLoc = location("cs1302.tracer.guest.GuestHarness", 79);
+        var readyMethod = mirror(Method.class, Map.of("location", readyLoc));
+        var completedMethod = mirror(Method.class, Map.of("location", completedLoc));
+
+        var harnessTypeDynamic = (ClassType) java.lang.reflect.Proxy.newProxyInstance(
+                ClassType.class.getClassLoader(),
+                new Class<?>[] {ClassType.class},
+                (self, m, args) -> {
+                    if ("name".equals(m.getName())) return GuestHarness.class.getName();
+                    if ("methodsByName".equals(m.getName())) {
+                        return "readyForJob".equals(args[0]) ? List.of(readyMethod) : List.of(completedMethod);
+                    } // if
+                    return null;
+                });
+        var harnessPrepDynamic = mirror(ClassPrepareEvent.class, Map.of("referenceType", harnessTypeDynamic));
+        var harnessSetDynamic = mirror(EventSet.class, Map.of(
+                "iterator", List.of((Event) harnessPrepDynamic).iterator()));
+
+        List<EventSet> dynamicSets = new ArrayList<>();
+        dynamicSets.add(null);
+        dynamicSets.addAll(List.of(nonPrepSet, foreignSet, harnessSetDynamic));
+        var dynamicEq = (EventQueue) java.lang.reflect.Proxy.newProxyInstance(
+                EventQueue.class.getClassLoader(),
+                new Class<?>[] {EventQueue.class},
+                (self, m, args) -> {
+                    if ("remove".equals(m.getName())) {
+                        return dynamicSets.isEmpty() ? null : dynamicSets.remove(0);
+                    } // if
+                    return null;
+                });
+
+        var cpr = mirror(ClassPrepareRequest.class, Map.of());
+        var bpReq = mirror(BreakpointRequest.class, Map.of());
+        var erm = (EventRequestManager) java.lang.reflect.Proxy.newProxyInstance(
+                EventRequestManager.class.getClassLoader(),
+                new Class<?>[] {EventRequestManager.class},
+                (self, m, args) -> {
+                    if ("createBreakpointRequest".equals(m.getName())) return bpReq;
+                    return null;
+                });
+
+        var vm = mirror(VirtualMachine.class, Map.of(
+                "eventQueue", dynamicEq,
+                "eventRequestManager", erm));
+        BreakpointRequest[] bps = new BreakpointRequest[2];
+        Location[] locs = new Location[2];
+        ClassType resolved = PersistentGuestSession.awaitAndInstallSentinels(vm, cpr, bps, locs);
+        assertThat(resolved).isSameAs(harnessTypeDynamic);
+        assertThat(bps[0]).isSameAs(bpReq);
+        assertThat(locs[0]).isSameAs(readyLoc);
     } // testAwaitHarnessType
 
     @Test
@@ -466,7 +576,7 @@ class PersistentGuestSessionEventTest {
         CompilationResult cr = new CompilationResult(java.nio.file.Path.of("."), Set.of("Student"), "Student");
         var ctx = new PersistentGuestSession.JobContext(
                 cr, List.of(BreakpointSpec.of(10)), SourceAnalysis.empty(),
-                new InputTracker(""), (line, snap) -> {}, new ArrayList<>(), new HashSet<>(), 0, 0, true);
+                new InputTracker(""), (line, snap) -> {}, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(), 0, 0, true);
 
         session.executeJobEventLoop(ctx);
 
@@ -484,6 +594,20 @@ class PersistentGuestSessionEventTest {
         session.setAlive(true);
         session.runJobInternal(cr, List.of(), List.of(), "", false, (line, snap) -> {});
         assertThat(session.isAlive()).isFalse();
+
+        // Test runJobInternal when currentSession.isStopped() is true
+        try (var ts = new cs1302.tracer.execution.TraceSession(
+                cs1302.tracer.execution.TraceLimits.unlimited(),
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+            ts.stop("timeout");
+            var setDeath3 = mirror(EventSet.class, Map.of("iterator", List.of((Event) deathEvent).iterator()));
+            eventSets.add(setDeath3);
+            session.setAlive(true);
+            assertThatThrownBy(() -> {
+                session.runJobInternal(cr, List.of(), List.of(), "", false, (line, snap) -> {});
+            }).isInstanceOf(cs1302.tracer.execution.TraceSession.Stopped.class);
+            assertThat(session.isAlive()).isFalse();
+        } // try
     } // testExecuteJobEventLoop
 
     @Test
@@ -496,6 +620,7 @@ class PersistentGuestSessionEventTest {
 
         PersistentGuestSession session = createMockSession(vm, readyLoc, completedLoc, proc);
         assertThat(session.isAlive()).isTrue();
+        assertThat(session.process()).isSameAs(proc);
 
         session.setAlive(false);
         assertThat(session.isAlive()).isFalse();
