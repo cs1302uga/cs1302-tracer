@@ -7,20 +7,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -58,10 +55,15 @@ public final class GuestHarness {
     /** Barrier snapshot of total standard error bytes at last completion. */
     public static volatile long errBytes = 0;
 
+    /** Harness failure message for the current job, or null. */
+    public static volatile String lastHarnessFailure = null;
+
     private static final VirtualInputStream VIRTUAL_IN = new VirtualInputStream();
     private static final PrintStream ORIGINAL_OUT = System.out;
     private static final PrintStream ORIGINAL_ERR = System.err;
     private static final InputStream ORIGINAL_IN = System.in;
+    private static final Thread.UncaughtExceptionHandler ORIGINAL_UNCAUGHT_EXCEPTION_HANDLER =
+            Thread.getDefaultUncaughtExceptionHandler();
     private static final Properties ORIGINAL_PROPERTIES =
             (Properties) System.getProperties().clone();
     private static final Locale ORIGINAL_DEFAULT_LOCALE = Locale.getDefault();
@@ -181,6 +183,7 @@ public final class GuestHarness {
     static void runJob() {
         OUT_BYTES.set(0);
         ERR_BYTES.set(0);
+        lastHarnessFailure = null;
         String cp = nextClassPath;
         String mc = nextMainClass;
         String stdin = nextStdin;
@@ -190,12 +193,6 @@ public final class GuestHarness {
         try {
             File cpFile = new File(cp);
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
-            ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
-            while (rootGroup.getParent() != null) {
-                rootGroup = rootGroup.getParent();
-            } // while
-            Set<Thread> baselineThreads = new HashSet<>(
-                    Arrays.asList(enumerateAllThreads(rootGroup)));
             ThreadGroup jobGroup = new ThreadGroup("student-job-group");
             try (URLClassLoader loader = new URLClassLoader(
                     urls, ClassLoader.getPlatformClassLoader())) {
@@ -203,6 +200,10 @@ public final class GuestHarness {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
                         invokeMain(mainClass);
+                    } catch (InvocationTargetException ignored) {
+                        // Student failure is reported through JDI events
+                    } catch (ReflectiveOperationException reflectiveFailure) {
+                        lastHarnessFailure = reflectiveFailure.toString();
                     } catch (Throwable t) {
                         // Handled or ignored; snapshot or exception event captured by JDI
                     } // try
@@ -215,7 +216,7 @@ public final class GuestHarness {
                     jobThread.interrupt();
                     Thread.currentThread().interrupt();
                 } // try
-                stopLingeringThreads(loader, baselineThreads, jobGroup);
+                stopLingeringThreads(loader, jobGroup);
             } // try
         } catch (Throwable t) {
             // Handled or ignored; snapshot or exception event captured by JDI
@@ -264,18 +265,16 @@ public final class GuestHarness {
      * @param loader Current job classloader.
      */
     static void stopLingeringThreads(ClassLoader loader) {
-        stopLingeringThreads(loader, null, null);
+        stopLingeringThreads(loader, null);
     } // stopLingeringThreads
 
     /**
      * Interrupts and awaits termination of lingering background threads.
      *
      * @param loader Current job classloader.
-     * @param baseline Baseline active threads before job execution.
      * @param jobGroup Job-owned thread group.
      */
-    static void stopLingeringThreads(
-            ClassLoader loader, Set<Thread> baseline, ThreadGroup jobGroup) {
+    static void stopLingeringThreads(ClassLoader loader, ThreadGroup jobGroup) {
         ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
         while (rootGroup.getParent() != null) {
             rootGroup = rootGroup.getParent();
@@ -284,7 +283,7 @@ public final class GuestHarness {
         Thread current = Thread.currentThread();
         List<Thread> targets = new ArrayList<>();
         for (Thread t : threads) {
-            if (t != current && isJobThread(t, loader, baseline, jobGroup)) {
+            if (t != current && isJobThread(t, loader, jobGroup)) {
                 targets.add(t);
                 t.interrupt();
             } // if
@@ -310,12 +309,10 @@ public final class GuestHarness {
      *
      * @param t Target thread to test.
      * @param loader Current job classloader.
-     * @param baseline Baseline active threads before job execution.
      * @param jobGroup Job-owned thread group.
      * @return True if thread belongs to current job.
      */
-    static boolean isJobThread(
-            Thread t, ClassLoader loader, Set<Thread> baseline, ThreadGroup jobGroup) {
+    static boolean isJobThread(Thread t, ClassLoader loader, ThreadGroup jobGroup) {
         if (t.getContextClassLoader() == loader) {
             return true;
         } // if
@@ -326,9 +323,6 @@ public final class GuestHarness {
             } // if
             g = g.getParent();
         } // while
-        if (baseline != null) {
-            return !baseline.contains(t);
-        } // if
         return false;
     } // isJobThread
 
@@ -350,9 +344,11 @@ public final class GuestHarness {
         System.setIn(ORIGINAL_IN);
         System.setOut(createForwardingPrintStream(ORIGINAL_OUT, OUT_BYTES));
         System.setErr(createForwardingPrintStream(ORIGINAL_ERR, ERR_BYTES));
+        Thread.setDefaultUncaughtExceptionHandler(ORIGINAL_UNCAUGHT_EXCEPTION_HANDLER);
 
         System.setProperties((Properties) ORIGINAL_PROPERTIES.clone());
         System.setIn(VIRTUAL_IN);
+        lastHarnessFailure = null;
     } // cleanState
 
     /**

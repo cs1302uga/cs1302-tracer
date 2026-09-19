@@ -3,6 +3,8 @@ package cs1302.tracer.guest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.AfterEach;
@@ -14,9 +16,30 @@ import org.junit.jupiter.api.Test;
  */
 public class GuestHarnessTest {
 
+    private InputStream originalIn;
+    private PrintStream originalOut;
+    private PrintStream originalErr;
+    private Thread.UncaughtExceptionHandler originalUncaughtExceptionHandler;
+
     @BeforeEach
+    void setUpHarness() {
+        originalIn = System.in;
+        originalOut = System.out;
+        originalErr = System.err;
+        originalUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+        resetHarnessState();
+    } // setUpHarness
+
     @AfterEach
-    void resetHarness() {
+    void tearDownHarness() {
+        resetHarnessState();
+        System.setIn(originalIn);
+        System.setOut(originalOut);
+        System.setErr(originalErr);
+        Thread.setDefaultUncaughtExceptionHandler(originalUncaughtExceptionHandler);
+    } // tearDownHarness
+
+    private static void resetHarnessState() {
         GuestHarness.nextClassPath = null;
         GuestHarness.nextMainClass = null;
         GuestHarness.nextStdin = null;
@@ -26,7 +49,7 @@ public class GuestHarnessTest {
         InstanceNoArgsTarget.MARKER.delete();
         InstanceArgsTarget.MARKER.delete();
         StaticNoArgsTarget.MARKER.delete();
-    } // resetHarness
+    } // resetHarnessState
 
     @Test
     void testPrivateConstructor() throws Exception {
@@ -364,6 +387,15 @@ public class GuestHarnessTest {
     } // testOutputStreamsProtectedAgainstClosing
 
     @Test
+    void testCleanStateRestoresDefaultUncaughtExceptionHandler() {
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+        });
+        GuestHarness.cleanState();
+        assertThat(Thread.getDefaultUncaughtExceptionHandler()).isEqualTo(
+                originalUncaughtExceptionHandler);
+    } // testCleanStateRestoresDefaultUncaughtExceptionHandler
+
+    @Test
     void testUnclosableOutputStream() throws Exception {
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
         GuestHarness.UnclosableOutputStream uos = new GuestHarness.UnclosableOutputStream(baos);
@@ -546,18 +578,14 @@ public class GuestHarnessTest {
 
         Thread tLoader = new Thread(() -> {});
         tLoader.setContextClassLoader(loader);
-        assertThat(GuestHarness.isJobThread(tLoader, loader, java.util.Set.of(), null)).isTrue();
+        assertThat(GuestHarness.isJobThread(tLoader, loader, null)).isTrue();
 
         Thread tChildGroup = new Thread(childGroup, () -> {});
         tChildGroup.setContextClassLoader(otherLoader);
-        assertThat(GuestHarness.isJobThread(tChildGroup, loader, java.util.Set.of(), jobGroup))
-                .isTrue();
+        assertThat(GuestHarness.isJobThread(tChildGroup, loader, jobGroup)).isTrue();
 
         Thread tOther = new Thread(otherGroup, () -> {});
         tOther.setContextClassLoader(otherLoader);
-        assertThat(GuestHarness.isJobThread(tOther, loader, java.util.Set.of(), jobGroup)).isTrue();
-        assertThat(GuestHarness.isJobThread(tOther, loader, java.util.Set.of(tOther), jobGroup))
-                .isFalse();
-        assertThat(GuestHarness.isJobThread(tOther, loader, null, jobGroup)).isFalse();
+        assertThat(GuestHarness.isJobThread(tOther, loader, jobGroup)).isFalse();
     } // testIsJobThreadDirect
 } // GuestHarnessTest

@@ -202,7 +202,10 @@ public class StreamDrainer implements AutoCloseable {
                 break;
             } // try
         } // while
-        sync(maxWaitMillis, DEFAULT_QUIET_PERIOD_MILLIS);
+        long remainingMillis = Math.max(0, deadline - System.currentTimeMillis());
+        if (remainingMillis > 0) {
+            sync(remainingMillis, DEFAULT_QUIET_PERIOD_MILLIS);
+        } // if
     } // syncUntil
 
     /**

@@ -64,7 +64,13 @@ public final class BatchTraceWorker implements AutoCloseable {
         } // try
         if (!healthy) {
             close();
-            session = PersistentGuestSession.create();
+            PersistentGuestSession created = PersistentGuestSession.create();
+            if (!created.isAlive()) {
+                created.close();
+                throw new IllegalStateException(
+                        "Persistent guest session terminated during startup");
+            } // if
+            session = created;
         } // if
     } // ensureSession
 
@@ -112,6 +118,9 @@ public final class BatchTraceWorker implements AutoCloseable {
                 limits, inspection, allBps || accBps, true)) {
             try {
                 Object payload = performTrace(req, traceSession, allBps, accBps, format, typeStyle);
+                if (!session.isAlive() && traceSession.stopReason() == null) {
+                    traceSession.stop("guest_exit");
+                } // if
                 TraceResult result = traceSession.result(
                         format.name().toLowerCase(Locale.ROOT), payload, null);
                 return new BatchJobResponse(req.id(), result);

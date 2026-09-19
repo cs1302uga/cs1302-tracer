@@ -90,6 +90,10 @@ class OutputSliceTest {
         OutputSlice fromSubrangeClamped = OutputSlice.from(bytes, -2, 5);
         assertThat(fromSubrangeClamped.asUtf8String()).isEqualTo("Hello");
 
+        bytes[0] = (byte) 'h';
+        assertThat(fromSubrange.asUtf8String()).isEqualTo("Hello");
+        assertThat(fromSubrangeClamped.asUtf8String()).isEqualTo("Hello");
+
         assertThat(slice.byteAt(0)).isEqualTo((byte) 'H');
         assertThat(slice.startsWith(null)).isTrue();
         assertThat(slice.startsWith(new byte[0])).isTrue();

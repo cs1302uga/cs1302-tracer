@@ -123,7 +123,7 @@ public record ExecutionSnapshot(
      * @param sharedStderr Shared standard error buffer.
      * @return New snapshot referencing shared output slices.
      */
-    public ExecutionSnapshot withSharedOutput(byte[] sharedStdout, byte[] sharedStderr) {
+    ExecutionSnapshot withSharedOutput(byte[] sharedStdout, byte[] sharedStderr) {
         OutputSlice matOut = OutputSlice.wrapShared(sharedStdout, 0, stdoutSlice.length());
         OutputSlice matErr = OutputSlice.wrapShared(sharedStderr, 0, stderrSlice.length());
         return new ExecutionSnapshot(

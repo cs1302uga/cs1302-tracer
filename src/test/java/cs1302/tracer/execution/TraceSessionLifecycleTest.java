@@ -379,6 +379,21 @@ class TraceSessionLifecycleTest {
     } // testFinishOutputBranches
 
     @Test
+    void testFinishOutputChecksCancellationBeforeBuildingResult() throws Exception {
+        try (var session = new TraceSession(
+                new TraceLimits(1, 0, 0, 0, 0, 0, 0, 0), InspectionPolicy.TRUSTED, true)) {
+            var started = TraceSession.class.getDeclaredField("started");
+            started.setAccessible(true);
+            started.setLong(session, System.nanoTime() - 5_000_000L);
+            assertThatThrownBy(() -> session.finishOutput(
+                    cs1302.tracer.trace.OutputSlice.from(new byte[] {65}),
+                    cs1302.tracer.trace.OutputSlice.empty()))
+                    .isInstanceOf(TraceSession.Stopped.class)
+                    .hasMessage("timeout");
+        } // try
+    } // testFinishOutputChecksCancellationBeforeBuildingResult
+
+    @Test
     void testAttachDestroyOnCloseFlag() throws Exception {
         java.util.concurrent.atomic.AtomicBoolean destroyed =
                 new java.util.concurrent.atomic.AtomicBoolean(false);

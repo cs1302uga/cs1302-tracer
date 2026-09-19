@@ -8,6 +8,7 @@ import com.sun.jdi.Field;
 import com.sun.jdi.Location;
 import com.sun.jdi.ObjectReference;
 import com.sun.jdi.ReferenceType;
+import com.sun.jdi.StringReference;
 import com.sun.jdi.VirtualMachine;
 import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.LaunchingConnector;
@@ -58,6 +59,7 @@ public final class PersistentGuestSession implements AutoCloseable {
     private final Field nextClassPathField;
     private final Field nextMainClassField;
     private final Field nextStdinField;
+    private final Field lastHarnessFailureField;
     private final Field shouldTerminateField;
     private final Location readyLocation;
     private final Location completedLocation;
@@ -98,6 +100,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         this.nextClassPathField = harnessType.fieldByName("nextClassPath");
         this.nextMainClassField = harnessType.fieldByName("nextMainClass");
         this.nextStdinField = harnessType.fieldByName("nextStdin");
+        this.lastHarnessFailureField = harnessType.fieldByName("lastHarnessFailure");
         this.shouldTerminateField = harnessType.fieldByName("shouldTerminate");
         this.alive = true;
         this.completedJobCount = 0;
@@ -632,6 +635,10 @@ public final class PersistentGuestSession implements AutoCloseable {
         teardownJobRequests(jobRequests);
         drainJobStreams(startOut, startErr);
         finalizeOutput(currentSession, startOut, startErr, sink);
+        String harnessFailure = readHarnessFailure();
+        if (harnessFailure != null) {
+            throw new IllegalStateException("Guest harness failure: " + harnessFailure);
+        } // if
         compactDrainers();
         try {
             com.sun.jdi.Value termVal = harnessType.getValue(shouldTerminateField);
@@ -716,6 +723,27 @@ public final class PersistentGuestSession implements AutoCloseable {
             } // if
         } // if
     } // finalizeOutput
+
+    /**
+     * Reads any harness-reported per-job launch failure.
+     *
+     * @return Harness failure message, or null when none was reported.
+     */
+    private String readHarnessFailure() {
+        if (lastHarnessFailureField == null) {
+            return null;
+        } // if
+        try {
+            com.sun.jdi.Value value = harnessType.getValue(lastHarnessFailureField);
+            if (value instanceof StringReference stringRef) {
+                String message = stringRef.value();
+                return message == null || message.isBlank() ? null : message;
+            } // if
+        } catch (Exception ignored) {
+            // ignore inspection error
+        } // try
+        return null;
+    } // readHarnessFailure
 
     /**
      * Resets persistent stream drainers between jobs to prevent unbounded memory growth.

@@ -86,6 +86,18 @@ class BatchTraceWorkerTest {
             }
             """;
 
+    private static final String INSTANCE_MAIN_WITHOUT_NOARG_CTOR = """
+            public class NeedsCtorArg {
+                private final int value;
+                public NeedsCtorArg(int value) {
+                    this.value = value;
+                }
+                void main() {
+                    System.out.println(value);
+                }
+            }
+            """;
+
     private static final String INVALID_SYNTAX = """
             public class BadSyntax {
                 invalid syntax here
@@ -571,14 +583,31 @@ class BatchTraceWorkerTest {
                     false, false, false, false, false, "simple", null, null);
             BatchJobResponse respMod = worker.execute(reqMod);
             assertThat(respMod.id()).isEqualTo("exit-single-mod");
-            assertThat(respMod.result().complete()).isTrue();
+            assertThat(respMod.result().complete()).isFalse();
+            assertThat(respMod.result().stopReason()).isEqualTo("guest_exit");
 
             BatchJobRequest reqPy = new BatchJobRequest(
                     "exit-single-py", SYSTEM_EXIT_SOURCE, "pytutor", null, null,
                     false, false, false, false, false, "fqn", null, null);
             BatchJobResponse respPy = worker.execute(reqPy);
             assertThat(respPy.id()).isEqualTo("exit-single-py");
-            assertThat(respPy.result().complete()).isTrue();
+            assertThat(respPy.result().complete()).isFalse();
+            assertThat(respPy.result().stopReason()).isEqualTo("guest_exit");
         } // try
     } // testWorkerSingleSnapshotEarlyExit
+
+    @Test
+    @DisplayName("Worker reports harness launch failures instead of empty success")
+    void testWorkerReportsHarnessLaunchFailure() {
+        try (BatchTraceWorker worker = new BatchTraceWorker(5)) {
+            BatchJobRequest req = new BatchJobRequest(
+                    "job-harness-failure", INSTANCE_MAIN_WITHOUT_NOARG_CTOR, "modern",
+                    null, null, false, false, false, false, false, "simple", null, null);
+            BatchJobResponse resp = worker.execute(req);
+            assertThat(resp.result().complete()).isFalse();
+            assertThat(resp.result().stopReason()).isEqualTo("tracer_error");
+            assertThat(resp.result().diagnostics()).anyMatch(
+                    d -> d.contains("NoSuchMethodException"));
+        } // try
+    } // testWorkerReportsHarnessLaunchFailure
 } // BatchTraceWorkerTest

@@ -482,6 +482,9 @@ public final class TraceSession implements AutoCloseable {
      * @param stderr Captured standard error slice.
      */
     public void finishOutput(OutputSlice stdout, OutputSlice stderr) {
+        if (reason.get() == null) {
+            check();
+        } // if
         if (completed.isEmpty()) {
             return;
         } // if
@@ -533,7 +536,11 @@ public final class TraceSession implements AutoCloseable {
     public synchronized void materializeSnapshots(byte[] sharedStdout, byte[] sharedStderr) {
         for (int i = 0; i < completed.size(); i++) {
             ExecutionSnapshot oldSnap = completed.get(i);
-            ExecutionSnapshot newSnap = oldSnap.withSharedOutput(sharedStdout, sharedStderr);
+            ExecutionSnapshot newSnap = new ExecutionSnapshot(
+                    oldSnap.stack(), oldSnap.statics(), oldSnap.heap(),
+                    OutputSlice.from(sharedStdout, 0, oldSnap.stdoutLength()),
+                    OutputSlice.from(sharedStderr, 0, oldSnap.stderrLength()),
+                    oldSnap.sourcePath(), oldSnap.stdinConsumed(), oldSnap.stdinOffset());
             updateMaterializedSnapshot(i, oldSnap, newSnap);
         } // for
     } // materializeSnapshots
