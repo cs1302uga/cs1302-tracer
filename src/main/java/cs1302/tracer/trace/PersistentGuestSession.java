@@ -335,19 +335,22 @@ public final class PersistentGuestSession implements AutoCloseable {
             String stdin,
             boolean accumulate) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new TreeMap<>();
+        ExecutionSnapshot[] lastCaptured = new ExecutionSnapshot[1];
+        int[] lastLine = new int[1];
         runJobInternal(cr, specs, parsedSources, stdin, false, (line, snap) -> {
             ExecutionSnapshot mat = snap.materializeOutput();
             DebugTraceHelper.storeSnapshot(snapshots, line, mat);
+            lastCaptured[0] = mat;
+            lastLine[0] = line;
         });
         TraceSession session = TraceSession.current();
         boolean allowOutputUpdate = session == null
                 || !"trace_limit".equals(session.stopReason());
-        if (allowOutputUpdate) {
-            for (List<ExecutionSnapshot> list : snapshots.values()) {
-                int lastIdx = list.size() - 1;
-                ExecutionSnapshot last = list.get(lastIdx);
-                list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
-            } // for
+        if (allowOutputUpdate && lastCaptured[0] != null) {
+            List<ExecutionSnapshot> list = snapshots.get(lastLine[0]);
+            int lastIdx = list.size() - 1;
+            ExecutionSnapshot last = list.get(lastIdx);
+            list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
         } // if
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
     } // traceWithSpecs

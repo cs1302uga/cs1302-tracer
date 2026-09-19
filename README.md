@@ -184,6 +184,12 @@ Usage: code-tracer batch-trace [-hV] [-i=<input>]
 | `--help` | `-h` | | Show help message and exit. |
 | `--version` | `-V` | | Print version information and exit. |
 
+> [!WARNING]
+> **Security & Process Isolation**:
+> In accordance with [`docs/RUNNER_CONTRACT.md`](docs/RUNNER_CONTRACT.md), persistent guest JVM reuse in `batch-trace` employs child `URLClassLoader` isolation per job. A child class loader is **not** an OS-level security boundary against untrusted or hostile code.
+>
+> Reusing persistent guest JVMs is intended strictly for **trusted workloads** (such as test suites, instructor examples, or local development) or when jobs are already executed inside an external, disposable container or VM sandbox. For hosted untrusted student submissions, always execute one disposable Tracer process per job following the runner contract.
+
 ---
 
 ### `list-breakpoints` Options
@@ -418,6 +424,9 @@ To run batch tracing:
 # Stream NDJSON requests into batch-trace
 cat jobs.ndjson | code-tracer batch-trace --workers=4
 ```
+
+> [!NOTE]
+> As noted in [`docs/RUNNER_CONTRACT.md`](docs/RUNNER_CONTRACT.md), persistent guest reuse in `batch-trace` requires that jobs originate from trusted sources or are dispatched within an externally isolated container or virtual machine sandbox.
 
 ---
 

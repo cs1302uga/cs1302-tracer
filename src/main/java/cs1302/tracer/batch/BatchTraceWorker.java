@@ -55,8 +55,14 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @throws Exception If spawning the guest JVM fails.
      */
     private synchronized void ensureSession() throws Exception {
-        if (session == null || !session.isAlive()
-                || session.completedJobCount() >= maxJobsPerWorker) {
+        boolean healthy = false;
+        try {
+            healthy = session != null && session.isAlive()
+                    && session.completedJobCount() < maxJobsPerWorker;
+        } catch (Throwable t) {
+            healthy = false;
+        } // try
+        if (!healthy) {
             close();
             session = PersistentGuestSession.create();
         } // if
@@ -101,9 +107,8 @@ public final class BatchTraceWorker implements AutoCloseable {
         } // try
 
         try (TraceSession traceSession = new TraceSession(
-                limits, inspection, allBps || accBps, false)) {
+                limits, inspection, allBps || accBps, true)) {
             try {
-                traceSession.attach(session.process(), false);
                 Object payload = performTrace(req, traceSession, allBps, accBps, format, typeStyle);
                 TraceResult result = traceSession.result(
                         format.name().toLowerCase(Locale.ROOT), payload, null);
@@ -165,6 +170,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                     sourceFiles, sourceRoot, parserRoot);
 
             traceSession.phase("trace");
+            traceSession.attach(session.process(), false);
             String stdin = req.stdin() != null ? req.stdin() : "";
             if (allBps) {
                 List<BreakpointSpec> specs = resolveChronologicalSpecs(req, compiled);
@@ -378,4 +384,5 @@ public final class BatchTraceWorker implements AutoCloseable {
             session = null;
         } // if
     } // close
+
 }

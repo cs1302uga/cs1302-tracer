@@ -23,6 +23,9 @@ public class GuestHarnessTest {
         GuestHarness.shouldTerminate = false;
         GuestHarness.cleanState();
         DummyTarget.MARKER.delete();
+        InstanceNoArgsTarget.MARKER.delete();
+        InstanceArgsTarget.MARKER.delete();
+        StaticNoArgsTarget.MARKER.delete();
     } // resetHarness
 
     @Test
@@ -370,4 +373,143 @@ public class GuestHarnessTest {
         uos.write((int) '!');
         assertThat(baos.toString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("test data!");
     } // testUnclosableOutputStream
+
+    @Test
+    void testVariousMainEntryPoints() {
+        File targetDir = new File("target/test-classes");
+
+        // Instance void main()
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = InstanceNoArgsTarget.class.getName();
+        InstanceNoArgsTarget.MARKER.delete();
+        GuestHarness.runJob();
+        assertThat(InstanceNoArgsTarget.MARKER.exists()).isTrue();
+        InstanceNoArgsTarget.MARKER.delete();
+
+        // Instance void main(String[])
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = InstanceArgsTarget.class.getName();
+        InstanceArgsTarget.MARKER.delete();
+        GuestHarness.runJob();
+        assertThat(InstanceArgsTarget.MARKER.exists()).isTrue();
+        InstanceArgsTarget.MARKER.delete();
+
+        // Static void main()
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = StaticNoArgsTarget.class.getName();
+        StaticNoArgsTarget.MARKER.delete();
+        GuestHarness.runJob();
+        assertThat(StaticNoArgsTarget.MARKER.exists()).isTrue();
+        StaticNoArgsTarget.MARKER.delete();
+
+        // Inherited main from superclass
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = InheritedTarget.class.getName();
+        StaticNoArgsTarget.MARKER.delete();
+        GuestHarness.runJob();
+        assertThat(StaticNoArgsTarget.MARKER.exists()).isTrue();
+        StaticNoArgsTarget.MARKER.delete();
+
+        // Non-void main and wrong param type
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = NonVoidMainTarget.class.getName();
+        GuestHarness.runJob();
+        assertThat(GuestHarness.nextClassPath).isNull();
+
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = WrongParamMainTarget.class.getName();
+        GuestHarness.runJob();
+        assertThat(GuestHarness.nextClassPath).isNull();
+
+        // No main method
+        GuestHarness.nextClassPath = targetDir.getAbsolutePath();
+        GuestHarness.nextMainClass = NoMainTarget.class.getName();
+        GuestHarness.runJob();
+        assertThat(GuestHarness.nextClassPath).isNull();
+    } // testVariousMainEntryPoints
+
+    /** Dummy target inheriting main. */
+    public static class InheritedTarget extends StaticNoArgsTarget {
+    } // InheritedTarget
+
+    /** Dummy target with non-void main. */
+    public static class NonVoidMainTarget {
+        /** Non-void return main. */
+        public static int main() {
+            return 0;
+        } // main
+    } // NonVoidMainTarget
+
+    /** Dummy target with wrong param type. */
+    public static class WrongParamMainTarget {
+        /** Main with int param. */
+        public static void main(int x) {
+        } // main
+    } // WrongParamMainTarget
+
+    /** Dummy target with multiple params for direct reflection test. */
+    public static class MultiParamMainTarget {
+        /** Main with multiple params. */
+        public static void main(String[] a, int b) {
+        } // main
+    } // MultiParamMainTarget
+
+    @Test
+    void testIsMainMethodDirect() throws Exception {
+        assertThat(GuestHarness.isMainMethod(
+                MultiParamMainTarget.class.getMethod("main", String[].class, int.class)))
+                .isFalse();
+    } // testIsMainMethodDirect
+
+    /** Dummy target with instance void main(). */
+    public static class InstanceNoArgsTarget {
+        public static final File MARKER = new File("target/instance-noargs.marker");
+
+        /** Instance main without args. */
+        void main() {
+            try {
+                MARKER.createNewFile();
+            } catch (Exception ignored) {
+                // ignore
+            } // try
+        } // main
+    } // InstanceNoArgsTarget
+
+    /** Dummy target with instance void main(String[]). */
+    public static class InstanceArgsTarget {
+        public static final File MARKER = new File("target/instance-args.marker");
+
+        /**
+         * Instance main with args.
+         *
+         * @param args Command-line arguments.
+         */
+        void main(String[] args) {
+            try {
+                MARKER.createNewFile();
+            } catch (Exception ignored) {
+                // ignore
+            } // try
+        } // main
+    } // InstanceArgsTarget
+
+    /** Dummy target with static void main(). */
+    public static class StaticNoArgsTarget {
+        public static final File MARKER = new File("target/static-noargs.marker");
+
+        /** Static main without args. */
+        static void main() {
+            try {
+                MARKER.createNewFile();
+            } catch (Exception ignored) {
+                // ignore
+            } // try
+        } // main
+    } // StaticNoArgsTarget
+
+    /** Dummy target without main method. */
+    public static class NoMainTarget {
+        /** Not a main method. */
+        public static void notMain() {}
+    } // NoMainTarget
 }

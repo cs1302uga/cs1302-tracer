@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -113,6 +115,63 @@ public final class GuestHarness {
     } // onJobCompleted
 
     /**
+     * Finds and invokes the entry point on the specified class matching Java main method rules.
+     *
+     * @param targetClass The loaded class containing the main method.
+     * @throws Exception If resolution, instantiation, or invocation fails.
+     */
+    private static void invokeMain(Class<?> targetClass) throws Exception {
+        Method mainMethod = findMainMethod(targetClass);
+        if (mainMethod == null) {
+            throw new NoSuchMethodException(
+                    "No suitable main method found on " + targetClass.getName());
+        } // if
+        mainMethod.setAccessible(true);
+        Object receiver = null;
+        if (!Modifier.isStatic(mainMethod.getModifiers())) {
+            Constructor<?> ctor = targetClass.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            receiver = ctor.newInstance();
+        } // if
+        if (mainMethod.getParameterCount() == 0) {
+            mainMethod.invoke(receiver);
+        } else {
+            mainMethod.invoke(receiver, (Object) new String[0]);
+        } // if
+    } // invokeMain
+
+    /**
+     * Finds the entry point main method on the target class or its superclasses.
+     *
+     * @param targetClass Target class to search.
+     * @return Discovered main Method, or null if none found.
+     */
+    static Method findMainMethod(Class<?> targetClass) {
+        for (Class<?> c = targetClass; c != null; c = c.getSuperclass()) {
+            for (Method m : c.getDeclaredMethods()) {
+                if (isMainMethod(m)) {
+                    return m;
+                } // if
+            } // for
+        } // for
+        return null;
+    } // findMainMethod
+
+    /**
+     * Determines whether the specified method matches Java main method entry rules.
+     *
+     * @param m Method to inspect.
+     * @return True if method matches main signature.
+     */
+    static boolean isMainMethod(Method m) {
+        if (!m.getName().equals("main") || !m.getReturnType().equals(void.class)) {
+            return false;
+        } // if
+        Class<?>[] params = m.getParameterTypes();
+        return params.length == 0 || (params.length == 1 && params[0].equals(String[].class));
+    } // isMainMethod
+
+    /**
      * Executes the target job using a disposable classloader and redirected input.
      */
     static void runJob() {
@@ -130,8 +189,7 @@ public final class GuestHarness {
                 Thread jobThread = new Thread(() -> {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
-                        Method mainMethod = mainClass.getMethod("main", String[].class);
-                        mainMethod.invoke(null, (Object) new String[0]);
+                        invokeMain(mainClass);
                     } catch (Throwable t) {
                         // Handled or ignored; snapshot or exception event captured by JDI
                     } // try

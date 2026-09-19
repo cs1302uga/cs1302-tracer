@@ -25,7 +25,12 @@ class BatchJobModelTest {
         assertThat(req.source()).isEqualTo("class A {}");
         assertThat(req.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
         assertThat(req.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
-        assertThat(req.resolveLimits()).isEqualTo(TraceLimits.unlimited());
+        assertThat(req.resolveLimits()).isEqualTo(TraceLimits.instructorDefaults());
+
+        BatchJobRequest unlimReq = new BatchJobRequest(
+                "id-unlim", "class A {}", null, null, null, null,
+                null, null, null, null, null, TraceLimits.unlimited(), null);
+        assertThat(unlimReq.resolveLimits()).isEqualTo(TraceLimits.unlimited());
     } // testRequestDefaults
 
     @Test

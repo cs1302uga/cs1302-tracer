@@ -77,11 +77,11 @@ public record BatchJobRequest(
     } // resolveTypeStyle
 
     /**
-     * Resolves the effective TraceLimits, defaulting to unlimited if omitted.
+     * Resolves the effective TraceLimits, defaulting to instructorDefaults if omitted.
      *
      * @return Resolved TraceLimits.
      */
     public TraceLimits resolveLimits() {
-        return limits != null ? limits : TraceLimits.unlimited();
+        return limits != null ? limits : TraceLimits.instructorDefaults();
     } // resolveLimits
 }
