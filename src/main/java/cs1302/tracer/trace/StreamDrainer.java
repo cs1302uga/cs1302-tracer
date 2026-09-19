@@ -158,8 +158,10 @@ public class StreamDrainer implements AutoCloseable {
 
             int currentSize = size();
             boolean bytesArrived = currentSize > initialSize;
+            boolean recentRead = currentSize > 0
+                    && System.nanoTime() - lastReadNanos < quietPeriodNanos;
 
-            if (bytesArrived) {
+            if (bytesArrived || recentRead) {
                 if (System.nanoTime() - lastReadNanos >= quietPeriodNanos) {
                     break;
                 } // if

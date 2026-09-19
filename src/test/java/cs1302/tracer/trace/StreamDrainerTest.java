@@ -7,6 +7,8 @@ import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.TraceLimits;
 import cs1302.tracer.execution.TraceSession;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -215,6 +217,63 @@ public class StreamDrainerTest {
     }).start();
     drainer3.syncUntil(100, 500);
   }
+
+  @Test
+  @DisplayName("sync waits for a quiet period after bytes arrive before the call")
+  void testSyncWaitsForRecentPreReadBytes() throws Exception {
+    byte[] firstChunk = "12345".getBytes(StandardCharsets.UTF_8);
+    byte[] secondChunk = "67".getBytes(StandardCharsets.UTF_8);
+    InputStream source = new InputStream() {
+      private int chunkIndex;
+      private int chunkOffset;
+
+      @Override
+      public int read(byte[] buffer, int offset, int length) throws IOException {
+        if (chunkIndex >= 2) {
+          return -1;
+        }
+        if (chunkIndex == 1 && chunkOffset == 0) {
+          try {
+            Thread.sleep(20);
+          } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IOException("interrupted", interrupted);
+          }
+        }
+        byte[] chunk = chunkIndex == 0 ? firstChunk : secondChunk;
+        int count = Math.min(length, chunk.length - chunkOffset);
+        System.arraycopy(chunk, chunkOffset, buffer, offset, count);
+        chunkOffset += count;
+        if (chunkOffset == chunk.length) {
+          chunkIndex++;
+          chunkOffset = 0;
+        }
+        return count;
+      }
+
+      @Override
+      public int read() throws IOException {
+        byte[] one = new byte[1];
+        int count = read(one, 0, 1);
+        return count == -1 ? -1 : Byte.toUnsignedInt(one[0]);
+      }
+    };
+
+    try (StreamDrainer drainer = new StreamDrainer(source)) {
+      long deadline = System.currentTimeMillis() + 500;
+      while (drainer.size() < firstChunk.length && System.currentTimeMillis() < deadline) {
+        Thread.sleep(1);
+      }
+      assertThat(drainer.size()).isEqualTo(firstChunk.length);
+
+      drainer.sync(200, 30);
+
+      assertThat(drainer.size()).isEqualTo(firstChunk.length + secondChunk.length);
+      drainer.waitForEof(500);
+      assertThat(drainer.isEof()).isTrue();
+    }
+  }
+
   @Test
   @DisplayName("Successive attached sessions enforce limits relative to their attach point")
   void testAttachSessionSuccessiveJobsAccounting() throws Exception {
