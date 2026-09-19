@@ -97,7 +97,7 @@ public final class GuestHarness {
             File cpFile = new File(cp);
             URL[] urls = new URL[] {cpFile.toURI().toURL()};
             try (URLClassLoader loader = new URLClassLoader(
-                    urls, GuestHarness.class.getClassLoader())) {
+                    urls, ClassLoader.getPlatformClassLoader())) {
                 ClassLoader originalContextLoader =
                         Thread.currentThread().getContextClassLoader();
                 Thread.currentThread().setContextClassLoader(loader);
