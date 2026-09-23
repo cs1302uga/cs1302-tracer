@@ -494,4 +494,41 @@ class TraceSessionLifecycleTest {
         } // try
         assertThat(destroyed.get()).isTrue();
     } // testAttachDestroyOnCloseFlag
+    @Test
+    void materializationDetachesOutputAndPreservesLatestSnapshotAccounting() throws Exception {
+        try (var output = new StreamDrainer(new java.io.ByteArrayInputStream(new byte[] {65, 66}));
+                var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, false)) {
+            output.waitForEof(1000);
+            session.materializeSnapshots();
+            for (int line : new int[] {1, 2}) {
+                var snap = snapshot(line);
+                session.commit(new ExecutionSnapshot(snap.stack(), List.of(), Map.of(),
+                        OutputSlice.from(output, 0, line), OutputSlice.empty(), Optional.empty(), "", 0));
+            }
+            session.materializeSnapshots();
+            output.reset();
+            assertThat(session.snapshots().getFirst().stdoutSlice().asUtf8String()).isEqualTo("A");
+            assertThat(session.snapshots().getLast().stdoutSlice().asUtf8String()).isEqualTo("AB");
+            var detached = session.snapshots();
+            session.materializeSnapshots();
+            assertThat(session.snapshots().getFirst()).isSameAs(detached.getFirst());
+            session.commit(snapshot(1));
+            assertThat(session.snapshots()).hasSize(2);
+            assertThat(session.snapshots().getFirst()).isSameAs(detached.getLast());
+            session.materializeSnapshots(new byte[] {65, 66}, new byte[0]);
+            assertThat(session.snapshots().getLast().stdoutLength()).isZero();
+        }
+    }
+
+    @Test
+    void finalizingStdoutWithoutStderrKeepsCapturedErrors() {
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    new byte[0], new byte[] {66}));
+            session.finishOutput(OutputSlice.from(new byte[] {65}), null);
+            assertThat(session.snapshots().getLast().stdout()).containsExactly((byte) 65);
+            assertThat(session.snapshots().getLast().stderr()).containsExactly((byte) 66);
+        }
+    }
+
 }

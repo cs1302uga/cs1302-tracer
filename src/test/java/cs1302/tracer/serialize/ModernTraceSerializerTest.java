@@ -248,17 +248,17 @@ public class ModernTraceSerializerTest {
 
     ModernTraceSerializer serializer = new ModernTraceSerializer(false, false, false);
     Map<Integer, ExecutionSnapshot> singleBp = Map.of(4, s1);
-    Trace trace1 = serializer.createBreakpointsTrace("code", singleBp);
+    Trace trace1 = serializer.createBreakpointsTrace("public class A {}", singleBp);
     assertThat(trace1.breakpoints()).containsKey(4);
 
     Map<Integer, List<ExecutionSnapshot>> accumBp = Map.of(5, List.of(s1, s2));
-    Trace trace2 = serializer.createBreakpointsTrace("code", accumBp);
+    Trace trace2 = serializer.createBreakpointsTrace("public class A {}", accumBp);
     assertThat(trace2.breakpoints()).containsKey(5);
 
     Map<Integer, Object> otherMap = new LinkedHashMap<>();
     otherMap.put(1, "invalid-entry");
     otherMap.put(2, List.of(s1, "non-snapshot-item"));
-    Trace trace3 = serializer.createBreakpointsTrace("code", otherMap);
+    Trace trace3 = serializer.createBreakpointsTrace("public class A {}", otherMap);
     assertThat(trace3.breakpoints()).doesNotContainKey(1);
     assertThat(trace3.breakpoints()).containsKey(2);
   }
@@ -292,7 +292,7 @@ public class ModernTraceSerializerTest {
     Map<Integer, Object> bpMap = new LinkedHashMap<>();
     bpMap.put(4, List.of(s1, s2));
 
-    Trace trace = serializer.createBreakpointsTrace("code", bpMap);
+    Trace trace = serializer.createBreakpointsTrace("public class A {}", bpMap);
     assertThat(trace.breakpoints()).containsKey(4);
     @SuppressWarnings("unchecked")
     List<Step> steps = (List<Step>) trace.breakpoints().get(4);
@@ -302,9 +302,9 @@ public class ModernTraceSerializerTest {
 
     Map<Integer, Object> singleBpMap = new LinkedHashMap<>();
     singleBpMap.put(4, s1);
-    Trace singleTrace = serializer.createBreakpointsTrace("code", singleBpMap);
+    Trace singleTrace = serializer.createBreakpointsTrace("public class A {}", singleBpMap);
     Step singleStep = (Step) singleTrace.breakpoints().get(4);
-    assertThat(singleStep.file()).isNull();
+    assertThat(singleStep.file()).isEqualTo("A.java");
   }
 
   @Test
@@ -454,26 +454,26 @@ public class ModernTraceSerializerTest {
     ModernTraceSerializer serializer =
         new ModernTraceSerializer(false, false, false, cs1302.tracer.model.TypeStyle.FQN);
 
-    Trace traceSingle = serializer.createTrace("class A {}", "input text", snapshot);
+    Trace traceSingle = serializer.createTrace("public class A {}", "input text", snapshot);
     assertThat(traceSingle.stdin()).isEqualTo("input text");
 
-    Trace traceSingleNull = serializer.createTrace("class A {}", (String) null, snapshot);
+    Trace traceSingleNull = serializer.createTrace("public class A {}", (String) null, snapshot);
     assertThat(traceSingleNull.stdin()).isEqualTo("");
 
-    Trace traceList = serializer.createTrace("class A {}", "input text", List.of(snapshot));
+    Trace traceList = serializer.createTrace("public class A {}", "input text", List.of(snapshot));
     assertThat(traceList.stdin()).isEqualTo("input text");
 
-    Trace traceListNull = serializer.createTrace("class A {}", (String) null, List.of(snapshot));
+    Trace traceListNull = serializer.createTrace("public class A {}", (String) null, List.of(snapshot));
     assertThat(traceListNull.stdin()).isEqualTo("");
 
-    Trace traceBp = serializer.createBreakpointsTrace("class A {}", "input text", Map.of(1, snapshot));
+    Trace traceBp = serializer.createBreakpointsTrace("public class A {}", "input text", Map.of(1, snapshot));
     assertThat(traceBp.stdin()).isEqualTo("input text");
 
-    Trace traceBpNull = serializer.createBreakpointsTrace("class A {}", (String) null, Map.of(1, snapshot));
+    Trace traceBpNull = serializer.createBreakpointsTrace("public class A {}", (String) null, Map.of(1, snapshot));
     assertThat(traceBpNull.stdin()).isEqualTo("");
 
     Trace traceBpList =
-        serializer.createBreakpointsTrace("class A {}", "input text", Map.of(1, List.of(snapshot)));
+        serializer.createBreakpointsTrace("public class A {}", "input text", Map.of(1, List.of(snapshot)));
     assertThat(traceBpList.stdin()).isEqualTo("input text");
   }
 

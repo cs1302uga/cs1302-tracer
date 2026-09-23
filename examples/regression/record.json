@@ -1,10 +1,14 @@
 {
   "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "entryFile": "Driver.java",
+  "sources": {
+    "Driver.java": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n"
+  },
   "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -64,7 +68,7 @@
               2
             ]
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:4",
           "is_highlighted": true,

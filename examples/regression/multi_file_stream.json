@@ -1,5 +1,10 @@
 {
   "code": "// --- cs1302/math/Calculator.java ---\npackage cs1302.math;\n\npublic class Calculator {\n\n    public static int multiply(int a, int b) {\n        int result = 0;\n        for (int i = 0; i < b; i++) {\n            result += a;\n        } // for\n        return result;\n    } // multiply\n\n} // Calculator\n\n// --- cs1302/math/Driver.java ---\npackage cs1302.math;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        int x = 4;\n        int y = 3;\n        int product = Calculator.multiply(x, y);\n\n        System.out.printf(\"%d * %d = %d%n\", x, y, product);\n    } // main\n\n} // Driver\n\n",
+  "entryFile": "cs1302/math/Driver.java",
+  "sources": {
+    "cs1302/math/Calculator.java": "package cs1302.math;\n\npublic class Calculator {\n\n    public static int multiply(int a, int b) {\n        int result = 0;\n        for (int i = 0; i < b; i++) {\n            result += a;\n        } // for\n        return result;\n    } // multiply\n\n} // Calculator\n\n",
+    "cs1302/math/Driver.java": "package cs1302.math;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        int x = 4;\n        int y = 3;\n        int product = Calculator.multiply(x, y);\n\n        System.out.printf(\"%d * %d = %d%n\", x, y, product);\n    } // main\n\n} // Driver\n\n"
+  },
   "stdin": "",
   "trace": [
     {

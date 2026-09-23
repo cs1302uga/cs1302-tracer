@@ -224,6 +224,34 @@ Usage: code-tracer show-licenses [-hV]
 
 ## Output Formats & Schema
 
+Both formats always include source metadata alongside the unchanged `code` input:
+
+```json
+{
+  "sources": {
+    "cs1302/math/Calculator.java": "package cs1302.math;\npublic class Calculator { }\n",
+    "cs1302/math/Driver.java": "package cs1302.math;\npublic class Driver { public static void main(String[] args) { } }\n"
+  },
+  "entryFile": "cs1302/math/Driver.java"
+}
+```
+
+`sources` contains every submitted source file, including unused files, and has one
+entry for single-file input. Keys are package-relative source paths with `/` separators,
+matching step and stack-frame `file` values. Duplicate package-relative source paths
+are rejected rather than overwriting a file. Values preserve the exact source text
+supplied to the compiler, including whitespace and line endings; stream delimiter
+lines and their terminating newline are excluded. Line numbers are 1-based within
+each source string. `code` retains the complete original input, including delimiters.
+
+`entryFile` identifies the source selected by the compiler's entry-point selection
+and is a key in `sources`; map order has no entry-point meaning. Both fields are
+included even with no trace steps and in modern `breakpoints` output. Viewers can
+use `entryFile` initially and `sources[step.file]` when displaying a trace step.
+PythonTutor's selected-breakpoint map retains its existing shape; each nested trace
+object carries these fields. Dependencies discovered outside the submitted input
+are not included in `sources`.
+
 ### 1. PythonTutor Format (`--format=pytutor`, default)
 
 Generates Online Python Tutor JSON snapshots using nested tuple structures (`["INSTANCE", "ClassName", ["field", value]]` and `["REF", id]`):

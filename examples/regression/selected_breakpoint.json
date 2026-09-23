@@ -1,11 +1,15 @@
 {
   "6": {
     "code": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n",
+    "entryFile": "Driver.java",
+    "sources": {
+      "Driver.java": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n"
+    },
     "stdin": "",
     "trace": [
       {
         "event": "step_line",
-        "file": null,
+        "file": "Driver.java",
         "func_name": "main",
         "globals": {},
         "globals_attrs": {},
@@ -31,7 +35,7 @@
               "i": 3,
               "sum": 3
             },
-            "file": null,
+            "file": "Driver.java",
             "frame_id": 0,
             "func_name": "main:6",
             "is_highlighted": true,

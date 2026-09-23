@@ -725,4 +725,104 @@ class BatchTraceWorkerTest {
                     d -> d.contains("NoSuchMethodException"));
         } // try
     } // testWorkerReportsHarnessLaunchFailure
+    @Test
+    void startupDeathIsReportedAndAReplacementCanRun() throws Exception {
+        var dead = PersistentGuestSession.create();
+        dead.close();
+        var launches = new java.util.concurrent.atomic.AtomicInteger();
+        try (var worker = new BatchTraceWorker(5, () -> launches.getAndIncrement() == 0
+                ? dead : PersistentGuestSession.create())) {
+            var request = request(BASIC_SOURCE, false);
+            var failed = worker.execute(request).result();
+            assertThat(failed.status()).isEqualTo("failed");
+            assertThat(failed.diagnostics()).anyMatch(d -> d.contains("terminated during startup"));
+            assertThat(worker.execute(request).result().complete()).isTrue();
+            assertThat(launches.get()).isEqualTo(2);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void guestDeathPreservesAnExistingStopReason(boolean alreadyStopped) throws Exception {
+        var hook = PersistentGuestSession.class.getDeclaredField("cleanupHookForTesting");
+        hook.setAccessible(true);
+        var alive = PersistentGuestSession.class.getDeclaredField("alive");
+        alive.setAccessible(true);
+        try (var guest = PersistentGuestSession.create();
+                var worker = new BatchTraceWorker(5, () -> guest)) {
+            hook.set(null, (Runnable) () -> {
+                try {
+                    if (alreadyStopped) {
+                        cs1302.tracer.execution.TraceSession.current().stop("snapshot_limit");
+                    }
+                    alive.setBoolean(guest, false);
+                } catch (IllegalAccessException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            var result = worker.execute(request(BASIC_SOURCE, false)).result();
+            assertThat(result.stopReason()).isEqualTo(alreadyStopped ? "snapshot_limit" : "guest_exit");
+            assertThat(result.complete()).isFalse();
+        } finally {
+            hook.set(null, null);
+        }
+    }
+
+    @Test
+    void partialSerializationFailurePreservesOriginalFailure() throws Exception {
+        var serialize = BatchTraceWorker.class.getDeclaredMethod("serializePartialPayload",
+                BatchJobRequest.class, cs1302.tracer.execution.TraceSession.class,
+                cs1302.tracer.model.TraceFormat.class, cs1302.tracer.model.TypeStyle.class,
+                Throwable.class);
+        serialize.setAccessible(true);
+        try (var guest = PersistentGuestSession.create();
+                var worker = new BatchTraceWorker(5);
+                var session = new cs1302.tracer.execution.TraceSession(
+                        TraceLimits.unlimited(), cs1302.tracer.execution.InspectionPolicy.FIELDS, true)) {
+            session.attach(guest.process(), false);
+            session.commit(emptySnapshot());
+            var original = new IllegalStateException("trace failed");
+            assertThat(serialize.invoke(worker, request("invalid Java", false), session,
+                    cs1302.tracer.model.TraceFormat.MODERN, cs1302.tracer.model.TypeStyle.FQN,
+                    original)).isNull();
+            assertThat(original.getSuppressed()).hasSize(1);
+            assertThat(original.getSuppressed()[0]).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
+    void retainedSnapshotsRefreshOnlyTheLastHitPerLocation() throws Exception {
+        var retain = BatchTraceWorker.class.getDeclaredMethod("retainedSnapshots",
+                BatchJobRequest.class, cs1302.tracer.execution.TraceSession.class);
+        retain.setAccessible(true);
+        try (var worker = new BatchTraceWorker(5);
+                var session = new cs1302.tracer.execution.TraceSession(
+                        TraceLimits.unlimited(), cs1302.tracer.execution.InspectionPolicy.FIELDS, true)) {
+            var first = emptySnapshot();
+            var last = new cs1302.tracer.trace.ExecutionSnapshot(
+                    List.of(), List.of(), java.util.Map.of(), new byte[] {65}, new byte[0]);
+            session.commit(first);
+            session.commit(last);
+            assertThat(retain.invoke(worker, request(BASIC_SOURCE, true), session))
+                    .isEqualTo(List.of(first, last));
+            var result = (List<?>) retain.invoke(worker, request(BASIC_SOURCE, false), session);
+            assertThat(result.getFirst()).isSameAs(first);
+            assertThat(((cs1302.tracer.trace.ExecutionSnapshot) result.getLast()).stdout())
+                    .containsExactly((byte) 65);
+            session.stop("trace_limit");
+            var limited = (List<?>) retain.invoke(worker, request(BASIC_SOURCE, false), session);
+            assertThat(limited.getLast()).isSameAs(last);
+        }
+    }
+
+    private static BatchJobRequest request(String source, boolean allBreakpoints) {
+        return new BatchJobRequest("coverage-job", source, "modern", null, null,
+                allBreakpoints, false, false, false, false, "fqn", TraceLimits.unlimited(), null);
+    }
+
+    private static cs1302.tracer.trace.ExecutionSnapshot emptySnapshot() {
+        return new cs1302.tracer.trace.ExecutionSnapshot(
+                List.of(), List.of(), java.util.Map.of(), new byte[0], new byte[0]);
+    }
+
 } // BatchTraceWorkerTest

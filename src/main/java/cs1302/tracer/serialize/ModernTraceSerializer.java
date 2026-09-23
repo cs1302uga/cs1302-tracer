@@ -2,7 +2,6 @@ package cs1302.tracer.serialize;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.modern.HeapObject;
 import cs1302.tracer.model.modern.Reference;
@@ -19,12 +18,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 /**
  * Serializes {@link ExecutionSnapshot} objects into the modern clean JSON trace format.
@@ -90,27 +87,6 @@ public class ModernTraceSerializer {
     } // getGson
 
     /**
-     * Checks if the source or snapshots represent a multi-file program.
-     *
-     * @param javaSource The source code string.
-     * @param snapshots The execution snapshots.
-     * @return True if multi-file, false otherwise.
-     */
-    private boolean isMultiFileSource(String javaSource, List<ExecutionSnapshot> snapshots) {
-        if (CompilationHelper.DELIMITER_PATTERN.matcher(javaSource).find()) {
-            return true;
-        } // if
-        Set<String> distinctFiles = new HashSet<>();
-        for (ExecutionSnapshot snapshot : snapshots) {
-            snapshot.sourcePath().ifPresent(distinctFiles::add);
-            for (StackSnapshot frame : snapshot.stack()) {
-                frame.sourcePath().ifPresent(distinctFiles::add);
-            } // for
-        } // for
-        return distinctFiles.size() > 1;
-    } // isMultiFileSource
-
-    /**
      * Creates a modern trace for a single execution snapshot.
      *
      * @param javaSource The original Java source code.
@@ -130,8 +106,7 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot) {
-        boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
-        Step step = createStep(snapshot, 1, isMultiFile);
+        Step step = createStep(snapshot, 1, true);
         return new Trace(javaSource, stdin, List.of(step));
     } // createTrace
 
@@ -155,10 +130,9 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
-        boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
         List<Step> steps = new ArrayList<>();
         for (int i = 0; i < snapshots.size(); i++) {
-            steps.add(createStep(snapshots.get(i), i + 1, isMultiFile));
+            steps.add(createStep(snapshots.get(i), i + 1, true));
         } // for
         return new Trace(javaSource, stdin, steps);
     } // createTrace
@@ -185,28 +159,15 @@ public class ModernTraceSerializer {
      */
     public Trace createBreakpointsTrace(
             String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
-        List<ExecutionSnapshot> allSnapshots = new ArrayList<>();
-        for (Object val : breakpointSnapshots.values()) {
-            if (val instanceof ExecutionSnapshot single) {
-                allSnapshots.add(single);
-            } else if (val instanceof List<?> list) {
-                for (Object item : list) {
-                    if (item instanceof ExecutionSnapshot s) {
-                        allSnapshots.add(s);
-                    } // if
-                } // for
-            } // if
-        } // for
-        boolean isMultiFile = isMultiFileSource(javaSource, allSnapshots);
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
-                converted.put(entry.getKey(), createStep(single, 1, isMultiFile));
+                converted.put(entry.getKey(), createStep(single, 1, true));
             } else if (entry.getValue() instanceof List<?> list) {
                 List<Step> steps = new ArrayList<>();
                 for (int i = 0; i < list.size(); i++) {
                     if (list.get(i) instanceof ExecutionSnapshot s) {
-                        steps.add(createStep(s, i + 1, isMultiFile));
+                        steps.add(createStep(s, i + 1, true));
                     } // if
                 } // for
                 converted.put(entry.getKey(), steps);

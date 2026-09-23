@@ -1,10 +1,14 @@
 {
   "code": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n",
+  "entryFile": "Driver.java",
+  "sources": {
+    "Driver.java": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -52,7 +56,7 @@
               3
             ]
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:15",
           "is_highlighted": true,

@@ -1,10 +1,14 @@
 {
   "code": "public class LogicalInput {\n    public static void main(String[] args) {\n        String unrelated = new java.util.Scanner(\"same\").nextLine();\n        String first = new java.util.Scanner(System.in).nextLine();\n        System.out.println(first);\n    }\n}\n",
+  "entryFile": "LogicalInput.java",
+  "sources": {
+    "LogicalInput.java": "public class LogicalInput {\n    public static void main(String[] args) {\n        String unrelated = new java.util.Scanner(\"same\").nextLine();\n        String first = new java.util.Scanner(System.in).nextLine();\n        System.out.println(first);\n    }\n}\n"
+  },
   "stdin": "same\nlater\n",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "LogicalInput.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -28,7 +32,7 @@
               1
             ]
           },
-          "file": null,
+          "file": "LogicalInput.java",
           "frame_id": 0,
           "func_name": "main:3",
           "is_highlighted": true,
@@ -54,7 +58,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "LogicalInput.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -93,7 +97,7 @@
               2
             ]
           },
-          "file": null,
+          "file": "LogicalInput.java",
           "frame_id": 0,
           "func_name": "main:4",
           "is_highlighted": true,
@@ -124,7 +128,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "LogicalInput.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -178,7 +182,7 @@
               2
             ]
           },
-          "file": null,
+          "file": "LogicalInput.java",
           "frame_id": 0,
           "func_name": "main:5",
           "is_highlighted": true,
@@ -214,7 +218,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "LogicalInput.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -268,7 +272,7 @@
               2
             ]
           },
-          "file": null,
+          "file": "LogicalInput.java",
           "frame_id": 0,
           "func_name": "main:6",
           "is_highlighted": true,

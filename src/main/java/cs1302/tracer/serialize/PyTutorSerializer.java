@@ -2,7 +2,6 @@ package cs1302.tracer.serialize;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.model.pytutor.RenderStackFrame;
@@ -19,13 +18,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -81,27 +78,6 @@ public record PyTutorSerializer(
     } // getGson
 
     /**
-     * Determine if the given source or snapshots represent a multi-file program.
-     *
-     * @param javaSource The raw source string.
-     * @param snapshots The execution snapshots.
-     * @return True if multi-file code is present.
-     */
-    private boolean isMultiFileSource(String javaSource, List<ExecutionSnapshot> snapshots) {
-        if (CompilationHelper.DELIMITER_PATTERN.matcher(javaSource).find()) {
-            return true;
-        } // if
-        Set<String> distinctFiles = new HashSet<>();
-        for (ExecutionSnapshot snapshot : snapshots) {
-            snapshot.sourcePath().ifPresent(distinctFiles::add);
-            for (StackSnapshot frame : snapshot.stack()) {
-                frame.sourcePath().ifPresent(distinctFiles::add);
-            } // for
-        } // for
-        return distinctFiles.size() > 1;
-    } // isMultiFileSource
-
-    /**
      * Create a {@link PyTutorTrace} model representing the given snapshot.
      *
      * @param javaSource The source code for the program corresponding to the execution snapshot.
@@ -122,8 +98,7 @@ public record PyTutorSerializer(
      */
     public PyTutorTrace createTrace(
             String javaSource, String stdin, ExecutionSnapshot snapshot) {
-        boolean isMultiFile = isMultiFileSource(javaSource, List.of(snapshot));
-        TraceStep step = createTraceStep(snapshot, isMultiFile);
+        TraceStep step = createTraceStep(snapshot, true);
         return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, List.of(step), "");
     } // createTrace
 
@@ -149,9 +124,8 @@ public record PyTutorSerializer(
      */
     public PyTutorTrace createTrace(
             String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
-        boolean isMultiFile = isMultiFileSource(javaSource, snapshots);
         List<TraceStep> steps =
-                snapshots.stream().map(s -> createTraceStep(s, isMultiFile)).toList();
+                snapshots.stream().map(s -> createTraceStep(s, true)).toList();
         return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
     } // createTrace
 

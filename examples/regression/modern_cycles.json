@@ -1,11 +1,16 @@
 {
   "code": "package cs1302.nodes;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Node head = new Node(\"Beta\");\n        head.setNext(new Node(\"Gamma\"));\n\n        // Prepend \"Alpha\"\n        head = new Node(\"Alpha\", head);\n\n        // Traverse the linked nodes\n        Node curr = head;\n        while (curr != null) {\n            System.out.println(curr.getItem());\n            curr = curr.getNext();\n        } // while\n    } // main\n\n} // Driver\n",
+  "entryFile": "cs1302/nodes/Driver.java",
   "format": "modern",
+  "sources": {
+    "cs1302/nodes/Driver.java": "package cs1302.nodes;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Node head = new Node(\"Beta\");\n        head.setNext(new Node(\"Gamma\"));\n\n        // Prepend \"Alpha\"\n        head = new Node(\"Alpha\", head);\n\n        // Traverse the linked nodes\n        Node curr = head;\n        while (curr != null) {\n            System.out.println(curr.getItem());\n            curr = curr.getNext();\n        } // while\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "cs1302/nodes/Driver.java",
           "isHighlighted": true,
           "line": 18,
           "locals": [
@@ -35,6 +40,7 @@
         }
       ],
       "event": "step_line",
+      "file": "cs1302/nodes/Driver.java",
       "heap": {
         "1": {
           "elements": [],
