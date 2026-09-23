@@ -44,7 +44,7 @@ public record PyTutorTrace(
      * @param userlog User log messages.
      * @param metadata Parsed source metadata.
      */
-    private PyTutorTrace(String code, String stdin, List<TraceStep> trace, String userlog,
+    public PyTutorTrace(String code, String stdin, List<TraceStep> trace, String userlog,
             SourceMetadata metadata) {
         this(code, stdin, trace, userlog, metadata.sources(), metadata.entryFile());
     } // PyTutorTrace

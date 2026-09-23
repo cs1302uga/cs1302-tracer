@@ -16,6 +16,7 @@ import cs1302.tracer.execution.TraceSession;
 import cs1302.tracer.execution.TraceResult;
 import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.model.BreakpointEntry;
+import cs1302.tracer.model.SourceMetadata;
 import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
@@ -685,6 +686,7 @@ public class App {
                 String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
                 emitTrace(pyTutorSnapshot);
             } else {
+                SourceMetadata metadata = SourceMetadata.from(source);
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
                         ? DebugTraceHelper.traceWithSpecs(
                                 compResult, parsedBreakpoints(), allCus, guestStdin)
@@ -697,7 +699,7 @@ public class App {
                                              Map.Entry::getKey,
                                              e -> e.getValue().stream()
                                                      .map(s -> serializer.createTrace(
-                                                             source, guestStdin, s))
+                                                             source, guestStdin, s, metadata))
                                                      .toList()));
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
@@ -706,10 +708,11 @@ public class App {
                         List<ExecutionSnapshot> list = e.getValue();
                         if (list.size() == 1) {
                             pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
-                                    source, guestStdin, list.get(0)));
+                                    source, guestStdin, list.get(0), metadata));
                         } else {
                             pyTutorSnapshots.put(e.getKey(), list.stream()
-                                    .map(s -> serializer.createTrace(source, guestStdin, s))
+                                    .map(s -> serializer.createTrace(
+                                            source, guestStdin, s, metadata))
                                     .toList());
                         } // if
                     } // for

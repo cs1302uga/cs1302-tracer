@@ -2,6 +2,7 @@ package cs1302.tracer.serialize;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import cs1302.tracer.model.SourceMetadata;
 import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.model.pytutor.PyTutorTrace;
 import cs1302.tracer.model.pytutor.RenderStackFrame;
@@ -98,8 +99,24 @@ public record PyTutorSerializer(
      */
     public PyTutorTrace createTrace(
             String javaSource, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(javaSource, stdin, snapshot, SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Create a snapshot trace using source metadata shared by one breakpoint output.
+     *
+     * @param javaSource The original source code.
+     * @param stdin The standard input string.
+     * @param snapshot The snapshot that should be serialized.
+     * @param metadata The source metadata parsed once for the output.
+     * @return The structured PyTutorTrace model.
+     */
+    public PyTutorTrace createTrace(
+            String javaSource, String stdin, ExecutionSnapshot snapshot,
+            SourceMetadata metadata) {
         TraceStep step = createTraceStep(snapshot, true);
-        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, List.of(step), "");
+        return new PyTutorTrace(
+                javaSource, stdin == null ? "" : stdin, List.of(step), "", metadata);
     } // createTrace
 
     /**

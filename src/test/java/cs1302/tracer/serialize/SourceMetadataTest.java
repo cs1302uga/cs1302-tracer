@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.gson.JsonObject;
+import cs1302.tracer.model.SourceMetadata;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import java.util.List;
@@ -15,6 +16,22 @@ class SourceMetadataTest {
 
     private final PyTutorSerializer pytutor = new PyTutorSerializer(false, false, false);
     private final ModernTraceSerializer modern = new ModernTraceSerializer(false, false, false);
+
+    @Test
+    void reusesParsedMetadataAcrossSnapshotTraces() {
+        String code = "public class Main {}";
+        SourceMetadata metadata = SourceMetadata.from(code);
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(
+                List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
+        var first = pytutor.createTrace(code, "input", snapshot, metadata);
+        var second = pytutor.createTrace(code, null, snapshot, metadata);
+        assertThat(first.sources()).isSameAs(metadata.sources());
+        assertThat(second.sources()).isSameAs(first.sources());
+        assertThat(first.entryFile()).isEqualTo(metadata.entryFile());
+        assertThat(second.entryFile()).isEqualTo(first.entryFile());
+        assertThat(first).isEqualTo(pytutor.createTrace(code, "input", snapshot));
+        assertThat(second).isEqualTo(pytutor.createTrace(code, "", snapshot));
+    }
 
     @Test
     void rejectsAmbiguousDebugPathsInsteadOfLosingSourceFiles() {
