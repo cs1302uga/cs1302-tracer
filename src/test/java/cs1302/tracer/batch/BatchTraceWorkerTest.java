@@ -354,8 +354,6 @@ class BatchTraceWorkerTest {
             assertThat(resp.result().complete()).isTrue();
             assertThat(resp.result().status()).isEqualTo("completed");
 
-            // Explicitly close worker while session is active
-            worker.close();
         } // try
     } // testWorkerLineSpecificBreakpoints
 
