@@ -33,14 +33,6 @@ memory, concurrency, and wall-clock budgets. Supply finite budgets for every
 hosted job. In envelope mode, omitted budget options use zero (unlimited).
 Negative values and unsupported options are rejected before tracing.
 
-A local JDK 25 trial on September 12, 2026 ran all 11 regression workloads as
-self-contained bundles under this profile. Ten completed normally; the intentional
-exception example returned `guest_exception`. Observed maxima were 323 ms of
-tracing, 8 retained snapshots, 9,870 accounted trace bytes, 1,128 source bytes,
-52 stdout bytes, and 188 stderr bytes. These small-workload measurements informed
-the generous example profile; they exclude compilation time and are not a capacity
-benchmark for a concurrent hosted service.
-
 ## Limits
 
 | Option | Meaning |
@@ -146,7 +138,7 @@ Recovering checkpoints after a kill is deferred.
 ## Verification
 
 ```sh
-mvn clean package
+./mvnw -B -ntp clean package
 python3 -m unittest discover -s examples -p test_verify.py
 python3 examples/verify.py
 ```

@@ -32,3 +32,10 @@ buildNumber.properties
 
 
 
+# Documentation site
+website/node_modules/
+website/build/
+website/.docusaurus/
+website/published-versions.json
+__pycache__/
+external-links-report.md

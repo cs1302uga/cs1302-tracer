@@ -11,6 +11,14 @@
   <name>cs1302-tracer</name>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
 
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/license/mit</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
@@ -84,6 +92,13 @@
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
+      </resource>
+      <resource>
+        <directory>${project.basedir}</directory>
+        <targetPath>META-INF/cs1302-tracer</targetPath>
+        <includes>
+          <include>LICENSE</include>
+        </includes>
       </resource>
     </resources>
     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->

@@ -4,7 +4,7 @@ This example demonstrates step-by-step capture of unbuffered console output usin
 
 ## Concepts Illustrated
 
-- **Unbuffered Stdout Capture**: Output emitted via `System.out.print` is accurately flushed and recorded in `stdout` at each subsequent execution snapshot before any newline character is encountered.
+- **Unbuffered Stdout Capture**: Trusted inspection can flush guest output so prompts can appear in snapshots before a newline. `FIELDS` inspection does not invoke guest flush methods; it captures only bytes already emitted to OS pipes.
 - **Progress Tracking**: Progress indicator tokens (`"."`) accumulating step-by-step across loop iterations.
 - **Chronological Trace**: Full step sequence preserving intermediate console output states.
 
