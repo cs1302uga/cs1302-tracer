@@ -1,11 +1,16 @@
 {
   "code": "public class LogicalInput {\n    public static void main(String[] args) {\n        String unrelated = new java.util.Scanner(\"same\").nextLine();\n        String first = new java.util.Scanner(System.in).nextLine();\n        System.out.println(first);\n    }\n}\n",
+  "entryFile": "LogicalInput.java",
   "format": "modern",
+  "sources": {
+    "LogicalInput.java": "public class LogicalInput {\n    public static void main(String[] args) {\n        String unrelated = new java.util.Scanner(\"same\").nextLine();\n        String first = new java.util.Scanner(System.in).nextLine();\n        System.out.println(first);\n    }\n}\n"
+  },
   "stdin": "same\nlater\n",
   "steps": [
     {
       "callStack": [
         {
+          "file": "LogicalInput.java",
           "isHighlighted": true,
           "line": 3,
           "locals": [
@@ -22,6 +27,7 @@
         }
       ],
       "event": "step_line",
+      "file": "LogicalInput.java",
       "heap": {
         "1": {
           "elements": [],
@@ -42,6 +48,7 @@
     {
       "callStack": [
         {
+          "file": "LogicalInput.java",
           "isHighlighted": true,
           "line": 4,
           "locals": [
@@ -66,6 +73,7 @@
         }
       ],
       "event": "step_line",
+      "file": "LogicalInput.java",
       "heap": {
         "1": {
           "elements": [],
@@ -92,6 +100,7 @@
     {
       "callStack": [
         {
+          "file": "LogicalInput.java",
           "isHighlighted": true,
           "line": 5,
           "locals": [
@@ -124,6 +133,7 @@
         }
       ],
       "event": "step_line",
+      "file": "LogicalInput.java",
       "heap": {
         "1": {
           "elements": [],
@@ -156,6 +166,7 @@
     {
       "callStack": [
         {
+          "file": "LogicalInput.java",
           "isHighlighted": true,
           "line": 6,
           "locals": [
@@ -188,6 +199,7 @@
         }
       ],
       "event": "step_line",
+      "file": "LogicalInput.java",
       "heap": {
         "1": {
           "elements": [],

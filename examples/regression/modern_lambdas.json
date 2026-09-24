@@ -1,11 +1,16 @@
 {
   "code": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n",
+  "entryFile": "Driver.java",
   "format": "modern",
+  "sources": {
+    "Driver.java": "import java.util.function.Function;\nimport java.util.function.Predicate;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Function<Integer, Integer> square = x -> x * 2;\n        square = x -> x * x;\n\n        Predicate<Integer> isEven = n -> n > 0;\n        isEven = n -> n % 2 == 0;\n\n        int result = square.apply(5);\n        boolean check = isEven.test(result);\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 15,
           "locals": [
@@ -50,6 +55,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],

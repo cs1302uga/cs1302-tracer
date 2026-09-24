@@ -1,11 +1,16 @@
 {
   "code": "package cs1302.generics;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Pair<String, Integer> score = new Pair<>(\"Alice\", 95);\n        Pair<Integer, Boolean> flag = new Pair<>(101, true);\n\n        System.out.printf(\"Score: %s -> %d%n\", score.getKey(), score.getValue());\n        System.out.printf(\"Flag: %d -> %b%n\", flag.getKey(), flag.getValue());\n    } // main\n\n} // Driver\n",
+  "entryFile": "cs1302/generics/Driver.java",
   "format": "modern",
+  "sources": {
+    "cs1302/generics/Driver.java": "package cs1302.generics;\n\npublic class Driver {\n\n    public static void main(String[] args) {\n        Pair<String, Integer> score = new Pair<>(\"Alice\", 95);\n        Pair<Integer, Boolean> flag = new Pair<>(101, true);\n\n        System.out.printf(\"Score: %s -> %d%n\", score.getKey(), score.getValue());\n        System.out.printf(\"Flag: %d -> %b%n\", flag.getKey(), flag.getValue());\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "cs1302/generics/Driver.java",
           "isHighlighted": true,
           "line": 11,
           "locals": [
@@ -38,6 +43,7 @@
         }
       ],
       "event": "step_line",
+      "file": "cs1302/generics/Driver.java",
       "heap": {
         "1": {
           "elements": [],

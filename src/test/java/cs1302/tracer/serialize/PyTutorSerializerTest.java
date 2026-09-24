@@ -41,8 +41,8 @@ public class PyTutorSerializerTest {
     ExecutionSnapshot snapshot =
         new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
     PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
-    assertThat(serializer.serialize("class A {}", snapshot, false)).doesNotContain("\n");
-    assertThat(serializer.serialize("class A {}", snapshot, true)).contains("\n");
+    assertThat(serializer.serialize("public class A {}", snapshot, false)).doesNotContain("\n");
+    assertThat(serializer.serialize("public class A {}", snapshot, true)).contains("\n");
   }
 
   @Test
@@ -599,9 +599,9 @@ public class PyTutorSerializerTest {
               new byte[0]);
 
       PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
-      PyTutorTrace trace = serializer.createTrace("int a = 1;\nint b = 2;\n", List.of(snapshot1, snapshot2));
+      PyTutorTrace trace = serializer.createTrace("public class A { int a = 1;\nint b = 2; }\n", List.of(snapshot1, snapshot2));
 
-      assertThat(trace.code()).isEqualTo("int a = 1;\nint b = 2;\n");
+      assertThat(trace.code()).isEqualTo("public class A { int a = 1;\nint b = 2; }\n");
       assertThat(trace.trace()).hasSize(2);
       assertThat(trace.trace().get(0).line()).isEqualTo(1);
       assertThat(trace.trace().get(1).line()).isEqualTo(2);
@@ -789,21 +789,21 @@ public class PyTutorSerializerTest {
           new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
       PyTutorSerializer serializer = new PyTutorSerializer(false, false, false);
 
-      PyTutorTrace traceWithStdin = serializer.createTrace("class A {}", "input text", snapshot);
+      PyTutorTrace traceWithStdin = serializer.createTrace("public class A {}", "input text", snapshot);
       assertThat(traceWithStdin.stdin()).isEqualTo("input text");
 
-      PyTutorTrace traceNullStdin = serializer.createTrace("class A {}", (String) null, snapshot);
+      PyTutorTrace traceNullStdin = serializer.createTrace("public class A {}", (String) null, snapshot);
       assertThat(traceNullStdin.stdin()).isEqualTo("");
 
       PyTutorTrace traceListStdin =
-          serializer.createTrace("class A {}", "input text", List.of(snapshot));
+          serializer.createTrace("public class A {}", "input text", List.of(snapshot));
       assertThat(traceListStdin.stdin()).isEqualTo("input text");
 
       PyTutorTrace traceListNullStdin =
-          serializer.createTrace("class A {}", (String) null, List.of(snapshot));
+          serializer.createTrace("public class A {}", (String) null, List.of(snapshot));
       assertThat(traceListNullStdin.stdin()).isEqualTo("");
 
-      String json = serializer.serialize("class A {}", "input text", snapshot, false);
+      String json = serializer.serialize("public class A {}", "input text", snapshot, false);
       assertThat(json).contains("\"stdin\":\"input text\"");
     }
   }

@@ -1,10 +1,14 @@
 {
   "code": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "entryFile": "Driver.java",
+  "sources": {
+    "Driver.java": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n"
+  },
   "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -110,7 +114,7 @@
               2
             ]
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:9",
           "is_highlighted": true,

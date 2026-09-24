@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.google.gson.JsonParser;
 import cs1302.tracer.App.CommandBase;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -478,6 +479,47 @@ public class AppTest {
     String outputAccumulated =
         executeCommand(App.Trace::new, testProgram, "-b=4", "--accumulate-breakpoints").get();
     assertThat(outputAccumulated).contains("\"4\"");
+  }
+
+  @Test
+  @DisplayName("should retain source metadata in every PythonTutor breakpoint trace")
+  void shouldRetainBreakpointSourceMetadata() {
+    String helper = "package demo;\nclass Unused {}\n";
+    String main = """
+        package demo;
+        public class Main {
+          public static void main(String[] args) {
+            for (int i = 0; i < 3; i++) {
+              System.out.println(i);
+            }
+          }
+        }
+        """;
+    String code = "// --- Unused.java ---\n" + helper + "// --- Main.java ---\n" + main;
+    for (boolean accumulate : new boolean[] {false, true}) {
+      String output = executeCommand(App.Trace::new, code, "-f=pytutor", "-b=5,7",
+          "--accumulate-breakpoints=" + accumulate).orElseThrow();
+      var breakpoints = JsonParser.parseString(output).getAsJsonObject();
+      for (String line : new String[] {"5", "7"}) {
+        var value = breakpoints.get(line);
+        var traces = new com.google.gson.JsonArray();
+        if (accumulate) {
+          traces = value.getAsJsonArray();
+          assertThat(traces.size()).isEqualTo(line.equals("5") ? 3 : 1);
+        } else {
+          traces.add(value);
+        }
+        for (var element : traces) {
+          var trace = element.getAsJsonObject();
+          assertThat(trace.get("code").getAsString()).isEqualTo(code);
+          assertThat(trace.get("entryFile").getAsString()).isEqualTo("demo/Main.java");
+          var sources = trace.getAsJsonObject("sources");
+          assertThat(sources.size()).isEqualTo(2);
+          assertThat(sources.get("demo/Main.java").getAsString()).isEqualTo(main);
+          assertThat(sources.get("demo/Unused.java").getAsString()).isEqualTo(helper);
+        }
+      }
+    }
   }
 
   @Test

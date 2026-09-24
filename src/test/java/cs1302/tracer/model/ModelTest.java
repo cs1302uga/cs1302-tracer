@@ -109,8 +109,8 @@ public class ModelTest {
             "cs1302/Main.java");
     assertThat(stepWithFile.file()).isEqualTo("cs1302/Main.java");
 
-    PyTutorTrace root = new PyTutorTrace("class A {}", "input", List.of(step), "log");
-    assertThat(root.code()).isEqualTo("class A {}");
+    PyTutorTrace root = new PyTutorTrace("public class A {}", "input", List.of(step), "log");
+    assertThat(root.code()).isEqualTo("public class A {}");
     assertThat(root.stdin()).isEqualTo("input");
     assertThat(root.trace()).containsExactly(step);
     assertThat(root.userlog()).isEqualTo("log");
@@ -195,12 +195,12 @@ public class ModelTest {
     assertThat(step.stderr()).isEqualTo("err");
 
     cs1302.tracer.model.modern.Trace trace1 =
-        new cs1302.tracer.model.modern.Trace("code", List.of(step));
+        new cs1302.tracer.model.modern.Trace("public class A {}", List.of(step));
     assertThat(trace1.format()).isEqualTo("modern");
     assertThat(trace1.steps()).containsExactly(step);
 
     cs1302.tracer.model.modern.Trace trace2 =
-        new cs1302.tracer.model.modern.Trace("code", Map.of(1, step));
+        new cs1302.tracer.model.modern.Trace("public class A {}", Map.of(1, step));
     assertThat(trace2.breakpoints()).containsKey(1);
   }
 }

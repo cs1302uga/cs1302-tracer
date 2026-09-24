@@ -1,10 +1,14 @@
 {
   "code": "package cs1302.exceptions.uncaught;\n\n/**\n * Driver class demonstrating the runtime behavior of an uncaught ArithmeticException.\n */\npublic class Driver {\n\n    /**\n     * Entry point of the program.\n     *\n     * @param args Command-line arguments.\n     */\n    public static void main(String[] args) {\n        System.out.println(\"Starting calculation...\");\n        int result = divide(10, 0);\n        System.out.println(\"Result: \" + result);\n    } // main\n\n    /**\n     * Divides two integer values.\n     *\n     * @param a The numerator.\n     * @param b The denominator.\n     * @return The quotient.\n     */\n    public static int divide(int a, int b) {\n        System.out.println(\"Attempting division: \" + a + \" / \" + b);\n        return a / b;\n    } // divide\n\n} // Driver\n",
+  "entryFile": "cs1302/exceptions/uncaught/Driver.java",
+  "sources": {
+    "cs1302/exceptions/uncaught/Driver.java": "package cs1302.exceptions.uncaught;\n\n/**\n * Driver class demonstrating the runtime behavior of an uncaught ArithmeticException.\n */\npublic class Driver {\n\n    /**\n     * Entry point of the program.\n     *\n     * @param args Command-line arguments.\n     */\n    public static void main(String[] args) {\n        System.out.println(\"Starting calculation...\");\n        int result = divide(10, 0);\n        System.out.println(\"Result: \" + result);\n    } // main\n\n    /**\n     * Divides two integer values.\n     *\n     * @param a The numerator.\n     * @param b The denominator.\n     * @return The quotient.\n     */\n    public static int divide(int a, int b) {\n        System.out.println(\"Attempting division: \" + a + \" / \" + b);\n        return a / b;\n    } // divide\n\n} // Driver\n"
+  },
   "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "cs1302/exceptions/uncaught/Driver.java",
       "func_name": "divide",
       "globals": {},
       "globals_attrs": {},
@@ -28,7 +32,7 @@
               1
             ]
           },
-          "file": null,
+          "file": "cs1302/exceptions/uncaught/Driver.java",
           "frame_id": 0,
           "func_name": "main:15",
           "is_highlighted": false,
@@ -51,7 +55,7 @@
             "a": 10,
             "b": 0
           },
-          "file": null,
+          "file": "cs1302/exceptions/uncaught/Driver.java",
           "frame_id": 1,
           "func_name": "divide:28",
           "is_highlighted": true,

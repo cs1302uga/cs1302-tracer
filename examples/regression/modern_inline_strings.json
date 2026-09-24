@@ -1,11 +1,16 @@
 {
   "code": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "entryFile": "Driver.java",
   "format": "modern",
+  "sources": {
+    "Driver.java": "public class Driver {\n    public static void main(String[] args) {\n        Person alice = new Person(\"Alice\", 42);\n    } // main\n} // Driver\n\nrecord Person(String name, int age) { }\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 4,
           "locals": [
@@ -22,6 +27,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "fields": [

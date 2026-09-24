@@ -1,11 +1,16 @@
 {
   "code": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n",
+  "entryFile": "Driver.java",
   "format": "modern",
+  "sources": {
+    "Driver.java": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 4,
           "locals": [
@@ -22,6 +27,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -42,6 +48,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 5,
           "locals": [
@@ -64,6 +71,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -84,6 +92,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 6,
           "locals": [
@@ -112,6 +121,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -132,6 +142,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 6,
           "locals": [
@@ -160,6 +171,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -180,6 +192,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 6,
           "locals": [
@@ -208,6 +221,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -228,6 +242,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 8,
           "locals": [
@@ -250,6 +265,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],
@@ -270,6 +286,7 @@
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 9,
           "locals": [
@@ -292,6 +309,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],

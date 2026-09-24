@@ -1,11 +1,16 @@
 {
   "code": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n",
+  "entryFile": "Driver.java",
   "format": "modern",
+  "sources": {
+    "Driver.java": "public class Driver {\n\n    public static void main(String[] args) {\n        Person[] roster = new Person[] {\n            new Person(\"Alice\", 20),\n            new Person(\"Bob\", 22)\n        };\n        swap(roster, 0, 1);\n    } // main\n\n    public static void swap(Person[] arr, int i, int j) {\n        Person temp = arr[i];\n        arr[i] = arr[j];\n        arr[j] = temp;\n    } // swap\n\n} // Driver\n\nrecord Person(String name, int age) { }\n"
+  },
   "stdin": "",
   "steps": [
     {
       "callStack": [
         {
+          "file": "Driver.java",
           "isHighlighted": true,
           "line": 9,
           "locals": [
@@ -30,6 +35,7 @@
         }
       ],
       "event": "step_line",
+      "file": "Driver.java",
       "heap": {
         "1": {
           "elements": [],

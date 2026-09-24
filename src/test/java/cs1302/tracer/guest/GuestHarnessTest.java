@@ -606,4 +606,25 @@ public class GuestHarnessTest {
         tOther.setContextClassLoader(otherLoader);
         assertThat(GuestHarness.isJobThread(tOther, loader, jobGroup)).isFalse();
     } // testIsJobThreadDirect
+    @Test
+    void staticInitializerFailureDoesNotPreventTheNextJob() {
+        GuestHarness.nextClassPath = new File("target/test-classes").getAbsolutePath();
+        GuestHarness.nextMainClass = FailingInitializerTarget.class.getName();
+        GuestHarness.runJob();
+        assertThat(GuestHarness.nextClassPath).isNull();
+        assertThat(GuestHarness.lastHarnessFailure).isNull();
+        GuestHarness.nextClassPath = new File("target/test-classes").getAbsolutePath();
+        GuestHarness.nextMainClass = DummyTarget.class.getName();
+        GuestHarness.runJob();
+        assertThat(DummyTarget.MARKER.exists()).isTrue();
+    }
+
+    public static class FailingInitializerTarget {
+        static final Object VALUE = fail();
+        private static Object fail() {
+            throw new IllegalStateException("initializer failed");
+        }
+        public static void main(String[] args) {}
+    }
+
 } // GuestHarnessTest

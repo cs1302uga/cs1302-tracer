@@ -1,10 +1,14 @@
 {
   "code": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n",
+  "entryFile": "Driver.java",
+  "sources": {
+    "Driver.java": "public class Driver {\n\n    public static void main(String[] args) {\n        int sum = 0;\n        for (int i = 1; i <= 3; i++) {\n            sum += i;\n        } // for\n        System.out.println(\"sum = \" + sum);\n    } // main\n\n} // Driver\n"
+  },
   "stdin": "",
   "trace": [
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -28,7 +32,7 @@
               1
             ]
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:4",
           "is_highlighted": true,
@@ -54,7 +58,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -79,7 +83,7 @@
             ],
             "sum": 0
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:5",
           "is_highlighted": true,
@@ -110,7 +114,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -136,7 +140,7 @@
             "i": 1,
             "sum": 0
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:6",
           "is_highlighted": true,
@@ -172,7 +176,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -198,7 +202,7 @@
             "i": 2,
             "sum": 1
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:6",
           "is_highlighted": true,
@@ -234,7 +238,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -260,7 +264,7 @@
             "i": 3,
             "sum": 3
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:6",
           "is_highlighted": true,
@@ -296,7 +300,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -321,7 +325,7 @@
             ],
             "sum": 6
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:8",
           "is_highlighted": true,
@@ -352,7 +356,7 @@
     },
     {
       "event": "step_line",
-      "file": null,
+      "file": "Driver.java",
       "func_name": "main",
       "globals": {},
       "globals_attrs": {},
@@ -377,7 +381,7 @@
             ],
             "sum": 6
           },
-          "file": null,
+          "file": "Driver.java",
           "frame_id": 0,
           "func_name": "main:9",
           "is_highlighted": true,

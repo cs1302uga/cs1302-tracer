@@ -28,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 /**
  * Worker managing a persistent guest JVM session and executing batch trace jobs sequentially.
@@ -36,6 +37,7 @@ public final class BatchTraceWorker implements AutoCloseable {
 
     private final int maxJobsPerWorker;
     private PersistentGuestSession session;
+    private final Callable<PersistentGuestSession> sessionFactory;
 
     /**
      * Constructs a worker with specified job recycling threshold.
@@ -43,7 +45,18 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @param maxJobsPerWorker Maximum jobs before the guest process is recycled.
      */
     public BatchTraceWorker(int maxJobsPerWorker) {
+        this(maxJobsPerWorker, PersistentGuestSession::create);
+    } // BatchTraceWorker
+
+    /**
+     * Constructs a worker with a supplied guest launcher.
+     *
+     * @param maxJobsPerWorker Maximum jobs before recycling.
+     * @param sessionFactory Launcher used when a new guest is needed.
+     */
+    BatchTraceWorker(int maxJobsPerWorker, Callable<PersistentGuestSession> sessionFactory) {
         this.maxJobsPerWorker = Math.max(1, maxJobsPerWorker);
+        this.sessionFactory = sessionFactory;
     } // BatchTraceWorker
 
     /**
@@ -61,7 +74,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         } // try
         if (!healthy) {
             close();
-            PersistentGuestSession created = PersistentGuestSession.create();
+            PersistentGuestSession created = sessionFactory.call();
             if (!created.isAlive()) {
                 created.close();
                 throw new IllegalStateException(

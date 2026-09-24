@@ -820,4 +820,44 @@ class PersistentGuestSessionEventTest {
         session.close();
         assertThat(session.isAlive()).isFalse();
     } // testCloseWithExceptions
+    @Test
+    void absentOrBlankHarnessFailureIsNotReported() throws Exception {
+        var readFailure = PersistentGuestSession.class.getDeclaredMethod("readHarnessFailure");
+        readFailure.setAccessible(true);
+        var vm = mirror(VirtualMachine.class, Map.of());
+        var absent = new PersistentGuestSession(vm, null, null,
+                mirror(ClassType.class, Map.of()), null, null);
+        assertThat(readFailure.invoke(absent)).isNull();
+        for (String message : new String[] {null, "", "  ", "launch failed"}) {
+            var value = mirror(com.sun.jdi.StringReference.class,
+                    Collections.singletonMap("value", message));
+            var harness = mirror(ClassType.class, Map.of(
+                    "fieldByName", mirror(Field.class, Map.of()), "getValue", value));
+            var session = new PersistentGuestSession(vm, null, null, harness, null, null);
+            assertThat(readFailure.invoke(session))
+                    .isEqualTo(message == null || message.isBlank() ? null : message);
+        }
+    }
+
+    @Test
+    void bootstrapAndUnknownExceptionLocationsDoNotCaptureStudentSnapshots() throws Exception {
+        var proc = new FakeProcess(true);
+        var vm = mirror(VirtualMachine.class, Map.of("process", proc));
+        try (var session = createMockSession(vm, null, null, proc)) {
+            var captured = new ArrayList<ExecutionSnapshot>();
+            var ctx = new PersistentGuestSession.JobContext(
+                    new CompilationResult(java.nio.file.Path.of("."), Set.of("Student"), "Student"),
+                    List.of(), SourceAnalysis.empty(), new InputTracker(""),
+                    (line, snap) -> captured.add(snap), new ArrayList<>(), new HashSet<>(),
+                    new AtomicReference<>(mirror(com.sun.jdi.ClassLoaderReference.class, Map.of())),
+                    0, 0, true, false);
+            var bootstrapLocation = mirror(Location.class, Map.of("declaringType",
+                    mirror(ReferenceType.class, Map.of("name", "java.lang.Object"))));
+            session.handleExceptionEvent(mirror(ExceptionEvent.class,
+                    Map.of("location", bootstrapLocation)), ctx, new boolean[1]);
+            session.handleExceptionEvent(mirror(ExceptionEvent.class, Map.of()), ctx, new boolean[1]);
+            assertThat(captured).isEmpty();
+        }
+    }
+
 } // PersistentGuestSessionEventTest
