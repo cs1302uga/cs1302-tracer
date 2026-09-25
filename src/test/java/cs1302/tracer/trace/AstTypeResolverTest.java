@@ -17,6 +17,20 @@ import org.junit.jupiter.api.Test;
 @DisplayName("AstTypeResolver Tests")
 public class AstTypeResolverTest {
 
+  @Test
+  void resolvesDeepFiniteTypeTrees() {
+    String array = "T" + "[]".repeat(255);
+    assertThat(AstTypeResolver.resolveAstTypeWithParams(
+        StaticJavaParser.parseType(array), List.of("T"))).isEqualTo(array);
+    assertThat(AstTypeResolver.substituteType(array, Map.of("T", "String")))
+        .isEqualTo("String" + "[]".repeat(255));
+    String generic = "List<".repeat(32) + "T" + ">".repeat(32);
+    assertThat(AstTypeResolver.resolveAstTypeWithParams(
+        StaticJavaParser.parseType(generic), List.of("T"))).isEqualTo(generic);
+    assertThat(AstTypeResolver.substituteType(generic, Map.of("T", "String")))
+        .isEqualTo("List<".repeat(32) + "String" + ">".repeat(32));
+  }
+
   @Nested
   @DisplayName("Type Argument Extraction Tests")
   class TypeArgumentExtractionTests {

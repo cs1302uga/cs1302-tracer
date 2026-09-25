@@ -764,12 +764,17 @@ public record PyTutorSerializer(
      * @return Simple type name.
      */
     private static String getSimpleTypeName(TraceValue value, Map<Long, TraceValue> heap) {
-        if (value instanceof TraceValue.Reference ref) {
-            TraceValue target = heap.get(ref.uniqueId());
-            if (target != null) {
-                return getSimpleTypeName(target, heap);
+        java.util.Set<Long> visited = new java.util.HashSet<>();
+        while (value instanceof TraceValue.Reference ref) {
+            if (!visited.add(ref.uniqueId())) {
+                return null;
             } // if
-        } // if
+            TraceValue target = heap.get(ref.uniqueId());
+            if (target == null) {
+                return null;
+            } // if
+            value = target;
+        } // while
         return switch (value) {
             case TraceValue.String s -> "String";
             case TraceValue.Primitive.Integer i -> "Integer";

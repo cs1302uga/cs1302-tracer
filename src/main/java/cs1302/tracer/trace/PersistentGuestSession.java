@@ -1,7 +1,6 @@
 package cs1302.tracer.trace;
 
 import com.github.javaparser.ast.CompilationUnit;
-import com.sun.jdi.Bootstrap;
 import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.Field;
@@ -10,8 +9,6 @@ import com.sun.jdi.ObjectReference;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.StringReference;
 import com.sun.jdi.VirtualMachine;
-import com.sun.jdi.connect.Connector;
-import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
 import com.sun.jdi.event.Event;
@@ -113,19 +110,9 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @throws Exception If launching or handshake fails.
      */
     public static PersistentGuestSession create() throws Exception {
-        LaunchingConnector launchingConnector =
-                Bootstrap.virtualMachineManager().defaultConnector();
-        Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
-
-        env.get("main").setValue(GuestHarness.class.getName());
-
         Path harnessCp = Path.of(GuestHarness.class.getProtectionDomain()
                 .getCodeSource().getLocation().toURI());
-        String options = "-Djava.awt.headless=true --enable-preview -classpath \""
-                + harnessCp.toAbsolutePath() + "\"";
-        env.get("options").setValue(options);
-
-        VirtualMachine vm = launchingConnector.launch(env);
+        VirtualMachine vm = GuestLauncher.launch(GuestHarness.class.getName(), harnessCp, true);
         StreamDrainer vmOut = new StreamDrainer(vm.process().getInputStream());
         StreamDrainer vmErr = new StreamDrainer(vm.process().getErrorStream());
         return attach(vm, vmOut, vmErr);
@@ -546,7 +533,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             harnessType.setValue(nextStdinField, vm.mirrorOf(stdin != null ? stdin : ""));
 
             Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
-            setupJobRequests(cr, safeSpecs, jobRequests);
+            setupJobRequests(cr, jobRequests);
 
             JobContext ctx = new JobContext(
                     cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
@@ -761,12 +748,10 @@ public final class PersistentGuestSession implements AutoCloseable {
      * Populates and enables event requests for class preparation, exits, and exceptions.
      *
      * @param cr Compilation result.
-     * @param safeSpecs Breakpoint specifications.
      * @param jobRequests Target list of event requests.
      */
     private void setupJobRequests(
             CompilationResult cr,
-            Collection<BreakpointSpec> safeSpecs,
             List<EventRequest> jobRequests) {
 
         for (String className : cr.compiledClassNames()) {

@@ -20,6 +20,22 @@ import org.junit.jupiter.api.Test;
 public class StreamDrainerTest {
 
   @Test
+  void observesLongByteTargetsWithoutNarrowing() throws Exception {
+    var samples = new java.util.concurrent.atomic.AtomicInteger();
+    try (var output = new PipedOutputStream();
+        var input = new PipedInputStream(output);
+        var drainer = new StreamDrainer(input) {
+          @Override public int size() {
+            if (samples.incrementAndGet() == 2) { close(); }
+            return Integer.MAX_VALUE;
+          }
+        }) {
+      drainer.syncUntil((long) Integer.MAX_VALUE + 1, 10000);
+      assertThat(samples.get()).isEqualTo(2);
+    }
+  }
+
+  @Test
   void testStartsEmpty() throws Exception {
     PipedOutputStream pos = new PipedOutputStream();
     PipedInputStream pis = new PipedInputStream(pos);

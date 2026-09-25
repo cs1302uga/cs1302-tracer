@@ -5,7 +5,6 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -18,7 +17,6 @@ import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
 import com.github.javaparser.resolution.types.ResolvedLambdaConstraintType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.sun.jdi.AbsentInformationException;
-import com.sun.jdi.Bootstrap;
 import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.Field;
@@ -37,9 +35,7 @@ import com.sun.jdi.Type;
 import com.sun.jdi.VMDisconnectedException;
 import com.sun.jdi.Value;
 import com.sun.jdi.VirtualMachine;
-import com.sun.jdi.connect.Connector;
 import com.sun.jdi.connect.IllegalConnectorArgumentsException;
-import com.sun.jdi.connect.LaunchingConnector;
 import com.sun.jdi.connect.VMStartException;
 import com.sun.jdi.event.BreakpointEvent;
 import com.sun.jdi.event.ClassPrepareEvent;
@@ -457,7 +453,7 @@ public class DebugTraceHelper {
                     Location loc = bpe.location();
                     if (compilationResult.compiledClassNames().contains(
                             loc.declaringType().name())) {
-                        Integer line = loc.lineNumber();
+                        int line = loc.lineNumber();
                         ExecutionSnapshot snapshot = snapshotTheWorld(
                                 bpe.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                                 inputTracker);
@@ -603,7 +599,7 @@ public class DebugTraceHelper {
         Location loc = ee.location();
         if (loc != null && compilationResult.compiledClassNames().contains(
                 loc.declaringType().name())) {
-            Integer line = loc.lineNumber();
+            int line = loc.lineNumber();
             ExecutionSnapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker, startOutOffset, startErrOffset);
@@ -1570,19 +1566,8 @@ public class DebugTraceHelper {
     private static VirtualMachine startVmWithCprs(CompilationResult compilationResult)
             throws IOException, IllegalConnectorArgumentsException, VMStartException {
 
-        LaunchingConnector launchingConnector =
-                Bootstrap.virtualMachineManager().defaultConnector();
-        Map<String, Connector.Argument> env = launchingConnector.defaultArguments();
-
-        env.get("main").setValue(compilationResult.mainClass());
-        String options =
-                "-Djava.awt.headless=true -classpath \"" + compilationResult.classPath() + "\"";
-        if (compilationResult.previewEnabled()) {
-            options = "--enable-preview " + options;
-        } // if
-        env.get("options").setValue(options);
-
-        VirtualMachine vm = launchingConnector.launch(env);
+        VirtualMachine vm = GuestLauncher.launch(compilationResult.mainClass(),
+                compilationResult.classPath(), compilationResult.previewEnabled());
         if (TraceSession.current() != null) {
             TraceSession.current().attach(vm);
         } // if
@@ -2729,8 +2714,6 @@ public class DebugTraceHelper {
             Map<Long, TraceValue> heap) {
         List<ExecutionSnapshot.Field> statics = new ArrayList<>();
         for (ReferenceType loadedClass : loadedClasses) {
-            Optional<ClassOrInterfaceDeclaration> loadedClassDeclaration =
-                    sourceAnalysis.findClassDeclaration(loadedClass.name());
             for (Field f : loadedClass.allFields()) {
                 TraceSession.elements(1);
                 if (!f.isStatic() || !isCapturedClass(f.declaringType())) {
@@ -2839,9 +2822,9 @@ public class DebugTraceHelper {
     } // storeSnapshot
 
     /** Deduplicates and budgets references before retaining them for heap traversal. */
-    private static final class ReferenceQueue extends LinkedList<ObjectReference> {
-        private static final long serialVersionUID = 1L;
-        private final transient Set<Long> queued = new HashSet<>();
+    private static final class ReferenceQueue extends java.util.AbstractList<ObjectReference> {
+        private final LinkedList<ObjectReference> references = new LinkedList<>();
+        private final Set<Long> queued = new HashSet<>();
 
         /** Constructs an empty reference work queue. */
         ReferenceQueue() {} // ReferenceQueue
@@ -2856,7 +2839,25 @@ public class DebugTraceHelper {
                 session.encounter(reference.uniqueID());
             } // if
             queued.add(reference.uniqueID());
-            return super.add(reference);
+            return references.add(reference);
         } // add
+
+        /** {@inheritDoc} */
+        @Override
+        public ObjectReference get(int index) {
+            return references.get(index);
+        } // get
+
+        /** {@inheritDoc} */
+        @Override
+        public int size() {
+            return references.size();
+        } // size
+
+        /** {@inheritDoc} */
+        @Override
+        public ObjectReference remove(int index) {
+            return references.remove(index);
+        } // remove
     } // ReferenceQueue
 } // DebugTraceHelper

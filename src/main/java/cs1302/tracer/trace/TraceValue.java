@@ -91,12 +91,7 @@ public sealed interface TraceValue {
                 } // if
                 yield new List(
                         arrType,
-                        arrayReferenceToList(
-                                mainThread,
-                                ar,
-                                outEncounteredReferences,
-                                astTypeResolver,
-                                objectTypeMap));
+                        arrayReferenceToList(ar, outEncounteredReferences));
             } // case
             case StringReference sr -> stringValue(sr);
             case ObjectReference or -> handleObjectReference(
@@ -340,7 +335,7 @@ public sealed interface TraceValue {
             } // if
             propagateContainerElements(ar, colTypeName, astTypeResolver, objectTypeMap);
             java.util.List<TraceValue> traceArray = arrayReferenceToList(
-                    mainThread, ar, outEncounteredReferences, astTypeResolver, objectTypeMap);
+                    ar, outEncounteredReferences);
             return Optional.of(isList
                     ? new List(colTypeName, traceArray)
                     : new Collection(colTypeName, traceArray));
@@ -608,20 +603,13 @@ public sealed interface TraceValue {
 
     /**
      * Convert a mirrored ArrayReference into an owned List.
-     *
-     * @param mainThread The thread associated with the ArrayReference you want to convert.
-     * @param arrayReference The ArrayReference you want to convert.
+     * @param arrayReference The array to convert.
      * @param outEncounteredReferences An out parameter for references encountered in the array.
-     * @param astTypeResolver Optional AstTypeResolver.
-     * @param objectTypeMap Reified type map.
      * @return A List with the same contents as the ArrayReference.
      */
     private static java.util.List<TraceValue> arrayReferenceToList(
-            ThreadReference mainThread,
             ArrayReference arrayReference,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
         TraceSession.elements(arrayReference.length());
         java.util.List<TraceValue> tvs = new ArrayList<>(arrayReference.length());
 
