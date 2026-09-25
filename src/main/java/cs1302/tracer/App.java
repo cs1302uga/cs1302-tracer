@@ -427,8 +427,7 @@ public class App {
         private void runOrdinary(TraceSession session, TraceLimits selected, String guestStdin)
                 throws Exception {
             String source = readBoundedSource(session, selected);
-            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source)
-                    .results().count();
+            long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), selected.sourceFiles(),
                     "source_file_limit");
             session.phase("compile");
@@ -545,7 +544,7 @@ public class App {
         List<ExecutionSnapshot> executeBoundedSource(
                 String source, TraceSession session, TraceLimits limits, String guestStdin)
                 throws Exception {
-            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source).results().count();
+            long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
             List<CompilationHelper.SourceFile> sources =
                     CompilationHelper.parseMultiFileStream(source);

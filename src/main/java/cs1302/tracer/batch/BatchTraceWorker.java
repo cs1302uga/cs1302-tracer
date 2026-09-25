@@ -5,6 +5,7 @@ import cs1302.tracer.App;
 import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.CompilationHelper.SourceFile;
+import cs1302.tracer.SourceDelimiters;
 import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.JobOptions;
 import cs1302.tracer.execution.TraceLimits;
@@ -203,6 +204,14 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // serializePartialPayload
 
     /**
+     * Requires the reusable guest established before dispatching a legacy job.
+     * @return Initialized guest session.
+     */
+    private PersistentGuestSession legacyGuest() {
+        return java.util.Objects.requireNonNull(session, "Legacy guest must be prepared");
+    } // legacyGuest
+
+    /**
      * Performs compilation and dispatches tracing to the persistent guest session.
      *
      * @param req Batch request.
@@ -229,7 +238,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.enforce(
                 (long) req.source().getBytes(StandardCharsets.UTF_8).length,
                 limits.sourceBytes(), "source_limit");
-        long files = CompilationHelper.DELIMITER_PATTERN.matcher(req.source()).results().count();
+        long files = SourceDelimiters.scan(req.source()).size();
         traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
 
         traceSession.phase("compile");
@@ -263,7 +272,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                     traceSession.finishOutput();
                     snapshots = traceSession.snapshots();
                 } else {
-                    snapshots = session.traceChronologicalWithSpecs(
+                    snapshots = legacyGuest().traceChronologicalWithSpecs(
                             compiled, specs, units, true, stdin);
                 } // if
                 traceSession.phase("serialize");
@@ -271,7 +280,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             } else {
                 List<BreakpointSpec> specs = req.breakpoints() == null
                         ? List.of() : JobOptions.parseBreakpoints(req.breakpoints());
-                session.traceWithSpecs(compiled, specs, units, stdin, accBps);
+                legacyGuest().traceWithSpecs(compiled, specs, units, stdin, accBps);
                 traceSession.phase("serialize");
                 payload = serializeChronologicalPayload(
                         req, format, typeStyle, retainedSnapshots(req, traceSession));

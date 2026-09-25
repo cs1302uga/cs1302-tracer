@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.tools.DiagnosticCollector;
@@ -57,10 +55,14 @@ public class CompilationHelper {
      */
     private CompilationHelper() {} // CompilationHelper
 
-    /** Regular expression pattern for matching file delimiters in multi-file source streams. */
-    public static final Pattern DELIMITER_PATTERN =
-            Pattern.compile("^//[ \t]*[-=]{3,}[ \t]*(.*?\\.java)[ \t]*[-=]{3,}[ \t]*$",
-                    Pattern.MULTILINE);
+    /**
+     * Compatibility matcher for source delimiters, with nonbacktracking whitespace and markers.
+     * @deprecated Use {@link SourceDelimiters#scan(CharSequence)} for delimiter offsets and paths.
+     */
+    @Deprecated(since = "3.2.0")
+    public static final java.util.regex.Pattern DELIMITER_PATTERN = java.util.regex.Pattern.compile(
+            "^//[ \t]*+[-=]{3,}+[ \t]*+(.*?\\.java)[ \t]*+[-=]{3,}+[ \t]*+$",
+            java.util.regex.Pattern.MULTILINE);
 
     /**
      * Represents an individual source file from a single-file or multi-file input stream.
@@ -84,16 +86,15 @@ public class CompilationHelper {
         if (rawInput == null) {
             throw new IllegalArgumentException("Input source cannot be null");
         } // if
-        Matcher matcher = DELIMITER_PATTERN.matcher(rawInput);
         List<Integer> delimiterStarts = new ArrayList<>();
         List<Integer> delimiterEnds = new ArrayList<>();
         List<String> filePaths = new ArrayList<>();
 
-        while (matcher.find()) {
-            delimiterStarts.add(matcher.start());
-            delimiterEnds.add(matcher.end());
-            filePaths.add(matcher.group(1).trim());
-        } // while
+        for (SourceDelimiters.Delimiter delimiter : SourceDelimiters.scan(rawInput)) {
+            delimiterStarts.add(delimiter.start());
+            delimiterEnds.add(delimiter.end());
+            filePaths.add(delimiter.path());
+        } // for
 
         JavaParser parser = new JavaParser(
                 new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
