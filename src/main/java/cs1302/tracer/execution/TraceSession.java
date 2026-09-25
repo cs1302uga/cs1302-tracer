@@ -11,6 +11,7 @@ import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.StreamDrainer;
 import cs1302.tracer.trace.ThreadCapture;
+import cs1302.tracer.trace.ValueTraversal;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
@@ -364,6 +365,12 @@ public final class TraceSession implements AutoCloseable {
      */
     public void commit(ExecutionSnapshot snapshot) {
         check();
+        try {
+            ValueTraversal.validate(snapshot);
+        } catch (NestingException failure) {
+            stop(failure.getMessage());
+            throw new Stopped(reason.get());
+        } // try
         SnapshotCounter counter = new SnapshotCounter();
         GSON.toJson(snapshot, counter);
         long size = Math.max(buildingBytes, counter.bytes);
@@ -446,8 +453,9 @@ public final class TraceSession implements AutoCloseable {
         droppedSnapshot = extracting;
         String stopped = reason.get();
         if (failure != null && stopped == null) {
-            stopped = phase.equals("compile") || phase.equals("source")
-                    ? "compile_error" : "tracer_error";
+            stopped = failure instanceof NestingException ? failure.getMessage()
+                    : phase.equals("compile") || phase.equals("source")
+                            ? "compile_error" : "tracer_error";
             diagnostics.add(failure.toString());
         } // if
         if (stopped == null && guestFailed) {

@@ -12,6 +12,7 @@ import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.trace.TraceValue;
+import cs1302.tracer.trace.ValueTraversal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -164,6 +165,7 @@ public record PyTutorSerializer(
      * @return The structured TraceStep model.
      */
     public TraceStep createTraceStep(ExecutionSnapshot snapshot, boolean isMultiFile) {
+        ValueTraversal.validate(snapshot);
         if (snapshot.threads() != null) {
             throw new IllegalArgumentException("Multithread snapshots require modern format");
         } // if
@@ -492,14 +494,28 @@ public record PyTutorSerializer(
      * @return An object, List, Map, or null corresponding to the PyTutor JSON value.
      */
     private Object serializeTraceValue(TraceValue value, Map<Long, TraceValue> heap) {
+        Map<TraceValue, Object> converted = new java.util.IdentityHashMap<>();
+        ValueTraversal.visit(value, v -> converted.put(v, convertValue(v, heap, converted)));
+        return converted.get(value);
+    } // serializeTraceValue
+
+    /**
+     * Converts a value after its inline children have been converted.
+     * @param value Current value.
+     * @param heap Heap references.
+     * @param converted Completed child values, keyed by identity.
+     * @return JSON-compatible value.
+     */
+    private Object convertValue(TraceValue value, Map<Long, TraceValue> heap,
+            Map<TraceValue, Object> converted) {
         return switch (value) {
             case null -> null;
             case TraceValue.Null nullVal -> null;
             case TraceValue.Primitive prim -> serializePrimitive(prim);
             case TraceValue.Reference referenceValue -> {
                 TraceValue target = heap.get(referenceValue.uniqueId());
-                if (target instanceof TraceValue.String && inlineStrings) {
-                    yield serializeTraceValue(target, heap);
+                if (target instanceof TraceValue.String string && inlineStrings) {
+                    yield string.value();
                 } // if
                 yield List.of("REF", referenceValue.uniqueId());
             } // case
@@ -516,7 +532,7 @@ public record PyTutorSerializer(
                 List<Object> list = new ArrayList<>();
                 list.add("LIST");
                 for (TraceValue elem : listValue.value()) {
-                    list.add(serializeTraceValue(elem, heap));
+                    list.add(converted.get(elem));
                 } // for
                 yield list;
             } // case
@@ -524,12 +540,12 @@ public record PyTutorSerializer(
                 List<Object> list = new ArrayList<>();
                 list.add("SET");
                 for (TraceValue elem : collectionValue.value()) {
-                    list.add(serializeTraceValue(elem, heap));
+                    list.add(converted.get(elem));
                 } // for
                 yield list;
             } // case
-            case TraceValue.Map mapValue -> serializeMap(mapValue, heap);
-            case TraceValue.Object objectValue -> serializeObject(objectValue, heap);
+            case TraceValue.Map mapValue -> serializeMap(mapValue, converted);
+            case TraceValue.Object objectValue -> serializeObject(objectValue, converted);
             case TraceValue.Color colorValue ->
                     List.of("COLOR", typeStyle.format(colorValue.classFqn()), colorValue.hex());
         }; // switch
@@ -556,17 +572,17 @@ public record PyTutorSerializer(
      * Serializes a map trace value.
      *
      * @param mapValue Map trace value.
-     * @param heap Heap map.
+     * @param converted Completed child values.
      * @return Serialized list representation.
      */
-    private Object serializeMap(TraceValue.Map mapValue, Map<Long, TraceValue> heap) {
+    private Object serializeMap(TraceValue.Map mapValue, Map<TraceValue, Object> converted) {
         List<Object> list = new ArrayList<>();
         list.add("DICT");
         for (Entry<? extends TraceValue, ? extends TraceValue> entry
                 : mapValue.value().entrySet()) {
             list.add(Arrays.asList(
-                    serializeTraceValue(entry.getKey(), heap),
-                    serializeTraceValue(entry.getValue(), heap)));
+                    converted.get(entry.getKey()),
+                    converted.get(entry.getValue())));
         } // for
         return list;
     } // serializeMap
@@ -575,10 +591,11 @@ public record PyTutorSerializer(
      * Serializes an object trace value.
      *
      * @param objectValue Object trace value.
-     * @param heap Heap map.
+     * @param converted Completed child values.
      * @return Serialized list representation.
      */
-    private Object serializeObject(TraceValue.Object objectValue, Map<Long, TraceValue> heap) {
+    private Object serializeObject(
+            TraceValue.Object objectValue, Map<TraceValue, Object> converted) {
         List<Object> list = new ArrayList<>();
         list.add("INSTANCE");
         String typeLabel = typeStyle.format(objectValue.classFqn());
@@ -588,7 +605,7 @@ public record PyTutorSerializer(
         list.add(typeLabel);
         for (Field field : objectValue.fields()) {
             list.add(Arrays.asList(
-                    field.identifier(), serializeTraceValue(field.value(), heap)));
+                    field.identifier(), converted.get(field.value())));
         } // for
         return list;
     } // serializeObject

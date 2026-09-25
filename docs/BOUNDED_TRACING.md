@@ -168,3 +168,13 @@ omitted fields or zero are unlimited.
 Multithread capture always disables guest method invocation, including stream
 flush and collection accessors, even when the selected inspection policy is
 `TRUSTED`. This avoids running one thread while observing other threads' stacks.
+
+## Representation nesting
+
+Unlimited resource budgets do not disable fixed representation safety checks.
+Inline snapshot paths longer than 32 values stop with `value_nesting_limit`;
+inline identity cycles stop with `inline_value_cycle`. The rejected snapshot is
+not retained. Guest heap references are leaves for this check, so long reference
+chains and ordinary cyclic guest objects remain supported. Type helper depth
+rejections use `type_nesting_limit`. See [nesting boundaries](contributing/security-analysis.md#nesting-boundaries)
+for the exact checks and remaining source-parser isolation requirements.

@@ -14,6 +14,7 @@ import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.trace.TraceValue;
+import cs1302.tracer.trace.ValueTraversal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -185,6 +186,7 @@ public class ModernTraceSerializer {
      * @return The converted Step.
      */
     public Step createStep(ExecutionSnapshot snapshot, int stepNumber, boolean isMultiFile) {
+        ValueTraversal.validate(snapshot);
         String currentMethod =
                 snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();

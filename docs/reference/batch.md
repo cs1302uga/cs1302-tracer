@@ -40,6 +40,11 @@ must be positive. Backpressure pauses input admission when that window fills.
 A slow first job can delay ordered output. Memory within each job remains governed
 by that job's limits; choose finite limits to bound buffered result sizes.
 
+Requests may contain at most 64 simultaneously open JSON objects and arrays,
+including unknown properties. Deeper input returns a stopped result with
+`stopReason: "json_nesting_limit"`, `phase: "parse"`, and a null `id`. Later jobs
+continue. This representation ceiling also applies when job budgets are unlimited.
+
 Each worker runs one job at a time in its own guest JVM. Single-stack jobs reuse
 guests and recycle them after the configured number of jobs. Multithread jobs use
 a fresh JVM so normal non-daemon thread lifetime applies, and the guest is cleaned

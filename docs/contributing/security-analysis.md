@@ -31,6 +31,41 @@ The private heap traversal queue uses composition rather than inheriting
 across removed references. Legacy batch dispatch explicitly requires its prepared
 persistent session. Unused private parameters and redundant boxing were removed.
 
+## Nesting boundaries
+
+Representation safety checks apply even when resource budgets are unlimited:
+
+- Inline `TraceValue` paths may contain at most 32 values, including the root and
+  leaf. The validator checks heap entries, static fields, event-stack locals, and
+  every captured thread's locals before snapshot byte accounting or conversion.
+  It uses identity tracking, so mutable inline cycles fail without calling record
+  `hashCode`, while aliases and cyclic guest heap references remain valid. Cached
+  subtree heights keep shared inline graphs from expanding during validation.
+- Batch JSON permits at most 64 simultaneously open arrays and objects. A streaming
+  pass checks unknown properties too, before Gson constructs the request. Rejection
+  produces `json_nesting_limit` in phase `parse`, with a null correlation ID because
+  request decoding did not complete. Following jobs continue normally.
+- Type AST paths may contain at most 384 nodes, with at most 66 non-array
+  nodes on a path. The separate ceiling permits legal array dimensions while
+  bounding recursive generic-type printing. Type fragments passed to substitution are checked before parsing: at most 64 open delimiters and 384 dots.
+  The fragment check is conservative, including annotation text; it is not a lexer
+  or a source-file nesting validator. Replacement bindings and the resulting AST
+  are checked as well.
+
+Library callers receive `NestingException` with `value_nesting_limit`,
+`inline_value_cycle`, or `type_nesting_limit`. Session snapshot rejection stops the
+job with that reason and retains only previously committed snapshots. These are
+fixed representation ceilings, not additional configurable `TraceLimits` fields.
+Callers must not mutate snapshots during validation or serialization. The shared
+Gson accessor is not a general-purpose validator for arbitrary caller-built models.
+
+Regression tests exercise boundary depths, 10,000-level invalid inputs, cycle and
+alias handling, batch recovery, and a disposable JVM with a 512 KiB stack. These
+checks do not guarantee operation with arbitrarily small JVM stacks or constrain
+all recursion in JavaParser, its symbol solver, or javac. Hosted source parsing and
+compilation still belong in the disposable whole-job process described by the
+runner contract; a persistent guest JVM does not isolate those host operations.
+
 ## Reviewed alerts
 
 These dispositions apply to the current local CLI contract, not to every possible
@@ -40,8 +75,8 @@ service wrapping the tracer. Revisit them if input ownership or execution change
 |---|---|
 | User-selected file paths | `--input` and `--stdin-file` intentionally read paths chosen by the CLI caller. Adjacent source discovery is documented. Hosted access must be constrained by the runner. This is distinct from streamed source destinations, which already reject escaping or duplicate paths. |
 | JDI command concatenation | JDI requires an options string. The shared launcher quotes the classpath using its configured tokenizer; it does not invoke a shell. A structural concatenation alert can remain even though the quoted-path regression passes. |
-| Recursive serializers | Captured object graphs use heap references rather than recursively embedding guest objects. Reference-chain sampling is now iterative. Directly constructed, deeply nested inline `TraceValue` containers are outside the captured representation and can still exceed serializer or Gson stack limits. |
-| Recursive type traversal | Traversal descends through finite AST children. Tests cover 255 array dimensions and 32 nested generic levels. Arbitrary-depth parser/AST safety is not claimed; compiler/parser resource isolation remains a runner responsibility. |
+| Recursive serializers | Inline value conversion and reference-chain sampling use iterative traversal. Snapshot accounting and both serializer entry points reject inline identity cycles and paths longer than 32 values before reaching Gson. Heap references remain leaves; shared inline values on separate paths are allowed. |
+| Recursive type traversal | Tracer-owned type resolution and substitution use child-before-parent work lists. AST depth and type-fragment checks precede recursive JavaParser helpers. Tests retain 255 array dimensions and 32 nested generic levels. Full source parsing, symbol resolution, and compilation still require runner resource isolation. |
 | Int/long byte comparison | Java widens the retained-buffer size for comparison with the expected count. A simulated `Integer.MAX_VALUE + 1` target verifies that no narrowing makes the wait end early. EOF, cancellation, and timeout bound the wait. This does not promise support for multi-gigabyte in-memory trace buffers. |
 | Ignored queue offer result | The worker pool is an unbounded `LinkedBlockingQueue`, populated with non-null workers. Normal queue-capacity rejection does not apply. |
 | Unused pattern bindings | Java 21 type patterns require a binding without enabling preview syntax. These bindings are retained when the branch only needs the matched type. |

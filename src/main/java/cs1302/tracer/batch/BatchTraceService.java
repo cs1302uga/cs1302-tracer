@@ -2,6 +2,8 @@ package cs1302.tracer.batch;
 
 import com.google.gson.Gson;
 import cs1302.tracer.execution.TraceResult;
+import cs1302.tracer.execution.TraceLimits;
+import cs1302.tracer.execution.NestingException;
 import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import java.io.BufferedReader;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -195,7 +198,13 @@ public final class BatchTraceService implements AutoCloseable {
             BatchJobResponse response;
             BatchJobRequest req = null;
             try {
+                JsonNesting.validate(jsonLine);
                 req = gson.fromJson(jsonLine, BatchJobRequest.class);
+            } catch (NestingException nesting) {
+                return new BatchJobResponse(null, new TraceResult(1, "unknown", "stopped",
+                        nesting.getMessage(), "parse", false, null,
+                        TraceLimits.unlimited(), Map.of(),
+                        List.of(nesting.getMessage()), "", ""));
             } catch (Exception parseErr) {
                 TraceResult errResult = TraceResult.failed(
                         "unknown", "parse", "Malformed JSON request: " + parseErr.getMessage());
