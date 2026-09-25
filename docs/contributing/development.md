@@ -92,3 +92,5 @@ python3 examples/verify.py
 Regenerate fixtures only intentionally with `python3 examples/verify.py --update`, then review the diff. The verifier normalizes object identities while preserving values, aliasing, cycles, and step order.
 
 See [documentation maintenance](documentation.md) for site checks and release preparation.
+
+See [security analysis](security-analysis.md) for CodeQL regression coverage and alert dispositions.
