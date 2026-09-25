@@ -396,7 +396,7 @@ public class App {
                 exitHandler.accept(2);
                 return;
             } // try
-            try (TraceSession session = new TraceSession(selected, job.inspection,
+            try (TraceSession session = new TraceSession(selected, effectiveInspection(),
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 if (job.multithread) {
                     session.enableMultithread();
@@ -418,6 +418,14 @@ public class App {
         } // run
 
         /**
+         * Resolves the field-only policy required by multithread capture.
+         * @return Effective inspection policy.
+         */
+        private InspectionPolicy effectiveInspection() {
+            return job.multithread ? InspectionPolicy.FIELDS : job.inspection;
+        } // effectiveInspection
+
+        /**
          * Runs ordinary output with bounded tracing and the existing payload shape.
          * @param session Active tracing session.
          * @param selected Effective limits.
@@ -436,14 +444,15 @@ public class App {
             CompilationHelper.SourceFile entryFile =
                     CompilationHelper.findEntryPoint(sourceFiles);
             CompilationUnit preCu = entryFile.ast();
-            Optional<Path> sourceRoot =
-                    CompilationHelper.findSourceRoot(preCu, getInputPath());
+            Optional<Path> sourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? Optional.empty() : CompilationHelper.findSourceRoot(preCu, getInputPath());
 
             try (CompilationResult compilationResult =
                     CompilationHelper.compile(source, sourceRoot)) {
-                Optional<Path> parserSourceRoot = sourceRoot.isPresent()
-                        ? sourceRoot
-                        : Optional.of(compilationResult.classPath());
+                Optional<Path> parserSourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
+                        ? Optional.empty()
+                        : (sourceRoot.isPresent() ? sourceRoot
+                                : Optional.of(compilationResult.classPath()));
                 List<CompilationUnit> allCus = discoverAllCompilationUnits(
                         sourceFiles, sourceRoot, parserSourceRoot);
 
@@ -463,7 +472,7 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          */
         private void runBounded(TraceLimits limits, String guestStdin) {
-            try (TraceSession session = new TraceSession(limits, job.inspection,
+            try (TraceSession session = new TraceSession(limits, effectiveInspection(),
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
                 if (job.multithread) {
                     session.enableMultithread();
@@ -548,7 +557,8 @@ public class App {
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
             List<CompilationHelper.SourceFile> sources =
                     CompilationHelper.parseMultiFileStream(source);
-            Optional<Path> root = job.inspection == InspectionPolicy.FIELDS ? Optional.empty()
+            Optional<Path> root = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? Optional.empty()
                     : CompilationHelper.findSourceRoot(
                             CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
             try (CompilationResult compiled = CompilationHelper.compile(source, root)) {

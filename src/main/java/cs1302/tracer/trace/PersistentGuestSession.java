@@ -408,11 +408,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      */
     static ExecutionSnapshot withUpdatedOutput(
             ExecutionSnapshot last, OutputSlice stdout, OutputSlice stderr) {
-        return new ExecutionSnapshot(
-                last.stack(), last.statics(), last.heap(),
-                stdout, stderr,
-                last.sourcePath(), last.stdinConsumed(), last.stdinOffset(),
-                last.threads(), last.triggeringThreadId(), last.event());
+        return last.withOutput(stdout, stderr);
     } // withUpdatedOutput
 
     /**

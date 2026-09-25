@@ -823,15 +823,7 @@ public class DebugTraceHelper {
                     || finalOut.length() > last.stdoutLength()) {
                 chronologicalSnapshots.set(
                         chronologicalSnapshots.size() - 1,
-                        new ExecutionSnapshot(
-                                last.stack(),
-                                last.statics(),
-                                last.heap(),
-                                finalOut,
-                                finalErr,
-                                last.sourcePath(),
-                                last.stdinConsumed(),
-                                last.stdinOffset()));
+                        last.withOutput(finalOut, finalErr));
             } // if
         } // if
     } // syncTrailingStreamOutput
@@ -860,15 +852,7 @@ public class DebugTraceHelper {
                             : new ArrayList<>(list);
                     mutableList.set(
                             mutableList.size() - 1,
-                            new ExecutionSnapshot(
-                                    last.stack(),
-                                    last.statics(),
-                                    last.heap(),
-                                    finalOut,
-                                    finalErr,
-                                    last.sourcePath(),
-                                    last.stdinConsumed(),
-                                    last.stdinOffset()));
+                            last.withOutput(finalOut, finalErr));
                     if (mutableList != list) {
                         entry.setValue(mutableList);
                     } // if

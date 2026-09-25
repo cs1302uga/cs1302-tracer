@@ -146,10 +146,20 @@ public record ExecutionSnapshot(
         if (matOut == stdoutSlice && matErr == stderrSlice) {
             return this;
         } // if
-        return new ExecutionSnapshot(
-                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset,
-                threads, triggeringThreadId, event);
+        return withOutput(matOut, matErr);
     } // materializeOutput
+
+    /**
+     * Copies this snapshot with updated output, preserving all execution metadata.
+     * @param stdout Updated standard output.
+     * @param stderr Updated standard error.
+     * @return Snapshot with the supplied output slices.
+     */
+    public ExecutionSnapshot withOutput(OutputSlice stdout, OutputSlice stderr) {
+        return new ExecutionSnapshot(
+                stack, statics, heap, stdout, stderr, sourcePath, stdinConsumed, stdinOffset,
+                threads, triggeringThreadId, event);
+    } // withOutput
 
     /**
      * Replaces the output slices of this snapshot with slices from shared backing buffers.
@@ -161,9 +171,7 @@ public record ExecutionSnapshot(
     ExecutionSnapshot withSharedOutput(byte[] sharedStdout, byte[] sharedStderr) {
         OutputSlice matOut = OutputSlice.wrapShared(sharedStdout, 0, stdoutSlice.length());
         OutputSlice matErr = OutputSlice.wrapShared(sharedStderr, 0, stderrSlice.length());
-        return new ExecutionSnapshot(
-                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset,
-                threads, triggeringThreadId, event);
+        return withOutput(matOut, matErr);
     } // withSharedOutput
 
     /**

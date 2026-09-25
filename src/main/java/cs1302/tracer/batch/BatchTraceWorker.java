@@ -110,8 +110,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             return new BatchJobResponse(req.id(), errResult);
         } // try
 
-        InspectionPolicy inspection = req.inspection() != null
-                ? req.inspection() : InspectionPolicy.TRUSTED;
+        InspectionPolicy inspection = effectiveInspection(req);
         boolean allBps = Boolean.TRUE.equals(req.allBreakpoints())
                 || Boolean.TRUE.equals(req.multithread());
         boolean accBps = Boolean.TRUE.equals(req.accumulateBreakpoints());
@@ -150,6 +149,16 @@ public final class BatchTraceWorker implements AutoCloseable {
             } // try
         } // try
     } // execute
+
+    /**
+     * Resolves the field-only policy required by multithread capture.
+     * @param req Job request.
+     * @return Effective inspection policy.
+     */
+    private static InspectionPolicy effectiveInspection(BatchJobRequest req) {
+        return Boolean.TRUE.equals(req.multithread()) ? InspectionPolicy.FIELDS
+                : (req.inspection() != null ? req.inspection() : InspectionPolicy.TRUSTED);
+    } // effectiveInspection
 
     /**
      * Selects a fresh guest for multithread jobs and reusable guests otherwise.
@@ -244,8 +253,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.phase("compile");
         List<SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(req.source());
         SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        InspectionPolicy inspection = req.inspection() != null
-                ? req.inspection() : InspectionPolicy.TRUSTED;
+        InspectionPolicy inspection = effectiveInspection(req);
         Optional<Path> sourceRoot = inspection == InspectionPolicy.FIELDS
                 ? Optional.empty()
                 : CompilationHelper.findSourceRoot(entryFile.ast(), Optional.empty());
@@ -312,10 +320,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                     ? -1 : snapshot.stack().getLast().methodLine();
             if (updated.computeIfAbsent(snapshot.sourcePath(), key -> new HashSet<>())
                     .add(line)) {
-                snapshots.set(i, new ExecutionSnapshot(
-                        snapshot.stack(), snapshot.statics(), snapshot.heap(),
-                        last.stdoutSlice(), last.stderrSlice(), snapshot.sourcePath(),
-                        snapshot.stdinConsumed(), snapshot.stdinOffset()));
+                snapshots.set(i, snapshot.withOutput(last.stdoutSlice(), last.stderrSlice()));
             } // if
         } // for
         return snapshots;

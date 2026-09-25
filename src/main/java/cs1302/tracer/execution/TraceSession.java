@@ -547,12 +547,9 @@ public final class TraceSession implements AutoCloseable {
             stop("trace_limit");
             return;
         } // if
-        ExecutionSnapshot updated = new ExecutionSnapshot(
-                last.stack(), last.statics(), last.heap(),
+        ExecutionSnapshot updated = last.withOutput(
                 safeOut != null ? safeOut : last.stdoutSlice(),
-                safeErr != null ? safeErr : last.stderrSlice(),
-                last.sourcePath(), last.stdinConsumed(), last.stdinOffset(),
-                last.threads(), last.triggeringThreadId(), last.event());
+                safeErr != null ? safeErr : last.stderrSlice());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
         sizes.put(updated, sizes.remove(last) + extra * 15);
@@ -589,14 +586,11 @@ public final class TraceSession implements AutoCloseable {
             if (oldSnap.stdoutLength() == 0 && oldSnap.stderrLength() == 0) {
                 continue;
             } // if
-            ExecutionSnapshot newSnap = new ExecutionSnapshot(
-                    oldSnap.stack(), oldSnap.statics(), oldSnap.heap(),
+            ExecutionSnapshot newSnap = oldSnap.withOutput(
                     stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength())
                             : oldSnap.stdoutSlice().materialize(),
                     stderr != null ? stderr.subSlice(0, oldSnap.stderrLength())
-                            : oldSnap.stderrSlice().materialize(),
-                    oldSnap.sourcePath(), oldSnap.stdinConsumed(), oldSnap.stdinOffset(),
-                    oldSnap.threads(), oldSnap.triggeringThreadId(), oldSnap.event());
+                            : oldSnap.stderrSlice().materialize());
             updateMaterializedSnapshot(i, oldSnap, newSnap);
         } // for
     } // materializeSnapshots

@@ -112,6 +112,41 @@ class DebuggerFailureTest {
     }
 
     @Test
+    void trailingOutputPreservesThreadMetadataInBothSnapshotShapes() throws Exception {
+        var frame = new ExecutionSnapshot.StackSnapshot(
+                "main", 1, List.of(), java.util.Optional.empty());
+        var original = new ExecutionSnapshot(List.of(frame), List.of(), Map.of(),
+                OutputSlice.empty(), OutputSlice.empty(), java.util.Optional.of("Main.java"),
+                "input", 5, List.of(new ExecutionSnapshot.ThreadSnapshot(
+                        7L, "worker", "RUNNING", List.of(frame))), 7L, "thread_death");
+        var chronological = new java.util.ArrayList<>(List.of(original));
+        var targeted = new java.util.HashMap<Integer, List<ExecutionSnapshot>>();
+        targeted.put(1, List.of(original));
+        try (var out = new StreamDrainer(new java.io.ByteArrayInputStream(new byte[] {65}));
+                var err = new StreamDrainer(new java.io.ByteArrayInputStream(new byte[] {66}))) {
+            out.waitForEof(1000);
+            err.waitForEof(1000);
+            call("syncTrailingStreamOutput",
+                    new Class<?>[] {List.class, StreamDrainer.class, StreamDrainer.class},
+                    chronological, out, err);
+            call("syncTrailingStreamOutput",
+                    new Class<?>[] {Map.class, StreamDrainer.class, StreamDrainer.class},
+                    targeted, out, err);
+            for (var updated : List.of(chronological.getLast(), targeted.get(1).getLast())) {
+                assertThat(updated).usingRecursiveComparison()
+                        .ignoringFields("stdoutSlice", "stderrSlice").isEqualTo(original);
+                assertThat(updated.stdout()).containsExactly((byte) 65);
+                assertThat(updated.stderr()).containsExactly((byte) 66);
+                assertThat(updated.materializeOutput()).usingRecursiveComparison()
+                        .ignoringFields("stdoutSlice", "stderrSlice").isEqualTo(original);
+                assertThat(updated.withSharedOutput(updated.stdout(), updated.stderr()))
+                        .usingRecursiveComparison().ignoringFields("stdoutSlice", "stderrSlice")
+                        .isEqualTo(original);
+            }
+        }
+    }
+
+    @Test
     void trailingOutputCopiesImmutableSnapshotLists() throws Exception {
         var original = snapshot("main", 1);
         var snapshots = new java.util.HashMap<Integer, List<ExecutionSnapshot>>();

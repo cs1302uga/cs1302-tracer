@@ -3,6 +3,7 @@ package cs1302.tracer.batch;
 import static org.assertj.core.api.Assertions.*;
 
 import com.google.gson.JsonParser;
+import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.TraceResult;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +14,8 @@ import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @Timeout(60)
@@ -152,6 +155,60 @@ class ConcurrentBatchTest {
             assertThat(result.status()).isEqualTo("failed");
             assertThat(result.phase()).isEqualTo("validation");
             assertThat(result.diagnostics()).contains("multithread requires modern format");
+        }
+    }
+
+    @Test
+    void multithreadBatchDoesNotDiscoverNeighboringAsts() {
+        var source = """
+                package cs1302.tracer;
+                public class Main {
+                    public static void main(String[] args) {
+                        System.out.println("submitted");
+                    }
+                }
+                """;
+        try (var worker = new BatchTraceWorker(10)) {
+            var request = new BatchJobRequest("isolated", source, "modern", "", null,
+                    false, false, false, false, false, null, null, null, true);
+            var result = worker.execute(request).result();
+            assertThat(result.complete()).as("%s", result).isTrue();
+            assertThat(result.stdout()).isEqualTo("submitted\n");
+            assertThat(result.diagnostics()).anyMatch(message -> message.startsWith("FIELDS inspection"));
+        }
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @EnumSource(InspectionPolicy.class)
+    void multithreadBatchRequiresExplicitlySubmittedDependencies(InspectionPolicy inspection)
+            throws Exception {
+        var source = """
+                // --- Main.java ---
+                package cs1302.tracer.execution;
+                public class Main {
+                    public static void main(String[] args) {
+                        System.out.println(InspectionPolicy.FIELDS);
+                    }
+                }
+                """;
+        var dependency = Files.readString(Path.of(
+                "src/main/java/cs1302/tracer/execution/InspectionPolicy.java"));
+        try (var worker = new BatchTraceWorker(10)) {
+            for (boolean submitted : List.of(false, true)) {
+                var request = new BatchJobRequest("isolated",
+                        source + (submitted ? "// --- InspectionPolicy.java ---\n" + dependency : ""),
+                        "modern", "", null, false, false, false, false, false,
+                        null, null, inspection, true);
+                var result = worker.execute(request).result();
+                assertThat(result.complete()).as("%s", result).isEqualTo(submitted);
+                assertThat(result.diagnostics()).anyMatch(message -> message.startsWith("FIELDS inspection"));
+                if (submitted) {
+                    assertThat(result.stdout()).isEqualTo("FIELDS\n");
+                } else {
+                    assertThat(result.phase()).isEqualTo("compile");
+                }
+            }
         }
     }
 
