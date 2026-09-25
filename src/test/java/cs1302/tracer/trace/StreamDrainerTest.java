@@ -306,40 +306,63 @@ public class StreamDrainerTest {
   @Test
   @DisplayName("Successive attached sessions enforce limits relative to their attach point")
   void testAttachSessionSuccessiveJobsAccounting() throws Exception {
-    PipedOutputStream pos = new PipedOutputStream();
-    PipedInputStream pis = new PipedInputStream(pos);
+    CountDownLatch releaseReader = new CountDownLatch(1);
+    try (PipedOutputStream pos = new PipedOutputStream();
+        PipedInputStream pis = new PipedInputStream(pos) {
+          @Override
+          public int read(byte[] buffer, int offset, int length) throws IOException {
+            try {
+              if (!releaseReader.await(5, TimeUnit.SECONDS)) {
+                throw new IOException("Timed out waiting to release the reader");
+              }
+            } catch (InterruptedException interrupted) {
+              Thread.currentThread().interrupt();
+              throw new IOException(interrupted);
+            }
+            return super.read(buffer, offset, length);
+          }
+        }) {
 
-    TraceLimits limits = new TraceLimits(100, 5000, 5, 100, 100, 10000, 10000, 10);
-    try (StreamDrainer drainer = new StreamDrainer(pis)) {
-      // Session 1: 3 bytes (under limit of 5)
-      try (TraceSession s1 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
-        drainer.attachSession(s1);
-        pos.write("123".getBytes(StandardCharsets.UTF_8));
-        pos.flush();
-        drainer.sync(100, 5);
-        assertThat(s1.isStopped()).isFalse();
-        drainer.detachSession();
+      TraceLimits limits = new TraceLimits(100, 5000, 5, 100, 100, 10000, 10000, 10);
+      try (StreamDrainer drainer = new StreamDrainer(pis)) {
+        // Session 1: 3 bytes (under limit of 5)
+        try (TraceSession s1 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+          drainer.attachSession(s1);
+          pos.write("123".getBytes(StandardCharsets.UTF_8));
+          pos.flush();
+          // Quiet-period polling can return before the reader consumes any bytes.
+          drainer.sync(100, 5);
+          assertThat(drainer.size()).isZero();
+          releaseReader.countDown();
+          drainer.syncUntil(3, 5000);
+          assertThat(drainer.getBytes()).containsExactly("123".getBytes(StandardCharsets.UTF_8));
+          assertThat(s1.isStopped()).isFalse();
+          drainer.detachSession();
+        }
+
+        // Session 2: attached when sink already has 3 bytes.
+        // Emitting 4 bytes should bring session bytes to 4 (< 5), not trigger limit.
+        try (TraceSession s2 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+          drainer.attachSession(s2);
+          pos.write("4567".getBytes(StandardCharsets.UTF_8));
+          pos.flush();
+          drainer.syncUntil(7, 5000);
+          assertThat(drainer.getBytes()).containsExactly("1234567".getBytes(StandardCharsets.UTF_8));
+          assertThat(s2.isStopped()).isFalse();
+
+          // Emitting 2 more bytes brings session 2 bytes to 6 (> 5), triggering output_limit
+          pos.write("89".getBytes(StandardCharsets.UTF_8));
+          pos.flush();
+          // The ninth byte is dropped; syncUntil exits when the session stops.
+          drainer.syncUntil(9, 5000);
+          assertThat(drainer.getBytes()).containsExactly("12345678".getBytes(StandardCharsets.UTF_8));
+          assertThat(s2.isStopped()).isTrue();
+          assertThat(s2.stopReason()).isEqualTo("output_limit");
+          drainer.detachSession();
+        }
       }
-
-      // Session 2: attached when sink already has 3 bytes.
-      // Emitting 4 bytes should bring session bytes to 4 (< 5), not trigger limit.
-      try (TraceSession s2 = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
-        drainer.attachSession(s2);
-        pos.write("4567".getBytes(StandardCharsets.UTF_8));
-        pos.flush();
-        drainer.sync(100, 5);
-        assertThat(drainer.size()).isEqualTo(7);
-        assertThat(s2.isStopped()).isFalse();
-
-        // Emitting 2 more bytes brings session 2 bytes to 6 (> 5), triggering output_limit
-        pos.write("89".getBytes(StandardCharsets.UTF_8));
-        pos.flush();
-        drainer.sync(100, 5);
-        assertThat(s2.isStopped()).isTrue();
-        assertThat(s2.stopReason()).isEqualTo("output_limit");
-        drainer.detachSession();
-      }
-      pos.close();
+    } finally {
+      releaseReader.countDown();
     }
   }
 }
