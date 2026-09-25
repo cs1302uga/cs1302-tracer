@@ -73,6 +73,13 @@ class BoundedExecutionTest {
     }
 
     @Test
+    void legacyChronologicalEnvelopeStillRecordsUncaughtExceptions() throws Exception {
+        var result = trace("throw new IllegalStateException(\"failure\");", "-a", "-f", "modern");
+        assertThat(result.get("stopReason").getAsString()).isEqualTo("guest_exception");
+        assertThat(result.getAsJsonObject("trace").getAsJsonArray("steps")).isNotEmpty();
+    }
+
+    @Test
     void modernEnvelopeHonorsExplicitChronologicalBreakpoints() throws Exception {
         var result = trace("int value = 1;\nSystem.out.println(value);", "-a", "-b", "3",
                 "-f", "modern");

@@ -22,6 +22,7 @@ import java.util.List;
  * @param typeStyle Type styling (fqn or compact).
  * @param limits Optional resource limits.
  * @param inspection Optional inspection policy.
+ * @param multithread Enable chronological platform-thread capture in modern format.
  */
 public record BatchJobRequest(
         String id,
@@ -36,7 +37,33 @@ public record BatchJobRequest(
         Boolean removeMethodThis,
         String typeStyle,
         TraceLimits limits,
-        InspectionPolicy inspection) {
+        InspectionPolicy inspection,
+        Boolean multithread) {
+
+    /**
+     * Constructs a request using the original single-stack contract.
+     * @param id Correlation ID.
+     * @param source Source text.
+     * @param format Trace format.
+     * @param stdin Standard input.
+     * @param breakpoints Breakpoint specifications.
+     * @param allBreakpoints Chronological capture.
+     * @param accumulateBreakpoints Retain breakpoint hits.
+     * @param removeMainArgs Omit main arguments.
+     * @param inlineStrings Inline strings.
+     * @param removeMethodThis Omit this references.
+     * @param typeStyle Type styling.
+     * @param limits Job limits.
+     * @param inspection Inspection policy.
+     */
+    public BatchJobRequest(String id, String source, String format, String stdin,
+            List<String> breakpoints, Boolean allBreakpoints, Boolean accumulateBreakpoints,
+            Boolean removeMainArgs, Boolean inlineStrings, Boolean removeMethodThis,
+            String typeStyle, TraceLimits limits, InspectionPolicy inspection) {
+        this(id, source, format, stdin, breakpoints, allBreakpoints, accumulateBreakpoints,
+                removeMainArgs, inlineStrings, removeMethodThis, typeStyle,
+                limits, inspection, false);
+    } // BatchJobRequest
 
     /**
      * Resolves the trace format, defaulting to PYTUTOR if not specified.

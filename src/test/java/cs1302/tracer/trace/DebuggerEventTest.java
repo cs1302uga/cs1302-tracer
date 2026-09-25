@@ -121,6 +121,16 @@ class DebuggerEventTest {
         var queue = (List<ObjectReference>) constructor.newInstance();
         assertThat(queue.add(null)).isFalse();
         assertThat(queue).isEmpty();
+        ObjectReference first = mirror(ObjectReference.class, Map.of("uniqueID", 101L));
+        ObjectReference second = mirror(ObjectReference.class, Map.of("uniqueID", 102L));
+        assertThat(queue.add(first)).isTrue();
+        assertThat(queue.add(second)).isTrue();
+        assertThat(queue.get(1)).isSameAs(second);
+        assertThat(queue.removeFirst()).isSameAs(first);
+        assertThat(queue.add(first)).isFalse();
+        assertThat(queue.removeFirst()).isSameAs(second);
+        assertThat(queue).isEmpty();
+        assertThat(queue).isNotInstanceOf(Cloneable.class);
     }
 
     @Test

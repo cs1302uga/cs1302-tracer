@@ -1,6 +1,7 @@
 package cs1302.tracer.trace;
 
 import com.github.javaparser.StaticJavaParser;
+import cs1302.tracer.execution.NestingException;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -284,6 +285,22 @@ public class AstTypeResolver {
         if (type == null) {
             return "java.lang.Object";
         } // if
+        Map<Type, String> resolved = new java.util.IdentityHashMap<>();
+        for (Type child : TypeTraversal.postorder(type)) {
+            resolved.put(child, resolveTypeNode(child, typeParams, resolved));
+        } // for
+        return resolved.get(type);
+    } // resolveAstTypeWithParams
+
+    /**
+     * Resolves one type after its children.
+     * @param type Current type.
+     * @param typeParams In-scope type parameters.
+     * @param resolved Already resolved children.
+     * @return Descriptive type string.
+     */
+    private static String resolveTypeNode(Type type, List<String> typeParams,
+            Map<Type, String> resolved) {
         String typeStr = type.asString();
         if (typeParams != null && typeParams.contains(typeStr)) {
             return typeStr;
@@ -305,13 +322,13 @@ public class AstTypeResolver {
                 } // try
                 List<String> argTypes = new ArrayList<>();
                 for (Type arg : cit.getTypeArguments().get()) {
-                    argTypes.add(resolveAstTypeWithParams(arg, typeParams));
+                    argTypes.add(resolved.get(arg));
                 } // for
                 return baseType + "<" + String.join(", ", argTypes) + ">";
             } // if
         } else {
             if (type instanceof ArrayType at) {
-                return resolveAstTypeWithParams(at.getComponentType(), typeParams) + "[]";
+                return resolved.get(at.getComponentType()) + "[]";
             } // if
         } // if
         return resolveAstType(type);
@@ -385,6 +402,7 @@ public class AstTypeResolver {
         if (type == null) {
             return "java.lang.Object";
         } // if
+        TypeTraversal.postorder(type);
         try {
             return type.resolve().describe();
         } catch (Throwable t) {
@@ -806,9 +824,14 @@ public class AstTypeResolver {
         if (typeWithParams == null || bindings == null || bindings.isEmpty()) {
             return typeWithParams;
         } // if
+        TypeTraversal.validateText(typeWithParams);
+        bindings.values().forEach(TypeTraversal::validateText);
+        Type substituted;
         try {
             Type parsed = StaticJavaParser.parseType(typeWithParams);
-            return substituteType(parsed, bindings).asString();
+            substituted = substituteType(parsed, bindings);
+        } catch (NestingException failure) {
+            throw failure;
         } catch (Throwable t) {
             String result = typeWithParams;
             for (Map.Entry<String, String> entry : bindings.entrySet()) {
@@ -818,16 +841,34 @@ public class AstTypeResolver {
             } // for
             return result;
         } // try
+        TypeTraversal.postorder(substituted);
+        return substituted.asString();
     } // substituteType
 
     /**
-     * Recursively substitutes type parameters inside an AST {@link Type}.
+     * Iteratively substitutes type parameters inside an AST {@link Type}.
      *
      * @param type The AST type.
      * @param bindings The map of type parameter names to concrete type arguments.
      * @return Substituted AST Type.
      */
     private static Type substituteType(Type type, Map<String, String> bindings) {
+        Map<Type, Type> converted = new java.util.IdentityHashMap<>();
+        for (Type child : TypeTraversal.postorder(type)) {
+            converted.put(child, substituteNode(child, bindings, converted));
+        } // for
+        return converted.get(type);
+    } // substituteType
+
+    /**
+     * Substitutes one bounded type node after its children.
+     * @param type Current type.
+     * @param bindings Type bindings.
+     * @param converted Completed child types.
+     * @return Substituted type.
+     */
+    private static Type substituteNode(Type type, Map<String, String> bindings,
+            Map<Type, Type> converted) {
         if (type instanceof ClassOrInterfaceType cit) {
             String name = cit.getNameAsString();
             if (bindings.containsKey(name)
@@ -844,28 +885,26 @@ public class AstTypeResolver {
             if (cloned.getTypeArguments().isPresent()) {
                 com.github.javaparser.ast.NodeList<Type> newArgs =
                         new com.github.javaparser.ast.NodeList<>();
-                for (Type arg : cloned.getTypeArguments().get()) {
-                    newArgs.add(substituteType(arg, bindings));
+                for (Type arg : cit.getTypeArguments().get()) {
+                    newArgs.add(converted.get(arg));
                 } // for
                 cloned.setTypeArguments(newArgs);
             } // if
             return cloned;
         } else {
             if (type instanceof ArrayType at) {
-                Type newComponent = substituteType(at.getComponentType(), bindings);
+                Type newComponent = converted.get(at.getComponentType());
                 return new ArrayType(newComponent, at.getOrigin(), at.getAnnotations());
             } else {
                 if (type instanceof WildcardType wt) {
                     WildcardType cloned = wt.clone();
                     if (cloned.getExtendedType().isPresent()) {
                         cloned.setExtendedType(
-                                (ReferenceType) substituteType(
-                                        cloned.getExtendedType().get(), bindings));
+                                (ReferenceType) converted.get(wt.getExtendedType().get()));
                     } // if
                     if (cloned.getSuperType().isPresent()) {
                         cloned.setSuperType(
-                                (ReferenceType) substituteType(
-                                        cloned.getSuperType().get(), bindings));
+                                (ReferenceType) converted.get(wt.getSuperType().get()));
                     } // if
                     return cloned;
                 } // if

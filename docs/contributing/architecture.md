@@ -59,7 +59,8 @@ Built using [Picocli](https://picocli.info/), `App.java` handles argument parsin
     - `--inline-strings`: Displays string values directly in variable slots rather than pointing to heap objects.
     - `--remove-method-this`: Omits the `this` reference from instance method stack frames.
   - `list-breakpoints`: Analyzes source files and lists valid line numbers where breakpoints can be set.
-  - `batch-trace`: Processes NDJSON jobs using persistent guest JVMs for trusted workloads.
+  - `batch-trace`: Processes bounded concurrent NDJSON jobs using persistent guest JVMs for
+    single-stack traces and fresh guest JVMs for multithread traces.
   - `show-licenses`: Dynamically reads and prints bundled third-party license notices (`META-INF/THIRD-PARTY.txt`).
 
 ---

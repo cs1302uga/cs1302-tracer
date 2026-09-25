@@ -5,6 +5,7 @@ import cs1302.tracer.App;
 import cs1302.tracer.CompilationHelper;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.CompilationHelper.SourceFile;
+import cs1302.tracer.SourceDelimiters;
 import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.JobOptions;
 import cs1302.tracer.execution.TraceLimits;
@@ -101,6 +102,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         try {
             format = req.resolveFormat();
             typeStyle = req.resolveTypeStyle();
+            validateThreadFormat(req, format);
         } catch (IllegalArgumentException valErr) {
             TraceResult errResult = TraceResult.failed(
                     format.name().toLowerCase(Locale.ROOT), "validation",
@@ -108,13 +110,13 @@ public final class BatchTraceWorker implements AutoCloseable {
             return new BatchJobResponse(req.id(), errResult);
         } // try
 
-        InspectionPolicy inspection = req.inspection() != null
-                ? req.inspection() : InspectionPolicy.TRUSTED;
-        boolean allBps = Boolean.TRUE.equals(req.allBreakpoints());
+        InspectionPolicy inspection = effectiveInspection(req);
+        boolean allBps = Boolean.TRUE.equals(req.allBreakpoints())
+                || Boolean.TRUE.equals(req.multithread());
         boolean accBps = Boolean.TRUE.equals(req.accumulateBreakpoints());
 
         try {
-            ensureSession();
+            prepareGuest(req);
         } catch (Throwable launchErr) {
             restoreInterruptIfInterrupted(launchErr);
             TraceResult errResult = TraceResult.failed(
@@ -126,9 +128,12 @@ public final class BatchTraceWorker implements AutoCloseable {
 
         try (TraceSession traceSession = new TraceSession(
                 limits, inspection, allBps || accBps, true)) {
+            if (Boolean.TRUE.equals(req.multithread())) {
+                traceSession.enableMultithread();
+            } // if
             try {
                 Object payload = performTrace(req, traceSession, allBps, accBps, format, typeStyle);
-                if (!session.isAlive() && traceSession.stopReason() == null) {
+                if (session != null && !session.isAlive() && traceSession.stopReason() == null) {
                     traceSession.stop("guest_exit");
                 } // if
                 TraceResult result = traceSession.result(
@@ -144,6 +149,40 @@ public final class BatchTraceWorker implements AutoCloseable {
             } // try
         } // try
     } // execute
+
+    /**
+     * Resolves the field-only policy required by multithread capture.
+     * @param req Job request.
+     * @return Effective inspection policy.
+     */
+    private static InspectionPolicy effectiveInspection(BatchJobRequest req) {
+        return Boolean.TRUE.equals(req.multithread()) ? InspectionPolicy.FIELDS
+                : (req.inspection() != null ? req.inspection() : InspectionPolicy.TRUSTED);
+    } // effectiveInspection
+
+    /**
+     * Selects a fresh guest for multithread jobs and reusable guests otherwise.
+     * @param req Job request.
+     * @throws Exception If guest launch fails.
+     */
+    private void prepareGuest(BatchJobRequest req) throws Exception {
+        if (Boolean.TRUE.equals(req.multithread())) {
+            close();
+        } else {
+            ensureSession();
+        } // if
+    } // prepareGuest
+
+    /**
+     * Validates thread output before launching a guest.
+     * @param req Job request.
+     * @param format Selected format.
+     */
+    private static void validateThreadFormat(BatchJobRequest req, TraceFormat format) {
+        if (Boolean.TRUE.equals(req.multithread()) && format != TraceFormat.MODERN) {
+            throw new IllegalArgumentException("multithread requires modern format");
+        } // if
+    } // validateThreadFormat
 
     /**
      * Serializes completed snapshots retained after a recoverable tracing failure.
@@ -174,6 +213,14 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // serializePartialPayload
 
     /**
+     * Requires the reusable guest established before dispatching a legacy job.
+     * @return Initialized guest session.
+     */
+    private PersistentGuestSession legacyGuest() {
+        return java.util.Objects.requireNonNull(session, "Legacy guest must be prepared");
+    } // legacyGuest
+
+    /**
      * Performs compilation and dispatches tracing to the persistent guest session.
      *
      * @param req Batch request.
@@ -200,14 +247,13 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.enforce(
                 (long) req.source().getBytes(StandardCharsets.UTF_8).length,
                 limits.sourceBytes(), "source_limit");
-        long files = CompilationHelper.DELIMITER_PATTERN.matcher(req.source()).results().count();
+        long files = SourceDelimiters.scan(req.source()).size();
         traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
 
         traceSession.phase("compile");
         List<SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(req.source());
         SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        InspectionPolicy inspection = req.inspection() != null
-                ? req.inspection() : InspectionPolicy.TRUSTED;
+        InspectionPolicy inspection = effectiveInspection(req);
         Optional<Path> sourceRoot = inspection == InspectionPolicy.FIELDS
                 ? Optional.empty()
                 : CompilationHelper.findSourceRoot(entryFile.ast(), Optional.empty());
@@ -221,18 +267,28 @@ public final class BatchTraceWorker implements AutoCloseable {
                     sourceFiles, sourceRoot, parserRoot);
 
             traceSession.phase("trace");
-            traceSession.attach(session.process(), false);
+            if (session != null) {
+                traceSession.attach(session.process(), false);
+            } // if
             String stdin = req.stdin() != null ? req.stdin() : "";
             if (allBps) {
                 List<BreakpointSpec> specs = resolveChronologicalSpecs(req, compiled);
-                List<ExecutionSnapshot> snapshots =
-                        session.traceChronologicalWithSpecs(compiled, specs, units, true, stdin);
+                List<ExecutionSnapshot> snapshots;
+                if (Boolean.TRUE.equals(req.multithread())) {
+                    snapshots = DebugTraceHelper.traceChronologicalWithSpecs(
+                            compiled, specs, units, true, stdin);
+                    traceSession.finishOutput();
+                    snapshots = traceSession.snapshots();
+                } else {
+                    snapshots = legacyGuest().traceChronologicalWithSpecs(
+                            compiled, specs, units, true, stdin);
+                } // if
                 traceSession.phase("serialize");
                 payload = serializeChronologicalPayload(req, format, typeStyle, snapshots);
             } else {
                 List<BreakpointSpec> specs = req.breakpoints() == null
                         ? List.of() : JobOptions.parseBreakpoints(req.breakpoints());
-                session.traceWithSpecs(compiled, specs, units, stdin, accBps);
+                legacyGuest().traceWithSpecs(compiled, specs, units, stdin, accBps);
                 traceSession.phase("serialize");
                 payload = serializeChronologicalPayload(
                         req, format, typeStyle, retainedSnapshots(req, traceSession));
@@ -252,6 +308,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             BatchJobRequest req, TraceSession traceSession) {
         List<ExecutionSnapshot> snapshots = new ArrayList<>(traceSession.snapshots());
         if (snapshots.isEmpty() || Boolean.TRUE.equals(req.allBreakpoints())
+                || Boolean.TRUE.equals(req.multithread())
                 || "trace_limit".equals(traceSession.stopReason())) {
             return snapshots;
         } // if
@@ -263,10 +320,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                     ? -1 : snapshot.stack().getLast().methodLine();
             if (updated.computeIfAbsent(snapshot.sourcePath(), key -> new HashSet<>())
                     .add(line)) {
-                snapshots.set(i, new ExecutionSnapshot(
-                        snapshot.stack(), snapshot.statics(), snapshot.heap(),
-                        last.stdoutSlice(), last.stderrSlice(), snapshot.sourcePath(),
-                        snapshot.stdinConsumed(), snapshot.stdinOffset()));
+                snapshots.set(i, snapshot.withOutput(last.stdoutSlice(), last.stderrSlice()));
             } // if
         } // for
         return snapshots;

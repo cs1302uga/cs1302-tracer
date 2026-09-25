@@ -14,12 +14,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceSessionLifecycleTest {
     @ParameterizedTest
-    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7})
+    @ValueSource(ints = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
     void rejectsEachNegativeBudget(int index) {
-        long[] values = new long[8];
+        long[] values = new long[11];
         values[index] = -1;
         assertThatThrownBy(() -> new TraceLimits(values[0], values[1], values[2], values[3],
-                values[4], values[5], values[6], values[7]))
+                values[4], values[5], values[6], values[7], values[8], values[9], values[10]))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("nonnegative");
     }
 
@@ -528,6 +528,25 @@ class TraceSessionLifecycleTest {
             session.finishOutput(OutputSlice.from(new byte[] {65}), null);
             assertThat(session.snapshots().getLast().stdout()).containsExactly((byte) 65);
             assertThat(session.snapshots().getLast().stderr()).containsExactly((byte) 66);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 100})
+    void trailingOutputRespectsThePerSnapshotBudget(int outputBytes) {
+        var limits = new TraceLimits(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1000);
+        try (var session = new TraceSession(limits, InspectionPolicy.FIELDS, true)) {
+            session.beginSnapshot();
+            session.commit(new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                    new byte[0], new byte[0]));
+            session.finishOutput(OutputSlice.from(new byte[outputBytes]), OutputSlice.empty());
+            if (outputBytes == 1) {
+                assertThat(session.isStopped()).isFalse();
+                assertThat(session.snapshots().getLast().stdoutLength()).isEqualTo(1);
+            } else {
+                assertThat(session.stopReason()).isEqualTo("snapshot_byte_limit");
+                assertThat(session.snapshots().getLast().stdoutLength()).isZero();
+            }
         }
     }
 

@@ -375,6 +375,13 @@ public class App {
             try {
                 guestStdin = resolveGuestStdin();
                 selected = job.limits();
+                if (job.multithread) {
+                    if (format != TraceFormat.MODERN) {
+                        throw new IllegalArgumentException(
+                                "--multithread requires --format modern");
+                    } // if
+                    allBreakpoints = true;
+                } // if
                 job.breakpointSpecs();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
@@ -389,8 +396,11 @@ public class App {
                 exitHandler.accept(2);
                 return;
             } // try
-            try (TraceSession session = new TraceSession(selected, job.inspection,
+            try (TraceSession session = new TraceSession(selected, effectiveInspection(),
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
+                if (job.multithread) {
+                    session.enableMultithread();
+                } // if
                 try {
                     runOrdinary(session, selected, guestStdin);
                 } catch (Throwable cause) {
@@ -408,6 +418,14 @@ public class App {
         } // run
 
         /**
+         * Resolves the field-only policy required by multithread capture.
+         * @return Effective inspection policy.
+         */
+        private InspectionPolicy effectiveInspection() {
+            return job.multithread ? InspectionPolicy.FIELDS : job.inspection;
+        } // effectiveInspection
+
+        /**
          * Runs ordinary output with bounded tracing and the existing payload shape.
          * @param session Active tracing session.
          * @param selected Effective limits.
@@ -417,8 +435,7 @@ public class App {
         private void runOrdinary(TraceSession session, TraceLimits selected, String guestStdin)
                 throws Exception {
             String source = readBoundedSource(session, selected);
-            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source)
-                    .results().count();
+            long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), selected.sourceFiles(),
                     "source_file_limit");
             session.phase("compile");
@@ -427,14 +444,15 @@ public class App {
             CompilationHelper.SourceFile entryFile =
                     CompilationHelper.findEntryPoint(sourceFiles);
             CompilationUnit preCu = entryFile.ast();
-            Optional<Path> sourceRoot =
-                    CompilationHelper.findSourceRoot(preCu, getInputPath());
+            Optional<Path> sourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? Optional.empty() : CompilationHelper.findSourceRoot(preCu, getInputPath());
 
             try (CompilationResult compilationResult =
                     CompilationHelper.compile(source, sourceRoot)) {
-                Optional<Path> parserSourceRoot = sourceRoot.isPresent()
-                        ? sourceRoot
-                        : Optional.of(compilationResult.classPath());
+                Optional<Path> parserSourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
+                        ? Optional.empty()
+                        : (sourceRoot.isPresent() ? sourceRoot
+                                : Optional.of(compilationResult.classPath()));
                 List<CompilationUnit> allCus = discoverAllCompilationUnits(
                         sourceFiles, sourceRoot, parserSourceRoot);
 
@@ -454,8 +472,11 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          */
         private void runBounded(TraceLimits limits, String guestStdin) {
-            try (TraceSession session = new TraceSession(limits, job.inspection,
+            try (TraceSession session = new TraceSession(limits, effectiveInspection(),
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
+                if (job.multithread) {
+                    session.enableMultithread();
+                } // if
                 String source = "";
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;
@@ -532,11 +553,12 @@ public class App {
         List<ExecutionSnapshot> executeBoundedSource(
                 String source, TraceSession session, TraceLimits limits, String guestStdin)
                 throws Exception {
-            long files = CompilationHelper.DELIMITER_PATTERN.matcher(source).results().count();
+            long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
             List<CompilationHelper.SourceFile> sources =
                     CompilationHelper.parseMultiFileStream(source);
-            Optional<Path> root = job.inspection == InspectionPolicy.FIELDS ? Optional.empty()
+            Optional<Path> root = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? Optional.empty()
                     : CompilationHelper.findSourceRoot(
                             CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
             try (CompilationResult compiled = CompilationHelper.compile(source, root)) {
@@ -734,16 +756,23 @@ public class App {
     /** Run batch traces over NDJSON. */
     @Command(
             name = "batch-trace",
-            description = "Execute multiple trace jobs over an NDJSON stream reusing "
-                    + "persistent guest JVM sessions.",
+            description = "Execute independent trace jobs concurrently over an NDJSON stream.",
             mixinStandardHelpOptions = true)
     public static class BatchTrace implements Runnable {
 
         @Option(
                 names = {"--workers", "-w"},
-                description = "Number of persistent worker sessions (default: ${DEFAULT-VALUE}).",
+                description = "Number of concurrent worker sessions (default: ${DEFAULT-VALUE}).",
                 defaultValue = "1")
         int workers = 1;
+
+        @Option(names = "--max-in-flight", defaultValue = "16",
+                description = "Maximum admitted jobs and buffered results (default: 16).")
+        int maxInFlight = 16;
+
+        @Option(names = "--completion-order",
+                description = "Emit results as jobs finish; default is submission order.")
+        boolean completionOrder;
 
         @Option(
                 names = {"--input", "-i"},
@@ -765,7 +794,7 @@ public class App {
         @Override
         public void run() {
             try (BatchTraceService service = new BatchTraceService(
-                    workers, maxJobsPerWorker)) {
+                    workers, maxJobsPerWorker, maxInFlight, completionOrder)) {
                 InputStream is = input != null
                         ? Files.newInputStream(input.toPath()) : System.in;
                 try {

@@ -14,6 +14,7 @@ import cs1302.tracer.trace.ExecutionSnapshot.Field;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.trace.TraceValue;
+import cs1302.tracer.trace.ValueTraversal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -185,6 +186,7 @@ public class ModernTraceSerializer {
      * @return The converted Step.
      */
     public Step createStep(ExecutionSnapshot snapshot, int stepNumber, boolean isMultiFile) {
+        ValueTraversal.validate(snapshot);
         String currentMethod =
                 snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();
@@ -218,11 +220,12 @@ public class ModernTraceSerializer {
         String stdout = decodeOutput(snapshot.stdout());
         String stderr = decodeOutput(snapshot.stderr());
 
+        List<Step.ThreadState> threads = serializeThreads(snapshot, isMultiFile);
         return new Step(
                 stepNumber,
                 currentLine,
                 stepFile,
-                "step_line",
+                snapshot.event() == null ? "step_line" : snapshot.event(),
                 currentMethod,
                 callStack,
                 statics,
@@ -230,8 +233,32 @@ public class ModernTraceSerializer {
                 stdout,
                 stderr,
                 snapshot.stdinConsumed(),
-                snapshot.stdinOffset());
+                snapshot.stdinOffset(), threads, snapshot.triggeringThreadId());
     } // createStep
+
+    /**
+     * Converts optional application thread states using the same frame options as the event stack.
+     * @param snapshot Captured state.
+     * @param isMultiFile Include source file names.
+     * @return Thread models, or null for legacy output.
+     */
+    private List<Step.ThreadState> serializeThreads(
+            ExecutionSnapshot snapshot, boolean isMultiFile) {
+        List<Step.ThreadState> threads = null;
+        if (snapshot.threads() != null) {
+            threads = new ArrayList<>();
+            for (var thread : snapshot.threads()) {
+                List<StackFrame> frames = new ArrayList<>();
+                for (int i = 0; i < thread.stack().size(); i++) {
+                    frames.add(serializeStackFrame(thread.stack().get(i),
+                            i == thread.stack().size() - 1, i == 0, isMultiFile));
+                } // for
+                threads.add(new Step.ThreadState(
+                        thread.id(), thread.name(), thread.state(), frames));
+            } // for
+        } // if
+        return threads;
+    } // serializeThreads
 
     /**
      * Decodes raw stdout or stderr byte arrays into a UTF-8 string.
@@ -269,7 +296,8 @@ public class ModernTraceSerializer {
 
         List<Variable> locals = new ArrayList<>();
         for (Field field : frame.visibleVariables()) {
-            if (removeMainArgs && isMain && "args".equals(field.identifier())) {
+            if (removeMainArgs && isMain && "main".equals(frame.methodName())
+                    && "args".equals(field.identifier())) {
                 continue;
             } // if
             locals.add(new Variable(

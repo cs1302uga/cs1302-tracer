@@ -2,6 +2,8 @@ package cs1302.tracer.batch;
 
 import com.google.gson.Gson;
 import cs1302.tracer.execution.TraceResult;
+import cs1302.tracer.execution.TraceLimits;
+import cs1302.tracer.execution.NestingException;
 import cs1302.tracer.model.TraceFormat;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import java.io.BufferedReader;
@@ -14,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -21,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Service managing pool of batch trace workers and streaming NDJSON requests/responses.
@@ -31,11 +35,14 @@ public final class BatchTraceService implements AutoCloseable {
     public static final int MAX_RECORD_CHARS = 16 * 1024 * 1024;
 
     private final int workerCount;
+    private final int maxInFlight;
+    private final boolean completionOrder;
     private final int maxJobsPerWorker;
     private final ExecutorService executor;
     private final BlockingQueue<BatchTraceWorker> workerPool;
     private final List<BatchTraceWorker> allWorkers;
     private final Gson gson;
+    private final Function<BatchJobRequest, BatchJobResponse> runner;
 
     /**
      * Constructs a batch trace service with specified concurrency and recycling limits.
@@ -44,12 +51,44 @@ public final class BatchTraceService implements AutoCloseable {
      * @param maxJobsPerWorker Maximum jobs before recycling a worker.
      */
     public BatchTraceService(int workerCount, int maxJobsPerWorker) {
-        this.workerCount = Math.max(1, workerCount);
+        this(workerCount, maxJobsPerWorker, Math.max(16, workerCount * 2), false);
+    } // BatchTraceService
+
+    /**
+     * Constructs a bounded batch scheduler with explicit output ordering.
+     * @param workerCount Concurrent guests.
+     * @param maxJobsPerWorker Jobs before recycling a reusable guest.
+     * @param maxInFlight Maximum admitted jobs, including buffered results.
+     * @param completionOrder Emit responses immediately as jobs finish.
+     */
+    public BatchTraceService(int workerCount, int maxJobsPerWorker,
+            int maxInFlight, boolean completionOrder) {
+        this(workerCount, maxJobsPerWorker, maxInFlight, completionOrder, null);
+    } // BatchTraceService
+
+    /**
+     * Constructs a scheduler with a replaceable job boundary for deterministic scheduling tests.
+     * @param workerCount Concurrent guests.
+     * @param maxJobsPerWorker Recycling limit.
+     * @param maxInFlight Admission limit.
+     * @param completionOrder Emit completion order.
+     * @param runner Job boundary, or null to use the guest worker pool.
+     */
+    BatchTraceService(int workerCount, int maxJobsPerWorker, int maxInFlight,
+            boolean completionOrder, Function<BatchJobRequest, BatchJobResponse> runner) {
+        if (workerCount < 1 || maxInFlight < 1 || maxJobsPerWorker < 1) {
+            throw new IllegalArgumentException(
+                    "Worker, in-flight, and recycling limits must be positive");
+        } // if
+        this.workerCount = workerCount;
+        this.maxInFlight = maxInFlight;
+        this.completionOrder = completionOrder;
         this.maxJobsPerWorker = maxJobsPerWorker;
         this.executor = Executors.newFixedThreadPool(this.workerCount);
         this.workerPool = new LinkedBlockingQueue<>();
         this.allWorkers = new ArrayList<>();
         this.gson = PyTutorSerializer.getGson(false);
+        this.runner = runner == null ? this::executeJob : runner;
 
         for (int i = 0; i < this.workerCount; i++) {
             BatchTraceWorker worker = new BatchTraceWorker(this.maxJobsPerWorker);
@@ -112,8 +151,8 @@ public final class BatchTraceService implements AutoCloseable {
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(input, StandardCharsets.UTF_8));
         PrintWriter printWriter = new PrintWriter(output, true);
-        int maxInFlight = Math.max(16, workerCount * 2);
         Queue<CompletableFuture<Void>> inFlight = new ArrayDeque<>();
+        CompletableFuture<Void> previous = CompletableFuture.completedFuture(null);
 
         String line;
         while ((line = readBoundedLine(reader, MAX_RECORD_CHARS)) != null) {
@@ -122,14 +161,28 @@ public final class BatchTraceService implements AutoCloseable {
                 continue;
             } // if
             while (inFlight.size() >= maxInFlight) {
-                inFlight.poll().join();
+                if (completionOrder) {
+                    CompletableFuture.anyOf(inFlight.toArray(CompletableFuture[]::new)).join();
+                    inFlight.removeIf(CompletableFuture::isDone);
+                } else {
+                    inFlight.poll().join();
+                } // if
+                checkWriter(printWriter);
             } // while
-            CompletableFuture<Void> future = submitJob(trimmed, printWriter);
+            CompletableFuture<BatchJobResponse> job = submitJob(trimmed);
+            CompletableFuture<Void> future = completionOrder
+                    ? job.thenAccept(response -> writeResponse(response, printWriter))
+                    : previous.thenCombine(job, (ignored, response) -> {
+                        writeResponse(response, printWriter);
+                        return null;
+                    });
+            previous = future;
             inFlight.add(future);
         } // while
 
         while (!inFlight.isEmpty()) {
             inFlight.poll().join();
+            checkWriter(printWriter);
         } // while
         printWriter.flush();
     } // processStream
@@ -138,35 +191,48 @@ public final class BatchTraceService implements AutoCloseable {
      * Submits a single raw JSON line for execution and writes its response when done.
      *
      * @param jsonLine Raw JSON request line.
-     * @param writer Output writer.
-     * @return Future completing when the response is written.
+     * @return Future completing when the response is ready.
      */
-    private CompletableFuture<Void> submitJob(String jsonLine, PrintWriter writer) {
-        return CompletableFuture.runAsync(() -> {
+    private CompletableFuture<BatchJobResponse> submitJob(String jsonLine) {
+        return CompletableFuture.supplyAsync(() -> {
             BatchJobResponse response;
             BatchJobRequest req = null;
             try {
+                JsonNesting.validate(jsonLine);
                 req = gson.fromJson(jsonLine, BatchJobRequest.class);
+            } catch (NestingException nesting) {
+                return new BatchJobResponse(null, new TraceResult(1, "unknown", "stopped",
+                        nesting.getMessage(), "parse", false, null,
+                        TraceLimits.unlimited(), Map.of(),
+                        List.of(nesting.getMessage()), "", ""));
             } catch (Exception parseErr) {
                 TraceResult errResult = TraceResult.failed(
                         "unknown", "parse", "Malformed JSON request: " + parseErr.getMessage());
                 response = new BatchJobResponse(null, errResult);
-                writeResponse(response, writer);
-                return;
+                return response;
             } // try
 
             if (req == null) {
                 TraceResult errResult = TraceResult.failed(
                         "unknown", "parse", "Empty JSON request");
                 response = new BatchJobResponse(null, errResult);
-                writeResponse(response, writer);
-                return;
+                return response;
             } // if
 
-            response = executeJob(req);
-            writeResponse(response, writer);
+            return runner.apply(req);
         }, executor);
     } // submitJob
+
+    /**
+     * Checks writer failures after an output future completes.
+     * @param writer Output writer.
+     * @throws IOException If writing failed.
+     */
+    private void checkWriter(PrintWriter writer) throws IOException {
+        if (writer.checkError()) {
+            throw new IOException("Failed to write batch response");
+        } // if
+    } // checkWriter
 
     /**
      * Obtains an available worker from the pool and executes the job request.

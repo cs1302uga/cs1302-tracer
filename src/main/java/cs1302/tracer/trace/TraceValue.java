@@ -91,12 +91,7 @@ public sealed interface TraceValue {
                 } // if
                 yield new List(
                         arrType,
-                        arrayReferenceToList(
-                                mainThread,
-                                ar,
-                                outEncounteredReferences,
-                                astTypeResolver,
-                                objectTypeMap));
+                        arrayReferenceToList(ar, outEncounteredReferences));
             } // case
             case StringReference sr -> stringValue(sr);
             case ObjectReference or -> handleObjectReference(
@@ -340,7 +335,7 @@ public sealed interface TraceValue {
             } // if
             propagateContainerElements(ar, colTypeName, astTypeResolver, objectTypeMap);
             java.util.List<TraceValue> traceArray = arrayReferenceToList(
-                    mainThread, ar, outEncounteredReferences, astTypeResolver, objectTypeMap);
+                    ar, outEncounteredReferences);
             return Optional.of(isList
                     ? new List(colTypeName, traceArray)
                     : new Collection(colTypeName, traceArray));
@@ -479,7 +474,8 @@ public sealed interface TraceValue {
             java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields =
-                or.referenceType().allFields().stream().filter(f -> !f.isStatic()).toList();
+                or.referenceType().allFields().stream().filter(f -> !f.isStatic())
+                        .filter(f -> includeThreadField(or, f)).toList();
         TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
             java.lang.String fieldTypeName =
@@ -521,6 +517,19 @@ public sealed interface TraceValue {
         } // for
         return objectSnapshotFields;
     } // extractSnapshotFields
+
+    /**
+     * Keeps user thread-subclass fields without traversing JVM thread bookkeeping.
+     * @param object Object being inspected.
+     * @param field Candidate instance field.
+     * @return True when the field belongs in the heap view.
+     */
+    private static boolean includeThreadField(ObjectReference object, Field field) {
+        TraceSession session = TraceSession.current();
+        return session == null || session.threadCapture() == null
+                || !(object instanceof ThreadReference)
+                || session.threadCapture().applicationClass(field.declaringType().name());
+    } // includeThreadField
 
     /**
      * Evaluates lazy enum hash code if configured and currently uninitialized.
@@ -594,20 +603,13 @@ public sealed interface TraceValue {
 
     /**
      * Convert a mirrored ArrayReference into an owned List.
-     *
-     * @param mainThread The thread associated with the ArrayReference you want to convert.
-     * @param arrayReference The ArrayReference you want to convert.
+     * @param arrayReference The array to convert.
      * @param outEncounteredReferences An out parameter for references encountered in the array.
-     * @param astTypeResolver Optional AstTypeResolver.
-     * @param objectTypeMap Reified type map.
      * @return A List with the same contents as the ArrayReference.
      */
     private static java.util.List<TraceValue> arrayReferenceToList(
-            ThreadReference mainThread,
             ArrayReference arrayReference,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
         TraceSession.elements(arrayReference.length());
         java.util.List<TraceValue> tvs = new ArrayList<>(arrayReference.length());
 

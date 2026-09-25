@@ -31,6 +31,56 @@ References use `{"ref": id}`; IDs identify objects within the result and are not
 stable across runs. Variables include name, type, value, and finality metadata.
 Output/input fields record captured streams and guest input consumption.
 
+### Opt-in thread capture
+
+`--multithread --format modern` adds `threads` and `triggeringThreadId` to every
+step, including steps where only one application thread exists. It implies
+chronological capture; `--breakpoints` can still restrict source-line stops.
+Without `--multithread`, the existing output shape is preserved. Python Tutor
+cannot represent this mode; the CLI, batch validation, and Python Tutor serializer
+reject it explicitly.
+
+Each `threads` entry has `id`, `name`, `state`, and `callStack`. IDs are guest
+object identities, stable within one job and unrelated to a thread's name.
+Stacks contain submitted application frames, bottommost first. The top-level
+`callStack` remains the triggering thread's application stack. All stacks share
+one `heap` and one set of `statics`; the same reference ID means the same object.
+A thread waiting inside JDK code can have an empty application stack.
+
+Events are `step_line`, `main_exit`, `exception`, `thread_start`, and
+`thread_death`. Death events include the terminating thread with `TERMINATED`
+state and an empty stack; later steps omit it. Other JDI states are `NEW`,
+`RUNNABLE`, `SLEEPING`, `BLOCKED`, `WAITING`, and `UNKNOWN`. They describe guest
+execution state, independently of debugger suspension; `WAITING` does not
+separate timed and untimed parking. JVM shutdown need not produce a death event
+for every daemon thread.
+
+Capture includes the entry thread's group and descendant groups, plus threads
+observed executing submitted code. JVM service threads are excluded. Platform
+threads and conventional executor pools are supported. Virtual-thread start
+stops capture with `unsupported_virtual_thread`, preserving prior complete
+snapshots in envelope output.
+
+All threads pause during capture using
+[JDI event-set suspension](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.jdi/com/sun/jdi/event/EventSet.html),
+and the tracer invokes no guest methods while inspecting them. JDK thread bookkeeping fields are omitted from heap objects;
+fields declared by submitted `Thread` subclasses remain visible. Other objects
+use field-only inspection. These observations are one debugger-influenced run,
+not deterministic scheduling or a record of every memory operation. Stream
+output is process-wide and is not attributed to individual threads.
+
+Tracing continues after `main` returns until non-daemon application threads
+finish or a job limit is reached. Daemon threads do not keep the guest alive.
+An uncaught worker exception produces an event and is retained as
+`guest_exception` in the result envelope while other threads continue.
+Use `--result-envelope` and explicit limits to retain partial traces and status.
+Examples 34–41 cover these behaviors. Java API callers enable the mode with
+`TraceSession.enableMultithread()` on an accumulating session and use
+`DebugTraceHelper.traceChronological` (or its breakpoint-spec variant). The legacy
+breakpoint-map API and reusable `PersistentGuestSession` reject this mode.
+Lock ownership and deadlock diagnosis are
+not included; timeout alone does not prove deadlock.
+
 <!-- modern:start -->
 ```json
 {
