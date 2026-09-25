@@ -11,6 +11,14 @@ public class JobOptions {
 
     @Option(names = "--result-envelope", description = "Emit versioned job status and trace JSON.")
     public boolean envelope;
+    @Option(names = "--multithread", description = "Capture application threads in modern JSON.")
+    public boolean multithread;
+    @Option(names = "--max-threads", description = "Live application threads; 0 is unlimited.")
+    Long threads;
+    @Option(names = "--max-frames", description = "Total frames per snapshot; 0 is unlimited.")
+    Long frames;
+    @Option(names = "--max-snapshot-bytes", description = "Bytes per snapshot; 0 is unlimited.")
+    Long snapshotBytes;
     @Option(names = "--unlimited",
             description = "Disable default budgets; explicit limits still apply.")
     public boolean unlimited;
@@ -115,7 +123,9 @@ public class JobOptions {
                 select(heapObjects, defaults.heapObjects()), select(elements, defaults.elements()),
                 select(traceBytes, defaults.traceBytes()),
                 select(sourceBytes, defaults.sourceBytes()),
-                select(sourceFiles, defaults.sourceFiles()));
+                select(sourceFiles, defaults.sourceFiles()),
+                select(threads, defaults.threads()), select(frames, defaults.frames()),
+                select(snapshotBytes, defaults.snapshotBytes()));
     } // limits
 
     /**

@@ -479,7 +479,8 @@ public sealed interface TraceValue {
             java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields =
-                or.referenceType().allFields().stream().filter(f -> !f.isStatic()).toList();
+                or.referenceType().allFields().stream().filter(f -> !f.isStatic())
+                        .filter(f -> includeThreadField(or, f)).toList();
         TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
             java.lang.String fieldTypeName =
@@ -521,6 +522,19 @@ public sealed interface TraceValue {
         } // for
         return objectSnapshotFields;
     } // extractSnapshotFields
+
+    /**
+     * Keeps user thread-subclass fields without traversing JVM thread bookkeeping.
+     * @param object Object being inspected.
+     * @param field Candidate instance field.
+     * @return True when the field belongs in the heap view.
+     */
+    private static boolean includeThreadField(ObjectReference object, Field field) {
+        TraceSession session = TraceSession.current();
+        return session == null || session.threadCapture() == null
+                || !(object instanceof ThreadReference)
+                || session.threadCapture().applicationClass(field.declaringType().name());
+    } // includeThreadField
 
     /**
      * Evaluates lazy enum hash code if configured and currently uninitialized.

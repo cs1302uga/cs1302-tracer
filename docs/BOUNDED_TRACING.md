@@ -7,7 +7,8 @@ job status and completed partial snapshots. These settings do not isolate a prog
 
 Ordinary defaults are 10 seconds of tracing, 10,000 snapshots, 1 MiB of output per
 stream, 10,000 heap objects and 100,000 elements per snapshot, 64 MiB of accounted
-trace data, 1 MiB of submitted source, and 128 streamed source files. These are
+trace data, 1 MiB of submitted source, 128 streamed source files, 64 live
+application threads, 4,096 total frames per snapshot, and 8 MiB per snapshot. These are
 configurable interactive-workload defaults, not measured process-memory ceilings.
 Source limits cover submitted input, not neighboring sources discovered on disk.
 The tracing deadline excludes source reading, parsing, and compilation.
@@ -44,6 +45,9 @@ Negative values and unsupported options are rejected before tracing.
 | `--max-elements` | Cumulative inspected array slots, fields, stack frames/locals, and string backing-storage units per snapshot. Repeated inspection can count more than once. |
 | `--max-trace-bytes` | Accounted retained snapshot storage, including the snapshot being built. See accounting below. |
 | `--max-source-bytes` | Raw source bytes before UTF-8 decoding and parsing. |
+| `--max-threads` | Live application threads in multithread capture. |
+| `--max-frames` | Total frames in multithread mode before filtering application stacks, checked before fetching frames. |
+| `--max-snapshot-bytes` | Accounted bytes for one snapshot, using the same accounting as trace bytes. |
 | `--max-source-files` | Number of delimiter-defined source files, checked before parsing. Undelimited input counts as one file. |
 
 Usage equal to a cap is allowed. A job stops when it would exceed a cap. The first
@@ -154,3 +158,13 @@ Review every regenerated diff. The normalizer changes heap IDs only, preserving
 reference sharing, cycles, values, source lines, step order, and output metadata.
 The existing `examples/test.sh FILE [OPTIONS...]` and `generate_all.sh` commands
 remain output-generation tools rather than regression verification commands.
+
+Thread capture adds `thread_limit`, `frame_limit`, `snapshot_byte_limit`, and
+`unsupported_virtual_thread` stop reasons. An unfinished snapshot is discarded;
+previously committed snapshots remain available in the envelope. Batch limit
+fields are `threads`, `frames`, and `snapshotBytes`; like other envelope limits,
+omitted fields or zero are unlimited.
+
+Multithread capture always disables guest method invocation, including stream
+flush and collection accessors, even when the selected inspection policy is
+`TRUSTED`. This avoids running one thread while observing other threads' stacks.

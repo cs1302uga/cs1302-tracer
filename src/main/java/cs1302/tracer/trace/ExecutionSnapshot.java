@@ -15,6 +15,9 @@ import java.util.Optional;
  * @param sourcePath Optional relative source file path for the currently executing line.
  * @param stdinConsumed Cumulative standard input consumed up to this snapshot point.
  * @param stdinOffset Character index reached in standard input up to this snapshot point.
+ * @param threads Application thread states, or null for legacy capture.
+ * @param triggeringThreadId Thread producing the event, or null for legacy capture.
+ * @param event Captured event kind, or null for legacy capture.
  */
 public record ExecutionSnapshot(
         List<StackSnapshot> stack,
@@ -24,7 +27,38 @@ public record ExecutionSnapshot(
         OutputSlice stderrSlice,
         Optional<String> sourcePath,
         String stdinConsumed,
-        int stdinOffset) {
+        int stdinOffset,
+        List<ThreadSnapshot> threads,
+        Long triggeringThreadId,
+        String event) {
+
+    /**
+     * Constructs a legacy snapshot without thread metadata.
+     * @param stack Stack frames.
+     * @param statics Static fields.
+     * @param heap Shared objects.
+     * @param stdoutSlice Standard output.
+     * @param stderrSlice Standard error.
+     * @param sourcePath Source location.
+     * @param stdinConsumed Consumed input.
+     * @param stdinOffset Input offset.
+     */
+    public ExecutionSnapshot(List<StackSnapshot> stack, List<Field> statics,
+            Map<Long, TraceValue> heap, OutputSlice stdoutSlice, OutputSlice stderrSlice,
+            Optional<String> sourcePath, String stdinConsumed, int stdinOffset) {
+        this(stack, statics, heap, stdoutSlice, stderrSlice, sourcePath,
+                stdinConsumed, stdinOffset, null, null, null);
+    } // ExecutionSnapshot
+
+    /**
+     * A thread at one suspended observation point. IDs are stable within a job.
+     * @param id Guest thread object identity.
+     * @param name Observed thread name.
+     * @param state JDI execution state, independent of debugger suspension.
+     * @param stack Application frames, bottommost first.
+     */
+    public record ThreadSnapshot(long id, String name, String state, List<StackSnapshot> stack) {
+    } // ThreadSnapshot
 
     /**
      * Compact constructor normalizing null slices, optionals, and strings.
@@ -113,7 +147,8 @@ public record ExecutionSnapshot(
             return this;
         } // if
         return new ExecutionSnapshot(
-                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset);
+                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset,
+                threads, triggeringThreadId, event);
     } // materializeOutput
 
     /**
@@ -127,7 +162,8 @@ public record ExecutionSnapshot(
         OutputSlice matOut = OutputSlice.wrapShared(sharedStdout, 0, stdoutSlice.length());
         OutputSlice matErr = OutputSlice.wrapShared(sharedStderr, 0, stderrSlice.length());
         return new ExecutionSnapshot(
-                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset);
+                stack, statics, heap, matOut, matErr, sourcePath, stdinConsumed, stdinOffset,
+                threads, triggeringThreadId, event);
     } // withSharedOutput
 
     /**

@@ -424,7 +424,8 @@ public final class PersistentGuestSession implements AutoCloseable {
         return new ExecutionSnapshot(
                 last.stack(), last.statics(), last.heap(),
                 stdout, stderr,
-                last.sourcePath(), last.stdinConsumed(), last.stdinOffset());
+                last.sourcePath(), last.stdinConsumed(), last.stdinOffset(),
+                last.threads(), last.triggeringThreadId(), last.event());
     } // withUpdatedOutput
 
     /**
@@ -527,6 +528,10 @@ public final class PersistentGuestSession implements AutoCloseable {
         } // if
 
         TraceSession currentSession = TraceSession.current();
+        if (currentSession != null && currentSession.threadCapture() != null) {
+            throw new IllegalArgumentException(
+                    "Multithread capture requires a dedicated guest JVM");
+        } // if
         if (currentSession != null) {
             vmOut.attachSession(currentSession);
             vmErr.attachSession(currentSession);

@@ -164,6 +164,9 @@ public record PyTutorSerializer(
      * @return The structured TraceStep model.
      */
     public TraceStep createTraceStep(ExecutionSnapshot snapshot, boolean isMultiFile) {
+        if (snapshot.threads() != null) {
+            throw new IllegalArgumentException("Multithread snapshots require modern format");
+        } // if
         String currentMethod =
                 snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();

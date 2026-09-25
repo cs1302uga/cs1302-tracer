@@ -260,6 +260,10 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
 
+        if (TraceSession.current() != null && TraceSession.current().threadCapture() != null) {
+            throw new IllegalArgumentException(
+                    "Multithread capture requires chronological tracing");
+        } // if
         Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
         boolean snapMainEnd = safeSpecs.isEmpty()
                 || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1);
@@ -439,7 +443,8 @@ public class DebugTraceHelper {
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
-            for (Event event : nextEvents(vm)) {
+            Iterable<Event> events = nextEvents(vm);
+            for (Event event : events) {
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
                     if (compilationResult.compiledClassNames().contains(
@@ -472,19 +477,17 @@ public class DebugTraceHelper {
                 case ExceptionEvent ee -> processBreakpointExceptionEvent(
                         ee, compilationResult, loadedClasses, vmOut, vmErr,
                         sourceAnalysis, inputTracker, snapshots);
-                case VMDeathEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                case VMDisconnectEvent vde -> {
-                    endEventLoop = true;
-                } // case
+                case VMDeathEvent vde -> endEventLoop = true;
+                case VMDisconnectEvent vde -> endEventLoop = true;
                 default -> {
                     // do nothing
                 } // default
                 } // switch
 
-                vm.resume();
             } // for
+            if (events instanceof com.sun.jdi.event.EventSet set && !endEventLoop) {
+                set.resume();
+            } // if
         } // while
     } // processBreakpointsEventLoop
 
@@ -793,6 +796,9 @@ public class DebugTraceHelper {
             return false;
         } // if
         return Objects.equals(prev.sourcePath(), current.sourcePath())
+                && Objects.equals(prev.threads(), current.threads())
+                && Objects.equals(prev.triggeringThreadId(), current.triggeringThreadId())
+                && Objects.equals(prev.event(), current.event())
                 && Objects.equals(prev.stack(), current.stack())
                 && Objects.equals(prev.statics(), current.statics())
                 && Objects.equals(prev.heap(), current.heap())
@@ -1299,7 +1305,10 @@ public class DebugTraceHelper {
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
-            for (Event event : nextEvents(vm)) {
+            Iterable<Event> events = nextEvents(vm);
+            for (Event event : events) {
+                captureLifecycle(event, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                        inputTracker, chronologicalSnapshots);
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
                     if (compilationResult.compiledClassNames().contains(
@@ -1335,12 +1344,8 @@ public class DebugTraceHelper {
                 case ExceptionEvent ee -> processChronologicalExceptionEvent(
                         ee, compilationResult, loadedClasses, vmOut, vmErr,
                         sourceAnalysis, inputTracker, chronologicalSnapshots);
-                case VMDeathEvent vde -> {
-                    endEventLoop = true;
-                } // case
-                case VMDisconnectEvent vde -> {
-                    endEventLoop = true;
-                } // case
+                case VMDeathEvent vde -> endEventLoop = true;
+                case VMDisconnectEvent vde -> endEventLoop = true;
                 default -> {
                     // do nothing
                 } // default
@@ -1348,10 +1353,40 @@ public class DebugTraceHelper {
                 if (endEventLoop) {
                     break;
                 } // if
-                vm.resume();
             } // for
+            if (events instanceof com.sun.jdi.event.EventSet set && !endEventLoop) {
+                set.resume();
+            } // if
         } // while
     } // processChronologicalEventLoop
+
+    /**
+     * Captures thread starts and deaths and updates event metadata.
+     * @param event Debugger event.
+     * @param loadedClasses Submitted loaded types.
+     * @param vmOut Output drainer.
+     * @param vmErr Error drainer.
+     * @param analysis Source analysis.
+     * @param input Input tracking.
+     * @param snapshots Chronological states.
+     * @throws IncompatibleThreadStateException If stacks cannot be read.
+     * @throws AbsentInformationException If debug information is unavailable.
+     * @throws ClassNotLoadedException If a referenced type is unavailable.
+     */
+    private static void captureLifecycle(Event event, HashSet<ReferenceType> loadedClasses,
+            StreamDrainer vmOut, StreamDrainer vmErr, SourceAnalysis analysis,
+            InputTracker input, List<ExecutionSnapshot> snapshots)
+            throws IncompatibleThreadStateException, AbsentInformationException,
+            ClassNotLoadedException {
+        TraceSession active = TraceSession.current();
+        if (active != null && active.threadCapture() != null) {
+            ThreadReference lifecycle = active.threadCapture().observe(event);
+            if (lifecycle != null) {
+                snapshots.add(snapshotTheWorld(lifecycle, loadedClasses,
+                        vmOut, vmErr, analysis, input));
+            } // if
+        } // if
+    } // captureLifecycle
 
     /**
      * Processes the chronological event loop with raw parsed sources.
@@ -1463,12 +1498,13 @@ public class DebugTraceHelper {
             ClassNotLoadedException {
         recordException(ee);
         Location loc = ee.location();
-        if (loc != null && compilationResult.compiledClassNames().contains(
-                loc.declaringType().name())) {
+        if ((TraceSession.current() != null && TraceSession.current().threadCapture() != null)
+                || (loc != null && compilationResult.compiledClassNames().contains(
+                        loc.declaringType().name()))) {
             ExecutionSnapshot snapshot = snapshotTheWorld(
                     ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker, startOutOffset, startErrOffset);
-            if (chronologicalSnapshots.isEmpty()
+            if (snapshot.threads() != null || chronologicalSnapshots.isEmpty()
                     || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
                 chronologicalSnapshots.add(snapshot);
             } // if
@@ -1551,6 +1587,10 @@ public class DebugTraceHelper {
             TraceSession.current().attach(vm);
         } // if
 
+        if (TraceSession.current() != null && TraceSession.current().threadCapture() != null) {
+            TraceSession.current().threadCapture().install(
+                    vm, compilationResult.compiledClassNames());
+        } // if
         for (String className : compilationResult.compiledClassNames()) {
             ClassPrepareRequest classPrepareRequest =
                     vm.eventRequestManager().createClassPrepareRequest();
@@ -1807,17 +1847,13 @@ public class DebugTraceHelper {
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         Map<Long, String> objectTypeMap = new HashMap<>();
 
-        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, harnessClassLoader);
-
-        List<StackSnapshot> stackSnapshots = collectStackSnapshots(
-                mainThread,
-                astTypeResolver,
-                objectTypeMap,
-                sourceAnalysis.lambdaMethodAssignments(),
-                sourceAnalysis.finalMethodVariables(),
-                heapReferencesToWalk,
-                heap,
-                harnessClassLoader);
+        ThreadCapture capture = session == null ? null : session.threadCapture();
+        List<ExecutionSnapshot.ThreadSnapshot> captured = collectThreadStacks(mainThread,
+                sourceAnalysis, objectTypeMap, heapReferencesToWalk, heap, harnessClassLoader);
+        List<StackSnapshot> stackSnapshots = capture == null ? captured.getFirst().stack()
+                : captured.stream().filter(t -> t.id() == mainThread.uniqueID())
+                        .findFirst().orElseThrow().stack();
+        List<ExecutionSnapshot.ThreadSnapshot> threads = capture == null ? null : captured;
 
         List<ExecutionSnapshot.Field> statics = collectStatics(
                 loadedClasses, sourceAnalysis, heapReferencesToWalk, heap);
@@ -1833,7 +1869,9 @@ public class DebugTraceHelper {
         OutputSlice vmErrSlice = sanitizeDebuggeeStderrSlice(
                 OutputSlice.from(vmErr, startErrOffset, errLen));
 
-        String currentStepSourcePath = resolveStepSourcePath(mainThread);
+        String currentStepSourcePath = capture == null ? resolveStepSourcePath(mainThread)
+                : stackSnapshots.isEmpty() ? null
+                        : stackSnapshots.getLast().sourcePath().orElse(null);
         String stdinConsumed = inputTracker == null ? "" : inputTracker.consumed();
         int stdinOffset = inputTracker == null ? 0 : inputTracker.offset();
 
@@ -1845,12 +1883,69 @@ public class DebugTraceHelper {
                 vmErrSlice,
                 Optional.ofNullable(currentStepSourcePath),
                 stdinConsumed,
-                stdinOffset);
+                stdinOffset, threads, capture == null ? null : mainThread.uniqueID(),
+                capture == null ? null : capture.event());
         if (session != null) {
             session.commit(snapshot);
         } // if
         return snapshot;
     } // snapshotTheWorld
+
+    /**
+     * Captures all selected stacks into a shared heap traversal.
+     * @param mainThread Event thread.
+     * @param sourceAnalysis Source metadata.
+     * @param objectTypeMap Inferred object types.
+     * @param heapReferencesToWalk Shared traversal queue.
+     * @param heap Shared heap.
+     * @param harnessClassLoader Harness loader for legacy jobs.
+     * @return Captured application thread states.
+     * @throws IncompatibleThreadStateException If stacks cannot be read.
+     * @throws AbsentInformationException If debug information is unavailable.
+     * @throws ClassNotLoadedException If a referenced type is unavailable.
+     */
+    private static List<ExecutionSnapshot.ThreadSnapshot> collectThreadStacks(
+            ThreadReference mainThread, SourceAnalysis sourceAnalysis,
+            Map<Long, String> objectTypeMap, List<ObjectReference> heapReferencesToWalk,
+            Map<Long, TraceValue> heap, ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException, AbsentInformationException,
+            ClassNotLoadedException {
+        TraceSession session = TraceSession.current();
+        ThreadCapture capture = session == null ? null : session.threadCapture();
+        AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
+        if (capture == null) {
+            prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, harnessClassLoader);
+            var stack = collectStackSnapshots(mainThread, astTypeResolver, objectTypeMap,
+                    sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
+                    heapReferencesToWalk, heap, harnessClassLoader);
+            return List.of(new ExecutionSnapshot.ThreadSnapshot(0, "", "", stack));
+        } // if
+        List<ThreadReference> capturedThreads = capture.threads(mainThread);
+        long frameCount = 0;
+        for (ThreadReference thread : capturedThreads) {
+            frameCount += thread.frameCount();
+            session.checkThreadCounts(capturedThreads.size(), frameCount);
+        } // for
+        List<ExecutionSnapshot.ThreadSnapshot> threads = new ArrayList<>();
+        for (ThreadReference thread : capturedThreads) {
+            prepassObjectTypes(thread, astTypeResolver, objectTypeMap, harnessClassLoader);
+        } // for
+        for (ThreadReference thread : capturedThreads) {
+            List<StackSnapshot> stack = collectStackSnapshots(
+                    thread, astTypeResolver, objectTypeMap,
+                    sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
+                    heapReferencesToWalk, heap, harnessClassLoader);
+            threads.add(new ExecutionSnapshot.ThreadSnapshot(
+                    thread.uniqueID(), thread.name(), ThreadCapture.state(thread), stack));
+        } // for
+        if (capture.isDying(mainThread)) {
+            threads.add(new ExecutionSnapshot.ThreadSnapshot(
+                    mainThread.uniqueID(), mainThread.name(),
+                    "TERMINATED", List.of()));
+        } // if
+
+        return threads;
+    } // collectThreadStacks
 
     /**
      * Prepares the session and stream drainers prior to heap inspection.
@@ -2071,6 +2166,17 @@ public class DebugTraceHelper {
     } // isGuestHarnessOrReflect
 
     /**
+     * Restricts multithread frames and static fields to submitted classes.
+     * @param type Declaring class.
+     * @return True when the declaring class should be inspected.
+     */
+    private static boolean isCapturedClass(ReferenceType type) {
+        TraceSession session = TraceSession.current();
+        return session == null || session.threadCapture() == null
+                || session.threadCapture().applicationClass(type.name());
+    } // isCapturedClass
+
+    /**
      * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
      *
      * @param mainThread Suspended thread.
@@ -2114,7 +2220,8 @@ public class DebugTraceHelper {
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
             ReferenceType declaringType = frame.location().method().declaringType();
-            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)
+                    || !isCapturedClass(declaringType)) {
                 continue;
             } // if
             String declaringClassFqn = declaringType.name();
@@ -2350,7 +2457,8 @@ public class DebugTraceHelper {
         for (StackFrame frame : mainThread.frames()) {
             Method frameMethod = frame.location().method();
             ReferenceType declaringType = frameMethod.declaringType();
-            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)
+                    || !isCapturedClass(declaringType)) {
                 continue;
             } // if
             TraceSession.elements(1);
@@ -2625,7 +2733,7 @@ public class DebugTraceHelper {
                     sourceAnalysis.findClassDeclaration(loadedClass.name());
             for (Field f : loadedClass.allFields()) {
                 TraceSession.elements(1);
-                if (!f.isStatic()) {
+                if (!f.isStatic() || !isCapturedClass(f.declaringType())) {
                     continue;
                 } // if
                 Optional<String> lambdaImplementation =
@@ -2690,7 +2798,12 @@ public class DebugTraceHelper {
      */
     private static void recordException(ExceptionEvent event) {
         if (TraceSession.current() != null) {
-            TraceSession.current().guestException(event.exception().referenceType().name());
+            String description = event.exception().referenceType().name();
+            if (TraceSession.current().threadCapture() != null) {
+                description += " in thread " + event.thread().name()
+                        + " (" + event.thread().uniqueID() + ")";
+            } // if
+            TraceSession.current().guestException(description);
         } // if
     } // recordException
 

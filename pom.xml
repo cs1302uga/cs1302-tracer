@@ -6,7 +6,7 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>3.1.2</version>
+  <version>3.2.0</version>
 
   <name>cs1302-tracer</name>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>

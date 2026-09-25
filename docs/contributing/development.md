@@ -28,6 +28,14 @@ To regenerate all example outputs:
 ./examples/generate_all.sh
 ```
 
+Examples `example34` through `example41` cover multithread tracing: start/join,
+synchronized and unsynchronized shared state, wait/notify, executor shutdown,
+worker exceptions, daemon lifetime, and timeout. Their READMEs contain runnable
+commands. `examples/concurrent-batch/jobs.ndjson` demonstrates independent jobs
+with configurable result ordering. These examples are exercised by Java
+integration tests using structural and lifecycle assertions; they do not have
+golden trace files because thread schedules vary between runs.
+
 ---
 
 

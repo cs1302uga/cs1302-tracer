@@ -375,6 +375,13 @@ public class App {
             try {
                 guestStdin = resolveGuestStdin();
                 selected = job.limits();
+                if (job.multithread) {
+                    if (format != TraceFormat.MODERN) {
+                        throw new IllegalArgumentException(
+                                "--multithread requires --format modern");
+                    } // if
+                    allBreakpoints = true;
+                } // if
                 job.breakpointSpecs();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
@@ -391,6 +398,9 @@ public class App {
             } // try
             try (TraceSession session = new TraceSession(selected, job.inspection,
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
+                if (job.multithread) {
+                    session.enableMultithread();
+                } // if
                 try {
                     runOrdinary(session, selected, guestStdin);
                 } catch (Throwable cause) {
@@ -456,6 +466,9 @@ public class App {
         private void runBounded(TraceLimits limits, String guestStdin) {
             try (TraceSession session = new TraceSession(limits, job.inspection,
                     allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
+                if (job.multithread) {
+                    session.enableMultithread();
+                } // if
                 String source = "";
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;
@@ -734,16 +747,23 @@ public class App {
     /** Run batch traces over NDJSON. */
     @Command(
             name = "batch-trace",
-            description = "Execute multiple trace jobs over an NDJSON stream reusing "
-                    + "persistent guest JVM sessions.",
+            description = "Execute independent trace jobs concurrently over an NDJSON stream.",
             mixinStandardHelpOptions = true)
     public static class BatchTrace implements Runnable {
 
         @Option(
                 names = {"--workers", "-w"},
-                description = "Number of persistent worker sessions (default: ${DEFAULT-VALUE}).",
+                description = "Number of concurrent worker sessions (default: ${DEFAULT-VALUE}).",
                 defaultValue = "1")
         int workers = 1;
+
+        @Option(names = "--max-in-flight", defaultValue = "16",
+                description = "Maximum admitted jobs and buffered results (default: 16).")
+        int maxInFlight = 16;
+
+        @Option(names = "--completion-order",
+                description = "Emit results as jobs finish; default is submission order.")
+        boolean completionOrder;
 
         @Option(
                 names = {"--input", "-i"},
@@ -765,7 +785,7 @@ public class App {
         @Override
         public void run() {
             try (BatchTraceService service = new BatchTraceService(
-                    workers, maxJobsPerWorker)) {
+                    workers, maxJobsPerWorker, maxInFlight, completionOrder)) {
                 InputStream is = input != null
                         ? Files.newInputStream(input.toPath()) : System.in;
                 try {
