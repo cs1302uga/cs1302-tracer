@@ -22,6 +22,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ConcurrentBatchTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @SuppressWarnings("try") // Explicit producer close signals EOF before awaiting stream completion.
     void streamsInConfiguredOrderBeforeInputCloses(boolean completionOrder) throws Exception {
         var secondFinished = new CountDownLatch(1);
         var releaseFirst = new CountDownLatch(1);

@@ -42,6 +42,7 @@ class SourceDelimitersTest {
     }
   }
 
+  @SuppressWarnings("deprecation") // Intentionally verify the public compatibility matcher.
   private void assertSameAsLegacy(String source) {
     var matcher = LEGACY.matcher(source);
     List<SourceDelimiters.Delimiter> expected = new ArrayList<>();
@@ -58,6 +59,7 @@ class SourceDelimitersTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation") // The compatibility matcher must also resist adversarial input.
   void boundsWorkForAdversarialWhitespaceAndMarkers() {
     for (String source : List.of("//---" + "\t".repeat(100_000) + "!",
         "//" + "-".repeat(100_000), "//---A.java" + "-".repeat(100_000) + "!")) {
