@@ -57,3 +57,23 @@ Class-loader separation does not provide OS isolation. Use batch tracing only fo
 trusted workloads or within suitable external isolation. Hosted untrusted jobs
 must use one disposable tracer process per job under the
 [runner contract](../RUNNER_CONTRACT.md).
+
+## Uncaught student exceptions
+
+An exception escaping the student entry point produces `status: "failed"`,
+`stopReason: "guest_exception"`, and `complete: false`, with the useful partial
+trace retained. The harness prints the original exception message and stack trace
+into the counted guest stderr stream before the job completion barrier. Student
+frames, causes, and suppressed exceptions are preserved; the internal reflective
+entry-point invocation and harness frames are omitted. Earlier student stderr is
+retained before the exception output. Diagnostics remain separate metadata and
+must not be interpreted as a complete captured stack trace.
+
+For legacy Python Tutor output, the terminal snapshot remains `step_line` at the
+failing source location. It can immediately follow a pre-statement snapshot at
+that same line. After draining output, the terminal snapshot contains the final
+stdout and stderr, including the uncaught exception. Consumers must retain this
+last snapshot rather than deduplicating snapshots by source location. Finite
+output and trace budgets still apply; inspect the envelope for limit stops.
+Caught student exceptions do not terminate the trace. A subsequent job in the
+same batch daemon starts with empty output streams.

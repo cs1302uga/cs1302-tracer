@@ -127,6 +127,14 @@ class ReaderTrackingFailureTest {
     }
 
     @Test
+    void ioLineReadConsumesTheLineTerminatorWithoutAReceiver() throws Exception {
+        var tracker = new InputTracker("abc\nrest");
+        ReaderTracking.record(event("java.lang.IO", "readln", null,
+                mirror(StringReference.class, Map.of("value", "abc")), List.of()), tracker, null);
+        assertThat(tracker.consumed()).isEqualTo("abc\n");
+    }
+
+    @Test
     void scannerLineReadConsumesTheLineTerminator() throws Exception {
         var input = object(Map.of());
         var tracker = new InputTracker("abc\nrest");

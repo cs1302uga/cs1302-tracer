@@ -13,11 +13,16 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -200,12 +205,12 @@ public final class GuestHarness {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
                         invokeMain(mainClass);
-                    } catch (InvocationTargetException ignored) {
-                        // Student failure is reported through JDI events
+                    } catch (InvocationTargetException failure) {
+                        reportStudentException(failure.getCause());
                     } catch (ReflectiveOperationException reflectiveFailure) {
                         lastHarnessFailure = reflectiveFailure.toString();
                     } catch (Throwable t) {
-                        // Handled or ignored; snapshot or exception event captured by JDI
+                        reportStudentException(t);
                     } // try
                 }, "student-main");
                 jobThread.setContextClassLoader(loader);
@@ -230,6 +235,46 @@ public final class GuestHarness {
             cleanState();
         } // try
     } // runJob
+
+    /**
+     * Prints an uncaught student failure through the counted guest error stream.
+     * Reflection and harness frames are removed from the entire exception graph;
+     * student frames, causes, suppressed exceptions, and JVM messages are retained.
+     *
+     * @param failure Exception escaping the student entry point.
+     */
+    static void reportStudentException(Throwable failure) {
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        ArrayDeque<Throwable> pending = new ArrayDeque<>();
+        pending.add(failure);
+        while (!pending.isEmpty()) {
+            Throwable current = pending.removeFirst();
+            if (!seen.add(current)) {
+                continue;
+            } // if
+            StackTraceElement[] frames = current.getStackTrace();
+            for (int i = 0; i < frames.length; i++) {
+                if (frames[i].getClassName().equals(GuestHarness.class.getName())) {
+                    int end = i;
+                    while (end > 0 && (frames[end - 1].getClassName().startsWith(
+                            "java.lang.reflect.") || frames[end - 1].getClassName().startsWith(
+                            "jdk.internal.reflect."))) {
+                        end--;
+                    } // while
+                    current.setStackTrace(Arrays.copyOf(frames, end));
+                    break;
+                } // if
+            } // for
+            if (current.getCause() != null) {
+                pending.add(current.getCause());
+            } // if
+            Collections.addAll(pending, current.getSuppressed());
+        } // while
+        PrintStream err = createForwardingPrintStream(ORIGINAL_ERR, ERR_BYTES);
+        err.print("Exception in thread \"main\" ");
+        failure.printStackTrace(err);
+        err.flush();
+    } // reportStudentException
 
     /**
      * Enumerates all active threads in the specified thread group.
