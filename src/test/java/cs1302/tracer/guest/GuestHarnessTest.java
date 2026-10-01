@@ -52,6 +52,34 @@ public class GuestHarnessTest {
     } // resetHarnessState
 
     @Test
+    void exceptionReportingPreservesStudentFramesAndHandlesCycles() {
+        StackTraceElement student = new StackTraceElement("Driver", "main", "Driver.java", 5);
+        StackTraceElement reflection = new StackTraceElement(
+                "java.lang.reflect.Method", "invoke", "Method.java", 1);
+        StackTraceElement internalReflection = new StackTraceElement(
+                "jdk.internal.reflect.DirectMethodHandleAccessor", "invoke", "Accessor.java", 1);
+        StackTraceElement harness = new StackTraceElement(
+                GuestHarness.class.getName(), "invokeMain", "GuestHarness.java", 1);
+        RuntimeException failure = new RuntimeException("outer");
+        RuntimeException cause = new RuntimeException("cause");
+        RuntimeException suppressed = new RuntimeException("suppressed");
+        failure.initCause(cause);
+        cause.initCause(failure);
+        failure.addSuppressed(suppressed);
+        failure.setStackTrace(new StackTraceElement[] {
+            student, internalReflection, reflection, harness
+        });
+        cause.setStackTrace(new StackTraceElement[] {harness});
+        suppressed.setStackTrace(new StackTraceElement[] {student});
+        GuestHarness.reportStudentException(failure);
+        assertThat(failure.getStackTrace()).containsExactly(student);
+        assertThat(cause.getStackTrace()).isEmpty();
+        assertThat(suppressed.getStackTrace()).containsExactly(student);
+        assertThat(failure.getCause()).isSameAs(cause);
+        assertThat(failure.getSuppressed()).containsExactly(suppressed);
+    } // exceptionReportingPreservesStudentFramesAndHandlesCycles
+
+    @Test
     void testPrivateConstructor() throws Exception {
         Constructor<GuestHarness> c = GuestHarness.class.getDeclaredConstructor();
         c.setAccessible(true);

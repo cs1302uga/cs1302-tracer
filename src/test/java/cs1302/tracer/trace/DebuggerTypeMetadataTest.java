@@ -100,6 +100,23 @@ class DebuggerTypeMetadataTest {
     }
 
     @Test
+    void declaredLocalTypeSurvivesAnUnresolvedReceiverType() throws Exception {
+        var resolver = new AstTypeResolver(StaticJavaParser.parse(
+                "class C { void m() { java.util.List<String> local; } }"));
+        var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
+        var local = mirror(ObjectReference.class, Map.of("referenceType", mirror(ReferenceType.class,
+                Map.of("name", "java.util.ArrayList")), "uniqueID", 1L));
+        var variable = mirror(LocalVariable.class, Map.of("name", "local"));
+        var types = new HashMap<Long, String>();
+        call("prepassVariableReference", new Class<?>[] {StackFrame.class, LocalVariable.class,
+                ObjectReference.class, String.class, String.class, int.class, Optional.class,
+                AstTypeResolver.class, Map.class}, frame("m", self), variable, local,
+                "C", "m", 1, Optional.empty(), resolver, types);
+        assertThat(types).containsEntry(1L, "java.util.ArrayList<String>");
+        assertThat(types).doesNotContainKey(2L);
+    }
+
+    @Test
     void localTypesSurviveMissingReceiverBindingsAndOptionalDeclaredNames() throws Exception {
         var resolver = new AstTypeResolver(StaticJavaParser.parse("class C<T> { void m() { T local; } }"));
         var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
