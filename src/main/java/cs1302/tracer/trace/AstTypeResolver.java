@@ -13,6 +13,7 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.ReferenceType;
@@ -44,6 +45,21 @@ import java.util.regex.Pattern;
  * </ul>
  */
 public class AstTypeResolver {
+
+    /** Source solver retained for invocation-level inference. */
+    public static final com.github.javaparser.ast.DataKey<
+            com.github.javaparser.resolution.TypeSolver> TYPE_SOLVER =
+                new com.github.javaparser.ast.DataKey<>() {};
+
+    private final InvocationTypeResolver invocationTypes;
+
+    /**
+     * Returns the source invocation resolver.
+     * @return Invocation resolver.
+     */
+    InvocationTypeResolver invocationTypes() {
+        return invocationTypes;
+    } // invocationTypes
 
     /**
      * Metadata for a class's generic type parameters, fields, and constructors.
@@ -115,6 +131,7 @@ public class AstTypeResolver {
     public AstTypeResolver(List<CompilationUnit> compilationUnits) {
         this.compilationUnits =
                 compilationUnits != null ? compilationUnits : Collections.emptyList();
+        invocationTypes = new InvocationTypeResolver(this.compilationUnits);
         indexCompilationUnits();
     } // AstTypeResolver
 
@@ -726,6 +743,54 @@ public class AstTypeResolver {
 
         return Optional.empty();
     } // resolveVariableType
+
+    /**
+     * Resolve a local against the exact active method before using legacy source metadata.
+     * @param frame Active frame.
+     * @param name Local variable name.
+     * @return Declared type, preserving lexical type variables.
+     */
+    Optional<String> resolveFrameVariableType(com.sun.jdi.StackFrame frame, String name) {
+        var method = frame.location().method();
+        var source = invocationTypes.declaration(method);
+        if (source.isEmpty()) {
+            return resolveVariableType(method.declaringType().name(), method.name(), name,
+                    frame.location().lineNumber());
+        } // if
+        var declaration = source.get();
+        List<String> parameters = new ArrayList<>();
+        getClassGenericInfo(method.declaringType().name()).ifPresent(info ->
+                parameters.addAll(info.typeParameters()));
+        declaration.getTypeParameters().forEach(tp -> parameters.add(tp.getNameAsString()));
+        int line = frame.location().lineNumber();
+        VariableDeclarator selected = null;
+        for (VariableDeclarator variable : declaration.findAll(VariableDeclarator.class)) {
+            if (!variable.getNameAsString().equals(name)
+                    || variable.stream(Node.TreeTraversal.PARENTS)
+                            .filter(com.github.javaparser.ast.body.CallableDeclaration.class
+                                    ::isInstance).findFirst()
+                            .orElse(null) != declaration
+                    || variable.getParentNode().filter(VariableDeclarationExpr.class::isInstance)
+                            .isEmpty()
+                    || variable.getRange().map(r -> r.begin.line > line).orElse(true)) {
+                continue;
+            } // if
+            var scope = variable.stream(Node.TreeTraversal.PARENTS).filter(node ->
+                    node instanceof com.github.javaparser.ast.stmt.BlockStmt
+                    || node instanceof com.github.javaparser.ast.stmt.ForStmt
+                    || node instanceof com.github.javaparser.ast.stmt.ForEachStmt).findFirst();
+            if (scope.flatMap(Node::getRange).map(r -> r.end.line >= line).orElse(false)) {
+                selected = variable;
+            } // if
+        } // for
+        if (selected != null) {
+            return Optional.of(resolveAstTypeWithParams(selected.getType(), parameters));
+        } // if
+        return declaration.getParameters().stream().filter(p -> p.getNameAsString().equals(name))
+                .map(p -> resolveAstTypeWithParams(p.getType(), parameters)
+                        + (p.isVarArgs() ? "[]" : ""))
+                .findFirst();
+    } // resolveFrameVariableType
 
     /**
      * Look up an object allocation type at a specific class and line number.

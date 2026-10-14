@@ -2186,6 +2186,8 @@ public class DebugTraceHelper {
             ClassNotLoadedException {
 
         List<StackFrame> frameList = mainThread.frames();
+        var contexts = astTypeResolver.invocationTypes()
+                .new FrameContexts(frameList, astTypeResolver, objectTypeMap);
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
             ReferenceType declaringType = frame.location().method().declaringType();
@@ -2210,6 +2212,7 @@ public class DebugTraceHelper {
                     String runtimeClass = frameThis.referenceType().name();
                     if (AstTypeResolver.rawTypeMatches(runtimeClass, rawAlloc)) {
                         objectTypeMap.putIfAbsent(frameThis.uniqueID(), candidate);
+                        contexts.receiverTypeChanged(frameThis.uniqueID());
                     } // if
                 } // if
             } // if
@@ -2224,7 +2227,8 @@ public class DebugTraceHelper {
                     currentLine,
                     allocType,
                     astTypeResolver,
-                    objectTypeMap);
+                    objectTypeMap,
+                    contexts);
 
             if (frame.thisObject() instanceof ObjectReference frameThis) {
                 if (!objectTypeMap.containsKey(frameThis.uniqueID())) {
@@ -2232,6 +2236,7 @@ public class DebugTraceHelper {
                             astTypeResolver.getClassGenericInfo(declaringClassFqn);
                     if (info.isPresent() && info.get().typeParameters().isEmpty()) {
                         objectTypeMap.put(frameThis.uniqueID(), declaringClassFqn);
+                        contexts.receiverTypeChanged(frameThis.uniqueID());
                     } // if
                 } // if
             } // if
@@ -2248,6 +2253,7 @@ public class DebugTraceHelper {
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Target object type map.
+     * @param contexts Extraction-local invocation contexts.
      * @throws AbsentInformationException On absent debug info.
      */
     private static void prepassFrameVariables(
@@ -2257,7 +2263,8 @@ public class DebugTraceHelper {
             int currentLine,
             Optional<String> allocType,
             AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap)
+            Map<Long, String> objectTypeMap,
+            InvocationTypeResolver.FrameContexts contexts)
             throws AbsentInformationException {
         List<LocalVariable> variables;
         try {
@@ -2277,7 +2284,9 @@ public class DebugTraceHelper {
                         currentLine,
                         allocType,
                         astTypeResolver,
-                        objectTypeMap);
+                        objectTypeMap,
+                        contexts.bindings(frame));
+                contexts.receiverTypeChanged(or.uniqueID());
             } // if
         } // for
     } // prepassFrameVariables
@@ -2294,6 +2303,7 @@ public class DebugTraceHelper {
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Target object type map.
+     * @param bindings Current frame's lexical bindings.
      */
     private static void prepassVariableReference(
             StackFrame frame,
@@ -2304,10 +2314,10 @@ public class DebugTraceHelper {
             int currentLine,
             Optional<String> allocType,
             AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap) {
+            Map<Long, String> objectTypeMap,
+            Map<String, String> bindings) {
         String runtimeFqn = or.referenceType().name();
-        Optional<String> varType = astTypeResolver.resolveVariableType(
-                declaringClassFqn, methodName, lv.name(), currentLine);
+        Optional<String> varType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
         String candidateType = null;
 
         if (allocType.isPresent() && allocType.get().startsWith(runtimeFqn)) {
@@ -2315,12 +2325,7 @@ public class DebugTraceHelper {
         } else {
             if (varType.isPresent()) {
                 String typeStr = varType.get();
-                if (frame.thisObject() instanceof ObjectReference frameThis
-                        && objectTypeMap.containsKey(frameThis.uniqueID())) {
-                    Map<String, String> bindings = astTypeResolver.getTypeBindings(
-                            declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
-                    typeStr = AstTypeResolver.substituteType(typeStr, bindings);
-                } // if
+                typeStr = AstTypeResolver.substituteType(typeStr, bindings);
                 candidateType = astTypeResolver.reconcileRuntimeType(runtimeFqn, typeStr);
             } else {
                 if (allocType.isPresent()) {
@@ -2356,6 +2361,7 @@ public class DebugTraceHelper {
      * @param heapReferencesToWalk Heap reference queue.
      * @param heap Heap mapping.
      * @param stackFrameFields Target list for frame fields.
+     * @param contexts Extraction-local invocation contexts.
      * @throws ClassNotLoadedException If a variable class is not loaded.
      */
     private static void processStackFrameVariables(
@@ -2370,7 +2376,8 @@ public class DebugTraceHelper {
             Map<Long, String> objectTypeMap,
             List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap,
-            List<ExecutionSnapshot.Field> stackFrameFields)
+            List<ExecutionSnapshot.Field> stackFrameFields,
+            InvocationTypeResolver.FrameContexts contexts)
             throws ClassNotLoadedException {
         for (LocalVariable lv : visibleVars) {
             TraceSession.elements(1);
@@ -2378,7 +2385,8 @@ public class DebugTraceHelper {
             Optional<String> lvLambdaImplementation =
                     findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
             String resolvedTypeName = resolveLocalVariableType(
-                    frame, lv, astTypeResolver, objectTypeMap, declaringClassFqn, methodName);
+                    frame, lv, astTypeResolver, contexts.bindings(frame),
+                    declaringClassFqn, methodName);
             appendStackField(
                     frame,
                     lv,
@@ -2390,6 +2398,9 @@ public class DebugTraceHelper {
                     heapReferencesToWalk,
                     heap,
                     stackFrameFields);
+            if (frame.getValue(lv) instanceof ObjectReference reference) {
+                contexts.receiverTypeChanged(reference.uniqueID());
+            } // if
         } // for
     } // processStackFrameVariables
 
@@ -2423,7 +2434,10 @@ public class DebugTraceHelper {
             AbsentInformationException,
             ClassNotLoadedException {
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
-        for (StackFrame frame : mainThread.frames()) {
+        List<StackFrame> frames = mainThread.frames();
+        var contexts = astTypeResolver.invocationTypes()
+                .new FrameContexts(frames, astTypeResolver, objectTypeMap);
+        for (StackFrame frame : frames) {
             Method frameMethod = frame.location().method();
             ReferenceType declaringType = frameMethod.declaringType();
             if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)
@@ -2455,7 +2469,7 @@ public class DebugTraceHelper {
             processStackFrameVariables(
                     frame, visibleVars, finalVariableNames, methodLambdaAssignments,
                     currentLine, declaringClassFqn, methodName, astTypeResolver,
-                    objectTypeMap, heapReferencesToWalk, heap, stackFrameFields);
+                    objectTypeMap, heapReferencesToWalk, heap, stackFrameFields, contexts);
             Optional<ThisObject> thisObject = resolveThisObject(
                     frame, declaringClassFqn, objectTypeMap, heapReferencesToWalk);
             String frameSourcePath = resolveFrameSourcePath(frame);
@@ -2513,7 +2527,7 @@ public class DebugTraceHelper {
      * @param frame StackFrame.
      * @param lv LocalVariable.
      * @param astTypeResolver AstTypeResolver.
-     * @param objectTypeMap Reified type map.
+     * @param bindings Current frame's lexical bindings.
      * @param declaringClassFqn Declaring class FQN.
      * @param methodName Method name.
      * @return Resolved type name string.
@@ -2522,20 +2536,14 @@ public class DebugTraceHelper {
             StackFrame frame,
             LocalVariable lv,
             AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
+            Map<String, String> bindings,
             String declaringClassFqn,
             String methodName) {
         String resolvedTypeName = lv.typeName();
-        Optional<String> astType = astTypeResolver.resolveVariableType(
-                declaringClassFqn, methodName, lv.name(), frame.location().lineNumber());
+        Optional<String> astType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
         if (astType.isPresent()) {
             String candidate = astType.get();
-            if (frame.thisObject() instanceof ObjectReference frameThis
-                    && objectTypeMap.containsKey(frameThis.uniqueID())) {
-                Map<String, String> bindings = astTypeResolver.getTypeBindings(
-                        declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
-                candidate = AstTypeResolver.substituteType(candidate, bindings);
-            } // if
+            candidate = AstTypeResolver.substituteType(candidate, bindings);
             resolvedTypeName = candidate;
         } // if
         return resolvedTypeName;
