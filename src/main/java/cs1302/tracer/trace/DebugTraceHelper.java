@@ -2306,8 +2306,7 @@ public class DebugTraceHelper {
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap) {
         String runtimeFqn = or.referenceType().name();
-        Optional<String> varType = astTypeResolver.resolveVariableType(
-                declaringClassFqn, methodName, lv.name(), currentLine);
+        Optional<String> varType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
         String candidateType = null;
 
         if (allocType.isPresent() && allocType.get().startsWith(runtimeFqn)) {
@@ -2315,12 +2314,9 @@ public class DebugTraceHelper {
         } else {
             if (varType.isPresent()) {
                 String typeStr = varType.get();
-                if (frame.thisObject() instanceof ObjectReference frameThis
-                        && objectTypeMap.containsKey(frameThis.uniqueID())) {
-                    Map<String, String> bindings = astTypeResolver.getTypeBindings(
-                            declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
-                    typeStr = AstTypeResolver.substituteType(typeStr, bindings);
-                } // if
+                typeStr = AstTypeResolver.substituteType(typeStr,
+                        astTypeResolver.invocationTypes().bindings(frame, astTypeResolver,
+                                objectTypeMap));
                 candidateType = astTypeResolver.reconcileRuntimeType(runtimeFqn, typeStr);
             } else {
                 if (allocType.isPresent()) {
@@ -2526,16 +2522,12 @@ public class DebugTraceHelper {
             String declaringClassFqn,
             String methodName) {
         String resolvedTypeName = lv.typeName();
-        Optional<String> astType = astTypeResolver.resolveVariableType(
-                declaringClassFqn, methodName, lv.name(), frame.location().lineNumber());
+        Optional<String> astType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
         if (astType.isPresent()) {
             String candidate = astType.get();
-            if (frame.thisObject() instanceof ObjectReference frameThis
-                    && objectTypeMap.containsKey(frameThis.uniqueID())) {
-                Map<String, String> bindings = astTypeResolver.getTypeBindings(
-                        declaringClassFqn, objectTypeMap.get(frameThis.uniqueID()));
-                candidate = AstTypeResolver.substituteType(candidate, bindings);
-            } // if
+            candidate = AstTypeResolver.substituteType(candidate,
+                    astTypeResolver.invocationTypes().bindings(frame, astTypeResolver,
+                            objectTypeMap));
             resolvedTypeName = candidate;
         } // if
         return resolvedTypeName;

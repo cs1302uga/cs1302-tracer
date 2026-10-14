@@ -149,11 +149,13 @@ public class App {
                 .setSymbolResolver(symbolSolver)
                 .setLanguageLevel(LanguageLevel.CURRENT);
 
-        return new com.github.javaparser.JavaParser(config)
+        CompilationUnit unit = new com.github.javaparser.JavaParser(config)
                 .parse(source)
                 .getResult()
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Failed to parse Java source with symbol solver"));
+        unit.setData(cs1302.tracer.trace.AstTypeResolver.TYPE_SOLVER, combinedTypeSolver);
+        return unit;
     } // parseSource
 
     /**

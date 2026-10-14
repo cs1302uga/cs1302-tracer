@@ -24,6 +24,30 @@ Map order does not choose the entry point. Step and frame `file` values select t
 corresponding source; line numbers are 1-based. Duplicate source paths are rejected.
 Discovered dependencies outside the submitted bundle are not included in `sources`.
 
+## Generic method variable types
+
+Stack variable labels describe source-declared types for the active invocation.
+For example, `max(T[])` called with an `Integer[]` variable displays `Integer[]`
+for its parameter and `Integer` for its `T` locals with `--type-style simple`.
+An explicit `<Number>` invocation keeps `Number` labels even when the value is
+an `Integer` or `null`. Arrays and nested parameterized local declarations use
+the same substitutions. Heap objects retain their runtime identities and classes.
+
+Resolution requires source metadata and an unambiguous caller invocation matched
+by declaring type and erased method descriptor. Explicit type arguments and
+single-argument inference from declared variables, fields, casts, or array
+accesses into a `T` or `T[]` parameter are supported. Substitutions currently
+require fully qualified concrete reference types (including parameterized types
+and arrays). Method parameters shadow class parameters, and recursive calls and
+threads have independent binding contexts.
+
+Missing source, multiple matching calls on one line, target-dependent inference,
+varargs, multi-argument inference, and unsupported capture or intersection types
+retain unresolved type variables. The tracer does not infer method bindings from
+runtime object classes. Both JSON formats use their existing type fields;
+consumers need no rendering changes, but must regenerate cached traces and images
+with the updated tracer.
+
 ## Modern format
 
 `steps` contains chronological snapshots, with `callStack`, `statics`, and `heap`.
