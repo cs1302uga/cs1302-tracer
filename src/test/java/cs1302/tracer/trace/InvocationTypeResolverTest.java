@@ -78,8 +78,10 @@ class InvocationTypeResolverTest {
         var resolver = new AstTypeResolver(unit);
         var caller = frame(method("Main", "run", "(Ljava/lang/Object;)V"), 2, Map.of());
         var callee = method("Main", "helper", "(Ljava/lang/Object;)V");
-        assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of("U", "U"))).isEmpty();
-        assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of("U", "java.lang.Number")))
+        String key = unit.findAll(com.github.javaparser.ast.body.MethodDeclaration.class).get(1)
+                .resolve().getTypeParameters().getFirst().getQualifiedName();
+        assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of(key, "U"))).isEmpty();
+        assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of(key, "java.lang.Number")))
                 .containsEntry("T", "java.lang.Number");
         unit.removeData(AstTypeResolver.TYPE_SOLVER);
         assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of())).isEmpty();
@@ -160,7 +162,9 @@ class InvocationTypeResolverTest {
         }
         var unit = App.parseSource("class Main { static <T> void helper(T x) {} <U> void run(U x) { Main.<U>helper(x); } }", Optional.empty());
         var call = unit.findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class).orElseThrow();
-        assertThat((Map<?, ?>) infer.invoke(null, call, Map.of("U", ""))).isEmpty();
+        String key = call.getTypeArguments().orElseThrow().get(0).resolve()
+                .asTypeVariable().asTypeParameter().getQualifiedName();
+        assertThat((Map<?, ?>) infer.invoke(null, call, Map.of(key, ""))).isEmpty();
         unit = App.parseSource("class Main { static <T> void helper(T x) {} <U> void run() { Main.<java.util.List<U>>helper(null); } }", Optional.empty());
         call = unit.findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class).orElseThrow();
         assertThat((Map<?, ?>) infer.invoke(null, call, Map.of())).isEmpty();
@@ -185,5 +189,65 @@ class InvocationTypeResolverTest {
         assertThat(resolver.resolveFrameVariableType(frame, "local")).contains("T");
         assertThat(resolver.resolveFrameVariableType(
                 frame(method("Main", "helper", "(Ljava/lang/Object;)V"), 10, Map.of()), "local")).isEmpty();
+    }
+
+    @Test
+    void contextsAreReusedAcrossLocalsAndRebuiltOnlyForChangedReceivers() {
+        var resolver = resolver("""
+                class Main<T> {
+                    T field;
+                    <U> void helper(U item) {
+                        this.<U>helper(item);
+                    }
+                    <T> void forward(T item) {
+                        helper(this.field);
+                    }
+                }
+                """);
+        var receiver = mirror(ObjectReference.class, Map.of("uniqueID", 1L));
+        var frames = new ArrayList<StackFrame>();
+        for (int i = 0; i < 30; i++) {
+            frames.add(frame(method("Main", "helper", "(Ljava/lang/Object;)V"),
+                    4, Map.of("thisObject", receiver)));
+        }
+        frames.add(frame(method("Main", "forward", "(Ljava/lang/Object;)V"),
+                7, Map.of("thisObject", receiver)));
+        var objectTypes = new HashMap<Long, String>(Map.of(1L, "Main<java.lang.String>"));
+        var contexts = resolver.invocationTypes().new FrameContexts(frames, resolver, objectTypes);
+        var bindings = contexts.bindings(frames.getFirst());
+        assertThat(bindings).containsEntry("U", "java.lang.String");
+        for (StackFrame frame : frames) {
+            var cached = contexts.bindings(frame);
+            for (int local = 0; local < 20; local++) {
+                assertThat(contexts.bindings(frame)).isSameAs(cached);
+            }
+        }
+        objectTypes.put(2L, "Main<java.lang.Number>");
+        contexts.receiverTypeChanged(2L);
+        assertThat(contexts.bindings(frames.getFirst())).isSameAs(bindings);
+        contexts.receiverTypeChanged(1L);
+        assertThat(contexts.bindings(frames.getFirst())).isSameAs(bindings);
+        objectTypes.put(1L, "Main<java.lang.Number>");
+        contexts.receiverTypeChanged(1L);
+        assertThat(contexts.bindings(frames.getFirst()))
+                .isNotSameAs(bindings).containsEntry("U", "java.lang.Number");
+        var separate = resolver.invocationTypes().new FrameContexts(frames, resolver,
+                Map.of(1L, "Main<java.lang.String>"));
+        assertThat(separate.bindings(frames.getFirst()))
+                .isNotSameAs(bindings).containsEntry("U", "java.lang.String");
+    }
+
+    @Test
+    void barePrimitivesAreNotConcreteMethodBindings() {
+        var resolver = resolver("""
+                class Main {
+                    static <T> void helper(T item) {}
+                    void run() { int item = 1; helper(item); }
+                }
+                """);
+        assertThat(resolver.invocationTypes().invocationBindings(
+                frame(method("Main", "run", "()V"), 3, Map.of()),
+                method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of()))
+                .doesNotContainValue("int");
     }
 }

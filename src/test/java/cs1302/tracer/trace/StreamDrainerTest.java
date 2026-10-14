@@ -64,7 +64,8 @@ public class StreamDrainerTest {
     try (StreamDrainer drainer = new StreamDrainer(pis)) {
       pos.write(data);
       pos.close();
-      drainer.sync();
+      drainer.waitForEof(5000);
+      assertThat(drainer.isEof()).isTrue();
 
       assertThat(drainer.startsWith(0, 5, "hello".getBytes(StandardCharsets.UTF_8))).isTrue();
       assertThat(drainer.startsWith(0, 5, null)).isTrue();

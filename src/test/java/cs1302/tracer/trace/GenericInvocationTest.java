@@ -184,6 +184,92 @@ class GenericInvocationTest {
     }
 
     @Test
+    void constructorCallersUseDescriptorsAndSuspendedSourceLines() throws Exception {
+        String source = """
+                public class Main {
+                    public static void main(String[] args) {
+                        new Main();
+                        new Main(1);
+                    }
+                    Main() {
+                        Main.<Number>helper(1); helper("overload");
+                        Main.<CharSequence>helper(new StringBuilder());
+                    }
+                    Main(int ignored) {
+                        Main.<Integer>helper(1);
+                    }
+                    static <T> void helper(T item) {
+                        T local = null;
+                        System.out.println(item); // capture
+                    }
+                    static void helper(String item) {}
+                }
+                """;
+        var snapshots = capture(source);
+        assertThat(types(snapshots, "helper", "item"))
+                .containsExactly("java.lang.Number", "java.lang.CharSequence", "java.lang.Integer");
+        assertThat(types(snapshots, "helper", "local"))
+                .containsExactly("java.lang.Number", "java.lang.CharSequence", "java.lang.Integer");
+    }
+
+    @Test
+    void shadowedClassFieldsAndMethodArgumentsKeepTheirDeclaringIdentity() throws Exception {
+        String source = """
+                public class Main<T> {
+                    T value;
+                    java.util.List<T[]> values;
+                    public static void main(String[] args) {
+                        Main<String> receiver = new Main<>();
+                        receiver.<Number>forward(1);
+                    }
+                    <T> void forward(T item) {
+                        consume(this.value);
+                        consume(item);
+                        consume(this.values);
+                    }
+                    <U> void consume(U value) {
+                        U local = null;
+                        System.out.println(value); // capture
+                    }
+                }
+                """;
+        var snapshots = capture(source);
+        assertThat(types(snapshots, "consume", "value"))
+                .containsExactly("java.lang.String", "java.lang.Number",
+                        "java.util.List<java.lang.String[]>");
+        assertThat(types(snapshots, "consume", "local"))
+                .containsExactly("java.lang.String", "java.lang.Number",
+                        "java.util.List<java.lang.String[]>");
+    }
+
+    @Test
+    void concreteDefaultPackageAndPrimitiveArrayBindingsArePreserved() throws Exception {
+        String source = """
+                public class Main {
+                    public static void main(String[] args) {
+                        Main.<Person>helper(null);
+                        Main.<int[]>helper(null);
+                        Main.<java.util.List<int[]>>helper(null);
+                        int[] numbers = {1};
+                        helper(numbers);
+                        int[][] nested = {{1}};
+                        helper(nested);
+                    }
+                    static <T> void helper(T item) {
+                        T local = null;
+                        System.out.println(item); // capture
+                    }
+                }
+                class Person {}
+                """;
+        var snapshots = capture(source);
+        assertThat(types(snapshots, "helper", "item"))
+                .containsExactly("Person", "int[]", "java.util.List<int[]>", "int[]", "int[][]");
+        assertThat(types(snapshots, "helper", "local"))
+                .containsExactly("Person", "int[]", "java.util.List<int[]>", "int[]", "int[][]");
+    }
+
+    @Test
     void concurrentThreadsKeepDeclaredTypesIndependent() throws Exception {
         String source = """
                 public class Main {

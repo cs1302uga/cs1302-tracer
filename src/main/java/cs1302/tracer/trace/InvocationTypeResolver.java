@@ -1,9 +1,13 @@
 package cs1302.tracer.trace;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.CallableDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
+import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.sun.jdi.IncompatibleThreadStateException;
 import com.sun.jdi.Method;
@@ -13,13 +17,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 
 /**
  * Reconstructs source invocation bindings without inspecting argument values.
  * Contexts are rebuilt from suspended frames; no bindings survive a snapshot or job.
  */
 final class InvocationTypeResolver {
-    private final Map<String, Optional<MethodDeclaration>> methods = new HashMap<>();
+    private final Map<String, Optional<CallableDeclaration<?>>> methods = new HashMap<>();
 
     /**
      * Index source methods.
@@ -28,11 +33,13 @@ final class InvocationTypeResolver {
     InvocationTypeResolver(List<CompilationUnit> units) {
         for (CompilationUnit unit : units) {
             if (unit != null) {
-                for (MethodDeclaration method : unit.findAll(MethodDeclaration.class)) {
+                for (var node : unit.findAll(CallableDeclaration.class)) {
+                    CallableDeclaration<?> method = node;
                     try {
-                        var resolved = method.resolve();
+                        var resolved = resolve(method);
                         String key = resolved.declaringType().getQualifiedName() + "#"
-                                + resolved.getName() + descriptor(resolved);
+                                + (method instanceof ConstructorDeclaration ? "<init>"
+                                        : resolved.getName()) + descriptor(resolved);
                         methods.merge(key, Optional.of(method), (left, right) -> Optional.empty());
                     } catch (RuntimeException ignored) {
                         // Missing dependencies preserve the existing unresolved metadata.
@@ -47,11 +54,21 @@ final class InvocationTypeResolver {
      * @param method Active JVM method.
      * @return Unique source method, if available.
      */
-    Optional<MethodDeclaration> declaration(Method method) {
+    Optional<CallableDeclaration<?>> declaration(Method method) {
         String key = method.declaringType().name().replace('$', '.') + "#"
                 + method.name() + method.signature();
         return methods.getOrDefault(key, Optional.empty());
     } // declaration
+
+    /**
+     * Resolve either kind of source callable.
+     * @param declaration Source callable.
+     * @return Resolved method or constructor.
+     */
+    private static ResolvedMethodLikeDeclaration resolve(CallableDeclaration<?> declaration) {
+        return declaration instanceof MethodDeclaration method ? method.resolve()
+                : ((ConstructorDeclaration) declaration).resolve();
+    } // resolve
 
     /**
      * Compare source and JVM method identities.
@@ -70,13 +87,14 @@ final class InvocationTypeResolver {
      * @param method Source method.
      * @return Erased JVM descriptor.
      */
-    private static String descriptor(ResolvedMethodDeclaration method) {
+    private static String descriptor(ResolvedMethodLikeDeclaration method) {
         StringBuilder result = new StringBuilder("(");
         for (int i = 0; i < method.getNumberOfParams(); i++) {
             var parameter = method.getParam(i);
             result.append(parameter.getType().erasure().toDescriptor());
         } // for
-        return result.append(')').append(method.getReturnType().erasure().toDescriptor())
+        return result.append(')').append(method instanceof ResolvedMethodDeclaration declaration
+                        ? declaration.getReturnType().erasure().toDescriptor() : "V")
                 .toString();
     } // descriptor
 
@@ -89,37 +107,120 @@ final class InvocationTypeResolver {
      */
     Map<String, String> bindings(StackFrame target, AstTypeResolver resolver,
             Map<Long, String> objectTypes) {
-        Map<String, String> fallback = receiverBindings(target, resolver, objectTypes);
-        declaration(target.location().method()).ifPresent(method ->
-                method.getTypeParameters().forEach(tp ->
-                        fallback.put(tp.getNameAsString(), tp.getNameAsString())));
-        var targetMethod = declaration(target.location().method());
-        if (targetMethod.isEmpty() || targetMethod.get().getTypeParameters().isEmpty()) {
-            return fallback;
-        } // if
         try {
-            List<StackFrame> frames = target.thread().frames();
-            int targetIndex = frames.indexOf(target);
-            Map<String, String> callerBindings = Map.of();
-            for (int i = frames.size() - 1; i >= targetIndex && targetIndex >= 0; i--) {
-                StackFrame frame = frames.get(i);
-                Map<String, String> current = receiverBindings(frame, resolver, objectTypes);
-                Optional<MethodDeclaration> method = declaration(frame.location().method());
-                if (method.isPresent()) {
-                    method.get().getTypeParameters().forEach(tp ->
-                            current.put(tp.getNameAsString(), tp.getNameAsString()));
-                    if (i + 1 < frames.size() && !method.get().getTypeParameters().isEmpty()) {
-                        current.putAll(invocationBindings(frames.get(i + 1),
-                                frame.location().method(), callerBindings));
-                    } // if
-                } // if
-                callerBindings = current;
-            } // for
-            return targetIndex >= 0 ? callerBindings : fallback;
+            return new FrameContexts(target.thread().frames(), resolver, objectTypes)
+                    .bindings(target);
         } catch (IncompatibleThreadStateException | RuntimeException ignored) {
-            return fallback;
+            return lexicalBindings(target, resolver, objectTypes);
         } // try
     } // bindings
+
+    /**
+     * Mask receiver parameters shadowed by the active callable.
+     * @param frame Suspended frame.
+     * @param resolver Class resolver.
+     * @param objectTypes Receiver metadata.
+     * @return Lexical fallback bindings.
+     */
+    private Map<String, String> lexicalBindings(StackFrame frame, AstTypeResolver resolver,
+            Map<Long, String> objectTypes) {
+        Map<String, String> result = receiverBindings(frame, resolver, objectTypes);
+        declaration(frame.location().method()).ifPresent(method ->
+                method.getTypeParameters().forEach(tp ->
+                        result.put(tp.getNameAsString(), tp.getNameAsString())));
+        return result;
+    } // lexicalBindings
+
+    /**
+     * Binding cache owned by one suspended thread's extraction phase, never by the source index.
+     */
+    final class FrameContexts {
+        private final List<StackFrame> frames;
+        private final AstTypeResolver resolver;
+        private final Map<Long, String> objectTypes;
+        private final Map<Long, String> receiverTypes = new HashMap<>();
+        private final Map<StackFrame, Map<String, String>> lexical = new HashMap<>();
+        private final Map<StackFrame, Map<String, String>> qualified = new HashMap<>();
+        private int next;
+
+        /**
+         * Create an extraction-local cache.
+         * @param frames Suspended frames, newest first.
+         * @param resolver Class resolver.
+         * @param objectTypes Mutable receiver metadata.
+         */
+        FrameContexts(List<StackFrame> frames, AstTypeResolver resolver,
+                Map<Long, String> objectTypes) {
+            this.frames = frames;
+            this.resolver = resolver;
+            this.objectTypes = objectTypes;
+            this.next = frames.size() - 1;
+            for (StackFrame frame : frames) {
+                if (frame.thisObject() != null) {
+                    long id = frame.thisObject().uniqueID();
+                    receiverTypes.put(id, objectTypes.get(id));
+                } // if
+            } // for
+        } // FrameContexts
+
+        /**
+         * Invalidate dependent contexts after receiver metadata changes.
+         * @param id Object whose metadata may have changed.
+         */
+        void receiverTypeChanged(long id) {
+            if (receiverTypes.containsKey(id)
+                    && !Objects.equals(receiverTypes.get(id), objectTypes.get(id))) {
+                receiverTypes.put(id, objectTypes.get(id));
+                lexical.clear();
+                qualified.clear();
+                next = frames.size() - 1;
+            } // if
+        } // receiverTypeChanged
+
+        /**
+         * Reuse contexts, computing callers before their callees.
+         * @param target Suspended target frame.
+         * @return Target lexical bindings.
+         */
+        Map<String, String> bindings(StackFrame target) {
+            if (lexical.containsKey(target)) {
+                return lexical.get(target);
+            } // if
+            int index = frames.indexOf(target);
+            if (index < 0) {
+                return lexicalBindings(target, resolver, objectTypes);
+            } // if
+            while (next >= index) {
+                int i = next--;
+                StackFrame frame = frames.get(i);
+                Map<String, String> current = lexicalBindings(frame, resolver, objectTypes);
+                Map<String, String> identities = new HashMap<>();
+                try {
+                    var source = declaration(frame.location().method());
+                    if (source.isPresent()) {
+                        var resolved = resolve(source.get());
+                        var receiver = receiverBindings(frame, resolver, objectTypes);
+                        resolved.declaringType().getTypeParameters().forEach(tp -> {
+                            if (receiver.containsKey(tp.getName())) {
+                                identities.put(tp.getQualifiedName(), receiver.get(tp.getName()));
+                            } // if
+                        });
+                        if (i + 1 < frames.size() && !resolved.getTypeParameters().isEmpty()) {
+                            current.putAll(invocationBindings(frames.get(i + 1),
+                                    frame.location().method(), qualified.get(frames.get(i + 1))));
+                        } // if
+                        resolved.getTypeParameters().forEach(tp ->
+                                identities.put(tp.getQualifiedName(), current.get(tp.getName())));
+                    } // if
+                } catch (RuntimeException ignored) {
+                    // Incomplete source metadata retains lexical fallback types.
+                } // try
+                lexical.put(frame, current);
+                qualified.put(frame, identities);
+            } // while
+            return lexical.get(target);
+        } // bindings
+    } // FrameContexts
 
     /**
      * Obtain class bindings separately from method bindings.
@@ -145,12 +246,12 @@ final class InvocationTypeResolver {
      * Resolve only a unique source call on the caller's suspended line.
      * @param caller Caller frame.
      * @param callee Active callee method.
-     * @param callerBindings Caller lexical bindings.
+     * @param callerBindings Caller bindings keyed by type-parameter declaring identity.
      * @return Supported source-level substitutions, or an empty map.
      */
     Map<String, String> invocationBindings(StackFrame caller, Method callee,
             Map<String, String> callerBindings) {
-        Optional<MethodDeclaration> enclosing = declaration(caller.location().method());
+        Optional<CallableDeclaration<?>> enclosing = declaration(caller.location().method());
         if (enclosing.isEmpty()) {
             return Map.of();
         } // if
@@ -178,7 +279,7 @@ final class InvocationTypeResolver {
     /**
      * Ask the source solver for substitutions within the supported inference subset.
      * @param call Unique invocation.
-     * @param callerBindings Caller lexical substitutions.
+     * @param callerBindings Caller substitutions keyed by type-parameter declaring identity.
      * @return Concrete substitutions; uncertain variables retain their original names.
      */
     private static Map<String, String> infer(MethodCallExpr call,
@@ -192,8 +293,10 @@ final class InvocationTypeResolver {
                     return Map.of();
                 } // if
                 for (int i = 0; i < args.size(); i++) {
-                    result.put(declaration.getTypeParameters().get(i).getName(),
-                            args.get(i).resolve().describe());
+                    var type = concreteType(args.get(i).resolve(), callerBindings, call, false);
+                    if (type.isPresent()) {
+                        result.put(declaration.getTypeParameters().get(i).getName(), type.get());
+                    } // if
                 } // for
             } else {
                 // Restrict inference to one non-poly argument and T or T[] formals.
@@ -220,12 +323,10 @@ final class InvocationTypeResolver {
                         .solveMethodAsUsage(call);
                 for (var parameter : declaration.getTypeParameters()) {
                     usage.typeParametersMap().getValueBySignature(parameter.getQualifiedName())
-                            .ifPresent(type -> result.put(parameter.getName(), type.describe()));
+                            .flatMap(type -> concreteType(type, callerBindings, call, false))
+                            .ifPresent(type -> result.put(parameter.getName(), type));
                 } // for
             } // if
-            result.replaceAll((name, type) -> AstTypeResolver.substituteType(type, callerBindings));
-            // Do not promote unbound caller variables or solver capture/intersection labels.
-            result.entrySet().removeIf(entry -> !isConcrete(entry.getValue()));
             return result;
         } catch (RuntimeException ignored) {
             return Map.of();
@@ -234,12 +335,46 @@ final class InvocationTypeResolver {
 
     /**
      * Check that a solver result has a representable, concrete reference type.
-     * @param type Solver type description.
-     * @return Whether the substitution can safely be displayed.
+     * @param type Solver type, retaining type-parameter declaring identity.
+     * @param bindings Qualified caller substitutions.
+     * @param call Source context for resolving receiver metadata.
+     * @param arrayComponent Whether a primitive component is permitted.
+     * @return A concrete display type, if supported.
      */
-    private static boolean isConcrete(String type) {
-        String remainder = type.replaceAll(
-                "[a-zA-Z_$][\\w$]*(\\.[a-zA-Z_$][\\w$]*)+", "");
-        return !remainder.equals(type) && remainder.matches("[<>,\\[\\] ]*");
-    } // isConcrete
+    private static Optional<String> concreteType(ResolvedType type, Map<String, String> bindings,
+            MethodCallExpr call, boolean arrayComponent) {
+        if (type.isArray()) {
+            return concreteType(type.asArrayType().getComponentType(), bindings, call, true)
+                    .map(component -> component + "[]");
+        } // if
+        if (type.isPrimitive()) {
+            return arrayComponent ? Optional.of(type.describe()) : Optional.empty();
+        } // if
+        if (type.isTypeVariable()) {
+            String binding = bindings.get(
+                    type.asTypeVariable().asTypeParameter().getQualifiedName());
+            if (binding == null || binding.isBlank()) {
+                return Optional.empty();
+            } // if
+            var unit = call.findCompilationUnit().orElseThrow();
+            var resolved = JavaParserFacade.get(unit.getData(AstTypeResolver.TYPE_SOLVER))
+                    .convert(com.github.javaparser.StaticJavaParser.parseType(binding), call);
+            return concreteType(resolved, Map.of(), call, arrayComponent);
+        } // if
+        if (!type.isReferenceType()
+                || type.asReferenceType().getTypeDeclaration().isEmpty()) {
+            return Optional.empty();
+        } // if
+        var reference = type.asReferenceType();
+        List<String> arguments = new ArrayList<>();
+        for (ResolvedType argument : reference.typeParametersValues()) {
+            var concrete = concreteType(argument, bindings, call, false);
+            if (concrete.isEmpty()) {
+                return Optional.empty();
+            } // if
+            arguments.add(concrete.get());
+        } // for
+        return Optional.of(reference.getQualifiedName()
+                + (arguments.isEmpty() ? "" : "<" + String.join(", ", arguments) + ">"));
+    } // concreteType
 } // InvocationTypeResolver

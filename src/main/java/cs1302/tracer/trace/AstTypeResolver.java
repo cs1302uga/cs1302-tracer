@@ -757,7 +757,7 @@ public class AstTypeResolver {
             return resolveVariableType(method.declaringType().name(), method.name(), name,
                     frame.location().lineNumber());
         } // if
-        MethodDeclaration declaration = source.get();
+        var declaration = source.get();
         List<String> parameters = new ArrayList<>();
         getClassGenericInfo(method.declaringType().name()).ifPresent(info ->
                 parameters.addAll(info.typeParameters()));
@@ -767,7 +767,8 @@ public class AstTypeResolver {
         for (VariableDeclarator variable : declaration.findAll(VariableDeclarator.class)) {
             if (!variable.getNameAsString().equals(name)
                     || variable.stream(Node.TreeTraversal.PARENTS)
-                            .filter(MethodDeclaration.class::isInstance).findFirst()
+                            .filter(com.github.javaparser.ast.body.CallableDeclaration.class
+                                    ::isInstance).findFirst()
                             .orElse(null) != declaration
                     || variable.getParentNode().filter(VariableDeclarationExpr.class::isInstance)
                             .isEmpty()
