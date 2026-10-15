@@ -1,0 +1,278 @@
+{
+  "baselineCommit": "fd2eb80af42909e9ea01a4d53f75da1924be556f",
+  "completedCases": [
+    {
+      "case": "variable control",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 558016500,
+      "prototype100Nanos": 7321500,
+      "current100Nanos": 28867209,
+      "current": {
+        "T": "java.lang.String"
+      }
+    },
+    {
+      "case": "declared supertype control",
+      "javac": "java.lang.Number",
+      "prototype": {
+        "T": "java.lang.Number"
+      },
+      "currentCompileAndTraceNanos": 129547375,
+      "prototype100Nanos": 2979750,
+      "current100Nanos": 12702250,
+      "current": {
+        "T": "java.lang.Number"
+      }
+    },
+    {
+      "case": "explicit wider control",
+      "javac": "java.lang.Number",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 117593541,
+      "prototype100Nanos": 4366917,
+      "current100Nanos": 13119750,
+      "current": {
+        "T": "java.lang.Number"
+      }
+    },
+    {
+      "case": "literal",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 117368250,
+      "prototype100Nanos": 2180834,
+      "current100Nanos": 5562750,
+      "current": {
+        "T": "java.lang.String"
+      }
+    },
+    {
+      "case": "creation",
+      "javac": "Main.Person",
+      "prototype": {
+        "T": "Main.Person"
+      },
+      "currentCompileAndTraceNanos": 108756000,
+      "prototype100Nanos": 2971000,
+      "current100Nanos": 5134584,
+      "current": {
+        "T": "Main.Person"
+      }
+    },
+    {
+      "case": "non generic call",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 115077208,
+      "prototype100Nanos": 29391375,
+      "current100Nanos": 29324708,
+      "current": {
+        "T": "java.lang.String"
+      }
+    },
+    {
+      "case": "boxing deferred",
+      "javac": "java.lang.Integer",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 114298625,
+      "prototype100Nanos": 2292042,
+      "current100Nanos": 5248250,
+      "current": {}
+    },
+    {
+      "case": "parameterized",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 119431333,
+      "prototype100Nanos": 12061208,
+      "current100Nanos": 19359708,
+      "current": {}
+    },
+    {
+      "case": "nested parameterized",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 115362834,
+      "prototype100Nanos": 11916083,
+      "current100Nanos": 15982292,
+      "current": {}
+    },
+    {
+      "case": "parameterized array",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 117761333,
+      "prototype100Nanos": 9755416,
+      "current100Nanos": 10137250,
+      "current": {}
+    },
+    {
+      "case": "inherited parameterization deferred",
+      "javac": "java.lang.String",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 96305625,
+      "prototype100Nanos": 19932375,
+      "current100Nanos": 47329209,
+      "current": {}
+    },
+    {
+      "case": "consistent arguments",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 99169875,
+      "prototype100Nanos": 1971417,
+      "current100Nanos": 2690500,
+      "current": {}
+    },
+    {
+      "case": "conflicting arguments",
+      "javac": "java.lang.Object",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 107943333,
+      "prototype100Nanos": 1581333,
+      "current100Nanos": 2769667,
+      "current": {}
+    },
+    {
+      "case": "mixed constraints",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 109594083,
+      "prototype100Nanos": 6688125,
+      "current100Nanos": 8029083,
+      "current": {}
+    },
+    {
+      "case": "fixed varargs",
+      "javac": "java.lang.String",
+      "prototype": {
+        "T": "java.lang.String"
+      },
+      "currentCompileAndTraceNanos": 102099416,
+      "prototype100Nanos": 1705167,
+      "current100Nanos": 3311542,
+      "current": {}
+    },
+    {
+      "case": "expanded varargs",
+      "javac": "java.lang.String",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 106192709,
+      "prototype100Nanos": 1262917,
+      "current100Nanos": 3075833,
+      "current": {}
+    },
+    {
+      "case": "primitive array control",
+      "javac": "int[]",
+      "prototype": {
+        "T": "int[]"
+      },
+      "currentCompileAndTraceNanos": 109458042,
+      "prototype100Nanos": 1354458,
+      "current100Nanos": 5378125,
+      "current": {
+        "T": "int[]"
+      }
+    },
+    {
+      "case": "primitive array varargs",
+      "javac": "int[]",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 242559458,
+      "prototype100Nanos": 19369000,
+      "current100Nanos": 13935375,
+      "current": {}
+    },
+    {
+      "case": "target typing",
+      "javac": "java.lang.String",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 96837791,
+      "prototype100Nanos": 963333,
+      "current100Nanos": 2052250,
+      "current": {}
+    },
+    {
+      "case": "null target",
+      "javac": "java.lang.String",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 99746500,
+      "prototype100Nanos": 895917,
+      "current100Nanos": 2313959,
+      "current": {}
+    },
+    {
+      "case": "wildcard containing",
+      "javac": "java.util.List\u003ccapture#374 of ? extends java.lang.Number\u003e",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 115136791,
+      "prototype100Nanos": 1089541,
+      "current100Nanos": 9737834,
+      "current": {}
+    },
+    {
+      "case": "capture",
+      "javac": "capture#963 of ? extends java.lang.Number",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 110194750,
+      "prototype100Nanos": 3824250,
+      "current100Nanos": 6284834,
+      "current": {}
+    },
+    {
+      "case": "intersection",
+      "javac": "java.lang.Object\u0026java.lang.Runnable\u0026java.io.Serializable",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 166651333,
+      "prototype100Nanos": 3776416,
+      "current100Nanos": 3968416,
+      "current": {}
+    },
+    {
+      "case": "raw parameterized",
+      "javac": "java.lang.Object",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 94057750,
+      "prototype100Nanos": 2213500,
+      "current100Nanos": 3752500,
+      "current": {}
+    },
+    {
+      "case": "nested generic call",
+      "javac": "java.util.List\u003cjava.lang.Object\u003e",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 102007792,
+      "prototype100Nanos": 3261542,
+      "current100Nanos": 5612834,
+      "current": {}
+    },
+    {
+      "case": "diamond creation",
+      "javac": "java.util.ArrayList\u003cjava.lang.Object\u003e",
+      "prototype": {},
+      "currentCompileAndTraceNanos": 101580542,
+      "prototype100Nanos": 782959,
+      "current100Nanos": 1989708,
+      "current": {}
+    }
+  ],
+  "java": "21.0.12.1"
+}

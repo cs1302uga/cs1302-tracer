@@ -271,6 +271,15 @@ class GenericInvocationTest {
 
     @Test
     void concurrentThreadsKeepDeclaredTypesIndependent() throws Exception {
+        verifyThreadBindings(false);
+    }
+
+    @Test
+    void concurrentThreadsKeepExpressionTypesIndependent() throws Exception {
+        verifyThreadBindings(true);
+    }
+
+    private void verifyThreadBindings(boolean expressions) throws Exception {
         String source = """
                 public class Main {
                     static class Numbers extends Thread {
@@ -299,6 +308,13 @@ class GenericInvocationTest {
                     }
                 }
                 """;
+        if (expressions) {
+            source = source.replace("Number value = Integer.valueOf(7);\n            helper(value);",
+                            "helper(number());")
+                    .replace("String value = \"word\";\n            helper(value);", "helper(\"word\");")
+                    .replace("static <T> void helper", "static Number number() { return 7; }\n    static <T> void helper");
+            assertThat(source).doesNotContain("helper(value)");
+        }
         try (var session = new cs1302.tracer.execution.TraceSession(
                 cs1302.tracer.execution.TraceLimits.instructorDefaults(),
                 cs1302.tracer.execution.InspectionPolicy.FIELDS, true);
@@ -335,6 +351,15 @@ class GenericInvocationTest {
 
     @Test
     void persistentBatchJobsDoNotReuseMethodBindings() throws Exception {
+        verifyBatchBindings(false);
+    }
+
+    @Test
+    void persistentBatchJobsDoNotReuseExpressionBindings() throws Exception {
+        verifyBatchBindings(true);
+    }
+
+    private void verifyBatchBindings(boolean expressions) throws Exception {
         var requests = new StringBuilder();
         for (String type : List.of("Number", "String")) {
             String source = """
@@ -347,6 +372,11 @@ class GenericInvocationTest {
                         }
                     }
                     """.formatted(type);
+            if (expressions) {
+                source = source.replace("Main.<" + type + ">helper(null);",
+                                type.equals("Number") ? "helper(number());" : "helper(\"word\");")
+                        .replace("static <T> void helper", "static Number number() { return 7; }\n    static <T> void helper");
+            }
             var request = new com.google.gson.JsonObject();
             request.addProperty("id", type);
             request.addProperty("source", source);
@@ -378,5 +408,26 @@ class GenericInvocationTest {
             }
             assertThat(types).isNotEmpty().containsOnly(i == 0 ? "java.lang.Number" : "java.lang.String");
         }
+    }
+
+    @Test
+    void expressionBindingsSurviveForwardingAndRecursiveFrames() throws Exception {
+        String source = """
+                public class Main {
+                    static boolean nested;
+                    static class Person {}
+                    public static void main(String[] args) { forward("root"); }
+                    static <U> void forward(U item) { recur(item); }
+                    static <T> void recur(T item) {
+                        if (!nested) { nested = true; recur(new Person()); }
+                        T local = null;
+                        System.out.println(local); // capture
+                    }
+                }
+                """;
+        var snapshots = capture(source);
+        assertThat(types(snapshots, "recur", "local"))
+                .contains("java.lang.String", "Main.Person").doesNotContain("T", "U");
+        assertThat(types(snapshots, "forward", "item")).containsOnly("java.lang.String");
     }
 }

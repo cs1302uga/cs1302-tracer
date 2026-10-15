@@ -56,7 +56,7 @@ class InvocationTypeResolverTest {
 
     @Test
     void unsupportedCallFormsDoNotGuessBindings() {
-        for (String statement : List.of("helper(null);", "helper(1, 2);", "helper(new Object());")) {
+        for (String statement : List.of("helper(null);", "helper(1, 2);", "helper(new Object() {});")) {
             String declaration = statement.contains("1, 2")
                     ? "static <T> void helper(T x, T y) {}" : "static <T> void helper(T x) {}";
             var resolver = resolver("class Main { " + declaration + "\n void run() { " + statement + " } }");
@@ -250,4 +250,29 @@ class InvocationTypeResolverTest {
                 method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of()))
                 .doesNotContainValue("int");
     }
+    @Test
+    void expressionInferenceRequiresRetainedSolverMetadata() {
+        var unit = App.parseSource("class Main { static <T> void helper(T x) {}\n"
+                + "static void main(String[] args) { helper(\"word\"); } }", Optional.empty());
+        var resolver = new AstTypeResolver(unit).invocationTypes();
+        var caller = frame(method("Main", "main", "([Ljava/lang/String;)V"), 2, Map.of());
+        var callee = method("Main", "helper", "(Ljava/lang/Object;)V");
+        assertThat(resolver.invocationBindings(caller, callee, Map.of()))
+                .containsExactlyEntriesOf(Map.of("T", "java.lang.String"));
+        unit.removeData(AstTypeResolver.TYPE_SOLVER);
+        assertThat(resolver.invocationBindings(caller, callee, Map.of())).isEmpty();
+    }
+
+    @Test
+    void lostSolverDuringFrameExtractionRetainsLexicalBindings() {
+        var unit = App.parseSource("class Main { <T> void helper(T item) {} }", Optional.empty());
+        var resolver = new AstTypeResolver(unit);
+        var callee = method("Main", "helper", "(Ljava/lang/Object;)V");
+        assertThat(resolver.invocationTypes().declaration(callee)).isPresent();
+        unit.removeData(com.github.javaparser.ast.Node.SYMBOL_RESOLVER_KEY);
+        var target = frame(callee, 1, Map.of());
+        var contexts = resolver.invocationTypes().new FrameContexts(List.of(target), resolver, Map.of());
+        assertThat(contexts.bindings(target)).containsExactlyEntriesOf(Map.of("T", "T"));
+    }
+
 }
