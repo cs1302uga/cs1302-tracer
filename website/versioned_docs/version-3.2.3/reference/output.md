@@ -43,12 +43,14 @@ class parameters, and recursive calls and threads have independent binding conte
 
 In the development version, a method with exactly one unbounded type parameter
 and one parameter of that type, such as `<T> void helper(T item)`, also supports
-string literals, explicit object creation, and non-generic method results. For
+string literals, explicit object creation, and non-generic method results when
+the invocation is a standalone expression statement (no target type). For
 example, `helper("hello")` labels `T` locals as `String`, while `helper(number())`
 labels them as `Number` when `number()` declares that return type, even if it
 returns an `Integer`. This additional subset excludes boxing, raw types, diamond
 or anonymous construction, local classes, generic method results, receiver-dependent return
-types, raw receiver ancestry, implicit instance receivers, array-clone expressions,
+types, raw receiver ancestry, implicit instance receivers (including the outer
+callee's receiver), array-clone expressions,
 and types nested in generic owners. Nested arguments and receivers must
 also have supported independent expression forms; no guest methods are executed
 to infer a type. Bounded type parameters and `T[]` formals retain the existing

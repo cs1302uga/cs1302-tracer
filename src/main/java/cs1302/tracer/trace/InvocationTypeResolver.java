@@ -7,6 +7,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
 import com.github.javaparser.resolution.types.ResolvedType;
@@ -345,7 +346,12 @@ final class InvocationTypeResolver {
      */
     private static Map<String, String> simpleExpressionBinding(MethodCallExpr call,
             ResolvedMethodDeclaration method) {
-        if (method.getTypeParameters().size() != 1) {
+        if (method.getTypeParameters().size() != 1
+                || call.getParentNode().filter(ExpressionStmt.class::isInstance).isEmpty()) {
+            return Map.of();
+        } // if
+        if (!method.isStatic() && !call.getScope().map(scope ->
+                independentReceiver(scope.calculateResolvedType())).orElse(false)) {
             return Map.of();
         } // if
         var parameter = method.getTypeParameters().getFirst();

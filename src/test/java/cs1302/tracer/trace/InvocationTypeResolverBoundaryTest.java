@@ -53,6 +53,8 @@ class InvocationTypeResolverBoundaryTest {
                 + "void run() { helper(\"a\"); } }")).isEmpty();
         assertThat(infer("class Main<U> { U value() { return null; } <T> void helper(U x) {} "
                 + "void run() { helper(value()); } }")).isEmpty();
+        assertThat(infer("class Main<U> { <T> void helper(U x) {} "
+                + "void run() { new Main<String>().helper(\"a\"); } }")).isEmpty();
     }
 
     private boolean independent(ResolvedType type) throws Exception {
