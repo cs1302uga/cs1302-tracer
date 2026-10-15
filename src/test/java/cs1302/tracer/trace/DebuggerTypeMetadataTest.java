@@ -89,12 +89,12 @@ class DebuggerTypeMetadataTest {
                 Map.of("name", "java.util.ArrayList")), "uniqueID", 1L));
         var variable = mirror(LocalVariable.class, Map.of("name", "unknown"));
         var signature = new Class<?>[] {StackFrame.class, LocalVariable.class, ObjectReference.class,
-                String.class, String.class, int.class, Optional.class, AstTypeResolver.class, Map.class, Map.class};
+                Optional.class, AstTypeResolver.class, Map.class, Map.class};
         var types = new HashMap<Long, String>(Map.of(1L, "java.util.ArrayList"));
-        call("prepassVariableReference", signature, frame("m", null), variable, object, "C", "m", 1,
+        call("prepassVariableReference", signature, frame("m", null), variable, object,
                 Optional.of("List<String>"), resolver, types, Map.of());
         assertThat(types).containsEntry(1L, "java.util.ArrayList<String>");
-        call("prepassVariableReference", signature, frame("m", null), variable, object, "C", "m", 1,
+        call("prepassVariableReference", signature, frame("m", null), variable, object,
                 Optional.of("List<?>"), resolver, types, Map.of());
         assertThat(types).containsEntry(1L, "java.util.ArrayList<String>");
     }
@@ -109,9 +109,9 @@ class DebuggerTypeMetadataTest {
         var variable = mirror(LocalVariable.class, Map.of("name", "local"));
         var types = new HashMap<Long, String>();
         call("prepassVariableReference", new Class<?>[] {StackFrame.class, LocalVariable.class,
-                ObjectReference.class, String.class, String.class, int.class, Optional.class,
+                ObjectReference.class, Optional.class,
                 AstTypeResolver.class, Map.class, Map.class}, frame("m", self), variable, local,
-                "C", "m", 1, Optional.empty(), resolver, types, Map.of());
+                Optional.empty(), resolver, types, Map.of());
         assertThat(types).containsEntry(1L, "java.util.ArrayList<String>");
         assertThat(types).doesNotContainKey(2L);
     }
@@ -122,8 +122,8 @@ class DebuggerTypeMetadataTest {
         var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
         var variable = mirror(LocalVariable.class, Map.of("name", "local", "typeName", "java.lang.Object"));
         assertThat(call("resolveLocalVariableType", new Class<?>[] {StackFrame.class, LocalVariable.class,
-                AstTypeResolver.class, Map.class, String.class, String.class}, frame("m", self), variable,
-                resolver, Map.of(), "C", "m")).isEqualTo("T");
+                AstTypeResolver.class, Map.class}, frame("m", self), variable,
+                resolver, Map.of())).isEqualTo("T");
         var child = mirror(ObjectReference.class, Map.of("referenceType", mirror(ReferenceType.class,
                 Map.of("name", "Box")), "uniqueID", 1L));
         var fields = new ArrayList<ExecutionSnapshot.Field>();
