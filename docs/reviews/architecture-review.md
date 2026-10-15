@@ -68,3 +68,16 @@ which is strictly below capacity even for the largest positive int worker count.
 Consequently these calls cannot return false for capacity exhaustion. Existing
 batch scheduling, interruption, and reuse tests cover the surrounding behavior.
 No code change or suppression is needed.
+
+## CQ-004 — Unread switch-pattern bindings
+
+Resolved 34 `java/local-variable-is-never-read` results as intentional unused
+bindings required by this project's non-preview Java 21 target. They are type
+patterns in exhaustive switches in `PyTutorSerializer`, `DebugTraceHelper`, and
+`PersistentGuestSession`: the selected runtime type determines the constant
+serialized type/value or termination action; the bound value is unnecessary.
+All 34 locations were inspected. Replacing their identifiers with unnamed patterns
+would require preview features or a newer release, and converting exhaustive
+switches to conditional chains would add complexity without fixing a defect.
+Existing serializer and event-processing tests exercise their behavior. No code
+change or suppression is needed.
