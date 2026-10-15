@@ -105,7 +105,7 @@ cost-probe command there on the same JDK. Run the two measurements sequentially.
 
 ## Current correctness results
 
-The final candidate passes 85 focused tests on JDK 21.0.12.1 and 25.0.4.1,
+The final candidate passes 91 focused tests on JDK 21.0.12.1 and 25.0.4.1,
 plus the separately selected cost probe on JDK 25. The 26-program original corpus
 now specializes seven cases (the four release controls plus the three integrated
 expression cases), with the other 19 retaining fallback. All concrete answers
@@ -121,9 +121,9 @@ cases and conservative guards remain part of the contract.
 
 ## Final verification
 
-- Clean JDK 25 build with an isolated temporary directory: 692 tests passed, no failures/errors/skips, Checkstyle clean,
-  and the normal configured coverage gates passed.
-- Focused correctness suite: 85 tests passed on both JDK 21 and 25; the opt-in
+- Clean JDK 25 build with an isolated temporary directory: 698 tests passed, no failures/errors/skips, Checkstyle clean,
+  and both normal and strict all-production coverage gates passed.
+- Focused correctness suite: 91 tests passed on both JDK 21 and 25; the opt-in
   performance probe also passed its bounded workload checks on JDK 25.
 - All 24 committed trace fixtures and five fixture-verifier unit tests passed.
 - Executable documentation, CLI help, quickstart, JSON and batch examples passed;
@@ -132,10 +132,14 @@ cases and conservative guards remain part of the contract.
 - Experimental classes are absent from the executable JAR. Versioned release
   documentation and the release version are unchanged.
 
-The optional all-production 100% coverage pre-commit profile rejected the initial
-candidate (99% line and branch coverage); its 688 tests and normal coverage gates
-passed. This profile is stricter than normal CI. The local hook was bypassed for
-the commit, as permitted by the development guide; its configuration was unchanged.
+The strict `pre-commit-coverage` profile now passes with 100% production line and
+branch coverage. Boundary tests exercise nested receiver forms, unsupported
+expressions, mismatched formals, lost solver metadata, anonymous declarations,
+and traversal limits (including cyclic owner metadata). Two impossible empty
+optional branches were removed: JavaParser 3.28.2's final `getTypeDeclaration()`
+returns `Optional.of(typeDeclaration)`. No coverage exclusions or thresholds changed.
+The initial commit's optional coverage failure is resolved; the follow-up commit
+passes the installed hook without bypassing it.
 
 The first final build had one failure in the existing temporary-directory cleanup
 test while other tracer activity changed the shared directory. The full rerun

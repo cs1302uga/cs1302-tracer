@@ -263,4 +263,16 @@ class InvocationTypeResolverTest {
         assertThat(resolver.invocationBindings(caller, callee, Map.of())).isEmpty();
     }
 
+    @Test
+    void lostSolverDuringFrameExtractionRetainsLexicalBindings() {
+        var unit = App.parseSource("class Main { <T> void helper(T item) {} }", Optional.empty());
+        var resolver = new AstTypeResolver(unit);
+        var callee = method("Main", "helper", "(Ljava/lang/Object;)V");
+        assertThat(resolver.invocationTypes().declaration(callee)).isPresent();
+        unit.removeData(com.github.javaparser.ast.Node.SYMBOL_RESOLVER_KEY);
+        var target = frame(callee, 1, Map.of());
+        var contexts = resolver.invocationTypes().new FrameContexts(List.of(target), resolver, Map.of());
+        assertThat(contexts.bindings(target)).containsExactlyEntriesOf(Map.of("T", "T"));
+    }
+
 }

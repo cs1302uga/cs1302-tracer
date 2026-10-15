@@ -440,8 +440,7 @@ final class InvocationTypeResolver {
         if (type.isPrimitive()) {
             return arrayComponent;
         } // if
-        if (!type.isReferenceType() || type.asReferenceType().isRawType()
-                || type.asReferenceType().getTypeDeclaration().isEmpty()) {
+        if (!type.isReferenceType() || type.asReferenceType().isRawType()) {
             return false;
         } // if
         var declaration = type.asReferenceType().getTypeDeclaration().orElseThrow();
@@ -490,8 +489,7 @@ final class InvocationTypeResolver {
                     .convert(com.github.javaparser.StaticJavaParser.parseType(binding), call);
             return concreteType(resolved, Map.of(), call, arrayComponent);
         } // if
-        if (!type.isReferenceType()
-                || type.asReferenceType().getTypeDeclaration().isEmpty()) {
+        if (!type.isReferenceType()) {
             return Optional.empty();
         } // if
         var reference = type.asReferenceType();
