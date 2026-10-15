@@ -55,3 +55,16 @@ comparison. A target above the buffer's representable size remains unmet, and th
 loop still exits on timeout, closure, EOF, interruption, or a stopped session.
 Narrowing the target would incorrectly treat some large targets as already met.
 No code change or suppression is needed.
+
+## CQ-003 — Ignored worker-pool offer results
+
+Resolved both `java/ignored-error-status-of-call` results in `BatchTraceService`
+by static proof of the pool's ownership invariant. The private queue is constructed
+as an unbounded `LinkedBlockingQueue` (capacity `Integer.MAX_VALUE`). Initialization
+adds each of `workerCount` distinct workers once. Execution takes one worker and
+returns it once in `finally`, only after a successful take. No other path inserts
+workers. Before either offer the queue contains at most `workerCount - 1` entries,
+which is strictly below capacity even for the largest positive int worker count.
+Consequently these calls cannot return false for capacity exhaustion. Existing
+batch scheduling, interruption, and reuse tests cover the surrounding behavior.
+No code change or suppression is needed.
