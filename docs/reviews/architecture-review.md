@@ -17,3 +17,16 @@ an existing coverage gap; it does not claim that the original behavior was broke
 The baseline's strict pre-commit coverage check failed with two uncovered branches.
 The user authorized bypassing that hook for baseline/intermediate coverage commits
 only; full enforcement resumes after both gaps are addressed.
+
+## COV-002 — Unreachable receiver-cache equality branch
+
+Resolved by tracking receiver identities rather than duplicating their type strings.
+`recordFallback` calls `update` only for an absent identity and a non-null type;
+`refine` calls it only after `isMoreSpecific` rejects equal types. `update` then
+synchronously notifies every registered context. Therefore a notified receiver's
+cached type cannot equal its new retained type. Removed that redundant comparison
+rather than reaching into private state to force an impossible coverage branch.
+
+Existing public frame-binding tests exercise equal refinements, unrelated receivers,
+accepted refinements across multiple contexts, and rejected conflicting evidence.
+The normal commit hook validates the full production coverage gate for this change.

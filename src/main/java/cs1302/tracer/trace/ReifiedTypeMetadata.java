@@ -8,6 +8,8 @@ import com.sun.jdi.StackFrame;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -134,7 +136,7 @@ public final class ReifiedTypeMetadata {
      */
     public final class FrameBindings {
         private final List<StackFrame> frames;
-        private final Map<Long, String> receiverTypes = new HashMap<>();
+        private final Set<Long> receiverIds = new HashSet<>();
         private final Map<StackFrame, Map<String, String>> lexical = new HashMap<>();
         private final Map<StackFrame, Map<String, String>> qualified = new HashMap<>();
         private int next;
@@ -150,7 +152,7 @@ public final class ReifiedTypeMetadata {
             for (StackFrame frame : frames) {
                 if (frame.thisObject() != null) {
                     long id = frame.thisObject().uniqueID();
-                    receiverTypes.put(id, objectTypes.get(id));
+                    receiverIds.add(id);
                 } // if
             } // for
         } // FrameBindings
@@ -161,8 +163,8 @@ public final class ReifiedTypeMetadata {
          * @param id Object whose metadata may have changed.
          */
         private void receiverTypeChanged(long id) {
-            if (receiverTypes.containsKey(id) && !Objects.equals(receiverTypes.get(id), objectTypes.get(id))) {
-                receiverTypes.put(id, objectTypes.get(id));
+            // update notifies contexts only when the retained evidence changes.
+            if (receiverIds.contains(id)) {
                 lexical.clear();
                 qualified.clear();
                 next = frames.size() - 1;
