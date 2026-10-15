@@ -120,7 +120,7 @@ public class StreamDrainerTest {
     try (StreamDrainer drainer = new StreamDrainer(pis)) {
       pos.write("abc".getBytes(StandardCharsets.UTF_8));
       pos.flush();
-      drainer.sync(100, 5);
+      drainer.syncUntil(3, 100);
       assertThat(drainer.size()).isEqualTo(3);
 
       drainer.reset();
