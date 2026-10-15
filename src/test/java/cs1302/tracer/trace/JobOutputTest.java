@@ -46,10 +46,8 @@ class JobOutputTest {
             outWriter.write("first".getBytes(StandardCharsets.UTF_8));
             errWriter.write("Picked up JAVA_TOOL_OPTIONS: test\nwarning".getBytes(StandardCharsets.UTF_8));
             job.drain(5, 41);
-            JobOutput.Prefix captured = job.capture();
-            assertThat(captured.rawBytes()).isEqualTo(46);
             ExecutionSnapshot prefix = new ExecutionSnapshot(List.of(), List.of(), Map.of(),
-                    captured.stdout(), captured.stderr(), Optional.empty(), "", 0);
+                    job.stdout(), job.stderr(), Optional.empty(), "", 0);
             outWriter.write(" trailing".getBytes(StandardCharsets.UTF_8));
             job.drain(14, 41);
             JobOutput.Finished finished = job.finish();
@@ -67,6 +65,7 @@ class JobOutputTest {
             job.drain(0, 0);
             assertThat(job.finish()).isSameAs(finished);
             assertThat(job.stdout().asUtf8String()).isEqualTo("first trailing");
+            assertThat(job.stderr().asUtf8String()).isEqualTo("warning");
             assertThat(detached.stdoutSlice().asUtf8String()).isEqualTo("first");
             assertThat(detached.stderrSlice().asUtf8String()).isEqualTo("warning");
         }
