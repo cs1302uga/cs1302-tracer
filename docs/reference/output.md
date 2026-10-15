@@ -36,10 +36,23 @@ the same substitutions. Heap objects retain their runtime identities and classes
 Resolution requires source metadata and an unambiguous caller invocation matched
 by declaring type and erased method descriptor. Explicit type arguments and
 single-argument inference from declared variables, fields, casts, or array
-accesses into a `T` or `T[]` parameter are supported. Substitutions currently
-require fully qualified concrete reference types (including parameterized types
-and arrays). Method parameters shadow class parameters, and recursive calls and
-threads have independent binding contexts.
+accesses into a `T` or `T[]` parameter are supported. Substitutions require
+concrete reference types (including default-package classes, parameterized types,
+and arrays with reference or primitive components). Method type parameters shadow
+class parameters, and recursive calls and threads have independent binding contexts.
+
+In the development version, a method with exactly one unbounded type parameter
+and one parameter of that type, such as `<T> void helper(T item)`, also supports
+string literals, explicit object creation, and non-generic method results. For
+example, `helper("hello")` labels `T` locals as `String`, while `helper(number())`
+labels them as `Number` when `number()` declares that return type, even if it
+returns an `Integer`. This additional subset excludes boxing, raw types, diamond
+or anonymous construction, local classes, generic method results, receiver-dependent return
+types, raw receiver ancestry, implicit instance receivers, array-clone expressions,
+and types nested in generic owners. Nested arguments and receivers must
+also have supported independent expression forms; no guest methods are executed
+to infer a type. Bounded type parameters and `T[]` formals retain the existing
+variable/field/cast/array-access inference rules.
 
 Missing source, multiple matching calls on one line, target-dependent inference,
 varargs, multi-argument inference, and unsupported capture or intersection types

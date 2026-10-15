@@ -4,6 +4,8 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
@@ -305,18 +307,20 @@ final class InvocationTypeResolver {
                         || declaration.getParam(0).isVariadic()) {
                     return Map.of();
                 } // if
+                CompilationUnit unit = call.findCompilationUnit().orElseThrow();
+                if (!unit.containsData(AstTypeResolver.TYPE_SOLVER)) {
+                    return Map.of();
+                } // if
                 var formal = declaration.getParam(0).getType();
                 var argument = call.getArgument(0);
+                if (!(argument.isNameExpr() || argument.isFieldAccessExpr()
+                        || argument.isCastExpr() || argument.isArrayAccessExpr())) {
+                    return simpleExpressionBinding(call, declaration);
+                } // if
                 while (formal.isArray()) {
                     formal = formal.asArrayType().getComponentType();
                 } // while
-                if (!formal.isTypeVariable() || !(argument.isNameExpr()
-                        || argument.isFieldAccessExpr() || argument.isCastExpr()
-                        || argument.isArrayAccessExpr())) {
-                    return Map.of();
-                } // if
-                CompilationUnit unit = call.findCompilationUnit().orElseThrow();
-                if (!unit.containsData(AstTypeResolver.TYPE_SOLVER)) {
+                if (!formal.isTypeVariable()) {
                     return Map.of();
                 } // if
                 var usage = JavaParserFacade.get(unit.getData(AstTypeResolver.TYPE_SOLVER))
@@ -332,6 +336,131 @@ final class InvocationTypeResolver {
             return Map.of();
         } // try
     } // infer
+
+    /**
+     * Infer an exact argument type for a single unbounded T formal.
+     * @param call Unambiguous source invocation.
+     * @param method Resolved callee with one non-variadic argument.
+     * @return Concrete binding, or no binding outside the supported subset.
+     */
+    private static Map<String, String> simpleExpressionBinding(MethodCallExpr call,
+            ResolvedMethodDeclaration method) {
+        if (method.getTypeParameters().size() != 1) {
+            return Map.of();
+        } // if
+        var parameter = method.getTypeParameters().getFirst();
+        var formal = method.getParam(0).getType();
+        var argument = call.getArgument(0);
+        if (!parameter.getBounds().isEmpty() || !formal.isTypeVariable()
+                || !formal.asTypeVariable().asTypeParameter().getQualifiedName()
+                        .equals(parameter.getQualifiedName())
+                || !independentExpression(argument, 0)) {
+            return Map.of();
+        } // if
+        var type = argument.calculateResolvedType();
+        if (!independentType(type, false, 0)) {
+            return Map.of();
+        } // if
+        return concreteType(type, Map.of(), call, false)
+                .map(name -> Map.of(parameter.getName(), name)).orElseGet(Map::of);
+    } // simpleExpressionBinding
+
+    /**
+     * Check expression structure without evaluating guest code or inferring poly expressions.
+     * @param expression Argument, nested argument, or receiver expression.
+     * @param depth Current nesting depth.
+     * @return Whether source types are independent of the outer invocation target.
+     */
+    private static boolean independentExpression(Expression expression, int depth) {
+        if (depth > 32) {
+            return false;
+        } // if
+        if (expression.isNameExpr() || expression.isFieldAccessExpr()
+                || expression.isCastExpr() || expression.isArrayAccessExpr()
+                || expression.isThisExpr() || expression.isSuperExpr()) {
+            return true;
+        } // if
+        if (expression.isLiteralExpr()) {
+            return !expression.isNullLiteralExpr();
+        } // if
+        if (expression.isObjectCreationExpr()) {
+            var creation = expression.asObjectCreationExpr();
+            return creation.getScope().isEmpty() && creation.getAnonymousClassBody().isEmpty()
+                    && !creation.getType().isUsingDiamondOperator()
+                    && creation.getArguments().stream()
+                            .allMatch(arg -> independentExpression(arg, depth + 1));
+        } // if
+        if (expression.isMethodCallExpr()) {
+            var nested = expression.asMethodCallExpr();
+            // The solver erases array clone's covariant result to Object.
+            if (nested.getNameAsString().equals("clone") && nested.getScope().isPresent()
+                    && nested.getScope().get().calculateResolvedType().isArray()) {
+                return false;
+            } // if
+            var method = nested.resolve();
+            return method.getTypeParameters().isEmpty()
+                    && independentType(method.getReturnType(), false, 0)
+                    && (method.isStatic() || nested.getScope().map(scope ->
+                            independentReceiver(scope.calculateResolvedType())).orElse(false))
+                    && nested.getScope().map(scope -> independentExpression(scope, depth + 1))
+                            .orElse(true)
+                    && nested.getArguments().stream()
+                            .allMatch(arg -> independentExpression(arg, depth + 1));
+        } // if
+        return false;
+    } // independentExpression
+
+    /**
+     * Reject receivers whose raw ancestry can erase even fixed parameterized return types.
+     * @param type Explicit receiver type.
+     * @return Whether receiver erasure cannot change the declared result.
+     */
+    private static boolean independentReceiver(ResolvedType type) {
+        // The solver may represent a raw superclass as Box<U>, not as a raw type.
+        // Require concrete ancestor arguments as well as the explicit receiver's type.
+        return independentType(type, false, 0) && (!type.isReferenceType()
+                || type.asReferenceType().getAllAncestors().stream()
+                        .allMatch(ancestor -> independentType(ancestor, false, 0)));
+    } // independentReceiver
+
+    /**
+     * Reject raw, captured, or receiver-dependent types in the new expression subset.
+     * @param type Declared expression type.
+     * @param arrayComponent Whether a primitive is permitted as an array component.
+     * @param depth Current nesting depth.
+     * @return Whether the type can be represented without further substitutions.
+     */
+    private static boolean independentType(ResolvedType type, boolean arrayComponent, int depth) {
+        if (depth > 32) {
+            return false;
+        } // if
+        if (type.isArray()) {
+            return independentType(type.asArrayType().getComponentType(), true, depth + 1);
+        } // if
+        if (type.isPrimitive()) {
+            return arrayComponent;
+        } // if
+        if (!type.isReferenceType() || type.asReferenceType().isRawType()
+                || type.asReferenceType().getTypeDeclaration().isEmpty()) {
+            return false;
+        } // if
+        var declaration = type.asReferenceType().getTypeDeclaration().orElseThrow();
+        if (declaration.toAst().filter(node -> node instanceof TypeDeclaration<?> named
+                && named.getFullyQualifiedName().isEmpty()).isPresent()) {
+            return false;
+        } // if
+        // Enclosing generic owners need a representation and substitution policy of their own.
+        var owner = declaration.containerType();
+        int owners = 0;
+        while (owner.isPresent()) {
+            if (++owners > 32 || !owner.get().getTypeParameters().isEmpty()) {
+                return false;
+            } // if
+            owner = owner.get().containerType();
+        } // while
+        return !declaration.isAnonymousClass() && type.asReferenceType().typeParametersValues()
+                .stream().allMatch(arg -> independentType(arg, false, depth + 1));
+    } // independentType
 
     /**
      * Check that a solver result has a representable, concrete reference type.
