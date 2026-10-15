@@ -481,8 +481,26 @@ final class InvocationTypeResolver {
      */
     private static Optional<String> concreteType(ResolvedType type, Map<String, String> bindings,
             MethodCallExpr call, boolean arrayComponent) {
+        return concreteType(type, bindings, call, arrayComponent, 0);
+    } // concreteType
+
+    /**
+     * Resolves a concrete type within the shared representation depth ceiling.
+     * @param type Solver type at this position.
+     * @param bindings Qualified caller substitutions.
+     * @param call Source context for resolving receiver metadata.
+     * @param arrayComponent Whether a primitive component is permitted.
+     * @param depth Edges already traversed, including substitutions.
+     * @return Concrete display type, or empty when unsupported or too deeply nested.
+     */
+    private static Optional<String> concreteType(ResolvedType type, Map<String, String> bindings,
+            MethodCallExpr call, boolean arrayComponent, int depth) {
+        if (depth >= TypeTraversal.MAX_DEPTH) {
+            return Optional.empty();
+        } // if
         if (type.isArray()) {
-            return concreteType(type.asArrayType().getComponentType(), bindings, call, true)
+            return concreteType(type.asArrayType().getComponentType(), bindings, call, true,
+                    depth + 1)
                     .map(component -> component + "[]");
         } // if
         if (type.isPrimitive()) {
@@ -494,10 +512,13 @@ final class InvocationTypeResolver {
             if (binding == null || binding.isBlank()) {
                 return Optional.empty();
             } // if
+            TypeTraversal.validateText(binding);
+            var parsed = com.github.javaparser.StaticJavaParser.parseType(binding);
+            TypeTraversal.postorder(parsed);
             var unit = call.findCompilationUnit().orElseThrow();
             var resolved = JavaParserFacade.get(unit.getData(AstTypeResolver.TYPE_SOLVER))
-                    .convert(com.github.javaparser.StaticJavaParser.parseType(binding), call);
-            return concreteType(resolved, Map.of(), call, arrayComponent);
+                    .convert(parsed, call);
+            return concreteType(resolved, Map.of(), call, arrayComponent, depth + 1);
         } // if
         if (!type.isReferenceType()) {
             return Optional.empty();
@@ -505,7 +526,7 @@ final class InvocationTypeResolver {
         var reference = type.asReferenceType();
         List<String> arguments = new ArrayList<>();
         for (ResolvedType argument : reference.typeParametersValues()) {
-            var concrete = concreteType(argument, bindings, call, false);
+            var concrete = concreteType(argument, bindings, call, false, depth + 1);
             if (concrete.isEmpty()) {
                 return Optional.empty();
             } // if

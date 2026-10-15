@@ -51,6 +51,11 @@ Representation safety checks apply even when resource budgets are unlimited:
   The fragment check is conservative, including annotation text; it is not a lexer
   or a source-file nesting validator. Replacement bindings and the resulting AST
   are checked as well.
+- Concrete invocation-type inference uses a separate 384-node traversal budget,
+  shared across array components, generic arguments, and caller substitutions.
+  Binding text and its parsed AST pass the existing type checks before conversion.
+  Excessive inference depth leaves the method type unresolved instead of
+  overflowing the host stack; legal 255-dimensional arrays remain supported.
 
 Library callers receive `NestingException` with `value_nesting_limit`,
 `inline_value_cycle`, or `type_nesting_limit`. Session snapshot rejection stops the
@@ -76,7 +81,7 @@ service wrapping the tracer. Revisit them if input ownership or execution change
 | User-selected file paths | `--input` and `--stdin-file` intentionally read paths chosen by the CLI caller. Adjacent source discovery is documented. Hosted access must be constrained by the runner. This is distinct from streamed source destinations, which already reject escaping or duplicate paths. |
 | JDI command concatenation | JDI requires an options string. The shared launcher quotes the classpath using its configured tokenizer; it does not invoke a shell. A structural concatenation alert can remain even though the quoted-path regression passes. |
 | Recursive serializers | Inline value conversion and reference-chain sampling use iterative traversal. Snapshot accounting and both serializer entry points reject inline identity cycles and paths longer than 32 values before reaching Gson. Heap references remain leaves; shared inline values on separate paths are allowed. |
-| Recursive type traversal | Tracer-owned type resolution and substitution use child-before-parent work lists. AST depth and type-fragment checks precede recursive JavaParser helpers. Tests retain 255 array dimensions and 32 nested generic levels. Full source parsing, symbol resolution, and compilation still require runner resource isolation. |
+| Recursive type traversal | AST type resolution and substitution use child-before-parent work lists; concrete invocation-type inference uses bounded recursion with a shared 384-node budget. AST depth and type-fragment checks precede recursive JavaParser helpers. Tests retain 255 array dimensions and 32 nested generic levels. Full source parsing, symbol resolution, and compilation still require runner resource isolation. |
 | Int/long byte comparison | Java widens the retained-buffer size for comparison with the expected count. A simulated `Integer.MAX_VALUE + 1` target verifies that no narrowing makes the wait end early. EOF, cancellation, and timeout bound the wait. This does not promise support for multi-gigabyte in-memory trace buffers. |
 | Ignored queue offer result | The worker pool is an unbounded `LinkedBlockingQueue`, populated with non-null workers. Normal queue-capacity rejection does not apply. |
 | Unused pattern bindings | Java 21 type patterns require a binding without enabling preview syntax. These bindings are retained when the branch only needs the matched type. |
