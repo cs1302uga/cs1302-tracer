@@ -125,6 +125,9 @@ class SimpleExpressionInferenceTest {
                         "java.util.List<java.lang.CharSequence>", "T"),
                 new Target("argument target", "static void accept(List<CharSequence> value) {}",
                         "accept(helper(\"word\"));", "java.util.List<java.lang.CharSequence>", "T"),
+                new Target("switch expression target", "",
+                        "int n = 0; List<CharSequence> result = switch (n) { default -> helper(\"word\"); };",
+                        "java.util.List<java.lang.CharSequence>", "T"),
                 new Target("return target",
                         "static List<CharSequence> forward() { return helper(\"word\"); }",
                         "forward();", "java.util.List<java.lang.CharSequence>", "T")

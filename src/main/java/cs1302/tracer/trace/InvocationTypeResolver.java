@@ -8,6 +8,7 @@ import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.SwitchEntry;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodLikeDeclaration;
 import com.github.javaparser.resolution.types.ResolvedType;
@@ -346,8 +347,11 @@ final class InvocationTypeResolver {
      */
     private static Map<String, String> simpleExpressionBinding(MethodCallExpr call,
             ResolvedMethodDeclaration method) {
+        // JavaParser also wraps expression-valued switch arms in ExpressionStmt.
         if (method.getTypeParameters().size() != 1
-                || call.getParentNode().filter(ExpressionStmt.class::isInstance).isEmpty()) {
+                || call.getParentNode().filter(parent -> parent instanceof ExpressionStmt
+                        && !(parent.getParentNode().orElse(null) instanceof SwitchEntry))
+                        .isEmpty()) {
             return Map.of();
         } // if
         if (!method.isStatic() && !call.getScope().map(scope ->
