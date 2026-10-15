@@ -752,6 +752,11 @@ public class DebugTraceHelper {
      * @param vm Guest debugger connection.
      */
     private static void awaitGuestExit(VirtualMachine vm) {
+        TraceSession session = TraceSession.current();
+        if (session != null) {
+            session.awaitGuestExit();
+            return;
+        } // if
         try {
             vm.process().waitFor(200, TimeUnit.MILLISECONDS);
         } catch (InterruptedException interrupted) {

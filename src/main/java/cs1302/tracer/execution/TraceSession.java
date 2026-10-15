@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -242,6 +243,23 @@ public final class TraceSession implements AutoCloseable {
         } // if
         check();
     } // attach
+
+    /** Waits for the attached guest to exit while an active deadline remains enforceable. */
+    public void awaitGuestExit() {
+        Process guest = process;
+        if (guest == null) {
+            return;
+        } // if
+        try {
+            if (started != 0 && limits.timeoutMillis() != 0) {
+                guest.waitFor();
+            } else {
+                guest.waitFor(200, TimeUnit.MILLISECONDS);
+            } // if
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } // try
+    } // awaitGuestExit
 
     /**
      * Registers an output drainer for session cleanup and counters.
