@@ -81,3 +81,26 @@ would require preview features or a newer release, and converting exhaustive
 switches to conditional chains would add complexity without fixing a defect.
 Existing serializer and event-processing tests exercise their behavior. No code
 change or suppression is needed.
+
+## CQ-005 — Caller-selected CLI input paths
+
+Resolved 15 path-input results (five each from `java/path-injection`,
+`java/file-path-injection`, and `githubsecuritylab/java/file-path-injection`) as
+intentional CLI capabilities. The five sinks are `App` reads at lines 168, 215,
+320, 471, and 702: adjacent source discovery, source input, guest stdin input,
+bounded source input, and batch NDJSON input. Inspected the source-to-sink paths:
+all originate in the caller's Picocli `--input` or `--stdin-file` options.
+
+The [tracing guide](../guides/tracing.md) explicitly permits source-root discovery
+and stdin files. The [runner contract](../RUNNER_CONTRACT.md) requires external
+filesystem confinement for hosted untrusted submissions; the local CLI does not
+promise to restrict the invoking user's file access. These reads cross no such
+boundary in the supported direct CLI use. Streamed source destination validation
+remains separate: `CompilationHelper.writeSourceFiles` normalizes destinations,
+checks containment in its temporary directory, and uses `CREATE_NEW`.
+
+This revalidates the existing [security analysis](../contributing/security-analysis.md)
+disposition for the current code and the newly verified Picocli model. No path
+allowlist, output change, or alert suppression was introduced. Reassess this
+resolution if a wrapper accepts caller-controlled CLI options across a privilege
+boundary without the required isolation.
