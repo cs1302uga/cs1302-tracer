@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.tools.DiagnosticCollector;
@@ -276,7 +277,21 @@ public class CompilationHelper {
      * @throws IllegalArgumentException If the Java program failed to compile.
      */
     public static CompilationResult compile(String javaSource, Optional<Path> sourceRoot) throws IOException {
-        List<SourceFile> sourceFiles = parseMultiFileStream(javaSource);
+        return compile(parseMultiFileStream(javaSource), sourceRoot, Function.identity());
+    } // compile
+
+    /**
+     * Compile sources and transfer ownership only after preparation succeeds.
+     *
+     * @param <T> Prepared result type.
+     * @param sourceFiles Parsed submitted sources.
+     * @param sourceRoot Dependency search root.
+     * @param finish Preparation that receives the compiled files.
+     * @return The prepared result.
+     * @throws IOException On compilation I/O failure.
+     */
+    static <T> T compile(List<SourceFile> sourceFiles, Optional<Path> sourceRoot,
+            Function<CompilationResult, T> finish) throws IOException {
         boolean previewEnabled = detectPreviewUsage(sourceFiles.stream().map(SourceFile::ast).toList());
         Path workingDir = Files.createTempDirectory("code-tracer");
         try {
@@ -285,8 +300,8 @@ public class CompilationHelper {
             SourceFile entryPoint = findEntryPoint(sourceFiles);
             MethodDeclaration mainMethod = findMain(entryPoint.ast());
             String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
-            return new CompilationResult(workingDir, classes, mainClass,
-                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir), previewEnabled);
+            return finish.apply(new CompilationResult(workingDir, classes, mainClass,
+                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir), previewEnabled));
         } catch (IOException | RuntimeException | Error failure) {
             cleanupAfterFailure(workingDir, failure);
             throw failure;

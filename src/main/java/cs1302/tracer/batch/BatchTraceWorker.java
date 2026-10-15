@@ -1,10 +1,8 @@
 package cs1302.tracer.batch;
 
 import com.github.javaparser.ast.CompilationUnit;
-import cs1302.tracer.App;
-import cs1302.tracer.CompilationHelper;
+import cs1302.tracer.SourcePreparation;
 import cs1302.tracer.CompilationHelper.CompilationResult;
-import cs1302.tracer.CompilationHelper.SourceFile;
 import cs1302.tracer.SourceDelimiters;
 import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.JobOptions;
@@ -20,7 +18,6 @@ import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.PersistentGuestSession;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -234,17 +231,12 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
 
         traceSession.phase("compile");
-        List<SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(req.source());
-        SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-        InspectionPolicy inspection = effectiveInspection(req);
-        Optional<Path> sourceRoot = inspection == InspectionPolicy.FIELDS ? Optional.empty()
-                : CompilationHelper.findSourceRoot(entryFile.ast(), Optional.empty());
-
+        SourcePreparation.Discovery discovery = effectiveInspection(req) == InspectionPolicy.FIELDS
+                ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED;
         Object payload;
-        try (CompilationResult compiled = CompilationHelper.compile(req.source(), sourceRoot)) {
-            Optional<Path> parserRoot = inspection == InspectionPolicy.FIELDS ? Optional.empty()
-                    : (sourceRoot.isPresent() ? sourceRoot : Optional.of(compiled.classPath()));
-            List<CompilationUnit> units = App.discoverAllCompilationUnits(sourceFiles, sourceRoot, parserRoot);
+        try (SourcePreparation prepared = SourcePreparation.prepare(req.source(), Optional.empty(), discovery)) {
+            CompilationResult compiled = prepared.compilation();
+            List<CompilationUnit> units = prepared.units();
 
             traceSession.phase("trace");
             if (session != null) {

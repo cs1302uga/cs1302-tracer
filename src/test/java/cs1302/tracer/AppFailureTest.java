@@ -110,13 +110,10 @@ class AppFailureTest {
     @Test
     void discoveryIgnoresUnreadableUnreferencedSources(@TempDir Path directory) throws Exception {
         var trace = new App.Trace();
-        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits", List.class, Optional.class,
-                Optional.class);
-        discover.setAccessible(true);
         Files.write(directory.resolve("Invalid.java"), new byte[] { (byte) 0xff });
         Files.writeString(directory.resolve("notes.txt"), "not java");
-        assertThat(discover.invoke(trace, List.of(), Optional.of(directory), Optional.empty())).isEqualTo(List.of());
-        assertThat(discover.invoke(trace, List.of(), Optional.of(directory.resolve("missing")), Optional.empty()))
+        assertThat(App.discoverAllCompilationUnits(List.of(), Optional.of(directory), Optional.empty())).isEqualTo(List.of());
+        assertThat(App.discoverAllCompilationUnits(List.of(), Optional.of(directory.resolve("missing")), Optional.empty()))
                 .isEqualTo(List.of());
         assertThat(trace.getInputPath()).isEmpty();
     }

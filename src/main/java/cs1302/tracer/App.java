@@ -1,14 +1,9 @@
 package cs1302.tracer;
 
-import java.util.stream.Stream;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.batch.BatchTraceService;
 import cs1302.tracer.execution.JobOptions;
@@ -36,7 +31,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -127,18 +121,7 @@ public class App {
      * @throws IllegalArgumentException If parsing failed.
      */
     public static CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
-        CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
-        combinedTypeSolver.add(new ReflectionTypeSolver());
-        sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
-
-        ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver)
-                .setLanguageLevel(LanguageLevel.CURRENT);
-
-        CompilationUnit unit = new com.github.javaparser.JavaParser(config).parse(source).getResult()
-                .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source with symbol solver"));
-        unit.setData(cs1302.tracer.trace.AstTypeResolver.TYPE_SOLVER, combinedTypeSolver);
-        return unit;
+        return SourcePreparation.parseSource(source, sourceRoot);
     } // parseSource
 
     /**
@@ -151,32 +134,7 @@ public class App {
      */
     public static List<CompilationUnit> discoverAllCompilationUnits(List<CompilationHelper.SourceFile> sourceFiles,
             Optional<Path> sourceRoot, Optional<Path> parserSourceRoot) {
-        List<CompilationUnit> allCus = new ArrayList<>();
-        Set<String> parsedPaths = new HashSet<>();
-        for (CompilationHelper.SourceFile sf : sourceFiles) {
-            allCus.add(parseSource(sf.content(), parserSourceRoot));
-            parsedPaths.add(sf.relativePath().replace('\\', '/'));
-        } // for
-        if (sourceRoot.isPresent()) {
-            try (Stream<Path> stream = Files.walk(sourceRoot.get())) {
-                List<Path> javaFiles = stream.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
-                        .toList();
-                for (Path p : javaFiles) {
-                    String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
-                    if (!parsedPaths.contains(rel)) {
-                        try {
-                            allCus.add(parseSource(Files.readString(p), parserSourceRoot));
-                            parsedPaths.add(rel);
-                        } catch (Exception ignored) {
-                            // ignore parse errors on unreferenced files
-                        } // try
-                    } // if
-                } // for
-            } catch (Exception ignored) {
-                // ignore file discovery errors
-            } // try
-        } // if
-        return allCus;
+        return SourcePreparation.discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
     } // discoverAllCompilationUnits
 
     /** Base class that holds common CLI parameters. */
@@ -394,16 +352,11 @@ public class App {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), selected.sourceFiles(), "source_file_limit");
             session.phase("compile");
-            List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
-            CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-            CompilationUnit preCu = entryFile.ast();
-            Optional<Path> sourceRoot = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
-                    : CompilationHelper.findSourceRoot(preCu, getInputPath());
-
-            try (CompilationResult compilationResult = CompilationHelper.compile(source, sourceRoot)) {
-                Optional<Path> parserSourceRoot = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
-                        : (sourceRoot.isPresent() ? sourceRoot : Optional.of(compilationResult.classPath()));
-                List<CompilationUnit> allCus = discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
+            SourcePreparation.Discovery discovery = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED;
+            try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(), discovery)) {
+                CompilationResult compilationResult = prepared.compilation();
+                List<CompilationUnit> allCus = prepared.units();
 
                 session.phase("trace");
                 if (format == TraceFormat.MODERN) {
@@ -499,11 +452,11 @@ public class App {
                 String guestStdin) throws Exception {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
-            List<CompilationHelper.SourceFile> sources = CompilationHelper.parseMultiFileStream(source);
-            Optional<Path> root = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
-                    : CompilationHelper.findSourceRoot(CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
-            try (CompilationResult compiled = CompilationHelper.compile(source, root)) {
-                List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
+            SourcePreparation.Discovery discovery = effectiveInspection() == InspectionPolicy.FIELDS
+                    ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS;
+            try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(), discovery)) {
+                CompilationResult compiled = prepared.compilation();
+                List<CompilationUnit> units = prepared.units();
                 session.phase("trace");
                 if (allBreakpoints) {
                     if (job.breakpoints == null) {
@@ -537,19 +490,6 @@ public class App {
             return new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle).createTrace(source,
                     guestStdin, snapshots);
         } // boundedPayload
-
-        /**
-         * Discovers and parses all compilation units in the source files and source root.
-         *
-         * @param sourceFiles Input source files.
-         * @param sourceRoot Optional source root path.
-         * @param parserSourceRoot Parser type resolution path.
-         * @return List of parsed CompilationUnits.
-         */
-        private List<CompilationUnit> discoverAllCompilationUnits(List<CompilationHelper.SourceFile> sourceFiles,
-                Optional<Path> sourceRoot, Optional<Path> parserSourceRoot) {
-            return App.discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
-        } // discoverAllCompilationUnits
 
         /**
          * Runs and outputs modern JSON trace.
