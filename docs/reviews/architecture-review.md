@@ -43,3 +43,15 @@ private-method tests or changing their behavioral assertions.
 This is a refactoring correction, not an observed behavioral bug, so no artificial
 red test was introduced. The focused metadata/debugger tests and the normal full
 coverage commit hook validate preserved behavior. Serialized formats are unchanged.
+
+## CQ-002 — Long output targets compared with retained byte counts
+
+Resolved `java/comparison-with-wider-type` in `StreamDrainer.syncUntil` as an
+intentional comparison, verified by static inspection and the existing
+`observesLongByteTargetsWithoutNarrowing` regression test. Retained buffer sizes are
+ints, while guest byte counters and job-relative targets are longs. Java widens the
+size before comparison; there is no narrowing or arithmetic overflow in that
+comparison. A target above the buffer's representable size remains unmet, and the
+loop still exits on timeout, closure, EOF, interruption, or a stopped session.
+Narrowing the target would incorrectly treat some large targets as already met.
+No code change or suppression is needed.
