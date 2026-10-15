@@ -7,7 +7,8 @@ caller attribution, declaring identities, snapshot-local contexts, and formattin
 
 The other structural-matching experiments remain test-only. Explicit type
 arguments and inference from variables, fields, casts, and array accesses keep
-the existing path. No release version or versioned documentation is changed.
+the existing path. The release preparation targets 3.2.3 and adds its documentation
+snapshot while retaining earlier release snapshots.
 
 ## Scope and failure policy
 
@@ -128,9 +129,9 @@ cases and conservative guards remain part of the contract.
 - All 24 committed trace fixtures and five fixture-verifier unit tests passed.
 - Executable documentation, CLI help, quickstart, JSON and batch examples passed;
   release metadata, eight documentation unit tests, site build, and links/fragments
-  across 44 rendered pages passed.
+  across the rendered pages passed.
 - Experimental classes are absent from the executable JAR. Versioned release
-  documentation and the release version are unchanged.
+  documentation is retained; 3.2.3 has a new documentation snapshot.
 
 The strict `pre-commit-coverage` profile now passes with 100% production line and
 branch coverage. Boundary tests exercise nested receiver forms, unsupported
