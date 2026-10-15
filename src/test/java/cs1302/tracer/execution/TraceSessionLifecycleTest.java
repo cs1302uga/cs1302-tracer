@@ -102,7 +102,7 @@ class TraceSessionLifecycleTest {
         @Override public java.io.OutputStream getOutputStream() { return java.io.OutputStream.nullOutputStream(); }
         @Override public java.io.InputStream getInputStream() { return java.io.InputStream.nullInputStream(); }
         @Override public java.io.InputStream getErrorStream() { return java.io.InputStream.nullInputStream(); }
-        @Override public int waitFor() { waited = true; return 0; }
+        @Override public int waitFor() throws InterruptedException { waited = true; return 0; }
         @Override public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
                 throws InterruptedException {
             waited = true;
@@ -123,6 +123,50 @@ class TraceSessionLifecycleTest {
                 com.sun.jdi.VirtualMachine.class.getClassLoader(),
                 new Class<?>[] {com.sun.jdi.VirtualMachine.class},
                 (self, method, args) -> method.getName().equals("process") ? process : null);
+    }
+
+    @Test
+    void awaitingExitWithoutAGuestLeavesSessionUsable() {
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            session.awaitGuestExit();
+            assertThat(session.isStopped()).isFalse();
+            assertThat(TraceSession.current()).isSameAs(session);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void awaitingGuestExitPreservesInterrupt(boolean activeDeadline) {
+        var process = new GuestProcess() {
+            @Override public int waitFor() throws InterruptedException {
+                assertThat(activeDeadline).isTrue();
+                waited = true;
+                throw new InterruptedException("guest wait interrupted");
+            }
+            @Override public boolean waitFor(long timeout, java.util.concurrent.TimeUnit unit)
+                    throws InterruptedException {
+                assertThat(activeDeadline).isFalse();
+                assertThat(timeout).isEqualTo(200);
+                assertThat(unit).isEqualTo(java.util.concurrent.TimeUnit.MILLISECONDS);
+                waited = true;
+                throw new InterruptedException("guest wait interrupted");
+            }
+        };
+        var limits = new TraceLimits(activeDeadline ? 60_000 : 0, 0, 0, 0, 0, 0, 0, 0);
+        try (var session = new TraceSession(limits, InspectionPolicy.FIELDS, true)) {
+            session.attach(process, false);
+            if (activeDeadline) session.phase("trace");
+            try {
+                session.awaitGuestExit();
+            } finally {
+                process.alive = false;
+            }
+            assertThat(process.waited).isTrue();
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+        assertThat(TraceSession.current()).isNull();
     }
 
     @Test

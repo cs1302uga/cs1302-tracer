@@ -82,6 +82,76 @@ class InvocationTypeResolverBoundaryTest {
     }
 
     @Test
+    void concreteArrayTraversalRetainsLegalDimensionsAndRejectsExcessiveDepth() throws Exception {
+        ResolvedType type = ResolvedPrimitiveType.INT;
+        for (int depth = 1; depth <= 10_000; depth++) {
+            type = new ResolvedArrayType(type);
+            if (depth == 255 || depth == TypeTraversal.MAX_DEPTH - 1) {
+                assertThat(concrete(type).orElseThrow()).isEqualTo("int" + "[]".repeat(depth));
+            }
+            if (depth == TypeTraversal.MAX_DEPTH) {
+                assertThat(concrete(type)).isEmpty();
+            }
+        }
+        assertThat(concrete(type)).isEmpty();
+    }
+
+    @Test
+    void concreteGenericTraversalRejectsExcessiveDepth() throws Exception {
+        var unit = App.parseSource("class Box<T> { String value; }", Optional.empty());
+        var declaration = unit.getClassByName("Box").orElseThrow().resolve();
+        ResolvedType type = unit.getClassByName("Box").orElseThrow().getFieldByName("value")
+                .orElseThrow().getVariable(0).getType().resolve();
+        for (int depth = 0; depth < 10_000; depth++) {
+            type = new ReferenceTypeImpl(declaration, List.of(type));
+            if (depth == 31) {
+                assertThat(concrete(type).orElseThrow())
+                        .isEqualTo("Box<".repeat(32) + "java.lang.String" + ">".repeat(32));
+            }
+        }
+        assertThat(concrete(type)).isEmpty();
+    }
+
+    @Test
+    void callerBindingTextIsCheckedBeforeParsing() throws Exception {
+        var unit = App.parseSource("class Box<T> {} class Main { static <T> void helper(T x) {} "
+                + "<U> void run(U value) { helper(value); } }", Optional.empty());
+        var call = unit.findFirst(MethodCallExpr.class).orElseThrow();
+        String key = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst()
+                .resolve().getTypeParameters().getFirst().getQualifiedName();
+        var method = InvocationTypeResolver.class.getDeclaredMethod("infer", MethodCallExpr.class, Map.class);
+        method.setAccessible(true);
+        for (int depth : List.of(32, 65)) {
+            String binding = "Box<".repeat(depth) + "java.lang.String" + ">".repeat(depth);
+            var result = (Map<?, ?>) method.invoke(null, call, Map.of(key, binding));
+            assertThat(result).isEqualTo(depth == 32 ? Map.of("T", binding) : Map.of());
+        }
+    }
+
+    @Test
+    void callerSubstitutionKeepsTheRemainingTraversalBudget() throws Exception {
+        var unit = App.parseSource("class Main { static <T> void helper(T x) {} "
+                + "<U> void run(U value) { helper(value); } }", Optional.empty());
+        var call = unit.findFirst(MethodCallExpr.class).orElseThrow();
+        var parameter = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst()
+                .resolve().getTypeParameters().getFirst();
+        ResolvedType type = new ResolvedTypeVariable(parameter);
+        for (int i = 0; i < 255; i++) type = new ResolvedArrayType(type);
+        var method = InvocationTypeResolver.class.getDeclaredMethod("concreteType",
+                ResolvedType.class, Map.class, MethodCallExpr.class, boolean.class);
+        method.setAccessible(true);
+        for (int dimensions : List.of(127, 128)) {
+            var result = (Optional<?>) method.invoke(null, type,
+                    Map.of(parameter.getQualifiedName(), "int" + "[]".repeat(dimensions)), call, false);
+            if (dimensions == 127) {
+                assertThat(result.orElseThrow()).isEqualTo("int" + "[]".repeat(382));
+            } else {
+                assertThat(result).isEmpty();
+            }
+        }
+    }
+
+    @Test
     void anonymousDeclarationsCannotBecomeDisplayNames() throws Exception {
         var unit = App.parseSource("class Main { Object value = new Object() {}; }", Optional.empty());
         var creation = unit.findFirst(com.github.javaparser.ast.expr.ObjectCreationExpr.class).orElseThrow();
