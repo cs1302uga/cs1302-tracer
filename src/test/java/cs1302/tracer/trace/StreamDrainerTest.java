@@ -93,34 +93,30 @@ public class StreamDrainerTest {
 
   @Test
   void testSyncTimeoutAndEof() throws Exception {
-    PipedOutputStream pos = new PipedOutputStream();
-    PipedInputStream pis = new PipedInputStream(pos);
-
-    try (StreamDrainer drainer = new StreamDrainer(pis)) {
+    try (PipedOutputStream pos = new PipedOutputStream();
+        PipedInputStream pis = new PipedInputStream(pos);
+        StreamDrainer drainer = new StreamDrainer(pis)) {
       drainer.sync(10, 2);
       pos.write("delayed".getBytes(StandardCharsets.UTF_8));
       pos.flush();
-      drainer.sync(50, 5);
+      drainer.syncUntil(7, 5000);
       assertThat(drainer.size()).isEqualTo(7);
 
       pos.close();
       drainer.waitForEof(1000);
       assertThat(drainer.isEof()).isTrue();
-    } finally {
-      pos.close();
     }
   }
 
   @Test
   @DisplayName("Reset clears accumulated buffer")
   void testResetBuffer() throws Exception {
-    PipedOutputStream pos = new PipedOutputStream();
-    PipedInputStream pis = new PipedInputStream(pos);
-
-    try (StreamDrainer drainer = new StreamDrainer(pis)) {
+    try (PipedOutputStream pos = new PipedOutputStream();
+        PipedInputStream pis = new PipedInputStream(pos);
+        StreamDrainer drainer = new StreamDrainer(pis)) {
       pos.write("abc".getBytes(StandardCharsets.UTF_8));
       pos.flush();
-      drainer.syncUntil(3, 100);
+      drainer.syncUntil(3, 5000);
       assertThat(drainer.size()).isEqualTo(3);
 
       drainer.reset();
@@ -128,8 +124,7 @@ public class StreamDrainerTest {
 
       pos.write("def".getBytes(StandardCharsets.UTF_8));
       pos.flush();
-      Thread.sleep(10);
-      drainer.sync(100, 5);
+      drainer.syncUntil(3, 5000);
       assertThat(drainer.size()).isEqualTo(3);
       assertThat(new String(drainer.getBytes(), StandardCharsets.UTF_8)).isEqualTo("def");
       pos.close();
@@ -139,24 +134,47 @@ public class StreamDrainerTest {
   @Test
   @DisplayName("Dynamic session attachment enforces output limit")
   void testAttachSessionEnforcesLimit() throws Exception {
-    PipedOutputStream pos = new PipedOutputStream();
-    PipedInputStream pis = new PipedInputStream(pos);
-
+    CountDownLatch releaseReader = new CountDownLatch(1);
     TraceLimits limits = new TraceLimits(100, 5000, 5, 100, 100, 10000, 10000, 10);
-    try (TraceSession session = new TraceSession(limits, InspectionPolicy.TRUSTED, true);
-         StreamDrainer drainer = new StreamDrainer(pis)) {
-      drainer.attachSession(session);
+    try (PipedOutputStream pos = new PipedOutputStream();
+        PipedInputStream pis = new PipedInputStream(pos) {
+          @Override
+          public int read(byte[] buffer, int offset, int length) throws IOException {
+            try {
+              if (!releaseReader.await(5, TimeUnit.SECONDS)) {
+                throw new IOException("Timed out waiting to release the reader");
+              }
+            } catch (InterruptedException interrupted) {
+              Thread.currentThread().interrupt();
+              throw new IOException(interrupted);
+            }
+            return super.read(buffer, offset, length);
+          }
+        };
+        StreamDrainer drainer = new StreamDrainer(pis);
+        TraceSession session = new TraceSession(limits, InspectionPolicy.TRUSTED, true)) {
+      try {
+        drainer.attachSession(session);
 
-      pos.write("1234567890".getBytes(StandardCharsets.UTF_8));
-      pos.flush();
-      drainer.sync(100, 5);
+        pos.write("1234567890".getBytes(StandardCharsets.UTF_8));
+        pos.flush();
+        // Reproduce the CI ordering: quiet-period polling can finish before the reader runs.
+        drainer.sync(100, 5);
+        assertThat(drainer.size()).isZero();
+        assertThat(session.isStopped()).isFalse();
 
-      assertThat(drainer.size()).isEqualTo(5);
-      assertThat(session.isStopped()).isTrue();
-      assertThat(session.stopReason()).isEqualTo("output_limit");
+        pos.close();
+        releaseReader.countDown();
+        drainer.waitForEof(5000);
+        assertThat(drainer.isEof()).isTrue();
+        assertThat(drainer.getBytes()).containsExactly("12345".getBytes(StandardCharsets.UTF_8));
+        assertThat(session.isStopped()).isTrue();
+        assertThat(session.stopReason()).isEqualTo("output_limit");
 
-      drainer.detachSession();
-      pos.close();
+        drainer.detachSession();
+      } finally {
+        releaseReader.countDown();
+      }
     }
   }
 
