@@ -2227,9 +2227,6 @@ public class DebugTraceHelper {
 
             prepassFrameVariables(
                     frame,
-                    declaringClassFqn,
-                    methodName,
-                    currentLine,
                     allocType,
                     astTypeResolver,
                     objectTypeMap,
@@ -2252,9 +2249,6 @@ public class DebugTraceHelper {
      * Prepass inspection of visible variables in a stack frame.
      *
      * @param frame Stack frame.
-     * @param declaringClassFqn Declaring class FQN.
-     * @param methodName Method name.
-     * @param currentLine Current line number.
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Target object type map.
@@ -2263,9 +2257,6 @@ public class DebugTraceHelper {
      */
     private static void prepassFrameVariables(
             StackFrame frame,
-            String declaringClassFqn,
-            String methodName,
-            int currentLine,
             Optional<String> allocType,
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap,
@@ -2284,9 +2275,6 @@ public class DebugTraceHelper {
                         frame,
                         lv,
                         or,
-                        declaringClassFqn,
-                        methodName,
-                        currentLine,
                         allocType,
                         astTypeResolver,
                         objectTypeMap,
@@ -2302,9 +2290,6 @@ public class DebugTraceHelper {
      * @param frame Stack frame.
      * @param lv Local variable.
      * @param or Object reference.
-     * @param declaringClassFqn Declaring class FQN.
-     * @param methodName Method name.
-     * @param currentLine Current line number.
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
      * @param objectTypeMap Target object type map.
@@ -2314,9 +2299,6 @@ public class DebugTraceHelper {
             StackFrame frame,
             LocalVariable lv,
             ObjectReference or,
-            String declaringClassFqn,
-            String methodName,
-            int currentLine,
             Optional<String> allocType,
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap,
@@ -2359,8 +2341,6 @@ public class DebugTraceHelper {
      * @param finalVariableNames Set of final variable names.
      * @param methodLambdaAssignments Precomputed lambda assignments.
      * @param currentLine Current execution line number.
-     * @param declaringClassFqn FQN of declaring class.
-     * @param methodName Method name.
      * @param astTypeResolver AST type resolver.
      * @param objectTypeMap Reified object type map.
      * @param heapReferencesToWalk Heap reference queue.
@@ -2375,8 +2355,6 @@ public class DebugTraceHelper {
             Set<String> finalVariableNames,
             List<LambdaAssignment> methodLambdaAssignments,
             int currentLine,
-            String declaringClassFqn,
-            String methodName,
             AstTypeResolver astTypeResolver,
             Map<Long, String> objectTypeMap,
             List<ObjectReference> heapReferencesToWalk,
@@ -2390,8 +2368,7 @@ public class DebugTraceHelper {
             Optional<String> lvLambdaImplementation =
                     findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
             String resolvedTypeName = resolveLocalVariableType(
-                    frame, lv, astTypeResolver, contexts.bindings(frame),
-                    declaringClassFqn, methodName);
+                    frame, lv, astTypeResolver, contexts.bindings(frame));
             appendStackField(
                     frame,
                     lv,
@@ -2464,7 +2441,6 @@ public class DebugTraceHelper {
             List<LambdaAssignment> methodLambdaAssignments =
                     lambdaMap.getOrDefault(frameMethodSignature, Collections.emptyList());
             int currentLine = frame.location().lineNumber();
-            String methodName = frameMethod.name();
             List<LocalVariable> visibleVars;
             try {
                 visibleVars = frame.visibleVariables();
@@ -2473,7 +2449,7 @@ public class DebugTraceHelper {
             } // try
             processStackFrameVariables(
                     frame, visibleVars, finalVariableNames, methodLambdaAssignments,
-                    currentLine, declaringClassFqn, methodName, astTypeResolver,
+                    currentLine, astTypeResolver,
                     objectTypeMap, heapReferencesToWalk, heap, stackFrameFields, contexts);
             Optional<ThisObject> thisObject = resolveThisObject(
                     frame, declaringClassFqn, objectTypeMap, heapReferencesToWalk);
@@ -2533,17 +2509,13 @@ public class DebugTraceHelper {
      * @param lv LocalVariable.
      * @param astTypeResolver AstTypeResolver.
      * @param bindings Current frame's lexical bindings.
-     * @param declaringClassFqn Declaring class FQN.
-     * @param methodName Method name.
      * @return Resolved type name string.
      */
     private static String resolveLocalVariableType(
             StackFrame frame,
             LocalVariable lv,
             AstTypeResolver astTypeResolver,
-            Map<String, String> bindings,
-            String declaringClassFqn,
-            String methodName) {
+            Map<String, String> bindings) {
         String resolvedTypeName = lv.typeName();
         Optional<String> astType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
         if (astType.isPresent()) {
