@@ -388,14 +388,13 @@ public sealed interface TraceValue {
      *
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
-     * @param astTypeResolver AstTypeResolver instance.
      * @param metadata Snapshot-owned reified type evidence.
      * @param classInfo Generic class info.
      * @param bindings Type bindings.
      * @return Collection of snapshot fields.
      */
     private static java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
             ReifiedTypeMetadata metadata, Optional<AstTypeResolver.ClassGenericInfo> classInfo,
             java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
@@ -499,7 +498,7 @@ public sealed interface TraceValue {
                 ? astTypeResolver.getClassGenericInfo(rawClassFqn)
                 : Optional.empty();
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = extractSnapshotFields(or,
-                outEncounteredReferences, astTypeResolver, metadata, classInfo, bindings);
+                outEncounteredReferences, metadata, classInfo, bindings);
         return new Object(classFqn, objectSnapshotFields, Optional.ofNullable(constantName));
     } // handleRegularObject
 

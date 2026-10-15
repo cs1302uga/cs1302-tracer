@@ -113,9 +113,9 @@ class ValueMetadataTest {
     }
 
     @Test
-    void fieldExtractionSupportsMissingResolverAndOptionalTypeMetadata() throws Exception {
-        var signature = new Class<?>[] { ObjectReference.class, Optional.class, AstTypeResolver.class,
-            ReifiedTypeMetadata.class, Optional.class, Map.class };
+    void fieldExtractionSupportsOptionalTypeMetadata() throws Exception {
+        var signature = new Class<?>[] { ObjectReference.class, Optional.class, ReifiedTypeMetadata.class,
+            Optional.class, Map.class };
         var child = object(mirror(ReferenceType.class, Map.of("name", "Child")), Map.of("uniqueID", 2L));
         for (String fieldType : Arrays.asList(null, "Child<String>")) {
             var attributes = new HashMap<String, Object>(Map.of("name", "child", "isStatic", false, "isFinal", false));
@@ -127,14 +127,14 @@ class ValueMetadataTest {
             for (ReifiedTypeMetadata types : Arrays.asList(null, new ReifiedTypeMetadata(null),
                     metadata(null, Map.of(2L, "Child")))) {
                 var references = new ArrayList<ObjectReference>();
-                Object result = call("extractSnapshotFields", signature, parent, Optional.of(references), null, types,
+                Object result = call("extractSnapshotFields", signature, parent, Optional.of(references), types,
                         Optional.empty(), Map.of());
                 assertThat(result).isEqualTo(
                         List.of(new ExecutionSnapshot.Field(false, fieldType, "child", new TraceValue.Reference(2))));
                 assertThat(references).containsExactly(child);
                 if (types != null && fieldType != null) {
                     assertThat(types.typeOf(2L)).isEqualTo(fieldType);
-                    call("extractSnapshotFields", signature, parent, Optional.empty(), null, types, Optional.empty(),
+                    call("extractSnapshotFields", signature, parent, Optional.empty(), types, Optional.empty(),
                             Map.of());
                     assertThat(types.typeOf(2L)).isEqualTo(fieldType);
                 }
@@ -143,7 +143,7 @@ class ValueMetadataTest {
         var field = mirror(Field.class, Map.of("name", "x", "isStatic", false, "typeName", "void"));
         var parent = object(mirror(ReferenceType.class, Map.of("allFields", List.of(field))),
                 Map.of("getValue", mirror(VoidValue.class, Map.of())));
-        assertThat(call("extractSnapshotFields", signature, parent, Optional.empty(), null, null, Optional.empty(),
+        assertThat(call("extractSnapshotFields", signature, parent, Optional.empty(), null, Optional.empty(),
                 Map.of())).isEqualTo(List.of());
     }
 

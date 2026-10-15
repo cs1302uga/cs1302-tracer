@@ -138,12 +138,12 @@ class DebuggerTypeMetadataTest {
         var stackFrame = mirror(StackFrame.class, Map.of("getValue", child));
         var types = metadata(resolver, Map.of(1L, "Box"));
         var signature = new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
-            Optional.class, AstTypeResolver.class, ReifiedTypeMetadata.class, List.class, Map.class, List.class };
-        call("appendStackField", signature, stackFrame, variable, false, null, Optional.empty(), resolver, types,
+            Optional.class, ReifiedTypeMetadata.class, List.class, Map.class, List.class };
+        call("appendStackField", signature, stackFrame, variable, false, null, Optional.empty(), types,
                 new ArrayList<>(), new HashMap<>(), fields);
         assertThat(fields.getFirst().typeName()).isNull();
-        call("appendStackField", signature, stackFrame, variable, false, "Box<String>", Optional.empty(), resolver,
-                types, new ArrayList<>(), new HashMap<>(), fields);
+        call("appendStackField", signature, stackFrame, variable, false, "Box<String>", Optional.empty(), types,
+                new ArrayList<>(), new HashMap<>(), fields);
         assertThat(types.typeOf(1L)).isEqualTo("Box<String>");
     }
 

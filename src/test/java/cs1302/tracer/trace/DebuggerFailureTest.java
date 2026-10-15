@@ -238,9 +238,9 @@ class DebuggerFailureTest {
         var fields = new java.util.ArrayList<ExecutionSnapshot.Field>();
         call("appendStackField",
                 new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
-                    java.util.Optional.class, AstTypeResolver.class, ReifiedTypeMetadata.class, List.class, Map.class,
+                    java.util.Optional.class, ReifiedTypeMetadata.class, List.class, Map.class,
                     List.class },
-                frame, variable, false, "void", java.util.Optional.empty(), new AstTypeResolver(List.of()),
+                frame, variable, false, "void", java.util.Optional.empty(),
                 new ReifiedTypeMetadata(null), new java.util.ArrayList<>(), new java.util.HashMap<>(), fields);
         assertThat(fields).isEmpty();
         var field = mirror(Field.class, Map.of("isStatic", true, "name", "x"));

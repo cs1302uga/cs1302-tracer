@@ -1906,7 +1906,7 @@ public class DebugTraceHelper {
             Optional<String> lvLambdaImplementation = findLambdaImplementation(methodLambdaAssignments, lv.name(),
                     currentLine);
             String resolvedTypeName = resolveLocalVariableType(frame, lv, astTypeResolver, contexts.bindings(frame));
-            appendStackField(frame, lv, isFinal, resolvedTypeName, lvLambdaImplementation, astTypeResolver, metadata,
+            appendStackField(frame, lv, isFinal, resolvedTypeName, lvLambdaImplementation, metadata,
                     heapReferencesToWalk, heap, stackFrameFields);
         } // for
     } // processStackFrameVariables
@@ -2032,14 +2032,13 @@ public class DebugTraceHelper {
      * @param isFinal True if variable is final.
      * @param resolvedTypeName Resolved type name.
      * @param lvLambdaImplementation Optional lambda implementation.
-     * @param astTypeResolver AstTypeResolver instance.
      * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap map.
      * @param stackFrameFields Target fields list.
      */
     private static void appendStackField(StackFrame frame, LocalVariable lv, boolean isFinal, String resolvedTypeName,
-            Optional<String> lvLambdaImplementation, AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
+            Optional<String> lvLambdaImplementation, ReifiedTypeMetadata metadata,
             List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
             List<ExecutionSnapshot.Field> stackFrameFields) {
         switch (frame.getValue(lv)) {

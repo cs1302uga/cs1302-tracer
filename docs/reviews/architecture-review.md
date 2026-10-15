@@ -30,3 +30,16 @@ rather than reaching into private state to force an impossible coverage branch.
 Existing public frame-binding tests exercise equal refinements, unrelated receivers,
 accepted refinements across multiple contexts, and rejected conflicting evidence.
 The normal commit hook validates the full production coverage gate for this change.
+
+## CQ-001 — Unused resolver parameters
+
+CodeQL reported two `java/unused-parameter` results in `appendStackField` and
+`extractSnapshotFields`. Verified by inspecting both complete private methods:
+metadata refinement now belongs to `ReifiedTypeMetadata`; neither method reads its
+resolver argument. Removed both unused parameters, their call arguments, and stale
+Javadoc. Updated existing reflective tests to the new signatures without adding
+private-method tests or changing their behavioral assertions.
+
+This is a refactoring correction, not an observed behavioral bug, so no artificial
+red test was introduced. The focused metadata/debugger tests and the normal full
+coverage commit hook validate preserved behavior. Serialized formats are unchanged.
