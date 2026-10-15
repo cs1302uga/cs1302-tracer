@@ -10,10 +10,8 @@ import com.google.gson.annotations.SerializedName;
  * @param lineContent The source code text of this line.
  * @param file The optional relative source file path for multi-file programs.
  */
-public record BreakpointEntry(
-        @SerializedName("lineNumber") int lineNumber,
-        @SerializedName("validBreakpoint") boolean validBreakpoint,
-        @SerializedName("lineContent") String lineContent,
+public record BreakpointEntry(@SerializedName("lineNumber") int lineNumber,
+        @SerializedName("validBreakpoint") boolean validBreakpoint, @SerializedName("lineContent") String lineContent,
         @SerializedName("file") String file) {
 
     /**

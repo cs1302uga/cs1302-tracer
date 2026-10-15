@@ -43,8 +43,7 @@ public record SourceMetadata(Map<String, String> sources, String entryFile) {
     private static String sourcePath(SourceFile file) {
         String path = file.relativePath().replace('\\', '/');
         String name = path.substring(path.lastIndexOf('/') + 1);
-        return file.ast().getPackageDeclaration()
-                .map(pkg -> pkg.getNameAsString().replace('.', '/') + "/")
-                .orElse("") + name;
+        return file.ast().getPackageDeclaration().map(pkg -> pkg.getNameAsString().replace('.', '/') + "/").orElse("")
+                + name;
     } // sourcePath
 } // SourceMetadata

@@ -19,11 +19,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 class BatchExceptionOutputTest {
 
     @ParameterizedTest
-    @CsvSource({
-        "Object node = null; node.toString();,java.lang.NullPointerException",
+    @CsvSource({ "Object node = null; node.toString();,java.lang.NullPointerException",
         "throw new IllegalStateException(\"student detail\");,java.lang.IllegalStateException",
-        "int zero = 0; int result = 1 / zero;,java.lang.ArithmeticException"
-    })
+        "int zero = 0; int result = 1 / zero;,java.lang.ArithmeticException" })
     void uncaughtOutputAndRecovery(String statement, String exceptionClass) throws Exception {
         String source = """
                 public class Driver {
@@ -48,8 +46,7 @@ class BatchExceptionOutputTest {
         String input = request("failure", source) + "\n" + request("success", goodSource) + "\n";
         StringWriter output = new StringWriter();
         try (BatchTraceService service = new BatchTraceService(1, 10)) {
-            service.processStream(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)),
-                    output);
+            service.processStream(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), output);
         } // try
         String[] lines = output.toString().strip().split("\\R");
         assertThat(lines).hasSize(2);
@@ -60,9 +57,8 @@ class BatchExceptionOutputTest {
         assertThat(result.get("stdout").getAsString()).isEqualTo("before\n");
         String stderr = result.get("stderr").getAsString();
         assertThat(stderr).startsWith("warning\nException in thread \"main\" " + exceptionClass)
-                .contains("at Driver.fail(Driver.java:9)", "at Driver.main(Driver.java:5)")
-                .doesNotContain("GuestHarness", "java.lang.reflect", "jdk.internal.reflect",
-                        "student-main", "unreachable");
+                .contains("at Driver.fail(Driver.java:9)", "at Driver.main(Driver.java:5)").doesNotContain(
+                        "GuestHarness", "java.lang.reflect", "jdk.internal.reflect", "student-main", "unreachable");
         if (exceptionClass.endsWith("NullPointerException")) {
             assertThat(stderr).contains("Cannot invoke", "node");
         } else if (exceptionClass.endsWith("IllegalStateException")) {
@@ -103,8 +99,9 @@ class BatchExceptionOutputTest {
                 """;
         StringWriter output = new StringWriter();
         try (BatchTraceService service = new BatchTraceService(1, 10)) {
-            service.processStream(new ByteArrayInputStream(
-                    (request("caught", source) + "\n").getBytes(StandardCharsets.UTF_8)), output);
+            service.processStream(
+                    new ByteArrayInputStream((request("caught", source) + "\n").getBytes(StandardCharsets.UTF_8)),
+                    output);
         } // try
         JsonObject result = result(output.toString());
         assertThat(result.get("status").getAsString()).isEqualTo("completed");
@@ -126,16 +123,16 @@ class BatchExceptionOutputTest {
                 """;
         StringWriter output = new StringWriter();
         try (BatchTraceService service = new BatchTraceService(1, 10)) {
-            service.processStream(new ByteArrayInputStream(
-                    (request("causes", source) + "\n").getBytes(StandardCharsets.UTF_8)), output);
+            service.processStream(
+                    new ByteArrayInputStream((request("causes", source) + "\n").getBytes(StandardCharsets.UTF_8)),
+                    output);
         } // try
         JsonObject result = result(output.toString());
         assertThat(result.get("stopReason").getAsString()).isEqualTo("guest_exception");
         assertThat(result.get("stderr").getAsString())
                 .contains("outer detail", "Caused by: java.lang.RuntimeException: cause detail",
                         "Suppressed: java.lang.IllegalArgumentException: suppressed detail",
-                        "Driver.main(Driver.java:3)", "Driver.main(Driver.java:4)",
-                        "Driver.main(Driver.java:5)")
+                        "Driver.main(Driver.java:3)", "Driver.main(Driver.java:4)", "Driver.main(Driver.java:5)")
                 .doesNotContain("GuestHarness", "jdk.internal.reflect", "java.lang.reflect");
     } // preservesCausesAndSuppressedExceptions
 
@@ -149,7 +146,6 @@ class BatchExceptionOutputTest {
     } // request
 
     private static JsonObject result(String response) {
-        return PyTutorSerializer.getGson(false).fromJson(response, JsonObject.class)
-                .getAsJsonObject("result");
+        return PyTutorSerializer.getGson(false).fromJson(response, JsonObject.class).getAsJsonObject("result");
     } // result
 } // BatchExceptionOutputTest

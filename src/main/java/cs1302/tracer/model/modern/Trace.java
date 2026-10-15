@@ -14,17 +14,12 @@ import java.util.Map;
  * @param format The trace format identifier ("modern").
  * @param stdin The standard input provided to the program.
  * @param steps The sequential list of trace steps.
- * @param breakpoints Optional mapping of breakpoint line numbers to steps when tracing
- *     specific breakpoints.
+ * @param breakpoints Optional mapping of breakpoint line numbers to steps when tracing specific breakpoints.
  */
-public record Trace(
-        @SerializedName("code") String code,
-        @SerializedName("format") String format,
-        @SerializedName("stdin") String stdin,
-        @SerializedName("steps") List<Step> steps,
+public record Trace(@SerializedName("code") String code, @SerializedName("format") String format,
+        @SerializedName("stdin") String stdin, @SerializedName("steps") List<Step> steps,
         @SerializedName("breakpoints") Map<Integer, Object> breakpoints,
-        @SerializedName("sources") Map<String, String> sources,
-        @SerializedName("entryFile") String entryFile) {
+        @SerializedName("sources") Map<String, String> sources, @SerializedName("entryFile") String entryFile) {
 
     /**
      * Constructs a trace and derives its source metadata from the original input.
@@ -35,8 +30,7 @@ public record Trace(
      * @param steps Sequential steps, or null for breakpoint output.
      * @param breakpoints Breakpoint output, or null for sequential output.
      */
-    public Trace(String code, String format, String stdin, List<Step> steps,
-            Map<Integer, Object> breakpoints) {
+    public Trace(String code, String format, String stdin, List<Step> steps, Map<Integer, Object> breakpoints) {
         this(code, format, stdin, steps, breakpoints, SourceMetadata.from(code));
     } // Trace
 
@@ -50,8 +44,8 @@ public record Trace(
      * @param breakpoints Breakpoint output.
      * @param metadata Parsed source metadata.
      */
-    private Trace(String code, String format, String stdin, List<Step> steps,
-            Map<Integer, Object> breakpoints, SourceMetadata metadata) {
+    private Trace(String code, String format, String stdin, List<Step> steps, Map<Integer, Object> breakpoints,
+            SourceMetadata metadata) {
         this(code, format, stdin, steps, breakpoints, metadata.sources(), metadata.entryFile());
     } // Trace
 

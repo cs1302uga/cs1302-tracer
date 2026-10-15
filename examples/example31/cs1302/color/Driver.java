@@ -5,13 +5,8 @@ import java.awt.Color;
 /**
  * Demonstrates java.awt.Color objects, aliasing, and transparency in the heap.
  *
- * <p>
- * Normative References:
- * <ul>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.4 (Type {@code Object}).</li>
- * </ul>
- * </p>
+ * <p> Normative References: <ul> <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li>
+ * <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.4 (Type {@code Object}).</li> </ul> </p>
  */
 public class Driver {
 
@@ -34,11 +29,7 @@ public class Driver {
         Color redAlias = red;
 
         // Array referencing color instances
-        Color[] palette = new Color[] {
-            red,
-            skyBlue,
-            semiTransparent
-        };
+        Color[] palette = new Color[] { red, skyBlue, semiTransparent };
     } // main
 
 } // Driver

@@ -8,6 +8,4 @@ import cs1302.tracer.execution.TraceResult;
  * @param id Unique job correlation identifier.
  * @param result Standard trace result envelope.
  */
-public record BatchJobResponse(
-        String id,
-        TraceResult result) {} // BatchJobResponse
+public record BatchJobResponse(String id, TraceResult result) {} // BatchJobResponse

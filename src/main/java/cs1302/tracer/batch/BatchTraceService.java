@@ -56,29 +56,29 @@ public final class BatchTraceService implements AutoCloseable {
 
     /**
      * Constructs a bounded batch scheduler with explicit output ordering.
+     *
      * @param workerCount Concurrent guests.
      * @param maxJobsPerWorker Jobs before recycling a reusable guest.
      * @param maxInFlight Maximum admitted jobs, including buffered results.
      * @param completionOrder Emit responses immediately as jobs finish.
      */
-    public BatchTraceService(int workerCount, int maxJobsPerWorker,
-            int maxInFlight, boolean completionOrder) {
+    public BatchTraceService(int workerCount, int maxJobsPerWorker, int maxInFlight, boolean completionOrder) {
         this(workerCount, maxJobsPerWorker, maxInFlight, completionOrder, null);
     } // BatchTraceService
 
     /**
      * Constructs a scheduler with a replaceable job boundary for deterministic scheduling tests.
+     *
      * @param workerCount Concurrent guests.
      * @param maxJobsPerWorker Recycling limit.
      * @param maxInFlight Admission limit.
      * @param completionOrder Emit completion order.
      * @param runner Job boundary, or null to use the guest worker pool.
      */
-    BatchTraceService(int workerCount, int maxJobsPerWorker, int maxInFlight,
-            boolean completionOrder, Function<BatchJobRequest, BatchJobResponse> runner) {
+    BatchTraceService(int workerCount, int maxJobsPerWorker, int maxInFlight, boolean completionOrder,
+            Function<BatchJobRequest, BatchJobResponse> runner) {
         if (workerCount < 1 || maxInFlight < 1 || maxJobsPerWorker < 1) {
-            throw new IllegalArgumentException(
-                    "Worker, in-flight, and recycling limits must be positive");
+            throw new IllegalArgumentException("Worker, in-flight, and recycling limits must be positive");
         } // if
         this.workerCount = workerCount;
         this.maxInFlight = maxInFlight;
@@ -133,8 +133,7 @@ public final class BatchTraceService implements AutoCloseable {
                         break;
                     } // if
                 } // while
-                throw new IOException("NDJSON record exceeds maximum size of "
-                        + maxChars + " characters");
+                throw new IOException("NDJSON record exceeds maximum size of " + maxChars + " characters");
             } // if
         } // while
         return sb.length() == 0 && c == -1 ? null : sb.toString();
@@ -148,8 +147,7 @@ public final class BatchTraceService implements AutoCloseable {
      * @throws IOException On stream IO failure.
      */
     public void processStream(InputStream input, Writer output) throws IOException {
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(input, StandardCharsets.UTF_8));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
         PrintWriter printWriter = new PrintWriter(output, true);
         Queue<CompletableFuture<Void>> inFlight = new ArrayDeque<>();
         CompletableFuture<Void> previous = CompletableFuture.completedFuture(null);
@@ -201,20 +199,18 @@ public final class BatchTraceService implements AutoCloseable {
                 JsonNesting.validate(jsonLine);
                 req = gson.fromJson(jsonLine, BatchJobRequest.class);
             } catch (NestingException nesting) {
-                return new BatchJobResponse(null, new TraceResult(1, "unknown", "stopped",
-                        nesting.getMessage(), "parse", false, null,
-                        TraceLimits.unlimited(), Map.of(),
-                        List.of(nesting.getMessage()), "", ""));
+                return new BatchJobResponse(null,
+                        new TraceResult(1, "unknown", "stopped", nesting.getMessage(), "parse", false, null,
+                                TraceLimits.unlimited(), Map.of(), List.of(nesting.getMessage()), "", ""));
             } catch (Exception parseErr) {
-                TraceResult errResult = TraceResult.failed(
-                        "unknown", "parse", "Malformed JSON request: " + parseErr.getMessage());
+                TraceResult errResult = TraceResult.failed("unknown", "parse",
+                        "Malformed JSON request: " + parseErr.getMessage());
                 response = new BatchJobResponse(null, errResult);
                 return response;
             } // try
 
             if (req == null) {
-                TraceResult errResult = TraceResult.failed(
-                        "unknown", "parse", "Empty JSON request");
+                TraceResult errResult = TraceResult.failed("unknown", "parse", "Empty JSON request");
                 response = new BatchJobResponse(null, errResult);
                 return response;
             } // if
@@ -225,6 +221,7 @@ public final class BatchTraceService implements AutoCloseable {
 
     /**
      * Checks writer failures after an output future completes.
+     *
      * @param writer Output writer.
      * @throws IOException If writing failed.
      */
@@ -253,9 +250,8 @@ public final class BatchTraceService implements AutoCloseable {
             } catch (Exception ignored) {
                 // fallback to default
             } // try
-            TraceResult errResult = TraceResult.stopped(
-                    format.name().toLowerCase(java.util.Locale.ROOT),
-                    "interrupted", "Worker execution interrupted", req.resolveLimits());
+            TraceResult errResult = TraceResult.stopped(format.name().toLowerCase(java.util.Locale.ROOT), "interrupted",
+                    "Worker execution interrupted", req.resolveLimits());
             return new BatchJobResponse(req.id(), errResult);
         } finally {
             if (worker != null) {

@@ -16,8 +16,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Precomputes and caches immutable source-derived AST indexes, type resolution hierarchies,
- * and lambda analysis for the lifetime of a tracing session to avoid per-snapshot re-indexing.
+ * Precomputes and caches immutable source-derived AST indexes, type resolution hierarchies, and lambda analysis for the
+ * lifetime of a tracing session to avoid per-snapshot re-indexing.
  */
 public final class SourceAnalysis {
 
@@ -38,27 +38,23 @@ public final class SourceAnalysis {
      * @param classDeclarations Map of class FQNs to class declarations.
      * @param staticLambdaImplementations Precomputed static lambda implementation text map.
      */
-    private SourceAnalysis(
-            List<CompilationUnit> parsedSources,
-            AstTypeResolver astTypeResolver,
+    private SourceAnalysis(List<CompilationUnit> parsedSources, AstTypeResolver astTypeResolver,
             Map<String, List<DebugTraceHelper.LambdaAssignment>> lambdaMethodAssignments,
             Map<String, Set<String>> finalMethodVariables,
             Map<String, Optional<ClassOrInterfaceDeclaration>> classDeclarations,
             Map<String, String> staticLambdaImplementations) {
         this.parsedSources = Collections.unmodifiableList(new ArrayList<>(parsedSources));
         this.astTypeResolver = astTypeResolver;
-        Map<String, List<DebugTraceHelper.LambdaAssignment>> unmodifiableLambdaMap =
-                new HashMap<>();
-        lambdaMethodAssignments.forEach((k, v) ->
-                unmodifiableLambdaMap.put(k, Collections.unmodifiableList(new ArrayList<>(v))));
+        Map<String, List<DebugTraceHelper.LambdaAssignment>> unmodifiableLambdaMap = new HashMap<>();
+        lambdaMethodAssignments
+                .forEach((k, v) -> unmodifiableLambdaMap.put(k, Collections.unmodifiableList(new ArrayList<>(v))));
         this.lambdaMethodAssignments = Collections.unmodifiableMap(unmodifiableLambdaMap);
         Map<String, Set<String>> unmodifiableFinalMap = new HashMap<>();
-        finalMethodVariables.forEach((k, v) ->
-                unmodifiableFinalMap.put(k, Collections.unmodifiableSet(new HashSet<>(v))));
+        finalMethodVariables
+                .forEach((k, v) -> unmodifiableFinalMap.put(k, Collections.unmodifiableSet(new HashSet<>(v))));
         this.finalMethodVariables = Collections.unmodifiableMap(unmodifiableFinalMap);
         this.classDeclarations = Collections.unmodifiableMap(classDeclarations);
-        this.staticLambdaImplementations = Collections.unmodifiableMap(
-                new HashMap<>(staticLambdaImplementations));
+        this.staticLambdaImplementations = Collections.unmodifiableMap(new HashMap<>(staticLambdaImplementations));
     } // SourceAnalysis
 
     /**
@@ -67,13 +63,8 @@ public final class SourceAnalysis {
      * @param parsedSources List of parsed CompilationUnits.
      * @return SourceAnalysis instance containing pre-indexed AST metadata.
      */
-    private static final SourceAnalysis EMPTY = new SourceAnalysis(
-            List.of(),
-            new AstTypeResolver(List.of()),
-            Map.of(),
-            Map.of(),
-            Map.of(),
-            Map.of());
+    private static final SourceAnalysis EMPTY = new SourceAnalysis(List.of(), new AstTypeResolver(List.of()), Map.of(),
+            Map.of(), Map.of(), Map.of());
 
     /**
      * Returns an empty SourceAnalysis instance.
@@ -95,9 +86,7 @@ public final class SourceAnalysis {
             return empty();
         } // if
 
-        List<CompilationUnit> nonNull = parsedSources.stream()
-                .filter(Objects::nonNull)
-                .toList();
+        List<CompilationUnit> nonNull = parsedSources.stream().filter(Objects::nonNull).toList();
         if (nonNull.isEmpty()) {
             return empty();
         } // if
@@ -122,17 +111,14 @@ public final class SourceAnalysis {
                         continue;
                     } // if
                     for (VariableDeclarator vd : fieldDecl.getVariables()) {
-                        vd.getInitializer()
-                                .filter(Expression::isLambdaExpr)
-                                .map(Expression::asLambdaExpr)
+                        vd.getInitializer().filter(Expression::isLambdaExpr).map(Expression::asLambdaExpr)
                                 .flatMap(lambda -> {
                                     try {
                                         return DebugTraceHelper.tryImplementLambdaSam(lambda);
                                     } catch (RuntimeException e) {
                                         return Optional.empty();
                                     } // try
-                                })
-                                .ifPresent(impl -> {
+                                }).ifPresent(impl -> {
                                     String name = vd.getNameAsString();
                                     staticLambdas.put(fqn + "#" + name, impl);
                                     staticLambdas.putIfAbsent(simpleName + "#" + name, impl);
@@ -142,13 +128,7 @@ public final class SourceAnalysis {
             } // for
         } // for
 
-        return new SourceAnalysis(
-                nonNull,
-                resolver,
-                lambdaMap,
-                finalMap,
-                classDecls,
-                staticLambdas);
+        return new SourceAnalysis(nonNull, resolver, lambdaMap, finalMap, classDecls, staticLambdas);
     } // from
 
     /**

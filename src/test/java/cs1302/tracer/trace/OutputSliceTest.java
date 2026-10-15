@@ -25,12 +25,12 @@ class OutputSliceTest {
         assertThat(empty.subSlice(0, 5)).isSameAs(empty);
         assertThat(empty.subSlice(0)).isSameAs(empty);
         assertThat(empty.contentEquals(OutputSlice.from(new byte[0]))).isTrue();
-        assertThat(empty.contentEquals(OutputSlice.from(new byte[] {1}))).isFalse();
+        assertThat(empty.contentEquals(OutputSlice.from(new byte[] { 1 }))).isFalse();
         assertThat(OutputSlice.from((byte[]) null)).isSameAs(empty);
         assertThat(OutputSlice.from(new byte[0])).isSameAs(empty);
         assertThat(OutputSlice.from((byte[]) null, 0, 5)).isSameAs(empty);
-        assertThat(OutputSlice.from(new byte[] {1, 2}, 0, 0)).isSameAs(empty);
-        assertThat(OutputSlice.from(new byte[] {1, 2}, 5, 2)).isSameAs(empty);
+        assertThat(OutputSlice.from(new byte[] { 1, 2 }, 0, 0)).isSameAs(empty);
+        assertThat(OutputSlice.from(new byte[] { 1, 2 }, 5, 2)).isSameAs(empty);
         assertThat(OutputSlice.from((StreamDrainer) null, 0, 5)).isSameAs(empty);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> empty.byteAt(0))
                 .isInstanceOf(IndexOutOfBoundsException.class);
@@ -175,12 +175,11 @@ class OutputSliceTest {
                     .isInstanceOf(IndexOutOfBoundsException.class);
         } // try
 
-        try (StreamDrainer emptyDrainer =
-                new StreamDrainer(new ByteArrayInputStream(new byte[0]))) {
+        try (StreamDrainer emptyDrainer = new StreamDrainer(new ByteArrayInputStream(new byte[0]))) {
             emptyDrainer.waitForEof(100);
             assertThat(OutputSlice.from(emptyDrainer, 0, 10).isEmpty()).isTrue();
             assertThat(OutputSlice.from(emptyDrainer, -5, 10).isEmpty()).isTrue();
-            assertThat(emptyDrainer.startsWith(0, 10, new byte[] {1})).isFalse();
+            assertThat(emptyDrainer.startsWith(0, 10, new byte[] { 1 })).isFalse();
             assertThat(emptyDrainer.startsWith(0, 10, null)).isTrue();
             assertThat(emptyDrainer.startsWith(0, 10, new byte[0])).isTrue();
             assertThat(emptyDrainer.indexOf(0, 10, (byte) 1, 0)).isEqualTo(-1);
@@ -233,10 +232,8 @@ class OutputSliceTest {
         assertThat(sanitized2.asUtf8String()).isEqualTo("Remainder\n");
 
         String bannerNoNewline = "Picked up JAVA_TOOL_OPTIONS: -Dtest=true";
-        OutputSlice withBannerNoNewline =
-                OutputSlice.from(bannerNoNewline.getBytes(StandardCharsets.UTF_8));
-        OutputSlice sanitizedNoNewline =
-                DebugTraceHelper.sanitizeDebuggeeStderrSlice(withBannerNoNewline);
+        OutputSlice withBannerNoNewline = OutputSlice.from(bannerNoNewline.getBytes(StandardCharsets.UTF_8));
+        OutputSlice sanitizedNoNewline = DebugTraceHelper.sanitizeDebuggeeStderrSlice(withBannerNoNewline);
         assertThat(sanitizedNoNewline.isEmpty()).isTrue();
     } // testSanitizeSlice
 
@@ -245,9 +242,8 @@ class OutputSliceTest {
     void testExecutionSnapshotWithSlices() {
         OutputSlice stdout = OutputSlice.from("hello".getBytes(StandardCharsets.UTF_8));
         OutputSlice stderr = OutputSlice.from("err".getBytes(StandardCharsets.UTF_8));
-        ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(),
-                stdout, stderr, Optional.of("Main.java"), "in", 2);
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), stdout, stderr,
+                Optional.of("Main.java"), "in", 2);
 
         assertThat(snapshot.stdout()).isEqualTo("hello".getBytes(StandardCharsets.UTF_8));
         assertThat(snapshot.stderr()).isEqualTo("err".getBytes(StandardCharsets.UTF_8));
@@ -259,29 +255,24 @@ class OutputSliceTest {
         assertThat(snapshot.stdinConsumed()).isEqualTo("in");
         assertThat(snapshot.stdinOffset()).isEqualTo(2);
 
-        ExecutionSnapshot rawCtor = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(),
-                "out".getBytes(StandardCharsets.UTF_8),
-                "err".getBytes(StandardCharsets.UTF_8));
+        ExecutionSnapshot rawCtor = new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                "out".getBytes(StandardCharsets.UTF_8), "err".getBytes(StandardCharsets.UTF_8));
         assertThat(rawCtor.stdoutLength()).isEqualTo(3);
         assertThat(rawCtor.stderrLength()).isEqualTo(3);
         assertThat(rawCtor.sourcePath()).isEmpty();
         assertThat(rawCtor.stdinConsumed()).isEmpty();
         assertThat(rawCtor.stdinOffset()).isEqualTo(0);
 
-        ExecutionSnapshot rawPathCtor = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(),
-                "out".getBytes(StandardCharsets.UTF_8),
-                "err".getBytes(StandardCharsets.UTF_8),
+        ExecutionSnapshot rawPathCtor = new ExecutionSnapshot(List.of(), List.of(), Map.of(),
+                "out".getBytes(StandardCharsets.UTF_8), "err".getBytes(StandardCharsets.UTF_8),
                 Optional.of("Other.java"));
         assertThat(rawPathCtor.sourcePath()).contains("Other.java");
 
         OutputSlice offsetSlice = OutputSlice.from("0123456789".getBytes(StandardCharsets.UTF_8), 2, 4);
         assertThat(offsetSlice.toByteArray()).isEqualTo("2345".getBytes(StandardCharsets.UTF_8));
 
-        ExecutionSnapshot nullSnapshot = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(),
-                (OutputSlice) null, (OutputSlice) null, null, null, 0);
+        ExecutionSnapshot nullSnapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), (OutputSlice) null,
+                (OutputSlice) null, null, null, 0);
         assertThat(nullSnapshot.stdoutSlice().isEmpty()).isTrue();
         assertThat(nullSnapshot.stderrSlice().isEmpty()).isTrue();
         assertThat(nullSnapshot.sourcePath()).isEmpty();
@@ -302,13 +293,13 @@ class OutputSliceTest {
         assertThat(subSlice.asUtf8String()).isEqualTo("immutable");
         assertThat(subSlice.byteAt(0)).isEqualTo((byte) 'i');
 
-        ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(),
-                source, source, Optional.empty());
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), source, source,
+                Optional.empty());
         source[0] = (byte) 'Y';
         assertThat(snapshot.stdoutSlice().byteAt(0)).isEqualTo((byte) 'X');
         assertThat(snapshot.stderrSlice().byteAt(0)).isEqualTo((byte) 'X');
     } // testImmutabilityDefensiveCopy
+
     @Test
     @DisplayName("materialize detaches slices and snapshots from drainers")
     void testMaterialize() throws Exception {
@@ -325,25 +316,22 @@ class OutputSliceTest {
             assertThat(materialized).isNotSameAs(drainerSlice);
             assertThat(materialized.asUtf8String()).isEqualTo("drainer");
 
-            ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                    List.of(), List.of(), Map.of(),
-                    drainerSlice, directSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot snapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), drainerSlice,
+                    directSlice, Optional.of("Test.java"), "", 0);
             ExecutionSnapshot materializedSnapshot = snapshot.materializeOutput();
 
             assertThat(materializedSnapshot).isNotSameAs(snapshot);
             assertThat(materializedSnapshot.stdoutSlice().asUtf8String()).isEqualTo("drainer");
             assertThat(materializedSnapshot.materializeOutput()).isSameAs(materializedSnapshot);
 
-            ExecutionSnapshot errDrainerSnapshot = new ExecutionSnapshot(
-                    List.of(), List.of(), Map.of(),
-                    directSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot errDrainerSnapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), directSlice,
+                    drainerSlice, Optional.of("Test.java"), "", 0);
             ExecutionSnapshot matErrSnapshot = errDrainerSnapshot.materializeOutput();
             assertThat(matErrSnapshot).isNotSameAs(errDrainerSnapshot);
             assertThat(matErrSnapshot.stderrSlice().asUtf8String()).isEqualTo("drainer");
 
-            ExecutionSnapshot bothDrainerSnapshot = new ExecutionSnapshot(
-                    List.of(), List.of(), Map.of(),
-                    drainerSlice, drainerSlice, Optional.of("Test.java"), "", 0);
+            ExecutionSnapshot bothDrainerSnapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), drainerSlice,
+                    drainerSlice, Optional.of("Test.java"), "", 0);
             ExecutionSnapshot matBothSnapshot = bothDrainerSnapshot.materializeOutput();
             assertThat(matBothSnapshot).isNotSameAs(bothDrainerSnapshot);
 

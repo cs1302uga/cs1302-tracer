@@ -13,15 +13,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 class BoundedExecutionTest {
-    @TempDir Path directory;
+    @TempDir
+    Path directory;
 
     JsonObject trace(String body, String... options) throws Exception {
         Path source = directory.resolve("Main.java");
-        Files.writeString(source, "public class Main {\n public static void main(String[] args) {\n"
-                + body + "\n }\n}\n");
-        List<String> command = new ArrayList<>(List.of("cs1302.tracer.App", "trace",
-                "--result-envelope", "--timeout-ms", "5000", "--inspection", "FIELDS",
-                "-i", source.toString()));
+        Files.writeString(source,
+                "public class Main {\n public static void main(String[] args) {\n" + body + "\n }\n}\n");
+        List<String> command = new ArrayList<>(List.of("cs1302.tracer.App", "trace", "--result-envelope",
+                "--timeout-ms", "5000", "--inspection", "FIELDS", "-i", source.toString()));
         if (List.of(options).contains("--inspection")) {
             int index = command.indexOf("--inspection");
             command.remove(index);
@@ -42,8 +42,7 @@ class BoundedExecutionTest {
         // Instrument the child tracer just like the test JVM, without instrumenting
         // guest programs. JaCoCo appends each child's data to the same execution file.
         java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
-                .filter(argument -> argument.startsWith("-javaagent:")
-                        && argument.contains("jacoco"))
+                .filter(argument -> argument.startsWith("-javaagent:") && argument.contains("jacoco"))
                 .forEach(command::add);
         command.addAll(List.of("-Xmx128m", "-cp", System.getProperty("java.class.path")));
         return command;
@@ -54,8 +53,8 @@ class BoundedExecutionTest {
         command.addAll(arguments);
         Path output = directory.resolve("out.json");
         Path errors = directory.resolve("err.txt");
-        Process process = new ProcessBuilder(command).redirectOutput(output.toFile())
-                .redirectError(errors.toFile()).start();
+        Process process = new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(errors.toFile())
+                .start();
         try {
             assertThat(process.waitFor(15, TimeUnit.SECONDS))
                     .as("subprocess deadline; stderr=%s", Files.readString(errors)).isTrue();
@@ -81,29 +80,24 @@ class BoundedExecutionTest {
 
     @Test
     void modernEnvelopeHonorsExplicitChronologicalBreakpoints() throws Exception {
-        var result = trace("int value = 1;\nSystem.out.println(value);", "-a", "-b", "3",
-                "-f", "modern");
+        var result = trace("int value = 1;\nSystem.out.println(value);", "-a", "-b", "3", "-f", "modern");
         assertThat(result.get("complete").getAsBoolean()).isTrue();
         assertThat(result.get("format").getAsString()).isEqualTo("modern");
         assertThat(result.getAsJsonObject("trace").getAsJsonArray("steps")).isNotEmpty();
     }
 
     @ParameterizedTest
-    @CsvSource({"timeout,--timeout-ms,250", "output,--max-output-bytes,64",
-            "snapshot,--max-snapshots,2"})
-    void ordinaryStopsNeverPublishPartialJson(String reason, String option, String value)
-            throws Exception {
+    @CsvSource({ "timeout,--timeout-ms,250", "output,--max-output-bytes,64", "snapshot,--max-snapshots,2" })
+    void ordinaryStopsNeverPublishPartialJson(String reason, String option, String value) throws Exception {
         Path source = directory.resolve("Ordinary.java");
-        Files.writeString(source, "public class Ordinary {\n"
-                + "public static void main(String[] args) {\n"
+        Files.writeString(source, "public class Ordinary {\n" + "public static void main(String[] args) {\n"
                 + "while (true) {\nSystem.out.println(1);\n}\n}\n}\n");
         Path output = directory.resolve("ordinary-out.txt");
         Path errors = directory.resolve("ordinary-err.txt");
         List<String> command = tracerCommand();
-        command.addAll(List.of("cs1302.tracer.App", "trace", "-i", source.toString(),
-                "-a", option, value));
-        Process process = new ProcessBuilder(command)
-                .redirectOutput(output.toFile()).redirectError(errors.toFile()).start();
+        command.addAll(List.of("cs1302.tracer.App", "trace", "-i", source.toString(), "-a", option, value));
+        Process process = new ProcessBuilder(command).redirectOutput(output.toFile()).redirectError(errors.toFile())
+                .start();
         try {
             assertThat(process.waitFor(15, TimeUnit.SECONDS)).isTrue();
             assertThat(process.exitValue()).isEqualTo(3);
@@ -120,8 +114,8 @@ class BoundedExecutionTest {
     void terminatesLoopWithoutBreakpointHits() throws Exception {
         Path pidFile = directory.resolve("guest.pid");
         String pidPath = pidFile.toString().replace("\\", "\\\\");
-        var result = trace("try { java.nio.file.Files.writeString(java.nio.file.Path.of(\""
-                + pidPath + "\"), Long.toString(ProcessHandle.current().pid())); }"
+        var result = trace("try { java.nio.file.Files.writeString(java.nio.file.Path.of(\"" + pidPath
+                + "\"), Long.toString(ProcessHandle.current().pid())); }"
                 + " catch (Exception e) { throw new RuntimeException(e); } while (true) {}", "-b", "999");
         long pid = Long.parseLong(Files.readString(pidFile));
         assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
@@ -132,8 +126,7 @@ class BoundedExecutionTest {
 
     @Test
     void capsOutputBeforeRetainingIt() throws Exception {
-        var result = trace("while (true) { System.out.print(\"abcdef\"); }",
-                "--max-output-bytes", "64");
+        var result = trace("while (true) { System.out.print(\"abcdef\"); }", "--max-output-bytes", "64");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("output_limit");
         assertThat(result.getAsJsonObject("counters").get("stdoutBytes").getAsLong()).isEqualTo(64);
         assertThat(result.get("stdout").getAsString()).hasSize(64);
@@ -149,8 +142,8 @@ class BoundedExecutionTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"--max-elements,10,element_limit", "--max-heap-objects,1,heap_limit",
-            "--max-trace-bytes,100,trace_limit"})
+    @CsvSource({ "--max-elements,10,element_limit", "--max-heap-objects,1,heap_limit",
+        "--max-trace-bytes,100,trace_limit" })
     void boundsSnapshotExtraction(String option, String value, String reason) throws Exception {
         var result = trace("int[] data = new int[100];\nSystem.out.println(data.length);", option, value);
         assertThat(result.get("stopReason").getAsString()).isEqualTo(reason);
@@ -159,24 +152,18 @@ class BoundedExecutionTest {
 
     @Test
     void boundsTotalRetainedTraceAcrossManySmallSnapshots() throws Exception {
-        var result = trace("int x = 0;\nwhile (true) {\nx++;\n}",
-                "-a", "--max-trace-bytes", "12000");
+        var result = trace("int x = 0;\nwhile (true) {\nx++;\n}", "-a", "--max-trace-bytes", "12000");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("trace_limit");
-        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt())
-                .isGreaterThan(1);
-        assertThat(result.getAsJsonObject("counters").get("retainedBytes").getAsLong())
-                .isLessThanOrEqualTo(12000);
+        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt()).isGreaterThan(1);
+        assertThat(result.getAsJsonObject("counters").get("retainedBytes").getAsLong()).isLessThanOrEqualTo(12000);
     }
 
     @Test
     void latestBreakpointModeDoesNotRetainAllHits() throws Exception {
-        var result = trace("int x = 0;\nfor (int i=0; i<15; i++) {\nx++;\n}",
-                "-b", "5", "--max-trace-bytes", "12000");
+        var result = trace("int x = 0;\nfor (int i=0; i<15; i++) {\nx++;\n}", "-b", "5", "--max-trace-bytes", "12000");
         assertThat(result.get("complete").getAsBoolean()).isTrue();
-        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt())
-                .isEqualTo(15);
-        assertThat(result.getAsJsonObject("counters").get("snapshotsRetained").getAsInt())
-                .isEqualTo(1);
+        assertThat(result.getAsJsonObject("counters").get("snapshotsCaptured").getAsInt()).isEqualTo(15);
+        assertThat(result.getAsJsonObject("counters").get("snapshotsRetained").getAsInt()).isEqualTo(1);
     }
 
     @Test
@@ -217,13 +204,13 @@ class BoundedExecutionTest {
         assertThat(result.get("stopReason").getAsString()).isEqualTo("source_limit");
         assertThat(result.get("phase").getAsString()).isEqualTo("source");
     }
+
     @Test
     void capsSourceFileCountBeforeParsing() throws Exception {
         Path source = directory.resolve("stream.java");
-        Files.writeString(source, "// --- A.java ---\ninvalid syntax\n"
-                + "// --- B.java ---\ninvalid syntax\n");
-        var result = run(List.of("cs1302.tracer.App", "trace", "--result-envelope",
-                "--max-source-files", "1", "-i", source.toString()));
+        Files.writeString(source, "// --- A.java ---\ninvalid syntax\n" + "// --- B.java ---\ninvalid syntax\n");
+        var result = run(List.of("cs1302.tracer.App", "trace", "--result-envelope", "--max-source-files", "1", "-i",
+                source.toString()));
         assertThat(result.get("stopReason").getAsString()).isEqualTo("source_file_limit");
     }
 
@@ -241,8 +228,8 @@ class BoundedExecutionTest {
 
     @Test
     void snapshotFailurePreservesEarlierCompleteStates() throws Exception {
-        var result = trace("int x = 1;\nint[] values = new int[100];\nx++;",
-                "-a", "--max-elements", "20", "--timeout-ms", "10000");
+        var result = trace("int x = 1;\nint[] values = new int[100];\nx++;", "-a", "--max-elements", "20",
+                "--timeout-ms", "10000");
         assertThat(result.get("stopReason").getAsString()).isEqualTo("element_limit");
         assertThat(result.getAsJsonObject("trace").getAsJsonArray("trace")).isNotEmpty();
         assertThat(result.getAsJsonObject("counters").get("droppedSnapshots").getAsInt()).isEqualTo(1);
@@ -282,20 +269,29 @@ class BoundedExecutionTest {
                     var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
                 session.phase("trace");
                 Thread canceller = Thread.ofPlatform().daemon().start(() -> {
-                    try { Thread.sleep(600); } catch (InterruptedException ignored) { }
+                    try {
+                        Thread.sleep(600);
+                    } catch (InterruptedException ignored) {
+                    }
                     session.cancel();
                 });
                 Throwable failure = null;
                 try {
                     DebugTraceHelper.trace(compiled, List.of(999),
                             List.of(com.github.javaparser.StaticJavaParser.parse(source)));
-                } catch (Exception caught) { failure = caught; }
+                } catch (Exception caught) {
+                    failure = caught;
+                }
                 var result = session.result("pytutor", Map.of("trace", List.of()), failure);
-                if (!"cancelled".equals(result.stopReason())) { throw new AssertionError(result); }
+                if (!"cancelled".equals(result.stopReason())) {
+                    throw new AssertionError(result);
+                }
                 System.out.println(new GsonBuilder().serializeNulls().create().toJson(result));
                 canceller.join(2000);
             }
-            if (TraceSession.current() != null) { throw new AssertionError("Session leaked"); }
+            if (TraceSession.current() != null) {
+                throw new AssertionError("Session leaked");
+            }
             System.exit(3);
         }
     }

@@ -19,18 +19,16 @@ class BatchJobModelTest {
     @Test
     @DisplayName("BatchJobRequest defaults format and limits when null")
     void testRequestDefaults() {
-        BatchJobRequest req = new BatchJobRequest(
-                "id-1", "class A {}", null, null, null,
-                null, null, null, null, null, null, null, null);
+        BatchJobRequest req = new BatchJobRequest("id-1", "class A {}", null, null, null, null, null, null, null, null,
+                null, null, null);
         assertThat(req.id()).isEqualTo("id-1");
         assertThat(req.source()).isEqualTo("class A {}");
         assertThat(req.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
         assertThat(req.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
         assertThat(req.resolveLimits()).isEqualTo(TraceLimits.unlimited());
 
-        BatchJobRequest instrReq = new BatchJobRequest(
-                "id-instr", "class A {}", null, null, null, null,
-                null, null, null, null, null, TraceLimits.instructorDefaults(), null);
+        BatchJobRequest instrReq = new BatchJobRequest("id-instr", "class A {}", null, null, null, null, null, null,
+                null, null, null, TraceLimits.instructorDefaults(), null);
         assertThat(instrReq.resolveLimits()).isEqualTo(TraceLimits.instructorDefaults());
     } // testRequestDefaults
 
@@ -38,37 +36,30 @@ class BatchJobModelTest {
     @DisplayName("BatchJobRequest resolves explicit modern format and simple style")
     void testRequestExplicitValues() {
         TraceLimits limits = TraceLimits.instructorDefaults();
-        BatchJobRequest req = new BatchJobRequest(
-                "id-2", "class B {}", "modern", "input", List.of("5"),
-                true, true, true, true, true, "simple", limits, InspectionPolicy.FIELDS);
+        BatchJobRequest req = new BatchJobRequest("id-2", "class B {}", "modern", "input", List.of("5"), true, true,
+                true, true, true, "simple", limits, InspectionPolicy.FIELDS);
         assertThat(req.resolveFormat()).isEqualTo(TraceFormat.MODERN);
         assertThat(req.resolveTypeStyle()).isEqualTo(TypeStyle.SIMPLE);
 
-        BatchJobRequest blankReq = new BatchJobRequest(
-                "id-blank", "class C {}", "   ", null, null,
-                null, null, null, null, null, "   ", null, null);
+        BatchJobRequest blankReq = new BatchJobRequest("id-blank", "class C {}", "   ", null, null, null, null, null,
+                null, null, "   ", null, null);
         assertThat(blankReq.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
         assertThat(blankReq.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
 
-        BatchJobRequest pytutorFqnReq = new BatchJobRequest(
-                "id-pytutor", "class D {}", "pytutor", null, null,
-                null, null, null, null, null, "fqn", null, null);
+        BatchJobRequest pytutorFqnReq = new BatchJobRequest("id-pytutor", "class D {}", "pytutor", null, null, null,
+                null, null, null, null, "fqn", null, null);
         assertThat(pytutorFqnReq.resolveFormat()).isEqualTo(TraceFormat.PYTUTOR);
         assertThat(pytutorFqnReq.resolveTypeStyle()).isEqualTo(TypeStyle.FQN);
 
-        BatchJobRequest invalidFmtReq = new BatchJobRequest(
-                "id-inv-fmt", "class E {}", "invalid-format", null, null,
+        BatchJobRequest invalidFmtReq = new BatchJobRequest("id-inv-fmt", "class E {}", "invalid-format", null, null,
                 null, null, null, null, null, null, null, null);
         org.assertj.core.api.Assertions.assertThatThrownBy(invalidFmtReq::resolveFormat)
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported trace format");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Unsupported trace format");
 
-        BatchJobRequest invalidTsReq = new BatchJobRequest(
-                "id-inv-ts", "class F {}", null, null, null,
-                null, null, null, null, null, "invalid-style", null, null);
+        BatchJobRequest invalidTsReq = new BatchJobRequest("id-inv-ts", "class F {}", null, null, null, null, null,
+                null, null, null, "invalid-style", null, null);
         org.assertj.core.api.Assertions.assertThatThrownBy(invalidTsReq::resolveTypeStyle)
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unsupported type style");
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Unsupported type style");
         assertThat(req.resolveLimits()).isEqualTo(limits);
         assertThat(req.stdin()).isEqualTo("input");
         assertThat(req.breakpoints()).containsExactly("5");
@@ -92,12 +83,10 @@ class BatchJobModelTest {
         assertThat(failed.limits()).isEqualTo(TraceLimits.unlimited());
 
         TraceLimits customLimits = TraceLimits.instructorDefaults();
-        TraceResult failedWithLimits = TraceResult.failed(
-                "modern", "validation", "Invalid config", customLimits);
+        TraceResult failedWithLimits = TraceResult.failed("modern", "validation", "Invalid config", customLimits);
         assertThat(failedWithLimits.limits()).isEqualTo(customLimits);
 
-        TraceResult failedWithNullLimits = TraceResult.failed(
-                "modern", "validation", "Invalid config", null);
+        TraceResult failedWithNullLimits = TraceResult.failed("modern", "validation", "Invalid config", null);
         assertThat(failedWithNullLimits.limits()).isEqualTo(TraceLimits.unlimited());
 
         TraceResult stopped = TraceResult.stopped("modern", "step_limit", "Too many steps");
@@ -106,12 +95,11 @@ class BatchJobModelTest {
         assertThat(stopped.complete()).isFalse();
         assertThat(stopped.limits()).isEqualTo(TraceLimits.unlimited());
 
-        TraceResult stoppedWithLimits = TraceResult.stopped(
-                "pytutor", "interrupted", "Worker interrupted", customLimits);
+        TraceResult stoppedWithLimits = TraceResult.stopped("pytutor", "interrupted", "Worker interrupted",
+                customLimits);
         assertThat(stoppedWithLimits.limits()).isEqualTo(customLimits);
 
-        TraceResult stoppedWithNullLimits = TraceResult.stopped(
-                "pytutor", "interrupted", "Worker interrupted", null);
+        TraceResult stoppedWithNullLimits = TraceResult.stopped("pytutor", "interrupted", "Worker interrupted", null);
         assertThat(stoppedWithNullLimits.limits()).isEqualTo(TraceLimits.unlimited());
 
         BatchJobResponse resp = new BatchJobResponse("req-99", failed);

@@ -22,8 +22,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class ThreadCaptureTest {
     static Stream<Arguments> states() {
-        return Stream.of(
-                Arguments.of(ThreadReference.THREAD_STATUS_ZOMBIE, "TERMINATED"),
+        return Stream.of(Arguments.of(ThreadReference.THREAD_STATUS_ZOMBIE, "TERMINATED"),
                 Arguments.of(ThreadReference.THREAD_STATUS_NOT_STARTED, "NEW"),
                 Arguments.of(ThreadReference.THREAD_STATUS_RUNNING, "RUNNABLE"),
                 Arguments.of(ThreadReference.THREAD_STATUS_SLEEPING, "SLEEPING"),
@@ -46,8 +45,7 @@ class ThreadCaptureTest {
         var service = mirror(ThreadReference.class, Map.of("uniqueID", 2L));
         var capture = new ThreadCapture();
         capture.observe(mirror(VMStartEvent.class, Map.of("thread", main)));
-        assertThat(capture.observe(mirror(ThreadDeathEvent.class, Map.of("thread", service))))
-                .isNull();
+        assertThat(capture.observe(mirror(ThreadDeathEvent.class, Map.of("thread", service)))).isNull();
         assertThat(capture.isDying(service)).isFalse();
     }
 
@@ -57,8 +55,8 @@ class ThreadCaptureTest {
             session.enableMultithread();
             var thread = mirror(ThreadReference.class, Map.of("isVirtual", true));
             var event = mirror(ThreadStartEvent.class, Map.of("thread", thread));
-            assertThatThrownBy(() -> session.threadCapture().observe(event))
-                    .isInstanceOf(TraceSession.Stopped.class).hasMessage("unsupported_virtual_thread");
+            assertThatThrownBy(() -> session.threadCapture().observe(event)).isInstanceOf(TraceSession.Stopped.class)
+                    .hasMessage("unsupported_virtual_thread");
             assertThat(session.stopReason()).isEqualTo("unsupported_virtual_thread");
             assertThat(session.snapshots()).isEmpty();
         }
@@ -69,18 +67,14 @@ class ThreadCaptureTest {
         var first = new ExecutionSnapshot.ThreadSnapshot(1L, "first", "RUNNABLE", List.of());
         var second = new ExecutionSnapshot.ThreadSnapshot(2L, "second", "WAITING", List.of());
         var baseline = snapshot(List.of(first), 1L);
-        assertThat(DebugTraceHelper.isRedundantSnapshot(baseline, snapshot(List.of(first), 1L)))
-                .isTrue();
-        assertThat(DebugTraceHelper.isRedundantSnapshot(baseline, snapshot(List.of(first, second), 1L)))
-                .isFalse();
+        assertThat(DebugTraceHelper.isRedundantSnapshot(baseline, snapshot(List.of(first), 1L))).isTrue();
+        assertThat(DebugTraceHelper.isRedundantSnapshot(baseline, snapshot(List.of(first, second), 1L))).isFalse();
         var both = snapshot(List.of(first, second), 1L);
-        assertThat(DebugTraceHelper.isRedundantSnapshot(both, snapshot(List.of(first, second), 2L)))
-                .isFalse();
+        assertThat(DebugTraceHelper.isRedundantSnapshot(both, snapshot(List.of(first, second), 2L))).isFalse();
     }
 
     private static ExecutionSnapshot snapshot(List<ExecutionSnapshot.ThreadSnapshot> threads, long id) {
-        return new ExecutionSnapshot(List.of(), List.of(), Map.of(),
-                OutputSlice.empty(), OutputSlice.empty(), Optional.empty(), "", 0,
-                threads, id, "step_line");
+        return new ExecutionSnapshot(List.of(), List.of(), Map.of(), OutputSlice.empty(), OutputSlice.empty(),
+                Optional.empty(), "", 0, threads, id, "step_line");
     }
 }

@@ -1,5 +1,7 @@
 package cs1302.tracer.trace;
 
+import java.util.List;
+import com.sun.jdi.StackFrame;
 import com.sun.jdi.ArrayReference;
 import com.sun.jdi.CharValue;
 import com.sun.jdi.Field;
@@ -15,14 +17,14 @@ import java.util.Set;
 /** Observes logical reads without invoking methods in the guest. */
 final class ReaderTracking {
 
-    private static final Set<String> READERS = Set.of("java.util.Scanner",
-            "java.io.BufferedReader", "java.lang.IO");
+    private static final Set<String> READERS = Set.of("java.util.Scanner", "java.io.BufferedReader", "java.lang.IO");
 
     /** Prevents construction. */
     private ReaderTracking() {} // ReaderTracking
 
     /**
      * Records one outermost read from the supplied standard input stream.
+     *
      * @param event Completed guest method.
      * @param tracker Logical input cursor.
      * @param systemIn Guest standard input identity.
@@ -30,7 +32,7 @@ final class ReaderTracking {
      */
     static void record(MethodExitEvent event, InputTracker tracker, ObjectReference systemIn)
             throws com.sun.jdi.IncompatibleThreadStateException {
-        var frames = event.thread().frames();
+        List<StackFrame> frames = event.thread().frames();
         for (int i = 1; i < frames.size(); i++) {
             String caller = frames.get(i).location().declaringType().name();
             if (READERS.contains(caller)) {
@@ -56,8 +58,7 @@ final class ReaderTracking {
             } // if
             return;
         } // if
-        if (owner.equals("java.util.Scanner")
-                && (method.startsWith("next") || method.startsWith("find"))) {
+        if (owner.equals("java.util.Scanner") && (method.startsWith("next") || method.startsWith("find"))) {
             if (result instanceof StringReference token) {
                 tracker.consumeToken(token.value());
                 return;
@@ -69,13 +70,14 @@ final class ReaderTracking {
         } // if
         if (method.equals("read") && reader != null && reader.equals(systemIn)
                 && result instanceof IntegerValue count) {
-            tracker.consumeBytes(event.method().argumentTypeNames().isEmpty()
-                    ? (count.value() < 0 ? 0 : 1) : count.value());
+            tracker.consumeBytes(
+                    event.method().argumentTypeNames().isEmpty() ? (count.value() < 0 ? 0 : 1) : count.value());
         } // if
     } // record
 
     /**
      * Follows known reader delegate fields, with a bounded traversal and no guest calls.
+     *
      * @param reader Reader to inspect.
      * @param input Required input identity.
      * @return Whether the delegate chain reaches standard input.
@@ -84,8 +86,8 @@ final class ReaderTracking {
         if (reader == null || input == null) {
             return false;
         } // if
-        var pending = new ArrayDeque<ObjectReference>();
-        var seen = new HashSet<Long>();
+        ArrayDeque<ObjectReference> pending = new ArrayDeque<ObjectReference>();
+        Set<Long> seen = new HashSet<Long>();
         pending.add(reader);
         while (!pending.isEmpty() && seen.size() < 32) {
             ObjectReference next = pending.removeFirst();
@@ -93,7 +95,7 @@ final class ReaderTracking {
                 return true;
             } // if
             if (seen.add(next.uniqueID())) {
-                for (String name : new String[] {"source", "in", "sd", "ch"}) {
+                for (String name : new String[] { "source", "in", "sd", "ch" }) {
                     if (field(next, name) instanceof ObjectReference delegate) {
                         pending.add(delegate);
                     } // if
@@ -105,6 +107,7 @@ final class ReaderTracking {
 
     /**
      * Reads the original numeric token, preserving radix, signs, and formatting.
+     *
      * @param scanner Guest Scanner.
      * @return Matched input, or null for an unsupported representation.
      */
@@ -131,6 +134,7 @@ final class ReaderTracking {
 
     /**
      * Reads an optional field without executing guest code.
+     *
      * @param object Guest object.
      * @param name Field name.
      * @return Field value, or null when absent.

@@ -28,21 +28,20 @@ class MultithreadTraceTest {
                 session.phase("trace");
                 var returned = DebugTraceHelper.traceChronological(compiled,
                         DebugTraceHelper.getValidBreakpointLines(compiled), units, true);
-                assertThat(returned).extracting(ExecutionSnapshot::event).containsExactlyElementsOf(
-                        session.snapshots().stream().map(ExecutionSnapshot::event).toList());
+                assertThat(returned).extracting(ExecutionSnapshot::event)
+                        .containsExactlyElementsOf(session.snapshots().stream().map(ExecutionSnapshot::event).toList());
                 session.finishOutput();
             } catch (Exception caught) {
                 failure = caught;
             }
-            var payload = new ModernTraceSerializer(false, false, false)
-                    .createTrace(source, session.snapshots());
+            var payload = new ModernTraceSerializer(false, false, false).createTrace(source, session.snapshots());
             return session.result("modern", payload, failure);
         }
     }
 
     private static TraceLimits limits(long timeout, long threads, long frames, long bytes) {
-        return new TraceLimits(timeout, 1000, 1_048_576, 20_000, 500_000,
-                134_217_728, 1_048_576, 128, threads, frames, bytes);
+        return new TraceLimits(timeout, 1000, 1_048_576, 20_000, 500_000, 134_217_728, 1_048_576, 128, threads, frames,
+                bytes);
     }
 
     private static cs1302.tracer.model.modern.Trace payload(TraceResult result) {
@@ -50,7 +49,7 @@ class MultithreadTraceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {34, 35, 36, 37, 38, 39, 40, 41})
+    @ValueSource(ints = { 34, 35, 36, 37, 38, 39, 40, 41 })
     void representativeExamplesPreserveThreadAndJobSemantics(int example) throws Exception {
         String source = Files.readString(Path.of("examples/example" + example + "/Driver.java"));
         var result = trace(source, limits(example == 41 ? 5000 : 20000, 32, 1024, 16_777_216));
@@ -67,8 +66,8 @@ class MultithreadTraceTest {
         assertThat(steps).isNotEmpty().allSatisfy(step -> {
             assertThat(step.threads()).isNotNull();
             assertThat(step.triggeringThreadId()).isNotNull();
-            assertThat(step.threads()).anySatisfy(thread ->
-                    assertThat(thread.id()).isEqualTo(step.triggeringThreadId()));
+            assertThat(step.threads())
+                    .anySatisfy(thread -> assertThat(thread.id()).isEqualTo(step.triggeringThreadId()));
         });
         assertThat(steps).anySatisfy(step -> assertThat(step.threads().size()).isGreaterThan(1));
         assertThat(steps).anySatisfy(step -> assertThat(step.event()).isEqualTo("thread_start"));
@@ -77,9 +76,9 @@ class MultithreadTraceTest {
         }
         if (example == 35) {
             assertThat(result.stdout()).isEqualTo("6\n");
-            var refs = steps.stream().flatMap(step -> step.threads().stream())
-                    .flatMap(t -> t.callStack().stream()).flatMap(f -> f.locals().stream())
-                    .filter(v -> v.name().equals("shared")).map(v -> v.value()).distinct().toList();
+            var refs = steps.stream().flatMap(step -> step.threads().stream()).flatMap(t -> t.callStack().stream())
+                    .flatMap(f -> f.locals().stream()).filter(v -> v.name().equals("shared")).map(v -> v.value())
+                    .distinct().toList();
             assertThat(refs).hasSize(1);
             assertThat(steps.stream().flatMap(step -> step.threads().stream())
                     .filter(t -> t.callStack().stream().flatMap(f -> f.locals().stream())
@@ -109,17 +108,15 @@ class MultithreadTraceTest {
                     }
                 }
                 """, limits(10000, 16, 1024, 16_777_216));
-        assertThat(result.complete()).as("%s: %s; %s", result.stopReason(), result.diagnostics(),
-                result.counters()).isTrue();
+        assertThat(result.complete()).as("%s: %s; %s", result.stopReason(), result.diagnostics(), result.counters())
+                .isTrue();
         assertThat(result.stdout()).isEqualTo("42\n");
         assertThat(payload(result).steps()).allSatisfy(step -> assertThat(step.statics()).isEmpty());
         var workers = payload(result).steps().stream().flatMap(step -> step.heap().values().stream())
-                .filter(object -> object.type().equals("Main.Worker")
-                        || object.type().equals("Main$Worker")).toList();
-        assertThat(workers).isNotEmpty().allSatisfy(worker ->
-                assertThat(worker.fields()).extracting(field -> field.name()).containsExactly("answer"));
-        assertThat(workers).anySatisfy(worker ->
-                assertThat(worker.fields().getFirst().value()).isEqualTo(42));
+                .filter(object -> object.type().equals("Main.Worker") || object.type().equals("Main$Worker")).toList();
+        assertThat(workers).isNotEmpty().allSatisfy(
+                worker -> assertThat(worker.fields()).extracting(field -> field.name()).containsExactly("answer"));
+        assertThat(workers).anySatisfy(worker -> assertThat(worker.fields().getFirst().value()).isEqualTo(42));
     }
 
     @Test
@@ -136,10 +133,9 @@ class MultithreadTraceTest {
                 """, limits(10000, 16, 1024, 16_777_216));
         assertThat(result.stopReason()).isEqualTo("guest_exception");
         assertThat(result.stdout()).isEqualTo("survived\n");
-        assertThat(result.diagnostics()).anySatisfy(value ->
-                assertThat(value).contains("NumberFormatException", "parser"));
-        assertThat(payload(result).steps()).anySatisfy(step ->
-                assertThat(step.event()).isEqualTo("exception"));
+        assertThat(result.diagnostics())
+                .anySatisfy(value -> assertThat(value).contains("NumberFormatException", "parser"));
+        assertThat(payload(result).steps()).anySatisfy(step -> assertThat(step.event()).isEqualTo("exception"));
     }
 
     @Test
@@ -175,16 +171,13 @@ class MultithreadTraceTest {
         var source = Files.readString(Path.of("examples/example34/Driver.java"));
         var result = trace(source, limits(10000, 1, 1024, 16_777_216));
         assertThat(result.stopReason()).isEqualTo("thread_limit");
-        assertThat(payload(result).steps()).isNotEmpty()
-                .allSatisfy(step -> assertThat(step.threads()).hasSize(1));
+        assertThat(payload(result).steps()).isNotEmpty().allSatisfy(step -> assertThat(step.threads()).hasSize(1));
     }
 
     @Test
     void frameAndSnapshotLimitsStopCapture() throws Exception {
         var source = Files.readString(Path.of("examples/example34/Driver.java"));
-        assertThat(trace(source, limits(10000, 16, 1, 16_777_216)).stopReason())
-                .isEqualTo("frame_limit");
-        assertThat(trace(source, limits(10000, 16, 1024, 1)).stopReason())
-                .isEqualTo("snapshot_byte_limit");
+        assertThat(trace(source, limits(10000, 16, 1, 16_777_216)).stopReason()).isEqualTo("frame_limit");
+        assertThat(trace(source, limits(10000, 16, 1024, 1)).stopReason()).isEqualTo("snapshot_byte_limit");
     }
 }

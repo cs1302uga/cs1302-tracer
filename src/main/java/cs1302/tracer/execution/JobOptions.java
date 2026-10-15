@@ -19,11 +19,9 @@ public class JobOptions {
     Long frames;
     @Option(names = "--max-snapshot-bytes", description = "Bytes per snapshot; 0 is unlimited.")
     Long snapshotBytes;
-    @Option(names = "--unlimited",
-            description = "Disable default budgets; explicit limits still apply.")
+    @Option(names = "--unlimited", description = "Disable default budgets; explicit limits still apply.")
     public boolean unlimited;
-    @Option(names = "--timeout-ms", 
-            description = "Tracing deadline in milliseconds; 0 is unlimited.")
+    @Option(names = "--timeout-ms", description = "Tracing deadline in milliseconds; 0 is unlimited.")
     Long timeoutMillis;
     @Option(names = "--max-snapshots", description = "Maximum captured snapshots; 0 is unlimited.")
     Long snapshots;
@@ -31,8 +29,7 @@ public class JobOptions {
     Long outputBytes;
     @Option(names = "--max-heap-objects", description = "Objects per snapshot; 0 is unlimited.")
     Long heapObjects;
-    @Option(names = "--max-elements", 
-            description = "Inspected elements per snapshot; 0 is unlimited.")
+    @Option(names = "--max-elements", description = "Inspected elements per snapshot; 0 is unlimited.")
     Long elements;
     @Option(names = "--max-trace-bytes", description = "Accounted snapshot bytes; 0 is unlimited.")
     Long traceBytes;
@@ -45,14 +42,14 @@ public class JobOptions {
     public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
 
     /** Configured breakpoint target specifications. */
-    @Option(names = {"--breakpoints", "-b"}, split = ",",
-            paramLabel = "<spec>",
+    @Option(names = { "--breakpoints", "-b" }, split = ",", paramLabel = "<spec>",
             description = "Breakpoints at which to take snapshots (e.g. '12', "
                     + "'Main.java:12', or comma-separated '12,Helper.java:5').")
     public List<String> breakpoints;
 
     /**
      * Sets whether enum hash codes should not be evaluated.
+     *
      * @param noEval True to disable enum hash evaluation.
      */
     @Option(names = "--no-eval-enum-hash",
@@ -63,10 +60,10 @@ public class JobOptions {
 
     /**
      * Sets whether enum hash codes should be evaluated.
+     *
      * @param eval True to enable enum hash evaluation.
      */
-    @Option(names = "--eval-enum-hash",
-            description = "Evaluate lazy enum hash codes when capturing snapshots.")
+    @Option(names = "--eval-enum-hash", description = "Evaluate lazy enum hash codes when capturing snapshots.")
     void setEvalEnumHash(boolean eval) {
         this.evalEnumHash = eval;
     } // setEvalEnumHash
@@ -112,24 +109,22 @@ public class JobOptions {
 
     /**
      * Validates and returns the selected budgets.
+     *
      * @return Effective limits.
      */
     public TraceLimits limits() {
-        TraceLimits defaults = envelope || unlimited
-                ? TraceLimits.unlimited() : TraceLimits.instructorDefaults();
-        return new TraceLimits(select(timeoutMillis, defaults.timeoutMillis()),
-                select(snapshots, defaults.snapshots()),
-                select(outputBytes, defaults.outputBytes()),
-                select(heapObjects, defaults.heapObjects()), select(elements, defaults.elements()),
-                select(traceBytes, defaults.traceBytes()),
-                select(sourceBytes, defaults.sourceBytes()),
-                select(sourceFiles, defaults.sourceFiles()),
+        TraceLimits defaults = envelope || unlimited ? TraceLimits.unlimited() : TraceLimits.instructorDefaults();
+        return new TraceLimits(select(timeoutMillis, defaults.timeoutMillis()), select(snapshots, defaults.snapshots()),
+                select(outputBytes, defaults.outputBytes()), select(heapObjects, defaults.heapObjects()),
+                select(elements, defaults.elements()), select(traceBytes, defaults.traceBytes()),
+                select(sourceBytes, defaults.sourceBytes()), select(sourceFiles, defaults.sourceFiles()),
                 select(threads, defaults.threads()), select(frames, defaults.frames()),
                 select(snapshotBytes, defaults.snapshotBytes()));
     } // limits
 
     /**
      * Applies a default when an option was omitted.
+     *
      * @param override Explicit value.
      * @param fallback Default value.
      * @return Effective value.

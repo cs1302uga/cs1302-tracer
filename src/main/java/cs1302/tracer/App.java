@@ -1,5 +1,6 @@
 package cs1302.tracer;
 
+import java.util.stream.Stream;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
@@ -53,30 +54,21 @@ import picocli.CommandLine.Option;
 /**
  * Entry point for the tracer program.
  *
- * <p>Normative References:
- * <ul>
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;12.1.4
- *       (Invoke {@code void main(String[])}).
- *   <li>Picocli Specification 4.7 (Command-line parsing and option binding).
- * </ul>
+ * <p>Normative References: <ul> <li>The Java Language Specification (Java SE 21 Edition), &sect;12.1.4 (Invoke
+ * {@code void main(String[])}). <li>Picocli Specification 4.7 (Command-line parsing and option binding). </ul>
  *
- * <p>Informative References:
- * <ul>
- *   <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013).
+ * <p>Informative References: <ul> <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013).
  * </ul>
  */
-@Command(
-        name = "code-tracer",
-        description = "Trace Java program execution and inspect memory states.",
-        mixinStandardHelpOptions = true,
-        versionProvider = App.PropertiesVersionProvider.class)
+@Command(name = "code-tracer", description = "Trace Java program execution and inspect memory states.",
+        mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
 public class App {
 
     /**
      * Constructs a new {@code App} command-line application instance.
      *
-     * <p>Normative Reference: The Picocli command-line parsing specification requires a public
-     * zero-argument constructor for command dispatch and instantiation.</p>
+     * <p>Normative Reference: The Picocli command-line parsing specification requires a public zero-argument
+     * constructor for command dispatch and instantiation.</p>
      */
     public App() {} // App
 
@@ -89,8 +81,7 @@ public class App {
         @Override
         public String[] getVersion() {
             String version = "development";
-            try (InputStream is = App.class.getResourceAsStream(
-                    "/cs1302/tracer/version.properties")) {
+            try (InputStream is = App.class.getResourceAsStream("/cs1302/tracer/version.properties")) {
                 if (is != null) {
                     Properties props = new Properties();
                     props.load(is);
@@ -99,7 +90,7 @@ public class App {
             } catch (IOException ignored) {
                 version = "development";
             } // try
-            return new String[] {version};
+            return new String[] { version };
         } // getVersion
     } // PropertiesVersionProvider
 
@@ -112,12 +103,8 @@ public class App {
      * @return Process exit code.
      */
     public static int execute(String[] args) {
-        return new CommandLine(new App())
-                .addSubcommand(new Trace())
-                .addSubcommand(new BatchTrace())
-                .addSubcommand(new ListBreakpoints())
-                .addSubcommand(new ShowLicenses())
-                .execute(args);
+        return new CommandLine(new App()).addSubcommand(new Trace()).addSubcommand(new BatchTrace())
+                .addSubcommand(new ListBreakpoints()).addSubcommand(new ShowLicenses()).execute(args);
     } // execute
 
     /**
@@ -145,15 +132,11 @@ public class App {
         sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
         JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
 
-        ParserConfiguration config = new ParserConfiguration()
-                .setSymbolResolver(symbolSolver)
+        ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver)
                 .setLanguageLevel(LanguageLevel.CURRENT);
 
-        CompilationUnit unit = new com.github.javaparser.JavaParser(config)
-                .parse(source)
-                .getResult()
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Failed to parse Java source with symbol solver"));
+        CompilationUnit unit = new com.github.javaparser.JavaParser(config).parse(source).getResult()
+                .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source with symbol solver"));
         unit.setData(cs1302.tracer.trace.AstTypeResolver.TYPE_SOLVER, combinedTypeSolver);
         return unit;
     } // parseSource
@@ -166,10 +149,8 @@ public class App {
      * @param parserSourceRoot Parser type resolution path.
      * @return List of parsed CompilationUnits.
      */
-    public static List<CompilationUnit> discoverAllCompilationUnits(
-            List<CompilationHelper.SourceFile> sourceFiles,
-            Optional<Path> sourceRoot,
-            Optional<Path> parserSourceRoot) {
+    public static List<CompilationUnit> discoverAllCompilationUnits(List<CompilationHelper.SourceFile> sourceFiles,
+            Optional<Path> sourceRoot, Optional<Path> parserSourceRoot) {
         List<CompilationUnit> allCus = new ArrayList<>();
         Set<String> parsedPaths = new HashSet<>();
         for (CompilationHelper.SourceFile sf : sourceFiles) {
@@ -177,9 +158,8 @@ public class App {
             parsedPaths.add(sf.relativePath().replace('\\', '/'));
         } // for
         if (sourceRoot.isPresent()) {
-            try (var stream = Files.walk(sourceRoot.get())) {
-                List<Path> javaFiles = stream
-                        .filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
+            try (Stream<Path> stream = Files.walk(sourceRoot.get())) {
+                List<Path> javaFiles = stream.filter(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"))
                         .toList();
                 for (Path p : javaFiles) {
                     String rel = sourceRoot.get().relativize(p).toString().replace('\\', '/');
@@ -203,19 +183,14 @@ public class App {
     @Command
     abstract static class CommandBase implements Runnable {
 
-        @Option(
-                names = {"--verbose", "-v"},
-                description = "Output messages about what the tracer is doing.")
+        @Option(names = { "--verbose", "-v" }, description = "Output messages about what the tracer is doing.")
         boolean verbose = false;
 
-        @Option(
-                names = {"--input", "-i"},
+        @Option(names = { "--input", "-i" },
                 description = "Input path to Java source file (defaults to stdin if omitted).")
         File input = null;
 
-        @Option(
-                names = {"--pretty", "-p"},
-                description = "Pretty-print JSON output.")
+        @Option(names = { "--pretty", "-p" }, description = "Pretty-print JSON output.")
         boolean pretty = false;
 
         public Consumer<Integer> exitHandler = System::exit;
@@ -261,9 +236,7 @@ public class App {
          */
         protected CompilationUnit parseSource(String source) {
             return new com.github.javaparser.JavaParser(
-                    new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT))
-                    .parse(source)
-                    .getResult()
+                    new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT)).parse(source).getResult()
                     .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source"));
         } // parseSource
 
@@ -281,52 +254,39 @@ public class App {
     } // CommandBase
 
     /** Run a trace. */
-    @Command(
-        name = "trace",
-        description = "Generate an execution trace for a Java program.",
-        mixinStandardHelpOptions = true)
+    @Command(name = "trace", description = "Generate an execution trace for a Java program.",
+            mixinStandardHelpOptions = true)
     static class Trace extends CommandBase {
 
         @picocli.CommandLine.Mixin
         JobOptions job = new JobOptions();
 
-        @Option(
-                names = {"--remove-main-args"},
+        @Option(names = { "--remove-main-args" },
                 description = "Don't include the main method's args parameter in the output.")
         boolean removeMainArgs = false;
 
-        @Option(
-                names = {"--inline-strings", "-s"},
-                description = "If provided, strings are inlined into fields.")
+        @Option(names = { "--inline-strings", "-s" }, description = "If provided, strings are inlined into fields.")
         boolean inlineStrings = false;
 
-        @Option(
-                names = {"--remove-method-this"},
+        @Option(names = { "--remove-method-this" },
                 description = "Don't include the value of this for methods in the output.")
         boolean removeMethodThis = false;
 
-        @Option(
-                names = {"--all-breakpoints", "-a"},
-                description = "Include all encountered breakpoint instances in chronological "
-                        + "order.")
+        @Option(names = { "--all-breakpoints", "-a" },
+                description = "Include all encountered breakpoint instances in chronological " + "order.")
         boolean allBreakpoints = false;
 
-        @Option(
-                names = {"--accumulate-breakpoints"},
+        @Option(names = { "--accumulate-breakpoints" },
                 description = "Output an array of snapshots containing each reached breakpoint.")
         boolean accumulateBreakpoints = false;
 
-        @Option(
-                names = {"--format", "-f"},
-                description = "Output trace format: ${COMPLETION-CANDIDATES} "
-                        + "(default: ${DEFAULT-VALUE}).",
+        @Option(names = { "--format", "-f" },
+                description = "Output trace format: ${COMPLETION-CANDIDATES} " + "(default: ${DEFAULT-VALUE}).",
                 defaultValue = "pytutor")
         TraceFormat format = TraceFormat.PYTUTOR;
 
-        @Option(
-                names = {"--type-style"},
-                description = "Type qualification style: ${COMPLETION-CANDIDATES} "
-                        + "(default: ${DEFAULT-VALUE}).",
+        @Option(names = { "--type-style" },
+                description = "Type qualification style: ${COMPLETION-CANDIDATES} " + "(default: ${DEFAULT-VALUE}).",
                 defaultValue = "fqn")
         TypeStyle typeStyle = TypeStyle.FQN;
 
@@ -339,15 +299,11 @@ public class App {
             return job.breakpointSpecs();
         } // parsedBreakpoints
 
-        @Option(
-                names = {"--stdin"},
-                description = "Input string provided to the traced program via standard input.")
+        @Option(names = { "--stdin" }, description = "Input string provided to the traced program via standard input.")
         String stdin = null;
 
-        @Option(
-                names = {"--stdin-file"},
-                description = "Path to file whose content is provided to the traced program "
-                        + "via standard input.")
+        @Option(names = { "--stdin-file" },
+                description = "Path to file whose content is provided to the traced program " + "via standard input.")
         File stdinFile = null;
 
         /**
@@ -357,8 +313,7 @@ public class App {
          */
         protected String resolveGuestStdin() {
             if (stdin != null && stdinFile != null) {
-                throw new IllegalArgumentException(
-                        "Cannot specify both --stdin and --stdin-file");
+                throw new IllegalArgumentException("Cannot specify both --stdin and --stdin-file");
             } // if
             if (stdinFile != null) {
                 try {
@@ -379,8 +334,7 @@ public class App {
                 selected = job.limits();
                 if (job.multithread) {
                     if (format != TraceFormat.MODERN) {
-                        throw new IllegalArgumentException(
-                                "--multithread requires --format modern");
+                        throw new IllegalArgumentException("--multithread requires --format modern");
                     } // if
                     allBreakpoints = true;
                 } // if
@@ -390,8 +344,7 @@ public class App {
                     return;
                 } // if
                 if (job.inspection != InspectionPolicy.TRUSTED) {
-                    throw new IllegalArgumentException(
-                            "Inspection controls require --result-envelope");
+                    throw new IllegalArgumentException("Inspection controls require --result-envelope");
                 } // if
             } catch (IllegalArgumentException invalid) {
                 System.err.println(invalid.getMessage());
@@ -409,8 +362,8 @@ public class App {
                     TraceResult result = session.result(format.name(), null, cause);
                     boolean stopped = result.status().equals("stopped");
                     System.err.println(stopped ? "Trace stopped: " + result.stopReason()
-                            + ". Increase the limit or use --unlimited; use --result-envelope"
-                            + " for partial traces." : "Unable to generate trace!");
+                            + ". Increase the limit or use --unlimited; use --result-envelope" + " for partial traces."
+                            : "Unable to generate trace!");
                     if (verbose) {
                         cause.printStackTrace();
                     } // if
@@ -421,6 +374,7 @@ public class App {
 
         /**
          * Resolves the field-only policy required by multithread capture.
+         *
          * @return Effective inspection policy.
          */
         private InspectionPolicy effectiveInspection() {
@@ -429,34 +383,27 @@ public class App {
 
         /**
          * Runs ordinary output with bounded tracing and the existing payload shape.
+         *
          * @param session Active tracing session.
          * @param selected Effective limits.
          * @param guestStdin Guest input.
          * @throws Exception On compilation, tracing, or serialization failure.
          */
-        private void runOrdinary(TraceSession session, TraceLimits selected, String guestStdin)
-                throws Exception {
+        private void runOrdinary(TraceSession session, TraceLimits selected, String guestStdin) throws Exception {
             String source = readBoundedSource(session, selected);
             long files = SourceDelimiters.scan(source).size();
-            session.enforce(Math.max(1, files), selected.sourceFiles(),
-                    "source_file_limit");
+            session.enforce(Math.max(1, files), selected.sourceFiles(), "source_file_limit");
             session.phase("compile");
-            List<CompilationHelper.SourceFile> sourceFiles =
-                    CompilationHelper.parseMultiFileStream(source);
-            CompilationHelper.SourceFile entryFile =
-                    CompilationHelper.findEntryPoint(sourceFiles);
+            List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
+            CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
             CompilationUnit preCu = entryFile.ast();
-            Optional<Path> sourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
-                    ? Optional.empty() : CompilationHelper.findSourceRoot(preCu, getInputPath());
+            Optional<Path> sourceRoot = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
+                    : CompilationHelper.findSourceRoot(preCu, getInputPath());
 
-            try (CompilationResult compilationResult =
-                    CompilationHelper.compile(source, sourceRoot)) {
-                Optional<Path> parserSourceRoot = effectiveInspection() == InspectionPolicy.FIELDS
-                        ? Optional.empty()
-                        : (sourceRoot.isPresent() ? sourceRoot
-                                : Optional.of(compilationResult.classPath()));
-                List<CompilationUnit> allCus = discoverAllCompilationUnits(
-                        sourceFiles, sourceRoot, parserSourceRoot);
+            try (CompilationResult compilationResult = CompilationHelper.compile(source, sourceRoot)) {
+                Optional<Path> parserSourceRoot = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
+                        : (sourceRoot.isPresent() ? sourceRoot : Optional.of(compilationResult.classPath()));
+                List<CompilationUnit> allCus = discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
 
                 session.phase("trace");
                 if (format == TraceFormat.MODERN) {
@@ -498,15 +445,12 @@ public class App {
                 } // if
                 Object payload = null;
                 try {
-                    payload = snapshots == null ? null : boundedPayload(
-                            source, snapshots, guestStdin);
+                    payload = snapshots == null ? null : boundedPayload(source, snapshots, guestStdin);
                 } catch (RuntimeException serializationFailure) {
                     failure = serializationFailure;
                     session.phase("serialize");
                 } // try
-                TraceResult result = session.result(
-                        format.name().toLowerCase(java.util.Locale.ROOT),
-                        payload, failure);
+                TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT), payload, failure);
                 PyTutorSerializer.getGson(pretty).toJson(result, System.out);
                 System.out.println();
                 if (!result.complete()) {
@@ -517,21 +461,20 @@ public class App {
 
         /**
          * Reads sources with a byte cap before parsing or decoding them.
+         *
          * @param session Job session.
          * @param limits Source budgets.
          * @return UTF-8 source text.
          * @throws IOException On source read failure.
          */
-        private String readBoundedSource(TraceSession session, TraceLimits limits)
-                throws IOException {
+        private String readBoundedSource(TraceSession session, TraceLimits limits) throws IOException {
             InputStream stream = input == null ? System.in : Files.newInputStream(input.toPath());
             try {
                 java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
                 byte[] chunk = new byte[4096];
                 int count;
                 while ((count = stream.read(chunk)) != -1) {
-                    session.enforce((long) bytes.size() + count,
-                            limits.sourceBytes(), "source_limit");
+                    session.enforce((long) bytes.size() + count, limits.sourceBytes(), "source_limit");
                     bytes.write(chunk, 0, count);
                 } // while
                 return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
@@ -552,33 +495,26 @@ public class App {
          * @return Completed snapshots.
          * @throws Exception On compilation or tracing failure.
          */
-        List<ExecutionSnapshot> executeBoundedSource(
-                String source, TraceSession session, TraceLimits limits, String guestStdin)
-                throws Exception {
+        List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+                String guestStdin) throws Exception {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
-            List<CompilationHelper.SourceFile> sources =
-                    CompilationHelper.parseMultiFileStream(source);
-            Optional<Path> root = effectiveInspection() == InspectionPolicy.FIELDS
-                    ? Optional.empty()
-                    : CompilationHelper.findSourceRoot(
-                            CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
+            List<CompilationHelper.SourceFile> sources = CompilationHelper.parseMultiFileStream(source);
+            Optional<Path> root = effectiveInspection() == InspectionPolicy.FIELDS ? Optional.empty()
+                    : CompilationHelper.findSourceRoot(CompilationHelper.findEntryPoint(sources).ast(), getInputPath());
             try (CompilationResult compiled = CompilationHelper.compile(source, root)) {
                 List<CompilationUnit> units = discoverAllCompilationUnits(sources, root, root);
                 session.phase("trace");
                 if (allBreakpoints) {
                     if (job.breakpoints == null) {
-                        Collection<Integer> lines =
-                                DebugTraceHelper.getValidBreakpointLines(compiled);
-                        DebugTraceHelper.traceChronological(
-                                compiled, lines, units, true, guestStdin);
+                        Collection<Integer> lines = DebugTraceHelper.getValidBreakpointLines(compiled);
+                        DebugTraceHelper.traceChronological(compiled, lines, units, true, guestStdin);
                     } else {
-                        DebugTraceHelper.traceChronologicalWithSpecs(
-                                compiled, parsedBreakpoints(), units, true, guestStdin);
+                        DebugTraceHelper.traceChronologicalWithSpecs(compiled, parsedBreakpoints(), units, true,
+                                guestStdin);
                     } // if
                 } else {
-                    DebugTraceHelper.traceWithSpecs(
-                            compiled, parsedBreakpoints(), units, guestStdin);
+                    DebugTraceHelper.traceWithSpecs(compiled, parsedBreakpoints(), units, guestStdin);
                 } // if
                 session.finishOutput();
                 return session.snapshots();
@@ -593,14 +529,13 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          * @return Serializer model.
          */
-        Object boundedPayload(
-                String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
+        Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
             if (format == TraceFormat.MODERN) {
-                return new ModernTraceSerializer(removeMainArgs, inlineStrings,
-                        removeMethodThis, typeStyle).createTrace(source, guestStdin, snapshots);
+                return new ModernTraceSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
+                        .createTrace(source, guestStdin, snapshots);
             } // if
-            return new PyTutorSerializer(removeMainArgs, inlineStrings,
-                    removeMethodThis, typeStyle).createTrace(source, guestStdin, snapshots);
+            return new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle).createTrace(source,
+                    guestStdin, snapshots);
         } // boundedPayload
 
         /**
@@ -611,10 +546,8 @@ public class App {
          * @param parserSourceRoot Parser type resolution path.
          * @return List of parsed CompilationUnits.
          */
-        private List<CompilationUnit> discoverAllCompilationUnits(
-                List<CompilationHelper.SourceFile> sourceFiles,
-                Optional<Path> sourceRoot,
-                Optional<Path> parserSourceRoot) {
+        private List<CompilationUnit> discoverAllCompilationUnits(List<CompilationHelper.SourceFile> sourceFiles,
+                Optional<Path> sourceRoot, Optional<Path> parserSourceRoot) {
             return App.discoverAllCompilationUnits(sourceFiles, sourceRoot, parserSourceRoot);
         } // discoverAllCompilationUnits
 
@@ -627,39 +560,30 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          * @throws Exception On tracing error.
          */
-        private void runModernTrace(
-                String source,
-                CompilationResult compResult,
-                List<CompilationUnit> allCus,
+        private void runModernTrace(String source, CompilationResult compResult, List<CompilationUnit> allCus,
                 String guestStdin) throws Exception {
-            ModernTraceSerializer serializer =
-                    new ModernTraceSerializer(
-                            removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
+            ModernTraceSerializer serializer = new ModernTraceSerializer(removeMainArgs, inlineStrings,
+                    removeMethodThis, typeStyle);
 
             if (allBreakpoints) {
                 List<ExecutionSnapshot> chronological = job.breakpoints != null
-                        ? DebugTraceHelper.traceChronologicalWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
-                        : DebugTraceHelper.traceChronological(
-                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
-                                allCus, true, guestStdin);
-                cs1302.tracer.model.modern.Trace trace =
-                        serializer.createTrace(source, guestStdin, chronological);
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(compResult, parsedBreakpoints(), allCus, true,
+                                guestStdin)
+                        : DebugTraceHelper.traceChronological(compResult,
+                                DebugTraceHelper.getValidBreakpointLines(compResult), allCus, true, guestStdin);
+                cs1302.tracer.model.modern.Trace trace = serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else if (job.breakpoints == null) {
                 ExecutionSnapshot snapshot = DebugTraceHelper.trace(compResult, allCus, guestStdin);
-                cs1302.tracer.model.modern.Trace trace =
-                        serializer.createTrace(source, guestStdin, snapshot);
+                cs1302.tracer.model.modern.Trace trace = serializer.createTrace(source, guestStdin, snapshot);
                 emitTrace(ModernTraceSerializer.getGson().toJson(trace));
             } else {
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.traceWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, guestStdin)
-                        : DebugTraceHelper.traceLatestWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
-                    cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, snapshots);
+                    cs1302.tracer.model.modern.Trace trace = serializer.createBreakpointsTrace(source, guestStdin,
+                            snapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } else {
                     Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
@@ -671,8 +595,8 @@ public class App {
                             latestSnapshots.put(e.getKey(), list);
                         } // if
                     } // for
-                    cs1302.tracer.model.modern.Trace trace =
-                            serializer.createBreakpointsTrace(source, guestStdin, latestSnapshots);
+                    cs1302.tracer.model.modern.Trace trace = serializer.createBreakpointsTrace(source, guestStdin,
+                            latestSnapshots);
                     emitTrace(ModernTraceSerializer.getGson().toJson(trace));
                 } // if
             } // if
@@ -687,22 +611,17 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          * @throws Exception On tracing error.
          */
-        private void runPyTutorTrace(
-                String source,
-                CompilationResult compResult,
-                List<CompilationUnit> allCus,
+        private void runPyTutorTrace(String source, CompilationResult compResult, List<CompilationUnit> allCus,
                 String guestStdin) throws Exception {
-            PyTutorSerializer serializer =
-                    new PyTutorSerializer(
-                            removeMainArgs, inlineStrings, removeMethodThis, typeStyle);
+            PyTutorSerializer serializer = new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis,
+                    typeStyle);
 
             if (allBreakpoints) {
                 List<ExecutionSnapshot> chronological = job.breakpoints != null
-                        ? DebugTraceHelper.traceChronologicalWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, true, guestStdin)
-                        : DebugTraceHelper.traceChronological(
-                                compResult, DebugTraceHelper.getValidBreakpointLines(compResult),
-                                allCus, true, guestStdin);
+                        ? DebugTraceHelper.traceChronologicalWithSpecs(compResult, parsedBreakpoints(), allCus, true,
+                                guestStdin)
+                        : DebugTraceHelper.traceChronological(compResult,
+                                DebugTraceHelper.getValidBreakpointLines(compResult), allCus, true, guestStdin);
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin, chronological);
                 emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
             } else if (job.breakpoints == null) {
@@ -712,32 +631,23 @@ public class App {
             } else {
                 SourceMetadata metadata = SourceMetadata.from(source);
                 Map<Integer, List<ExecutionSnapshot>> snapshots = accumulateBreakpoints
-                        ? DebugTraceHelper.traceWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, guestStdin)
-                        : DebugTraceHelper.traceLatestWithSpecs(
-                                compResult, parsedBreakpoints(), allCus, guestStdin);
+                        ? DebugTraceHelper.traceWithSpecs(compResult, parsedBreakpoints(), allCus, guestStdin)
+                        : DebugTraceHelper.traceLatestWithSpecs(compResult, parsedBreakpoints(), allCus, guestStdin);
                 if (accumulateBreakpoints) {
-                    Map<Integer, List<PyTutorTrace>> pyTutorSnapshots =
-                            snapshots.entrySet().stream()
-                                     .collect(Collectors.toMap(
-                                             Map.Entry::getKey,
-                                             e -> e.getValue().stream()
-                                                     .map(s -> serializer.createTrace(
-                                                             source, guestStdin, s, metadata))
-                                                     .toList()));
+                    Map<Integer, List<PyTutorTrace>> pyTutorSnapshots = snapshots.entrySet().stream()
+                            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().stream()
+                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList()));
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
                 } else {
                     Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
                     for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
                         List<ExecutionSnapshot> list = e.getValue();
                         if (list.size() == 1) {
-                            pyTutorSnapshots.put(e.getKey(), serializer.createTrace(
-                                    source, guestStdin, list.get(0), metadata));
+                            pyTutorSnapshots.put(e.getKey(),
+                                    serializer.createTrace(source, guestStdin, list.get(0), metadata));
                         } else {
                             pyTutorSnapshots.put(e.getKey(), list.stream()
-                                    .map(s -> serializer.createTrace(
-                                            source, guestStdin, s, metadata))
-                                    .toList());
+                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList());
                         } // if
                     } // for
                     emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
@@ -747,6 +657,7 @@ public class App {
 
         /**
          * Publishes ordinary JSON only after confirming that no limit stopped the job.
+         *
          * @param json Complete serialized payload.
          */
         private void emitTrace(String json) {
@@ -756,35 +667,26 @@ public class App {
     } // Trace
 
     /** Run batch traces over NDJSON. */
-    @Command(
-            name = "batch-trace",
-            description = "Execute independent trace jobs concurrently over an NDJSON stream.",
+    @Command(name = "batch-trace", description = "Execute independent trace jobs concurrently over an NDJSON stream.",
             mixinStandardHelpOptions = true)
     public static class BatchTrace implements Runnable {
 
-        @Option(
-                names = {"--workers", "-w"},
-                description = "Number of concurrent worker sessions (default: ${DEFAULT-VALUE}).",
-                defaultValue = "1")
+        @Option(names = { "--workers", "-w" },
+                description = "Number of concurrent worker sessions (default: ${DEFAULT-VALUE}).", defaultValue = "1")
         int workers = 1;
 
         @Option(names = "--max-in-flight", defaultValue = "16",
                 description = "Maximum admitted jobs and buffered results (default: 16).")
         int maxInFlight = 16;
 
-        @Option(names = "--completion-order",
-                description = "Emit results as jobs finish; default is submission order.")
+        @Option(names = "--completion-order", description = "Emit results as jobs finish; default is submission order.")
         boolean completionOrder;
 
-        @Option(
-                names = {"--input", "-i"},
-                description = "Input path to NDJSON file (defaults to stdin if omitted).")
+        @Option(names = { "--input", "-i" }, description = "Input path to NDJSON file (defaults to stdin if omitted).")
         File input = null;
 
-        @Option(
-                names = {"--max-jobs-per-worker"},
-                description = "Maximum jobs before recycling a worker process "
-                        + "(default: ${DEFAULT-VALUE}).",
+        @Option(names = { "--max-jobs-per-worker" },
+                description = "Maximum jobs before recycling a worker process " + "(default: ${DEFAULT-VALUE}).",
                 defaultValue = "100")
         int maxJobsPerWorker = 100;
 
@@ -795,13 +697,11 @@ public class App {
 
         @Override
         public void run() {
-            try (BatchTraceService service = new BatchTraceService(
-                    workers, maxJobsPerWorker, maxInFlight, completionOrder)) {
-                InputStream is = input != null
-                        ? Files.newInputStream(input.toPath()) : System.in;
+            try (BatchTraceService service = new BatchTraceService(workers, maxJobsPerWorker, maxInFlight,
+                    completionOrder)) {
+                InputStream is = input != null ? Files.newInputStream(input.toPath()) : System.in;
                 try {
-                    OutputStreamWriter writer = new OutputStreamWriter(
-                            System.out, StandardCharsets.UTF_8);
+                    OutputStreamWriter writer = new OutputStreamWriter(System.out, StandardCharsets.UTF_8);
                     service.processStream(is, writer);
                     writer.flush();
                 } finally {
@@ -816,17 +716,12 @@ public class App {
         } // run
     } // BatchTrace
 
-
     /** List the breakpoint lines available for a compiled Java program. */
-    @Command(
-            name = "list-breakpoints",
-            description = "List the breakpoints available in the provided source file.",
+    @Command(name = "list-breakpoints", description = "List the breakpoints available in the provided source file.",
             mixinStandardHelpOptions = true)
     static class ListBreakpoints extends CommandBase {
 
-        @Option(
-                names = {"--json", "-j"},
-                description = "Output available breakpoints in JSON format.")
+        @Option(names = { "--json", "-j" }, description = "Output available breakpoints in JSON format.")
         boolean outputJson = false;
 
         @Override
@@ -834,23 +729,19 @@ public class App {
             String source = readInputFile();
 
             try {
-                List<CompilationHelper.SourceFile> sourceFiles =
-                        CompilationHelper.parseMultiFileStream(source);
-                CompilationHelper.SourceFile entryFile =
-                        CompilationHelper.findEntryPoint(sourceFiles);
+                List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
+                CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
                 CompilationUnit preCu = entryFile.ast();
-                Optional<Path> sourceRoot =
-                        CompilationHelper.findSourceRoot(preCu, getInputPath());
+                Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(preCu, getInputPath());
 
-                try (CompilationResult compilationResult =
-                        CompilationHelper.compile(source, sourceRoot)) {
+                try (CompilationResult compilationResult = CompilationHelper.compile(source, sourceRoot)) {
                     if (sourceFiles.size() > 1) {
-                        Map<String, Set<Integer>> breakpointsByFile =
-                                DebugTraceHelper.getValidBreakpointLinesByFile(compilationResult);
+                        Map<String, Set<Integer>> breakpointsByFile = DebugTraceHelper
+                                .getValidBreakpointLinesByFile(compilationResult);
                         listMultiFileBreakpoints(sourceFiles, breakpointsByFile);
                     } else {
-                        Collection<Integer> availableBreakpoints =
-                                DebugTraceHelper.getValidBreakpointLines(compilationResult);
+                        Collection<Integer> availableBreakpoints = DebugTraceHelper
+                                .getValidBreakpointLines(compilationResult);
                         listSingleFileBreakpoints(source, availableBreakpoints);
                     } // if
                 } // try
@@ -869,8 +760,7 @@ public class App {
          * @param sourceFiles Input source files.
          * @param breakpointsByFile Valid line mappings by file path.
          */
-        private void listMultiFileBreakpoints(
-                List<CompilationHelper.SourceFile> sourceFiles,
+        private void listMultiFileBreakpoints(List<CompilationHelper.SourceFile> sourceFiles,
                 Map<String, Set<Integer>> breakpointsByFile) {
             if (outputJson) {
                 List<BreakpointEntry> output = new ArrayList<>();
@@ -896,8 +786,7 @@ public class App {
                     int digitLength = ((int) Math.log10(Math.max(1, fileLines.length))) + 1;
                     for (int i = 0; i < fileLines.length; i++) {
                         if (validLines.contains(i + 1)) {
-                            sb.append(Ansi.AUTO.string(String.format(
-                                    "@|green b %" + digitLength + "d | |@", i + 1)));
+                            sb.append(Ansi.AUTO.string(String.format("@|green b %" + digitLength + "d | |@", i + 1)));
                         } else {
                             sb.append(String.format("  %" + digitLength + "d | ", i + 1));
                         } // if
@@ -918,12 +807,10 @@ public class App {
          * @param sf SourceFile.
          * @return Set of valid line numbers.
          */
-        private Set<Integer> findValidLinesForFile(
-                Map<String, Set<Integer>> breakpointsByFile,
+        private Set<Integer> findValidLinesForFile(Map<String, Set<Integer>> breakpointsByFile,
                 CompilationHelper.SourceFile sf) {
             String normPath = sf.relativePath().replace(File.separatorChar, '/');
-            Set<Integer> valid = breakpointsByFile.getOrDefault(
-                    normPath,
+            Set<Integer> valid = breakpointsByFile.getOrDefault(normPath,
                     breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
             if (valid.isEmpty()) {
                 String simpleName = Path.of(sf.relativePath()).getFileName().toString();
@@ -942,8 +829,7 @@ public class App {
          * @param source Source code text.
          * @param availableBreakpoints Valid line numbers.
          */
-        private void listSingleFileBreakpoints(
-                String source, Collection<Integer> availableBreakpoints) {
+        private void listSingleFileBreakpoints(String source, Collection<Integer> availableBreakpoints) {
             String[] sourceLines = source.split("\n");
             int digitLength = ((int) Math.log10(Math.max(1, sourceLines.length))) + 1;
 
@@ -959,8 +845,7 @@ public class App {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < sourceLines.length; i++) {
                     if (availableBreakpoints.contains(i + 1)) {
-                        sb.append(Ansi.AUTO.string(String.format(
-                                "@|green b %" + digitLength + "d | |@", i + 1)));
+                        sb.append(Ansi.AUTO.string(String.format("@|green b %" + digitLength + "d | |@", i + 1)));
                     } else {
                         sb.append(String.format("  %" + digitLength + "d | ", i + 1));
                     } // if
@@ -975,9 +860,7 @@ public class App {
     } // ListBreakpoints
 
     /** Print dependency licenses to console. */
-    @Command(
-            name = "show-licenses",
-            description = "Show the licenses for projects used in this program and then exit.",
+    @Command(name = "show-licenses", description = "Show the licenses for projects used in this program and then exit.",
             mixinStandardHelpOptions = true)
     static class ShowLicenses implements Runnable {
 

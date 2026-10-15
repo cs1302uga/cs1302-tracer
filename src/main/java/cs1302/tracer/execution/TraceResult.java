@@ -20,9 +20,8 @@ import java.util.Map;
  * @param stdout Bounded guest standard output, decoded as UTF-8.
  * @param stderr Bounded guest standard error, decoded as UTF-8.
  */
-public record TraceResult(int schemaVersion, String format, String status, String stopReason,
-        String phase, boolean complete, Object trace, TraceLimits limits,
-        Map<String, Long> counters, List<String> diagnostics,
+public record TraceResult(int schemaVersion, String format, String status, String stopReason, String phase,
+        boolean complete, Object trace, TraceLimits limits, Map<String, Long> counters, List<String> diagnostics,
         String stdout, String stderr) {
 
     /**
@@ -46,11 +45,9 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
      * @param limits Effective trace limits.
      * @return New failed TraceResult instance.
      */
-    public static TraceResult failed(
-            String format, String phase, String diagnostic, TraceLimits limits) {
-        return new TraceResult(1, format, "failed", phase + "_error", phase, false,
-                null, limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(),
-                List.of(diagnostic), "", "");
+    public static TraceResult failed(String format, String phase, String diagnostic, TraceLimits limits) {
+        return new TraceResult(1, format, "failed", phase + "_error", phase, false, null,
+                limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(), List.of(diagnostic), "", "");
     } // failed
 
     /**
@@ -74,10 +71,8 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
      * @param limits Effective trace limits.
      * @return New stopped TraceResult instance.
      */
-    public static TraceResult stopped(
-            String format, String reason, String diagnostic, TraceLimits limits) {
-        return new TraceResult(1, format, "stopped", reason, "trace", false,
-                null, limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(),
-                List.of(diagnostic), "", "");
+    public static TraceResult stopped(String format, String reason, String diagnostic, TraceLimits limits) {
+        return new TraceResult(1, format, "stopped", reason, "trace", false, null,
+                limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(), List.of(diagnostic), "", "");
     } // stopped
 } // TraceResult

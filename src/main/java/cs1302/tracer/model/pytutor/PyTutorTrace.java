@@ -15,13 +15,9 @@ import java.util.Map;
  * @param trace The list of trace steps representing memory snapshots.
  * @param userlog User log messages, if any.
  */
-public record PyTutorTrace(
-        @SerializedName("code") String code,
-        @SerializedName("stdin") String stdin,
-        @SerializedName("trace") List<TraceStep> trace,
-        @SerializedName("userlog") String userlog,
-        @SerializedName("sources") Map<String, String> sources,
-        @SerializedName("entryFile") String entryFile) {
+public record PyTutorTrace(@SerializedName("code") String code, @SerializedName("stdin") String stdin,
+        @SerializedName("trace") List<TraceStep> trace, @SerializedName("userlog") String userlog,
+        @SerializedName("sources") Map<String, String> sources, @SerializedName("entryFile") String entryFile) {
 
     /**
      * Constructs a trace and derives source metadata from the original input.
@@ -44,8 +40,7 @@ public record PyTutorTrace(
      * @param userlog User log messages.
      * @param metadata Parsed source metadata.
      */
-    public PyTutorTrace(String code, String stdin, List<TraceStep> trace, String userlog,
-            SourceMetadata metadata) {
+    public PyTutorTrace(String code, String stdin, List<TraceStep> trace, String userlog, SourceMetadata metadata) {
         this(code, stdin, trace, userlog, metadata.sources(), metadata.entryFile());
     } // PyTutorTrace
 } // PyTutorTrace

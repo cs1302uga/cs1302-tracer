@@ -17,24 +17,24 @@ class CompilationPreviewTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"java.lang.IO", "java.io.IO", "java.lang.IO.Nested", "java.io.IO.Nested"})
+    @ValueSource(strings = { "java.lang.IO", "java.io.IO", "java.lang.IO.Nested", "java.io.IO.Nested" })
     void recognizesIoImports(String imported) {
-        assertThat(CompilationHelper.detectPreviewUsage(StaticJavaParser.parse(
-                "import " + imported + "; class Main {}"))).isTrue();
+        assertThat(
+                CompilationHelper.detectPreviewUsage(StaticJavaParser.parse("import " + imported + "; class Main {}")))
+                .isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"IO", "java.lang.IO", "java.io.IO"})
+    @ValueSource(strings = { "IO", "java.lang.IO", "java.io.IO" })
     void recognizesQualifiedIoCalls(String scope) {
-        assertThat(CompilationHelper.detectPreviewUsage(StaticJavaParser.parse(
-                "class Main { public static void main(String[] a) { " + scope + ".readln(); } }")))
-                .isTrue();
+        assertThat(CompilationHelper.detectPreviewUsage(StaticJavaParser
+                .parse("class Main { public static void main(String[] a) { " + scope + ".readln(); } }"))).isTrue();
     }
 
     @Test
     void packagePrivateStaticMainRequiresPreviewDetection() {
-        assertThat(CompilationHelper.detectPreviewUsage(StaticJavaParser.parse(
-                "class Main { static void main(String[] a) {} }"))).isTrue();
+        assertThat(CompilationHelper
+                .detectPreviewUsage(StaticJavaParser.parse("class Main { static void main(String[] a) {} }"))).isTrue();
     }
 
     @Test

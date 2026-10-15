@@ -23,9 +23,12 @@ class CompilationBoundaryTest {
     @Test
     void emptyInputsAreRejectedAndImportsAreDeduplicated() {
         assertThatThrownBy(() -> CompilationHelper.findEntryPoint(null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CompilationHelper.combineCompilationUnits(null)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CompilationHelper.findEntryPoint(List.of())).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> CompilationHelper.combineCompilationUnits(List.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CompilationHelper.combineCompilationUnits(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CompilationHelper.findEntryPoint(List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CompilationHelper.combineCompilationUnits(List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
         var sources = CompilationHelper.parseMultiFileStream("""
                 // --- One.java ---
                 import java.util.List;
@@ -36,8 +39,8 @@ class CompilationBoundaryTest {
                 public class Two {}
                 """);
         var combined = CompilationHelper.combineCompilationUnits(sources);
-        assertThat(combined.getImports()).extracting(imp -> imp.getNameAsString())
-                .containsExactly("java.util.List", "java.util.Map");
+        assertThat(combined.getImports()).extracting(imp -> imp.getNameAsString()).containsExactly("java.util.List",
+                "java.util.Map");
         assertThat(combined.getTypes()).hasSize(2);
     }
 
@@ -48,14 +51,14 @@ class CompilationBoundaryTest {
         assertThat(CompilationHelper.findSourceRoot(cu, Optional.of(directory.resolve("missing/C.java")))).isEmpty();
         assertThat(CompilationHelper.findSourceRoot(StaticJavaParser.parse("package a.b; class C {}"),
                 Optional.of(Path.of("/b/C.java")))).isEmpty();
-        assertThat(CompilationHelper.findSourceRoot(StaticJavaParser.parse("package cs1302.tracer; class C {}"), Optional.empty()))
-                .contains(Path.of("src/main/java").toAbsolutePath().normalize());
+        assertThat(CompilationHelper.findSourceRoot(StaticJavaParser.parse("package cs1302.tracer; class C {}"),
+                Optional.empty())).contains(Path.of("src/main/java").toAbsolutePath().normalize());
     }
 
     @Test
     void mainDetectionRejectsWrongNameReturnAndParameters() {
-        for (String signature : List.of("public void other()", "public static int main(String[] a)",
-                "void main(int n)", "void main(String a)", "void main(String[] a, int n)",
+        for (String signature : List.of("public void other()", "public static int main(String[] a)", "void main(int n)",
+                "void main(String a)", "void main(String[] a, int n)",
                 "public static void main(String[] a, String... b)")) {
             var method = StaticJavaParser.parseMethodDeclaration(signature + " { throw new RuntimeException(); }");
             assertThat(CompilationHelper.isMainMethod(method)).as(signature).isFalse();
@@ -78,8 +81,8 @@ class CompilationBoundaryTest {
         var method = CompilationHelper.class.getDeclaredMethod("writeSourceFiles", Path.class, List.class);
         method.setAccessible(true);
         var invalid = new CompilationHelper.SourceFile("C.txt", "", StaticJavaParser.parse("class C {}"));
-        assertThatThrownBy(() -> method.invoke(null, directory, List.of(invalid)))
-                .cause().isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid or duplicate");
+        assertThatThrownBy(() -> method.invoke(null, directory, List.of(invalid))).cause()
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Invalid or duplicate");
     }
 
     @Test

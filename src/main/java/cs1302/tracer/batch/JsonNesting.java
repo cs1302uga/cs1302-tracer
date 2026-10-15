@@ -16,6 +16,7 @@ final class JsonNesting {
 
     /**
      * Checks all tokens, including unknown request properties, without recursive skipValue.
+     *
      * @param json Raw request line.
      * @throws IOException If the JSON cannot be read.
      */

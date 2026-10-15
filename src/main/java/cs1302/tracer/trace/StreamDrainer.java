@@ -7,8 +7,8 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 
 /**
- * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides
- * synchronization barriers to ensure all emitted bytes are captured before inspection.
+ * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides synchronization barriers to
+ * ensure all emitted bytes are captured before inspection.
  */
 public class StreamDrainer implements AutoCloseable {
 
@@ -64,9 +64,7 @@ public class StreamDrainer implements AutoCloseable {
                 synchronized (sink) {
                     TraceSession active = session;
                     long currentLimit = active != null ? active.outputLimit() : limit;
-                    long sessionBytes = active != null
-                            ? Math.max(0, sink.size() - sessionStartSinkSize)
-                            : sink.size();
+                    long sessionBytes = active != null ? Math.max(0, sink.size() - sessionStartSinkSize) : sink.size();
                     int retained = currentLimit == 0 ? read
                             : (int) Math.min(read, Math.max(0, currentLimit - sessionBytes));
                     sink.write(buffer, 0, retained);
@@ -123,12 +121,12 @@ public class StreamDrainer implements AutoCloseable {
     } // sync
 
     /**
-     * Synchronizes the stream with adaptive quiet-period polling without contending on the
-     * underlying input stream lock.
+     * Synchronizes the stream with adaptive quiet-period polling without contending on the underlying input stream
+     * lock.
      *
-     * <p>If bytes have recently been read or arrive after the flush, this method waits
-     * until no new bytes arrive for {@code quietPeriodMillis}, or until {@code maxWaitMillis}
-     * elapses. If no bytes arrive after a micro-wait, it returns immediately.
+     * <p>If bytes have recently been read or arrive after the flush, this method waits until no new bytes arrive for
+     * {@code quietPeriodMillis}, or until {@code maxWaitMillis} elapses. If no bytes arrive after a micro-wait, it
+     * returns immediately.
      *
      * @param maxWaitMillis Maximum milliseconds to wait.
      * @param quietPeriodMillis Milliseconds of quiet time required after reading bytes.
@@ -158,8 +156,7 @@ public class StreamDrainer implements AutoCloseable {
 
             int currentSize = size();
             boolean bytesArrived = currentSize > initialSize;
-            boolean recentRead = currentSize > 0
-                    && System.nanoTime() - lastReadNanos < quietPeriodNanos;
+            boolean recentRead = currentSize > 0 && System.nanoTime() - lastReadNanos < quietPeriodNanos;
 
             if (bytesArrived || recentRead) {
                 if (System.nanoTime() - lastReadNanos >= quietPeriodNanos) {
@@ -190,8 +187,7 @@ public class StreamDrainer implements AutoCloseable {
             return;
         } // if
         long deadline = System.currentTimeMillis() + maxWaitMillis;
-        while (size() < expectedTotalBytes && !closed && !eofReached
-                && System.currentTimeMillis() < deadline) {
+        while (size() < expectedTotalBytes && !closed && !eofReached && System.currentTimeMillis() < deadline) {
             TraceSession active = session;
             if (active != null && active.isStopped()) {
                 break;

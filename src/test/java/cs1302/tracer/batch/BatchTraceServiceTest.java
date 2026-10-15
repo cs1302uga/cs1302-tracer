@@ -37,12 +37,10 @@ class BatchTraceServiceTest {
     @DisplayName("Service processes stream of NDJSON jobs")
     void testProcessStream() throws Exception {
         Gson gson = PyTutorSerializer.getGson(false);
-        BatchJobRequest req1 = new BatchJobRequest(
-                "s-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"),
-                false, false, false, false, false, "fqn", null, null);
-        BatchJobRequest req2 = new BatchJobRequest(
-                "s-2", SIMPLE_SOURCE, "modern", null, List.of("4"),
-                false, false, false, false, false, "fqn", null, null);
+        BatchJobRequest req1 = new BatchJobRequest("s-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"), false, false,
+                false, false, false, "fqn", null, null);
+        BatchJobRequest req2 = new BatchJobRequest("s-2", SIMPLE_SOURCE, "modern", null, List.of("4"), false, false,
+                false, false, false, "fqn", null, null);
 
         String ndjson = gson.toJson(req1) + "\n\n" + gson.toJson(req2) + "\n";
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.getBytes(StandardCharsets.UTF_8));
@@ -87,9 +85,8 @@ class BatchTraceServiceTest {
     @DisplayName("App batch-trace subcommand executes via CLI options and input file")
     void testAppBatchTraceCommand(@TempDir File tempDir) throws Exception {
         Gson gson = PyTutorSerializer.getGson(false);
-        BatchJobRequest req = new BatchJobRequest(
-                "cli-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"),
-                false, false, false, false, false, "fqn", null, null);
+        BatchJobRequest req = new BatchJobRequest("cli-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"), false, false,
+                false, false, false, "fqn", null, null);
         File inputFile = new File(tempDir, "jobs.ndjson");
         Files.writeString(inputFile.toPath(), gson.toJson(req) + "\n");
 
@@ -97,9 +94,8 @@ class BatchTraceServiceTest {
         ByteArrayOutputStream capturedOut = new ByteArrayOutputStream();
         System.setOut(new PrintStream(capturedOut, true, StandardCharsets.UTF_8));
         try {
-            int exitCode = App.execute(new String[]{
-                "batch-trace", "--input", inputFile.getAbsolutePath(), "--workers", "1"
-            });
+            int exitCode = App
+                    .execute(new String[] { "batch-trace", "--input", inputFile.getAbsolutePath(), "--workers", "1" });
             assertThat(exitCode).isEqualTo(0);
         } finally {
             System.setOut(originalOut);
@@ -115,7 +111,7 @@ class BatchTraceServiceTest {
     @Test
     @DisplayName("App batch-trace subcommand displays help")
     void testAppBatchTraceHelp() {
-        int exitCode = App.execute(new String[]{"batch-trace", "--help"});
+        int exitCode = App.execute(new String[] { "batch-trace", "--help" });
         assertThat(exitCode).isEqualTo(0);
     } // testAppBatchTraceHelp
 
@@ -128,8 +124,7 @@ class BatchTraceServiceTest {
         try {
             App.BatchTrace batchTrace = new App.BatchTrace();
             batchTrace.exitHandler = code -> exit.set(code);
-            new picocli.CommandLine(batchTrace).execute(
-                    "--input", "/non/existent/path/never_created.ndjson");
+            new picocli.CommandLine(batchTrace).execute("--input", "/non/existent/path/never_created.ndjson");
             assertThat(exit.get()).isEqualTo(1);
         } finally {
             System.setErr(origErr);
@@ -159,9 +154,8 @@ class BatchTraceServiceTest {
     @DisplayName("App batch-trace subcommand reads from System.in when --input is omitted")
     void testAppBatchTraceViaStdin() throws Exception {
         Gson gson = PyTutorSerializer.getGson(false);
-        BatchJobRequest req = new BatchJobRequest(
-                "stdin-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"),
-                false, false, false, false, false, "fqn", null, null);
+        BatchJobRequest req = new BatchJobRequest("stdin-1", SIMPLE_SOURCE, "pytutor", null, List.of("4"), false, false,
+                false, false, false, "fqn", null, null);
 
         java.io.InputStream origIn = System.in;
         PrintStream origOut = System.out;
@@ -190,9 +184,8 @@ class BatchTraceServiceTest {
     @Test
     @DisplayName("Service handles thread interruption when executing job")
     void testExecuteJobInterrupted() throws Exception {
-        BatchJobRequest req = new BatchJobRequest(
-                "job-intr", SIMPLE_SOURCE, "pytutor", null, List.of("4"),
-                false, false, false, false, false, "fqn", null, null);
+        BatchJobRequest req = new BatchJobRequest("job-intr", SIMPLE_SOURCE, "pytutor", null, List.of("4"), false,
+                false, false, false, false, "fqn", null, null);
         try (BatchTraceService service = new BatchTraceService(1, 10)) {
             Thread.currentThread().interrupt();
             BatchJobResponse resp = service.executeJob(req);
@@ -205,8 +198,7 @@ class BatchTraceServiceTest {
     @Test
     @DisplayName("Service handles thread interruption when executing job with invalid format")
     void testExecuteJobInterruptedInvalidFormat() throws Exception {
-        BatchJobRequest req = new BatchJobRequest(
-                "job-intr-inv", SIMPLE_SOURCE, "unknown_format", null, List.of("4"),
+        BatchJobRequest req = new BatchJobRequest("job-intr-inv", SIMPLE_SOURCE, "unknown_format", null, List.of("4"),
                 false, false, false, false, false, "fqn", null, null);
         try (BatchTraceService service = new BatchTraceService(1, 10)) {
             Thread.currentThread().interrupt();
@@ -216,13 +208,14 @@ class BatchTraceServiceTest {
             assertThat(resp.result().status()).isEqualTo("stopped");
         } // try
     } // testExecuteJobInterruptedInvalidFormat
+
     @Test
     @DisplayName("Service handles stream exceeding in-flight capacity")
     void testExceedingInFlightCapacity() throws Exception {
         StringBuilder ndjson = new StringBuilder();
         for (int i = 0; i < 20; i++) {
-            ndjson.append("{\"id\":\"job-").append(i).append("\",\"source\":\"public class InFlight")
-                    .append(i).append(" { public static void main(String[] args) {} }\"}\n");
+            ndjson.append("{\"id\":\"job-").append(i).append("\",\"source\":\"public class InFlight").append(i)
+                    .append(" { public static void main(String[] args) {} }\"}\n");
         } // for
         ByteArrayInputStream in = new ByteArrayInputStream(ndjson.toString().getBytes(StandardCharsets.UTF_8));
         StringWriter out = new StringWriter();
@@ -241,8 +234,7 @@ class BatchTraceServiceTest {
         BatchTraceService service = new BatchTraceService(1, 10);
         var field = BatchTraceService.class.getDeclaredField("executor");
         field.setAccessible(true);
-        java.util.concurrent.ExecutorService exec =
-                (java.util.concurrent.ExecutorService) field.get(service);
+        java.util.concurrent.ExecutorService exec = (java.util.concurrent.ExecutorService) field.get(service);
         exec.submit(() -> {
             try {
                 Thread.sleep(2000);
@@ -259,14 +251,12 @@ class BatchTraceServiceTest {
     @DisplayName("readBoundedLine reads lines with various line terminators and handles bounds")
     void testReadBoundedLine() throws Exception {
         // Empty input returns null
-        java.io.BufferedReader emptyReader =
-                new java.io.BufferedReader(new java.io.StringReader(""));
+        java.io.BufferedReader emptyReader = new java.io.BufferedReader(new java.io.StringReader(""));
         assertThat(BatchTraceService.readBoundedLine(emptyReader, 100)).isNull();
 
         // Standard LF, CRLF, CR-only, and EOF without newline
         String content = "line1\nline2\r\nline3\rline4";
-        java.io.BufferedReader reader =
-                new java.io.BufferedReader(new java.io.StringReader(content));
+        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.StringReader(content));
         assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line1");
         assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line2");
         assertThat(BatchTraceService.readBoundedLine(reader, 100)).isEqualTo("line3");
@@ -275,36 +265,30 @@ class BatchTraceServiceTest {
 
         // Exceeding limit throws IOException and drains line
         String oversized = "0123456789extra\nnextLine";
-        java.io.BufferedReader boundReader =
-                new java.io.BufferedReader(new java.io.StringReader(oversized));
+        java.io.BufferedReader boundReader = new java.io.BufferedReader(new java.io.StringReader(oversized));
         assertThatThrownBy(() -> BatchTraceService.readBoundedLine(boundReader, 5))
-                .isInstanceOf(java.io.IOException.class)
-                .hasMessageContaining("NDJSON record exceeds maximum size");
+                .isInstanceOf(java.io.IOException.class).hasMessageContaining("NDJSON record exceeds maximum size");
         assertThat(BatchTraceService.readBoundedLine(boundReader, 100)).isEqualTo("nextLine");
 
         // Exceeding limit with CR-only drain
         String oversizedCr = "0123456789extra\rnextLineCr";
-        java.io.BufferedReader crReader =
-                new java.io.BufferedReader(new java.io.StringReader(oversizedCr));
+        java.io.BufferedReader crReader = new java.io.BufferedReader(new java.io.StringReader(oversizedCr));
         assertThatThrownBy(() -> BatchTraceService.readBoundedLine(crReader, 5))
                 .isInstanceOf(java.io.IOException.class);
         assertThat(BatchTraceService.readBoundedLine(crReader, 100)).isEqualTo("nextLineCr");
 
         // Exceeding limit with CRLF drain
         String oversizedCrlf = "0123456789extra\r\nnextLineCrlf";
-        java.io.BufferedReader crlfReader =
-                new java.io.BufferedReader(new java.io.StringReader(oversizedCrlf));
+        java.io.BufferedReader crlfReader = new java.io.BufferedReader(new java.io.StringReader(oversizedCrlf));
         assertThatThrownBy(() -> BatchTraceService.readBoundedLine(crlfReader, 5))
                 .isInstanceOf(java.io.IOException.class);
         assertThat(BatchTraceService.readBoundedLine(crlfReader, 100)).isEqualTo("nextLineCrlf");
 
         // Exceeding limit at EOF without newline
         String oversizedAtEof = "0123456789extra";
-        java.io.BufferedReader eofReader =
-                new java.io.BufferedReader(new java.io.StringReader(oversizedAtEof));
+        java.io.BufferedReader eofReader = new java.io.BufferedReader(new java.io.StringReader(oversizedAtEof));
         assertThatThrownBy(() -> BatchTraceService.readBoundedLine(eofReader, 5))
-                .isInstanceOf(java.io.IOException.class)
-                .hasMessageContaining("NDJSON record exceeds maximum size");
+                .isInstanceOf(java.io.IOException.class).hasMessageContaining("NDJSON record exceeds maximum size");
     } // testReadBoundedLine
 
     @Test
@@ -313,22 +297,36 @@ class BatchTraceServiceTest {
         BatchTraceService service = new BatchTraceService(1, 10);
         var field = BatchTraceService.class.getDeclaredField("executor");
         field.setAccessible(true);
-        java.util.concurrent.atomic.AtomicBoolean shutdownNowCalled =
-                new java.util.concurrent.atomic.AtomicBoolean(false);
-        java.util.concurrent.ExecutorService mockExec =
-                new java.util.concurrent.AbstractExecutorService() {
-                    @Override public void shutdown() {}
-                    @Override public List<Runnable> shutdownNow() {
-                        shutdownNowCalled.set(true);
-                        return List.of();
-                    } // shutdownNow
-                    @Override public boolean isShutdown() { return true; }
-                    @Override public boolean isTerminated() { return false; }
-                    @Override public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u) {
-                        return false;
-                    } // awaitTermination
-                    @Override public void execute(Runnable cmd) {}
-                };
+        java.util.concurrent.atomic.AtomicBoolean shutdownNowCalled = new java.util.concurrent.atomic.AtomicBoolean(
+                false);
+        java.util.concurrent.ExecutorService mockExec = new java.util.concurrent.AbstractExecutorService() {
+            @Override
+            public void shutdown() {}
+
+            @Override
+            public List<Runnable> shutdownNow() {
+                shutdownNowCalled.set(true);
+                return List.of();
+            } // shutdownNow
+
+            @Override
+            public boolean isShutdown() {
+                return true;
+            }
+
+            @Override
+            public boolean isTerminated() {
+                return false;
+            }
+
+            @Override
+            public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u) {
+                return false;
+            } // awaitTermination
+
+            @Override
+            public void execute(Runnable cmd) {}
+        };
         field.set(service, mockExec);
         service.close();
         assertThat(shutdownNowCalled.get()).isTrue();
@@ -340,18 +338,33 @@ class BatchTraceServiceTest {
         BatchTraceService service = new BatchTraceService(1, 10);
         var field = BatchTraceService.class.getDeclaredField("executor");
         field.setAccessible(true);
-        java.util.concurrent.ExecutorService mockExec =
-                new java.util.concurrent.AbstractExecutorService() {
-                    @Override public void shutdown() {}
-                    @Override public List<Runnable> shutdownNow() { return List.of(); }
-                    @Override public boolean isShutdown() { return true; }
-                    @Override public boolean isTerminated() { return false; }
-                    @Override public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u)
-                            throws InterruptedException {
-                        throw new InterruptedException("simulated interrupt");
-                    } // awaitTermination
-                    @Override public void execute(Runnable cmd) {}
-                };
+        java.util.concurrent.ExecutorService mockExec = new java.util.concurrent.AbstractExecutorService() {
+            @Override
+            public void shutdown() {}
+
+            @Override
+            public List<Runnable> shutdownNow() {
+                return List.of();
+            }
+
+            @Override
+            public boolean isShutdown() {
+                return true;
+            }
+
+            @Override
+            public boolean isTerminated() {
+                return false;
+            }
+
+            @Override
+            public boolean awaitTermination(long t, java.util.concurrent.TimeUnit u) throws InterruptedException {
+                throw new InterruptedException("simulated interrupt");
+            } // awaitTermination
+
+            @Override
+            public void execute(Runnable cmd) {}
+        };
         field.set(service, mockExec);
         service.close();
         assertThat(Thread.interrupted()).isTrue();

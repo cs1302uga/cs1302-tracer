@@ -1,5 +1,6 @@
 package cs1302.tracer.trace;
 
+import com.sun.jdi.event.EventSet;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
@@ -78,12 +79,9 @@ import java.util.stream.IntStream;
 /**
  * A collection of methods that are used to generate a debug trace.
  *
- * <p>Normative References:
- * <ul>
- *   <li>The Java Debug Interface (JDI) Specification (Java SE 21 Edition, {@code com.sun.jdi}).
- *   <li>Java Platform Debugger Architecture (JPDA) Connection and Invocation Architecture.
- *   <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013).
- * </ul>
+ * <p>Normative References: <ul> <li>The Java Debug Interface (JDI) Specification (Java SE 21 Edition,
+ * {@code com.sun.jdi}). <li>Java Platform Debugger Architecture (JPDA) Connection and Invocation Architecture.
+ * <li>Online Python Tutor (OPT) Trace Event Format v3 Specification (Philip Guo, 2013). </ul>
  */
 public class DebugTraceHelper {
 
@@ -93,8 +91,8 @@ public class DebugTraceHelper {
     private DebugTraceHelper() {} // DebugTraceHelper
 
     /** A simple JavaParser object so we don't have to make a new one every time. */
-    private static final JavaParser SIMPLE_JAVA_PARSER =
-            new JavaParser(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
+    private static final JavaParser SIMPLE_JAVA_PARSER = new JavaParser(
+            new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
 
     /**
      * An assignment or declaration of a lambda to a variable with line information.
@@ -103,8 +101,7 @@ public class DebugTraceHelper {
      * @param lineNumber Line number.
      * @param lambdaImplementation Lambda method implementation text.
      */
-    record LambdaAssignment(
-            String variableName, int lineNumber, String lambdaImplementation) {} // LambdaAssignment
+    record LambdaAssignment(String variableName, int lineNumber, String lambdaImplementation) {} // LambdaAssignment
 
     /**
      * Take snapshots of a program's execution state at the given breakpoints.
@@ -121,17 +118,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> trace(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            CompilationUnit parsedSource)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static Map<Integer, List<ExecutionSnapshot>> trace(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, CompilationUnit parsedSource)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, breakPoints, List.of(parsedSource), "");
     } // trace
 
@@ -151,18 +141,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> trace(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            CompilationUnit parsedSource,
-            String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static Map<Integer, List<ExecutionSnapshot>> trace(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, CompilationUnit parsedSource, String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, breakPoints, List.of(parsedSource), stdin);
     } // trace
 
@@ -181,17 +163,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> trace(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static Map<Integer, List<ExecutionSnapshot>> trace(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, breakPoints, parsedSources, "");
     } // trace
 
@@ -211,18 +186,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> trace(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources,
-            String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static Map<Integer, List<ExecutionSnapshot>> trace(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources, String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         return traceWithSpecs(compilationResult, toSpecs(breakPoints), parsedSources, stdin);
     } // trace
@@ -243,61 +210,38 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> traceWithSpecs(
-            CompilationResult compilationResult,
-            Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources,
-            String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static Map<Integer, List<ExecutionSnapshot>> traceWithSpecs(CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs, List<CompilationUnit> parsedSources, String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         if (TraceSession.current() != null && TraceSession.current().threadCapture() != null) {
-            throw new IllegalArgumentException(
-                    "Multithread capture requires chronological tracing");
+            throw new IllegalArgumentException("Multithread capture requires chronological tracing");
         } // if
         Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
-        boolean snapMainEnd = safeSpecs.isEmpty()
-                || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1);
+        boolean snapMainEnd = safeSpecs.isEmpty() || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1);
         Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         writeGuestStdin(vm, stdin);
         InputTracker inputTracker = new InputTracker(stdin);
         registerReaderMethodExitRequests(vm);
-        try (StreamDrainer vmErrDrainer =
-                        new StreamDrainer(vm.process().getErrorStream());
-                StreamDrainer vmOutDrainer =
-                        new StreamDrainer(vm.process().getInputStream())) {
+        try (StreamDrainer vmErrDrainer = new StreamDrainer(vm.process().getErrorStream());
+                StreamDrainer vmOutDrainer = new StreamDrainer(vm.process().getInputStream())) {
 
             if (snapMainEnd) {
-                MethodExitRequest methodExitRequest =
-                        vm.eventRequestManager().createMethodExitRequest();
+                MethodExitRequest methodExitRequest = vm.eventRequestManager().createMethodExitRequest();
                 methodExitRequest.addClassFilter(compilationResult.mainClass());
                 methodExitRequest.enable();
             } // if
 
-            ExceptionRequest exceptionRequest =
-                    vm.eventRequestManager().createExceptionRequest(null, false, true);
+            ExceptionRequest exceptionRequest = vm.eventRequestManager().createExceptionRequest(null, false, true);
             exceptionRequest.enable();
 
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
             SourceAnalysis sourceAnalysis = SourceAnalysis.from(parsedSources);
-            processBreakpointsEventLoop(
-                    vm,
-                    compilationResult,
-                    safeSpecs,
-                    sourceAnalysis,
-                    snapshots,
-                    loadedClasses,
-                    vmOutDrainer,
-                    vmErrDrainer,
-                    snapMainEnd,
-                    inputTracker);
+            processBreakpointsEventLoop(vm, compilationResult, safeSpecs, sourceAnalysis, snapshots, loadedClasses,
+                    vmOutDrainer, vmErrDrainer, snapMainEnd, inputTracker);
 
             awaitGuestExit(vm);
             vmErrDrainer.sync();
@@ -312,20 +256,21 @@ public class DebugTraceHelper {
 
     /**
      * Captures only the latest state per selected line for non-accumulating CLI output.
+     *
      * @param compilationResult Compiled program.
      * @param breakPoints Selected line numbers.
      * @param parsedSources Parsed sources.
      * @return Latest snapshot mapping in the existing breakpoint shape.
      * @throws Exception On tracing or cleanup failure.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
-            CompilationResult compilationResult, Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources) throws Exception {
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources) throws Exception {
         return traceLatest(compilationResult, breakPoints, parsedSources, "");
     } // traceLatest
 
     /**
      * Captures only the latest state per selected line with stdin.
+     *
      * @param compilationResult Compiled program.
      * @param breakPoints Selected line numbers.
      * @param parsedSources Parsed sources.
@@ -333,9 +278,8 @@ public class DebugTraceHelper {
      * @return Latest snapshot mapping in the existing breakpoint shape.
      * @throws Exception On tracing or cleanup failure.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(
-            CompilationResult compilationResult, Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources, String stdin) throws Exception {
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatest(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources, String stdin) throws Exception {
         return traceLatestWithSpecs(compilationResult, toSpecs(breakPoints), parsedSources, stdin);
     } // traceLatest
 
@@ -348,9 +292,8 @@ public class DebugTraceHelper {
      * @return Latest snapshot mapping in the existing breakpoint shape.
      * @throws Exception On tracing or cleanup failure.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(
-            CompilationResult compilationResult, Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources) throws Exception {
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs, List<CompilationUnit> parsedSources) throws Exception {
         return traceLatestWithSpecs(compilationResult, specs, parsedSources, "");
     } // traceLatestWithSpecs
 
@@ -364,17 +307,14 @@ public class DebugTraceHelper {
      * @return Latest snapshot mapping in the existing breakpoint shape.
      * @throws Exception On tracing or cleanup failure.
      */
-    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(
-            CompilationResult compilationResult, Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources, String stdin) throws Exception {
+    public static Map<Integer, List<ExecutionSnapshot>> traceLatestWithSpecs(CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs, List<CompilationUnit> parsedSources, String stdin) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> raw;
         if (TraceSession.current() != null) {
             raw = traceWithSpecs(compilationResult, specs, parsedSources, stdin);
         } else {
-            try (TraceSession session = new TraceSession(
-                    cs1302.tracer.execution.TraceLimits.unlimited(),
-                    cs1302.tracer.execution.InspectionPolicy.TRUSTED, false,
-                    TraceSession.shouldEvalEnumHash())) {
+            try (TraceSession session = new TraceSession(cs1302.tracer.execution.TraceLimits.unlimited(),
+                    cs1302.tracer.execution.InspectionPolicy.TRUSTED, false, TraceSession.shouldEvalEnumHash())) {
                 session.phase("trace");
                 raw = traceWithSpecs(compilationResult, specs, parsedSources, stdin);
             } // try
@@ -388,8 +328,7 @@ public class DebugTraceHelper {
      * @param snapshots Breakpoint snapshot mapping.
      * @return Reduced mapping containing the latest snapshot per source file for each line.
      */
-    static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(
-            Map<Integer, List<ExecutionSnapshot>> snapshots) {
+    static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(Map<Integer, List<ExecutionSnapshot>> snapshots) {
         Map<Integer, List<ExecutionSnapshot>> latest = new TreeMap<>();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
             List<ExecutionSnapshot> list = entry.getValue();
@@ -420,21 +359,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static void processBreakpointsEventLoop(
-            VirtualMachine vm,
-            CompilationResult compilationResult,
-            Collection<BreakpointSpec> breakPoints,
-            SourceAnalysis sourceAnalysis,
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            boolean snapMainEnd,
-            InputTracker inputTracker)
-            throws InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    private static void processBreakpointsEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+            Collection<BreakpointSpec> breakPoints, SourceAnalysis sourceAnalysis,
+            Map<Integer, List<ExecutionSnapshot>> snapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
+            StreamDrainer vmErr, boolean snapMainEnd, InputTracker inputTracker) throws InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
@@ -443,36 +372,31 @@ public class DebugTraceHelper {
             for (Event event : events) {
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
-                    if (compilationResult.compiledClassNames().contains(
-                            cpe.referenceType().name())) {
+                    if (compilationResult.compiledClassNames().contains(cpe.referenceType().name())) {
                         registerBreakpoints(vm, cpe.referenceType(), breakPoints);
                         loadedClasses.add(cpe.referenceType());
                     } // if
                 } // case
                 case BreakpointEvent bpe -> {
                     Location loc = bpe.location();
-                    if (compilationResult.compiledClassNames().contains(
-                            loc.declaringType().name())) {
+                    if (compilationResult.compiledClassNames().contains(loc.declaringType().name())) {
                         int line = loc.lineNumber();
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                                inputTracker);
+                        ExecutionSnapshot snapshot = snapshotTheWorld(bpe.thread(), loadedClasses, vmOut, vmErr,
+                                sourceAnalysis, inputTracker);
                         storeSnapshot(snapshots, line, snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && (snapMainEnd || snapshots.isEmpty())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                                inputTracker);
+                        ExecutionSnapshot snapshot = snapshotTheWorld(mee.thread(), loadedClasses, vmOut, vmErr,
+                                sourceAnalysis, inputTracker);
                         snapshots.put(-1, new ArrayList<>(List.of(snapshot)));
                     } else {
                         handleReaderMethodExit(mee, inputTracker, systemIn);
                     } // if
                 } // case
-                case ExceptionEvent ee -> processBreakpointExceptionEvent(
-                        ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        sourceAnalysis, inputTracker, snapshots);
+                case ExceptionEvent ee -> processBreakpointExceptionEvent(ee, compilationResult, loadedClasses, vmOut,
+                        vmErr, sourceAnalysis, inputTracker, snapshots);
                 case VMDeathEvent vde -> endEventLoop = true;
                 case VMDisconnectEvent vde -> endEventLoop = true;
                 default -> {
@@ -505,32 +429,13 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static void processBreakpointsEventLoop(
-            VirtualMachine vm,
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources,
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            boolean snapMainEnd,
-            InputTracker inputTracker)
-            throws InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        processBreakpointsEventLoop(
-                vm,
-                compilationResult,
-                toSpecs(breakPoints),
-                SourceAnalysis.from(parsedSources),
-                snapshots,
-                loadedClasses,
-                vmOut,
-                vmErr,
-                snapMainEnd,
-                inputTracker);
+    private static void processBreakpointsEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources,
+            Map<Integer, List<ExecutionSnapshot>> snapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
+            StreamDrainer vmErr, boolean snapMainEnd, InputTracker inputTracker) throws InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        processBreakpointsEventLoop(vm, compilationResult, toSpecs(breakPoints), SourceAnalysis.from(parsedSources),
+                snapshots, loadedClasses, vmOut, vmErr, snapMainEnd, inputTracker);
     } // processBreakpointsEventLoop
 
     /**
@@ -548,20 +453,12 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static void processBreakpointExceptionEvent(
-            ExceptionEvent ee,
-            CompilationResult compilationResult,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            Map<Integer, List<ExecutionSnapshot>> snapshots)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        processBreakpointExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr,
-                sourceAnalysis, inputTracker, snapshots, 0, 0);
+    static void processBreakpointExceptionEvent(ExceptionEvent ee, CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut, StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis, InputTracker inputTracker, Map<Integer, List<ExecutionSnapshot>> snapshots)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        processBreakpointExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                inputTracker, snapshots, 0, 0);
     } // processBreakpointExceptionEvent
 
     /**
@@ -581,27 +478,16 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static void processBreakpointExceptionEvent(
-            ExceptionEvent ee,
-            CompilationResult compilationResult,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
-            int startOutOffset,
-            int startErrOffset)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    static void processBreakpointExceptionEvent(ExceptionEvent ee, CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut, StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis, InputTracker inputTracker, Map<Integer, List<ExecutionSnapshot>> snapshots,
+            int startOutOffset, int startErrOffset)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         recordException(ee);
         Location loc = ee.location();
-        if (loc != null && compilationResult.compiledClassNames().contains(
-                loc.declaringType().name())) {
+        if (loc != null && compilationResult.compiledClassNames().contains(loc.declaringType().name())) {
             int line = loc.lineNumber();
-            ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+            ExecutionSnapshot snapshot = snapshotTheWorld(ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker, startOutOffset, startErrOffset);
             storeSnapshot(snapshots, line, snapshot);
             if (!snapshots.containsKey(-1)) {
@@ -619,9 +505,8 @@ public class DebugTraceHelper {
      * @return List of created and enabled breakpoint requests.
      * @throws AbsentInformationException If line info is absent.
      */
-    static List<BreakpointRequest> registerBreakpoints(
-            VirtualMachine vm, ReferenceType refType, Collection<BreakpointSpec> breakPoints)
-            throws AbsentInformationException {
+    static List<BreakpointRequest> registerBreakpoints(VirtualMachine vm, ReferenceType refType,
+            Collection<BreakpointSpec> breakPoints) throws AbsentInformationException {
         List<BreakpointRequest> created = new ArrayList<>();
         Set<Location> registeredLocations = new HashSet<>();
         for (BreakpointSpec spec : breakPoints) {
@@ -633,8 +518,7 @@ public class DebugTraceHelper {
                 if (!locations.isEmpty()) {
                     Location loc = locations.get(0);
                     if (registeredLocations.add(loc)) {
-                        BreakpointRequest req =
-                                vm.eventRequestManager().createBreakpointRequest(loc);
+                        BreakpointRequest req = vm.eventRequestManager().createBreakpointRequest(loc);
                         req.enable();
                         created.add(req);
                     } // if
@@ -666,10 +550,8 @@ public class DebugTraceHelper {
     static boolean isMainMethodExit(Method method) {
         String mainJniSignature = "([Ljava/lang/String;)V";
         String noArgJniSignature = "()V";
-        return !method.isPrivate()
-                && method.name().equals("main")
-                && (method.signature().equals(mainJniSignature)
-                        || method.signature().equals(noArgJniSignature));
+        return !method.isPrivate() && method.name().equals("main")
+                && (method.signature().equals(mainJniSignature) || method.signature().equals(noArgJniSignature));
     } // isMainMethodExit
 
     /**
@@ -702,8 +584,7 @@ public class DebugTraceHelper {
      * @param fieldName The name of the field ("out" or "err").
      * @param thread The suspended thread on which to invoke flush.
      */
-    private static void flushPrintStreamField(
-            ReferenceType systemClass, String fieldName, ThreadReference thread) {
+    private static void flushPrintStreamField(ReferenceType systemClass, String fieldName, ThreadReference thread) {
         try {
             Field field = systemClass.fieldByName(fieldName);
             if (field == null) {
@@ -714,10 +595,7 @@ public class DebugTraceHelper {
                 ReferenceType psType = printStreamRef.referenceType();
                 List<Method> flushMethods = psType.methodsByName("flush", "()V");
                 if (!flushMethods.isEmpty()) {
-                    printStreamRef.invokeMethod(
-                            thread,
-                            flushMethods.get(0),
-                            Collections.emptyList(),
+                    printStreamRef.invokeMethod(thread, flushMethods.get(0), Collections.emptyList(),
                             ObjectReference.INVOKE_SINGLE_THREADED);
                 } // if
             } // if
@@ -749,6 +627,7 @@ public class DebugTraceHelper {
 
     /**
      * Briefly waits for final guest output without hiding an interrupt.
+     *
      * @param vm Guest debugger connection.
      */
     private static void awaitGuestExit(VirtualMachine vm) {
@@ -799,10 +678,8 @@ public class DebugTraceHelper {
         return Objects.equals(prev.sourcePath(), current.sourcePath())
                 && Objects.equals(prev.threads(), current.threads())
                 && Objects.equals(prev.triggeringThreadId(), current.triggeringThreadId())
-                && Objects.equals(prev.event(), current.event())
-                && Objects.equals(prev.stack(), current.stack())
-                && Objects.equals(prev.statics(), current.statics())
-                && Objects.equals(prev.heap(), current.heap())
+                && Objects.equals(prev.event(), current.event()) && Objects.equals(prev.stack(), current.stack())
+                && Objects.equals(prev.statics(), current.statics()) && Objects.equals(prev.heap(), current.heap())
                 && prev.stdoutSlice().contentEquals(current.stdoutSlice())
                 && prev.stderrSlice().contentEquals(current.stderrSlice())
                 && Objects.equals(prev.stdinConsumed(), current.stdinConsumed())
@@ -816,19 +693,16 @@ public class DebugTraceHelper {
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
      */
-    private static void syncTrailingStreamOutput(
-            List<ExecutionSnapshot> chronologicalSnapshots,
-            StreamDrainer vmOut,
+    private static void syncTrailingStreamOutput(List<ExecutionSnapshot> chronologicalSnapshots, StreamDrainer vmOut,
             StreamDrainer vmErr) {
         if (!chronologicalSnapshots.isEmpty()) {
-            OutputSlice finalErr = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
-            OutputSlice finalOut = vmOut.snapshotOutput();
+            JobOutput.Finished output = JobOutput.fromStart(vmOut, vmErr).finish();
+            chronologicalSnapshots.replaceAll(output::detach);
+            OutputSlice finalErr = output.stderr();
+            OutputSlice finalOut = output.stdout();
             ExecutionSnapshot last = chronologicalSnapshots.getLast();
-            if (finalErr.length() > last.stderrLength()
-                    || finalOut.length() > last.stdoutLength()) {
-                chronologicalSnapshots.set(
-                        chronologicalSnapshots.size() - 1,
-                        last.withOutput(finalOut, finalErr));
+            if (finalErr.length() > last.stderrLength() || finalOut.length() > last.stdoutLength()) {
+                chronologicalSnapshots.set(chronologicalSnapshots.size() - 1, last.withOutput(finalOut, finalErr));
             } // if
         } // if
     } // syncTrailingStreamOutput
@@ -840,98 +714,45 @@ public class DebugTraceHelper {
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
      */
-    private static void syncTrailingStreamOutput(
-            Map<Integer, List<ExecutionSnapshot>> snapshots,
-            StreamDrainer vmOut,
+    private static void syncTrailingStreamOutput(Map<Integer, List<ExecutionSnapshot>> snapshots, StreamDrainer vmOut,
             StreamDrainer vmErr) {
-        OutputSlice finalErr = sanitizeDebuggeeStderrSlice(vmErr.snapshotOutput());
-        OutputSlice finalOut = vmOut.snapshotOutput();
+        JobOutput.Finished output = JobOutput.fromStart(vmOut, vmErr).finish();
+        OutputSlice finalErr = output.stderr();
+        OutputSlice finalOut = output.stdout();
         for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
             List<ExecutionSnapshot> list = entry.getValue();
             if (list != null && !list.isEmpty()) {
+                list = new ArrayList<>(list);
+                list.replaceAll(output::detach);
+                entry.setValue(list);
                 ExecutionSnapshot last = list.getLast();
-                if (finalErr.length() > last.stderrLength()
-                        || finalOut.length() > last.stdoutLength()) {
-                    List<ExecutionSnapshot> mutableList = (list instanceof ArrayList)
-                            ? list
-                            : new ArrayList<>(list);
-                    mutableList.set(
-                            mutableList.size() - 1,
-                            last.withOutput(finalOut, finalErr));
-                    if (mutableList != list) {
-                        entry.setValue(mutableList);
-                    } // if
+                if (finalErr.length() > last.stderrLength() || finalOut.length() > last.stdoutLength()) {
+                    list.set(list.size() - 1, last.withOutput(finalOut, finalErr));
                 } // if
             } // if
         } // for
     } // syncTrailingStreamOutput
 
     /**
-     * Sanitizes captured standard error slice from the debuggee VM.
-     *
-     * @param rawStderr Raw stderr OutputSlice.
-     * @return Sanitized stderr OutputSlice.
-     */
-    private static final byte[] JAVA_TOOL_OPTIONS_PREFIX =
-            "Picked up JAVA_TOOL_OPTIONS:".getBytes(StandardCharsets.UTF_8);
-    private static final byte[] JAVA_OPTIONS_PREFIX =
-            "Picked up _JAVA_OPTIONS:".getBytes(StandardCharsets.UTF_8);
-
-    /**
-     * Sanitizes captured standard error bytes in an OutputSlice by removing JVM diagnostic banner
-     * prefixes without allocating unnecessary intermediate byte arrays.
+     * Sanitizes captured standard error bytes in an OutputSlice by removing JVM diagnostic banner prefixes without
+     * allocating unnecessary intermediate byte arrays.
      *
      * @param rawStderr Raw stderr OutputSlice.
      * @return Sanitized stderr OutputSlice.
      */
     public static OutputSlice sanitizeDebuggeeStderrSlice(OutputSlice rawStderr) {
-        if (rawStderr == null || rawStderr.isEmpty()) {
-            return rawStderr != null ? rawStderr : OutputSlice.empty();
-        } // if
-        if (!rawStderr.startsWith(JAVA_TOOL_OPTIONS_PREFIX)
-                && !rawStderr.startsWith(JAVA_OPTIONS_PREFIX)) {
-            return rawStderr;
-        } // if
-        OutputSlice current = rawStderr;
-        while (current.startsWith(JAVA_TOOL_OPTIONS_PREFIX)
-                || current.startsWith(JAVA_OPTIONS_PREFIX)) {
-            int newlineIndex = current.indexOf((byte) '\n', 0);
-            if (newlineIndex == -1) {
-                return OutputSlice.empty();
-            } // if
-            current = current.subSlice(newlineIndex + 1);
-        } // while
-        return current;
+        return JobOutput.sanitizeStderr(rawStderr);
     } // sanitizeDebuggeeStderrSlice
 
     /**
-     * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic
-     * banner lines emitted before user program execution (such as
-     * {@code Picked up JAVA_TOOL_OPTIONS}).
+     * Sanitizes captured standard error bytes from the debuggee VM by removing JVM diagnostic banner lines emitted
+     * before user program execution (such as {@code Picked up JAVA_TOOL_OPTIONS}).
      *
      * @param rawStderr Raw stderr bytes from the debuggee process.
      * @return Sanitized stderr bytes.
      */
     static byte[] sanitizeDebuggeeStderr(byte[] rawStderr) {
-        if (rawStderr == null || rawStderr.length == 0) {
-            return rawStderr;
-        } // if
-        String str = new String(rawStderr, StandardCharsets.UTF_8);
-        if (!str.startsWith("Picked up JAVA_TOOL_OPTIONS:")
-                && !str.startsWith("Picked up _JAVA_OPTIONS:")) {
-            return rawStderr;
-        } // if
-        while (str.startsWith("Picked up JAVA_TOOL_OPTIONS:")
-                || str.startsWith("Picked up _JAVA_OPTIONS:")) {
-            int newlineIndex = str.indexOf('\n');
-            if (newlineIndex == -1) {
-                str = "";
-                break;
-            } else {
-                str = str.substring(newlineIndex + 1);
-            } // if
-        } // while
-        return str.getBytes(StandardCharsets.UTF_8);
+        return rawStderr == null ? null : JobOutput.sanitizeStderr(OutputSlice.from(rawStderr)).toByteArray();
     } // sanitizeDebuggeeStderr
 
     /**
@@ -948,21 +769,14 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static ExecutionSnapshot trace(
-            CompilationResult compilationResult, CompilationUnit parsedSource)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static ExecutionSnapshot trace(CompilationResult compilationResult, CompilationUnit parsedSource)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, parsedSource, "");
     } // trace
 
     /**
-     * Take a snapshot of a program's execution state just before the main method returns
-     * with stdin.
+     * Take a snapshot of a program's execution state just before the main method returns with stdin.
      *
      * @param compilationResult CompilationResult from compilation.
      * @param parsedSource Parsed source code.
@@ -976,15 +790,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static ExecutionSnapshot trace(
-            CompilationResult compilationResult, CompilationUnit parsedSource, String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static ExecutionSnapshot trace(CompilationResult compilationResult, CompilationUnit parsedSource,
+            String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, null, List.of(parsedSource), stdin).get(-1).getLast();
     } // trace
 
@@ -1002,21 +811,14 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static ExecutionSnapshot trace(
-            CompilationResult compilationResult, List<CompilationUnit> parsedSources)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static ExecutionSnapshot trace(CompilationResult compilationResult, List<CompilationUnit> parsedSources)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, parsedSources, "");
     } // trace
 
     /**
-     * Take a snapshot of a program's execution state just before the main method returns
-     * with stdin.
+     * Take a snapshot of a program's execution state just before the main method returns with stdin.
      *
      * @param compilationResult CompilationResult from compilation.
      * @param parsedSources Parsed source codes.
@@ -1030,15 +832,10 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static ExecutionSnapshot trace(
-            CompilationResult compilationResult, List<CompilationUnit> parsedSources, String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static ExecutionSnapshot trace(CompilationResult compilationResult, List<CompilationUnit> parsedSources,
+            String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         return trace(compilationResult, null, parsedSources, stdin).get(-1).getLast();
     } // trace
 
@@ -1058,20 +855,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static List<ExecutionSnapshot> traceChronological(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            CompilationUnit parsedSource,
-            boolean includeMainExit)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return traceChronological(
-                compilationResult, breakPoints, List.of(parsedSource), includeMainExit, "");
+    public static List<ExecutionSnapshot> traceChronological(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, CompilationUnit parsedSource, boolean includeMainExit)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        return traceChronological(compilationResult, breakPoints, List.of(parsedSource), includeMainExit, "");
     } // traceChronological
 
     /**
@@ -1091,21 +879,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static List<ExecutionSnapshot> traceChronological(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            CompilationUnit parsedSource,
-            boolean includeMainExit,
-            String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return traceChronological(
-                compilationResult, breakPoints, List.of(parsedSource), includeMainExit, stdin);
+    public static List<ExecutionSnapshot> traceChronological(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, CompilationUnit parsedSource, boolean includeMainExit, String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        return traceChronological(compilationResult, breakPoints, List.of(parsedSource), includeMainExit, stdin);
     } // traceChronological
 
     /**
@@ -1124,20 +902,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static List<ExecutionSnapshot> traceChronological(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources,
-            boolean includeMainExit)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return traceChronological(
-                compilationResult, breakPoints, parsedSources, includeMainExit, "");
+    public static List<ExecutionSnapshot> traceChronological(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources, boolean includeMainExit)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        return traceChronological(compilationResult, breakPoints, parsedSources, includeMainExit, "");
     } // traceChronological
 
     /**
@@ -1157,22 +926,13 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static List<ExecutionSnapshot> traceChronological(
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources,
-            boolean includeMainExit,
-            String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    public static List<ExecutionSnapshot> traceChronological(CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources, boolean includeMainExit, String stdin)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
-        return traceChronologicalWithSpecs(
-                compilationResult, toSpecs(breakPoints), parsedSources, includeMainExit, stdin);
+        return traceChronologicalWithSpecs(compilationResult, toSpecs(breakPoints), parsedSources, includeMainExit,
+                stdin);
     } // traceChronological
 
     /**
@@ -1192,19 +952,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    public static List<ExecutionSnapshot> traceChronologicalWithSpecs(
-            CompilationResult compilationResult,
-            Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources,
-            boolean includeMainExit,
+    public static List<ExecutionSnapshot> traceChronologicalWithSpecs(CompilationResult compilationResult,
+            Collection<BreakpointSpec> specs, List<CompilationUnit> parsedSources, boolean includeMainExit,
             String stdin)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         VirtualMachine vm = startVmWithCprs(compilationResult);
         writeGuestStdin(vm, stdin);
@@ -1212,36 +964,23 @@ public class DebugTraceHelper {
         registerReaderMethodExitRequests(vm);
         List<ExecutionSnapshot> chronologicalSnapshots = new ArrayList<>();
 
-        try (StreamDrainer vmErrDrainer =
-                        new StreamDrainer(vm.process().getErrorStream());
-                StreamDrainer vmOutDrainer =
-                        new StreamDrainer(vm.process().getInputStream())) {
+        try (StreamDrainer vmErrDrainer = new StreamDrainer(vm.process().getErrorStream());
+                StreamDrainer vmOutDrainer = new StreamDrainer(vm.process().getInputStream())) {
 
             if (includeMainExit) {
-                MethodExitRequest methodExitRequest =
-                        vm.eventRequestManager().createMethodExitRequest();
+                MethodExitRequest methodExitRequest = vm.eventRequestManager().createMethodExitRequest();
                 methodExitRequest.addClassFilter(compilationResult.mainClass());
                 methodExitRequest.enable();
             } // if
 
-            ExceptionRequest exceptionRequest =
-                    vm.eventRequestManager().createExceptionRequest(null, false, true);
+            ExceptionRequest exceptionRequest = vm.eventRequestManager().createExceptionRequest(null, false, true);
             exceptionRequest.enable();
 
             HashSet<ReferenceType> loadedClasses = new HashSet<>();
             SourceAnalysis sourceAnalysis = SourceAnalysis.from(parsedSources);
             Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
-            processChronologicalEventLoop(
-                    vm,
-                    compilationResult,
-                    safeSpecs,
-                    sourceAnalysis,
-                    chronologicalSnapshots,
-                    loadedClasses,
-                    vmOutDrainer,
-                    vmErrDrainer,
-                    includeMainExit,
-                    inputTracker);
+            processChronologicalEventLoop(vm, compilationResult, safeSpecs, sourceAnalysis, chronologicalSnapshots,
+                    loadedClasses, vmOutDrainer, vmErrDrainer, includeMainExit, inputTracker);
 
             awaitGuestExit(vm);
             vmErrDrainer.sync();
@@ -1272,63 +1011,47 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException If class not loaded.
      */
-    private static void processChronologicalEventLoop(
-            VirtualMachine vm,
-            CompilationResult compilationResult,
-            Collection<BreakpointSpec> breakPoints,
-            SourceAnalysis sourceAnalysis,
-            List<ExecutionSnapshot> chronologicalSnapshots,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            boolean includeMainExit,
-            InputTracker inputTracker)
-            throws InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    private static void processChronologicalEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+            Collection<BreakpointSpec> breakPoints, SourceAnalysis sourceAnalysis,
+            List<ExecutionSnapshot> chronologicalSnapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
+            StreamDrainer vmErr, boolean includeMainExit, InputTracker inputTracker) throws InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         ObjectReference systemIn = getSystemIn(vm);
         boolean endEventLoop = false;
         while (!endEventLoop) {
             Iterable<Event> events = nextEvents(vm);
             for (Event event : events) {
-                captureLifecycle(event, loadedClasses, vmOut, vmErr, sourceAnalysis,
-                        inputTracker, chronologicalSnapshots);
+                captureLifecycle(event, loadedClasses, vmOut, vmErr, sourceAnalysis, inputTracker,
+                        chronologicalSnapshots);
                 switch (event) {
                 case ClassPrepareEvent cpe -> {
-                    if (compilationResult.compiledClassNames().contains(
-                            cpe.referenceType().name())) {
+                    if (compilationResult.compiledClassNames().contains(cpe.referenceType().name())) {
                         registerBreakpoints(vm, cpe.referenceType(), breakPoints);
                         loadedClasses.add(cpe.referenceType());
                     } // if
                 } // case
                 case BreakpointEvent bpe -> {
                     Location breakLocation = bpe.location();
-                    if (compilationResult.compiledClassNames().contains(
-                            breakLocation.declaringType().name())) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                bpe.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                                inputTracker);
+                    if (compilationResult.compiledClassNames().contains(breakLocation.declaringType().name())) {
+                        ExecutionSnapshot snapshot = snapshotTheWorld(bpe.thread(), loadedClasses, vmOut, vmErr,
+                                sourceAnalysis, inputTracker);
                         chronologicalSnapshots.add(snapshot);
                     } // if
                 } // case
                 case MethodExitEvent mee -> {
                     if (isMainMethodExit(mee.method()) && includeMainExit) {
-                        ExecutionSnapshot snapshot = snapshotTheWorld(
-                                mee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
-                                inputTracker);
+                        ExecutionSnapshot snapshot = snapshotTheWorld(mee.thread(), loadedClasses, vmOut, vmErr,
+                                sourceAnalysis, inputTracker);
                         if (chronologicalSnapshots.isEmpty()
-                                || !isRedundantSnapshot(
-                                        chronologicalSnapshots.getLast(), snapshot)) {
+                                || !isRedundantSnapshot(chronologicalSnapshots.getLast(), snapshot)) {
                             chronologicalSnapshots.add(snapshot);
                         } // if
                     } else {
                         handleReaderMethodExit(mee, inputTracker, systemIn);
                     } // if
                 } // case
-                case ExceptionEvent ee -> processChronologicalExceptionEvent(
-                        ee, compilationResult, loadedClasses, vmOut, vmErr,
-                        sourceAnalysis, inputTracker, chronologicalSnapshots);
+                case ExceptionEvent ee -> processChronologicalExceptionEvent(ee, compilationResult, loadedClasses,
+                        vmOut, vmErr, sourceAnalysis, inputTracker, chronologicalSnapshots);
                 case VMDeathEvent vde -> endEventLoop = true;
                 case VMDisconnectEvent vde -> endEventLoop = true;
                 default -> {
@@ -1347,6 +1070,7 @@ public class DebugTraceHelper {
 
     /**
      * Captures thread starts and deaths and updates event metadata.
+     *
      * @param event Debugger event.
      * @param loadedClasses Submitted loaded types.
      * @param vmOut Output drainer.
@@ -1358,17 +1082,14 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug information is unavailable.
      * @throws ClassNotLoadedException If a referenced type is unavailable.
      */
-    private static void captureLifecycle(Event event, HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut, StreamDrainer vmErr, SourceAnalysis analysis,
-            InputTracker input, List<ExecutionSnapshot> snapshots)
-            throws IncompatibleThreadStateException, AbsentInformationException,
-            ClassNotLoadedException {
+    private static void captureLifecycle(Event event, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
+            StreamDrainer vmErr, SourceAnalysis analysis, InputTracker input, List<ExecutionSnapshot> snapshots)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         TraceSession active = TraceSession.current();
         if (active != null && active.threadCapture() != null) {
             ThreadReference lifecycle = active.threadCapture().observe(event);
             if (lifecycle != null) {
-                snapshots.add(snapshotTheWorld(lifecycle, loadedClasses,
-                        vmOut, vmErr, analysis, input));
+                snapshots.add(snapshotTheWorld(lifecycle, loadedClasses, vmOut, vmErr, analysis, input));
             } // if
         } // if
     } // captureLifecycle
@@ -1391,32 +1112,13 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException If class not loaded.
      */
-    private static void processChronologicalEventLoop(
-            VirtualMachine vm,
-            CompilationResult compilationResult,
-            Collection<Integer> breakPoints,
-            List<CompilationUnit> parsedSources,
-            List<ExecutionSnapshot> chronologicalSnapshots,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            boolean includeMainExit,
-            InputTracker inputTracker)
-            throws InterruptedException,
-            IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        processChronologicalEventLoop(
-                vm,
-                compilationResult,
-                toSpecs(breakPoints),
-                SourceAnalysis.from(parsedSources),
-                chronologicalSnapshots,
-                loadedClasses,
-                vmOut,
-                vmErr,
-                includeMainExit,
-                inputTracker);
+    private static void processChronologicalEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources,
+            List<ExecutionSnapshot> chronologicalSnapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
+            StreamDrainer vmErr, boolean includeMainExit, InputTracker inputTracker) throws InterruptedException,
+            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        processChronologicalEventLoop(vm, compilationResult, toSpecs(breakPoints), SourceAnalysis.from(parsedSources),
+                chronologicalSnapshots, loadedClasses, vmOut, vmErr, includeMainExit, inputTracker);
     } // processChronologicalEventLoop
 
     /**
@@ -1434,20 +1136,12 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static void processChronologicalExceptionEvent(
-            ExceptionEvent ee,
-            CompilationResult compilationResult,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            List<ExecutionSnapshot> chronologicalSnapshots)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        processChronologicalExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr,
-                sourceAnalysis, inputTracker, chronologicalSnapshots, 0, 0);
+    static void processChronologicalExceptionEvent(ExceptionEvent ee, CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut, StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis, InputTracker inputTracker, List<ExecutionSnapshot> chronologicalSnapshots)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        processChronologicalExceptionEvent(ee, compilationResult, loadedClasses, vmOut, vmErr, sourceAnalysis,
+                inputTracker, chronologicalSnapshots, 0, 0);
     } // processChronologicalExceptionEvent
 
     /**
@@ -1467,27 +1161,16 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static void processChronologicalExceptionEvent(
-            ExceptionEvent ee,
-            CompilationResult compilationResult,
-            HashSet<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            List<ExecutionSnapshot> chronologicalSnapshots,
-            int startOutOffset,
-            int startErrOffset)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    static void processChronologicalExceptionEvent(ExceptionEvent ee, CompilationResult compilationResult,
+            HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut, StreamDrainer vmErr,
+            SourceAnalysis sourceAnalysis, InputTracker inputTracker, List<ExecutionSnapshot> chronologicalSnapshots,
+            int startOutOffset, int startErrOffset)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         recordException(ee);
         Location loc = ee.location();
         if ((TraceSession.current() != null && TraceSession.current().threadCapture() != null)
-                || (loc != null && compilationResult.compiledClassNames().contains(
-                        loc.declaringType().name()))) {
-            ExecutionSnapshot snapshot = snapshotTheWorld(
-                    ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
+                || (loc != null && compilationResult.compiledClassNames().contains(loc.declaringType().name()))) {
+            ExecutionSnapshot snapshot = snapshotTheWorld(ee.thread(), loadedClasses, vmOut, vmErr, sourceAnalysis,
                     inputTracker, startOutOffset, startErrOffset);
             if (snapshot.threads() != null || chronologicalSnapshots.isEmpty()
                     || !isSameTopFrame(chronologicalSnapshots.getLast(), snapshot)) {
@@ -1507,12 +1190,8 @@ public class DebugTraceHelper {
      * @throws InterruptedException If thread is interrupted.
      * @throws AbsentInformationException If debug info is missing.
      */
-    public static Map<String, Set<Integer>> getValidBreakpointLinesByFile(
-            CompilationResult compilationResult)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
+    public static Map<String, Set<Integer>> getValidBreakpointLinesByFile(CompilationResult compilationResult)
+            throws IOException, IllegalConnectorArgumentsException, VMStartException, InterruptedException,
             AbsentInformationException {
 
         return BreakpointReader.read(compilationResult);
@@ -1529,12 +1208,8 @@ public class DebugTraceHelper {
      * @throws InterruptedException If thread is interrupted.
      * @throws AbsentInformationException If debug info is missing.
      */
-    public static HashSet<Integer> getValidBreakpointLines(CompilationResult compilationResult)
-            throws IOException,
-            IllegalConnectorArgumentsException,
-            VMStartException,
-            InterruptedException,
-            AbsentInformationException {
+    public static HashSet<Integer> getValidBreakpointLines(CompilationResult compilationResult) throws IOException,
+            IllegalConnectorArgumentsException, VMStartException, InterruptedException, AbsentInformationException {
         Map<String, Set<Integer>> byFile = getValidBreakpointLinesByFile(compilationResult);
         HashSet<Integer> flattened = new HashSet<>();
         for (Set<Integer> lines : byFile.values()) {
@@ -1555,19 +1230,17 @@ public class DebugTraceHelper {
     private static VirtualMachine startVmWithCprs(CompilationResult compilationResult)
             throws IOException, IllegalConnectorArgumentsException, VMStartException {
 
-        VirtualMachine vm = GuestLauncher.launch(compilationResult.mainClass(),
-                compilationResult.classPath(), compilationResult.previewEnabled());
+        VirtualMachine vm = GuestLauncher.launch(compilationResult.mainClass(), compilationResult.classPath(),
+                compilationResult.previewEnabled());
         if (TraceSession.current() != null) {
             TraceSession.current().attach(vm);
         } // if
 
         if (TraceSession.current() != null && TraceSession.current().threadCapture() != null) {
-            TraceSession.current().threadCapture().install(
-                    vm, compilationResult.compiledClassNames());
+            TraceSession.current().threadCapture().install(vm, compilationResult.compiledClassNames());
         } // if
         for (String className : compilationResult.compiledClassNames()) {
-            ClassPrepareRequest classPrepareRequest =
-                    vm.eventRequestManager().createClassPrepareRequest();
+            ClassPrepareRequest classPrepareRequest = vm.eventRequestManager().createClassPrepareRequest();
             classPrepareRequest.addClassFilter(className);
             classPrepareRequest.enable();
         } // for
@@ -1626,13 +1299,8 @@ public class DebugTraceHelper {
      * @param vm The debuggee VirtualMachine.
      */
     static void registerReaderMethodExitRequests(VirtualMachine vm) {
-        String[] readerClasses = {
-            "java.util.Scanner",
-            "java.io.BufferedReader",
-            "java.lang.IO",
-            "java.io.InputStream",
-            "java.io.BufferedInputStream"
-        };
+        String[] readerClasses = { "java.util.Scanner", "java.io.BufferedReader", "java.lang.IO", "java.io.InputStream",
+            "java.io.BufferedInputStream" };
         for (String className : readerClasses) {
             MethodExitRequest req = vm.eventRequestManager().createMethodExitRequest();
             req.addClassFilter(className);
@@ -1647,16 +1315,12 @@ public class DebugTraceHelper {
      * @param inputTracker The active input tracker.
      * @param systemIn Cached reference to System.in in target VM.
      */
-    static void handleReaderMethodExit(
-            MethodExitEvent mee,
-            InputTracker inputTracker,
-            ObjectReference systemIn) {
+    static void handleReaderMethodExit(MethodExitEvent mee, InputTracker inputTracker, ObjectReference systemIn) {
         if (inputTracker == null || inputTracker.isExhausted()) {
             return;
         } // if
         try {
-            ReaderTracking.record(mee, inputTracker,
-                    systemIn != null ? systemIn : getSystemIn(mee.virtualMachine()));
+            ReaderTracking.record(mee, inputTracker, systemIn != null ? systemIn : getSystemIn(mee.virtualMachine()));
         } catch (Exception ignored) {
             // Ignore inspection errors on reader exit
         } // try
@@ -1669,8 +1333,7 @@ public class DebugTraceHelper {
      * @return A string containing a valid method implementation.
      */
     static Optional<String> tryImplementLambdaSam(LambdaExpr lambda) {
-        Optional<MethodUsage> maybeSam =
-                FunctionalInterfaceLogic.getFunctionalMethod(lambda.calculateResolvedType());
+        Optional<MethodUsage> maybeSam = FunctionalInterfaceLogic.getFunctionalMethod(lambda.calculateResolvedType());
         if (maybeSam.isEmpty()) {
             return Optional.empty();
         } // if
@@ -1678,20 +1341,15 @@ public class DebugTraceHelper {
         MethodUsage sam = maybeSam.get();
         StringBuilder sb = new StringBuilder();
 
-        String resolvedReturnType =
-                lambda.calculateResolvedType().asReferenceType().getTypeParametersMap().stream()
-                        .filter(p -> sam.returnType().isTypeVariable())
-                        .filter(p -> p.a.getName().equals(
-                                sam.returnType().asTypeVariable().describe()))
-                        .map(p -> p.b.describe())
-                        .findFirst()
-                        .orElse(sam.returnType().describe());
+        String resolvedReturnType = lambda.calculateResolvedType().asReferenceType().getTypeParametersMap().stream()
+                .filter(p -> sam.returnType().isTypeVariable())
+                .filter(p -> p.a.getName().equals(sam.returnType().asTypeVariable().describe()))
+                .map(p -> p.b.describe()).findFirst().orElse(sam.returnType().describe());
 
         sb.append(resolvedReturnType).append(" ").append(sam.getName());
 
         sb.append(IntStream.range(0, sam.getDeclaration().getNumberOfParams())
-                .mapToObj(i -> formatLambdaParam(lambda, i))
-                .collect(Collectors.joining(", ", "(", ")")));
+                .mapToObj(i -> formatLambdaParam(lambda, i)).collect(Collectors.joining(", ", "(", ")")));
 
         if (lambda.getBody() instanceof ExpressionStmt e) {
             sb.append("{\n");
@@ -1703,8 +1361,7 @@ public class DebugTraceHelper {
             sb.append(lambda.getBody());
         } // if
 
-        return SIMPLE_JAVA_PARSER.parseMethodDeclaration(sb.toString())
-                .getResult().map(Object::toString);
+        return SIMPLE_JAVA_PARSER.parseMethodDeclaration(sb.toString()).getResult().map(Object::toString);
     } // tryImplementLambdaSam
 
     /**
@@ -1716,8 +1373,8 @@ public class DebugTraceHelper {
      */
     private static String formatLambdaParam(LambdaExpr lambda, int i) {
         String typeDesc = switch (lambda.getParameter(i).resolve().getType()) {
-            case ResolvedLambdaConstraintType c -> c.getBound().describe();
-            case ResolvedType d -> d.describe();
+        case ResolvedLambdaConstraintType c -> c.getBound().describe();
+        case ResolvedType d -> d.describe();
         }; // switch
         return String.format("%s %s", typeDesc, lambda.getParameter(i).getName());
     } // formatLambdaParam
@@ -1736,18 +1393,11 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static ExecutionSnapshot snapshotTheWorld(
-            ThreadReference mainThread,
-            Iterable<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
-                inputTracker, 0, 0, null);
+    static ExecutionSnapshot snapshotTheWorld(ThreadReference mainThread, Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut, StreamDrainer vmErr, SourceAnalysis sourceAnalysis, InputTracker inputTracker)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis, inputTracker,
+                JobOutput.fromStart(vmOut, vmErr), null);
     } // snapshotTheWorld
 
     /**
@@ -1766,20 +1416,12 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static ExecutionSnapshot snapshotTheWorld(
-            ThreadReference mainThread,
-            Iterable<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            int startOutOffset,
-            int startErrOffset)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis,
-                inputTracker, startOutOffset, startErrOffset, null);
+    static ExecutionSnapshot snapshotTheWorld(ThreadReference mainThread, Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut, StreamDrainer vmErr, SourceAnalysis sourceAnalysis, InputTracker inputTracker,
+            int startOutOffset, int startErrOffset)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        return snapshotTheWorld(mainThread, loadedClasses, vmOut, vmErr, sourceAnalysis, inputTracker,
+                new JobOutput(vmOut, vmErr, startOutOffset, startErrOffset), null);
     } // snapshotTheWorld
 
     /**
@@ -1791,27 +1433,17 @@ public class DebugTraceHelper {
      * @param vmErr Standard error drainer.
      * @param sourceAnalysis Precomputed source analysis.
      * @param inputTracker Input tracker.
-     * @param startOutOffset Starting standard output offset.
-     * @param startErrOffset Starting standard error offset.
+     * @param output Per-job output owner.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return An execution snapshot.
      * @throws IncompatibleThreadStateException If thread state is incompatible.
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    static ExecutionSnapshot snapshotTheWorld(
-            ThreadReference mainThread,
-            Iterable<ReferenceType> loadedClasses,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            int startOutOffset,
-            int startErrOffset,
-            ClassLoaderReference harnessClassLoader)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    static ExecutionSnapshot snapshotTheWorld(ThreadReference mainThread, Iterable<ReferenceType> loadedClasses,
+            StreamDrainer vmOut, StreamDrainer vmErr, SourceAnalysis sourceAnalysis, InputTracker inputTracker,
+            JobOutput output, ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         TraceSession session = TraceSession.current();
         prepareSessionAndStreams(session, mainThread, vmOut, vmErr);
@@ -1819,46 +1451,35 @@ public class DebugTraceHelper {
         List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
         Map<Long, TraceValue> heap = new HashMap<>();
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
-        Map<Long, String> objectTypeMap = new HashMap<>();
+        ReifiedTypeMetadata metadata = new ReifiedTypeMetadata(astTypeResolver);
 
         ThreadCapture capture = session == null ? null : session.threadCapture();
-        List<ExecutionSnapshot.ThreadSnapshot> captured = collectThreadStacks(mainThread,
-                sourceAnalysis, objectTypeMap, heapReferencesToWalk, heap, harnessClassLoader);
+        List<ExecutionSnapshot.ThreadSnapshot> captured = collectThreadStacks(mainThread, sourceAnalysis, metadata,
+                heapReferencesToWalk, heap, harnessClassLoader);
         List<StackSnapshot> stackSnapshots = capture == null ? captured.getFirst().stack()
-                : captured.stream().filter(t -> t.id() == mainThread.uniqueID())
-                        .findFirst().orElseThrow().stack();
+                : captured.stream().filter(t -> t.id() == mainThread.uniqueID()).findFirst().orElseThrow().stack();
         List<ExecutionSnapshot.ThreadSnapshot> threads = capture == null ? null : captured;
 
-        List<ExecutionSnapshot.Field> statics = collectStatics(
-                loadedClasses, sourceAnalysis, heapReferencesToWalk, heap);
+        List<ExecutionSnapshot.Field> statics = collectStatics(loadedClasses, sourceAnalysis, heapReferencesToWalk,
+                heap);
 
-        drainHeapReferences(mainThread, astTypeResolver, objectTypeMap, heapReferencesToWalk, heap);
+        drainHeapReferences(mainThread, metadata, heapReferencesToWalk, heap);
 
-        int outLen = Math.max(0, vmOut.size() - startOutOffset);
-        int errLen = Math.max(0, vmErr.size() - startErrOffset);
+        JobOutput.Prefix prefix = output.capture();
         if (session != null) {
-            session.allocate((long) outLen + errLen);
+            session.allocate(prefix.rawBytes());
         } // if
-        OutputSlice vmOutSlice = OutputSlice.from(vmOut, startOutOffset, outLen);
-        OutputSlice vmErrSlice = sanitizeDebuggeeStderrSlice(
-                OutputSlice.from(vmErr, startErrOffset, errLen));
+        OutputSlice vmOutSlice = prefix.stdout();
+        OutputSlice vmErrSlice = prefix.stderr();
 
         String currentStepSourcePath = capture == null ? resolveStepSourcePath(mainThread)
-                : stackSnapshots.isEmpty() ? null
-                        : stackSnapshots.getLast().sourcePath().orElse(null);
+                : stackSnapshots.isEmpty() ? null : stackSnapshots.getLast().sourcePath().orElse(null);
         String stdinConsumed = inputTracker == null ? "" : inputTracker.consumed();
         int stdinOffset = inputTracker == null ? 0 : inputTracker.offset();
 
-        ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                stackSnapshots,
-                statics,
-                heap,
-                vmOutSlice,
-                vmErrSlice,
-                Optional.ofNullable(currentStepSourcePath),
-                stdinConsumed,
-                stdinOffset, threads, capture == null ? null : mainThread.uniqueID(),
-                capture == null ? null : capture.event());
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(stackSnapshots, statics, heap, vmOutSlice, vmErrSlice,
+                Optional.ofNullable(currentStepSourcePath), stdinConsumed, stdinOffset, threads,
+                capture == null ? null : mainThread.uniqueID(), capture == null ? null : capture.event());
         if (session != null) {
             session.commit(snapshot);
         } // if
@@ -1867,9 +1488,10 @@ public class DebugTraceHelper {
 
     /**
      * Captures all selected stacks into a shared heap traversal.
+     *
      * @param mainThread Event thread.
      * @param sourceAnalysis Source metadata.
-     * @param objectTypeMap Inferred object types.
+     * @param metadata Inferred object types.
      * @param heapReferencesToWalk Shared traversal queue.
      * @param heap Shared heap.
      * @param harnessClassLoader Harness loader for legacy jobs.
@@ -1878,18 +1500,16 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug information is unavailable.
      * @throws ClassNotLoadedException If a referenced type is unavailable.
      */
-    private static List<ExecutionSnapshot.ThreadSnapshot> collectThreadStacks(
-            ThreadReference mainThread, SourceAnalysis sourceAnalysis,
-            Map<Long, String> objectTypeMap, List<ObjectReference> heapReferencesToWalk,
+    private static List<ExecutionSnapshot.ThreadSnapshot> collectThreadStacks(ThreadReference mainThread,
+            SourceAnalysis sourceAnalysis, ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap, ClassLoaderReference harnessClassLoader)
-            throws IncompatibleThreadStateException, AbsentInformationException,
-            ClassNotLoadedException {
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         TraceSession session = TraceSession.current();
         ThreadCapture capture = session == null ? null : session.threadCapture();
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         if (capture == null) {
-            prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, harnessClassLoader);
-            var stack = collectStackSnapshots(mainThread, astTypeResolver, objectTypeMap,
+            prepassObjectTypes(mainThread, astTypeResolver, metadata, harnessClassLoader);
+            List<StackSnapshot> stack = collectStackSnapshots(mainThread, astTypeResolver, metadata,
                     sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
                     heapReferencesToWalk, heap, harnessClassLoader);
             return List.of(new ExecutionSnapshot.ThreadSnapshot(0, "", "", stack));
@@ -1902,20 +1522,18 @@ public class DebugTraceHelper {
         } // for
         List<ExecutionSnapshot.ThreadSnapshot> threads = new ArrayList<>();
         for (ThreadReference thread : capturedThreads) {
-            prepassObjectTypes(thread, astTypeResolver, objectTypeMap, harnessClassLoader);
+            prepassObjectTypes(thread, astTypeResolver, metadata, harnessClassLoader);
         } // for
         for (ThreadReference thread : capturedThreads) {
-            List<StackSnapshot> stack = collectStackSnapshots(
-                    thread, astTypeResolver, objectTypeMap,
+            List<StackSnapshot> stack = collectStackSnapshots(thread, astTypeResolver, metadata,
                     sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
                     heapReferencesToWalk, heap, harnessClassLoader);
-            threads.add(new ExecutionSnapshot.ThreadSnapshot(
-                    thread.uniqueID(), thread.name(), ThreadCapture.state(thread), stack));
+            threads.add(new ExecutionSnapshot.ThreadSnapshot(thread.uniqueID(), thread.name(),
+                    ThreadCapture.state(thread), stack));
         } // for
         if (capture.isDying(mainThread)) {
-            threads.add(new ExecutionSnapshot.ThreadSnapshot(
-                    mainThread.uniqueID(), mainThread.name(),
-                    "TERMINATED", List.of()));
+            threads.add(new ExecutionSnapshot.ThreadSnapshot(mainThread.uniqueID(), mainThread.name(), "TERMINATED",
+                    List.of()));
         } // if
 
         return threads;
@@ -1929,10 +1547,7 @@ public class DebugTraceHelper {
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
      */
-    private static void prepareSessionAndStreams(
-            TraceSession session,
-            ThreadReference mainThread,
-            StreamDrainer vmOut,
+    private static void prepareSessionAndStreams(TraceSession session, ThreadReference mainThread, StreamDrainer vmOut,
             StreamDrainer vmErr) {
         if (session != null) {
             session.beginSnapshot();
@@ -1948,28 +1563,19 @@ public class DebugTraceHelper {
      * Drains reachable heap references into the heap map.
      *
      * @param mainThread Main thread reference.
-     * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Queue of object references.
      * @param heap Resulting heap map.
      */
-    private static void drainHeapReferences(
-            ThreadReference mainThread,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap) {
+    private static void drainHeapReferences(ThreadReference mainThread, ReifiedTypeMetadata metadata,
+            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap) {
         while (!heapReferencesToWalk.isEmpty()) {
             ObjectReference workingObject = heapReferencesToWalk.removeFirst();
             if (heap.containsKey(workingObject.uniqueID())) {
                 continue;
             } // if
-            TraceValue convertedObject = TraceValue.fromJdiValue(
-                    mainThread,
-                    workingObject,
-                    Optional.of(heapReferencesToWalk),
-                    astTypeResolver,
-                    objectTypeMap);
+            TraceValue convertedObject = TraceValue.fromJdiValue(mainThread, workingObject,
+                    Optional.of(heapReferencesToWalk), metadata);
             heap.put(workingObject.uniqueID(), convertedObject);
         } // while
     } // drainHeapReferences
@@ -2006,10 +1612,8 @@ public class DebugTraceHelper {
      * @param lambdaMap Target map for lambda assignments.
      * @param finalMap Target map for final variable names.
      */
-    static void buildLambdaAndFinalMaps(
-            List<CompilationUnit> parsedSources,
-            Map<String, List<LambdaAssignment>> lambdaMap,
-            Map<String, Set<String>> finalMap) {
+    static void buildLambdaAndFinalMaps(List<CompilationUnit> parsedSources,
+            Map<String, List<LambdaAssignment>> lambdaMap, Map<String, Set<String>> finalMap) {
         for (CompilationUnit cu : parsedSources) {
             if (cu == null) {
                 continue;
@@ -2020,10 +1624,8 @@ public class DebugTraceHelper {
 
                 Set<String> finals = m.findAll(VariableDeclarationExpr.class).stream()
                         .filter(v -> v.getModifiers().contains(Modifier.finalModifier()))
-                        .map(VariableDeclarationExpr::getVariables)
-                        .flatMap(Collection::stream)
-                        .map(VariableDeclarator::getNameAsString)
-                        .collect(Collectors.toSet());
+                        .map(VariableDeclarationExpr::getVariables).flatMap(Collection::stream)
+                        .map(VariableDeclarator::getNameAsString).collect(Collectors.toSet());
                 finalMap.put(sig, finals);
             } // for
         } // for
@@ -2042,10 +1644,8 @@ public class DebugTraceHelper {
             if (d.getInitializer().map(Expression::isLambdaExpr).orElse(false)) {
                 try {
                     tryImplementLambdaSam(d.getInitializer().get().asLambdaExpr())
-                            .ifPresent(impl -> assignments.add(new LambdaAssignment(
-                                    d.getNameAsString(),
-                                    d.getRange().map(r -> r.begin.line).orElse(0),
-                                    impl)));
+                            .ifPresent(impl -> assignments.add(new LambdaAssignment(d.getNameAsString(),
+                                    d.getRange().map(r -> r.begin.line).orElse(0), impl)));
                 } catch (RuntimeException e) {
                     // Ignore unresolved local lambdas
                 } // try
@@ -2066,10 +1666,8 @@ public class DebugTraceHelper {
                     final String finalVarName = varName;
                     try {
                         tryImplementLambdaSam(a.getValue().asLambdaExpr())
-                                .ifPresent(impl -> assignments.add(new LambdaAssignment(
-                                        finalVarName,
-                                        a.getRange().map(r -> r.begin.line).orElse(0),
-                                        impl)));
+                                .ifPresent(impl -> assignments.add(new LambdaAssignment(finalVarName,
+                                        a.getRange().map(r -> r.begin.line).orElse(0), impl)));
                     } catch (RuntimeException e) {
                         // Ignore unresolved local lambdas
                     } // try
@@ -2089,38 +1687,31 @@ public class DebugTraceHelper {
      */
     private static String resolveMethodSignature(MethodDeclaration m) {
         try {
-            return m.resolve()
-                    .getQualifiedSignature()
-                    .replaceAll("\\.\\.\\.", "[]")
-                    .replaceAll("\\s", "");
+            return m.resolve().getQualifiedSignature().replaceAll("\\.\\.\\.", "[]").replaceAll("\\s", "");
         } catch (Throwable t) {
-            String params = m.getParameters().stream()
-                    .map(p -> p.getType().asString())
+            String params = m.getParameters().stream().map(p -> p.getType().asString())
                     .collect(Collectors.joining(","));
             return m.getNameAsString() + "(" + params + ")";
         } // try
     } // resolveMethodSignature
 
     /**
-     * Returns true if declaring class corresponds to internal coordinator harness or reflection.
-     * Student classes named GuestHarness are preserved unless loaded by the known harness loader.
+     * Returns true if declaring class corresponds to internal coordinator harness or reflection. Student classes named
+     * GuestHarness are preserved unless loaded by the known harness loader.
      *
      * @param declaringType Declaring ReferenceType.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return True if frame should be filtered from student trace.
      */
-    static boolean isGuestHarnessOrReflect(
-            ReferenceType declaringType, ClassLoaderReference harnessClassLoader) {
+    static boolean isGuestHarnessOrReflect(ReferenceType declaringType, ClassLoaderReference harnessClassLoader) {
         String declaringClassFqn = declaringType.name();
-        if (declaringClassFqn.startsWith("jdk.internal.reflect.")
-                || declaringClassFqn.startsWith("java.lang.reflect.")
+        if (declaringClassFqn.startsWith("jdk.internal.reflect.") || declaringClassFqn.startsWith("java.lang.reflect.")
                 || declaringClassFqn.equals("java.lang.Thread")) {
             return true;
         } // if
         if (declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
                 || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")) {
-            return harnessClassLoader != null
-                    && harnessClassLoader.equals(declaringType.classLoader());
+            return harnessClassLoader != null && harnessClassLoader.equals(declaringType.classLoader());
         } // if
         return false;
     } // isGuestHarnessOrReflect
@@ -2135,12 +1726,12 @@ public class DebugTraceHelper {
         return declaringClassFqn.equals("cs1302.tracer.guest.GuestHarness")
                 || declaringClassFqn.startsWith("cs1302.tracer.guest.GuestHarness$")
                 || declaringClassFqn.startsWith("jdk.internal.reflect.")
-                || declaringClassFqn.startsWith("java.lang.reflect.")
-                || declaringClassFqn.equals("java.lang.Thread");
+                || declaringClassFqn.startsWith("java.lang.reflect.") || declaringClassFqn.equals("java.lang.Thread");
     } // isGuestHarnessOrReflect
 
     /**
      * Restricts multithread frames and static fields to submitted classes.
+     *
      * @param type Declaring class.
      * @return True when the declaring class should be inspected.
      */
@@ -2151,53 +1742,42 @@ public class DebugTraceHelper {
     } // isCapturedClass
 
     /**
-     * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
+     * Pre-pass over frames to propagate types from AST allocations into metadata.
      *
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Target object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException On unloaded class.
      */
-    private static void prepassObjectTypes(
-            ThreadReference mainThread,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
-        prepassObjectTypes(mainThread, astTypeResolver, objectTypeMap, null);
+    private static void prepassObjectTypes(ThreadReference mainThread, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
+        prepassObjectTypes(mainThread, astTypeResolver, metadata, null);
     } // prepassObjectTypes
 
     /**
-     * Pre-pass over frames to propagate types from AST allocations into objectTypeMap.
+     * Pre-pass over frames to propagate types from AST allocations into metadata.
      *
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Target object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException On unloaded class.
      */
-    private static void prepassObjectTypes(
-            ThreadReference mainThread,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            ClassLoaderReference harnessClassLoader)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+    private static void prepassObjectTypes(ThreadReference mainThread, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata, ClassLoaderReference harnessClassLoader)
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
         List<StackFrame> frameList = mainThread.frames();
-        var contexts = astTypeResolver.invocationTypes()
-                .new FrameContexts(frameList, astTypeResolver, objectTypeMap);
+        ReifiedTypeMetadata.FrameBindings contexts = metadata.frames(frameList);
         for (int i = 0; i < frameList.size(); i++) {
             StackFrame frame = frameList.get(i);
             ReferenceType declaringType = frame.location().method().declaringType();
-            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)
-                    || !isCapturedClass(declaringType)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader) || !isCapturedClass(declaringType)) {
                 continue;
             } // if
             String declaringClassFqn = declaringType.name();
@@ -2208,37 +1788,27 @@ public class DebugTraceHelper {
                 StackFrame caller = frameList.get(i + 1);
                 String callerClass = caller.location().method().declaringType().name();
                 int callerLine = caller.location().lineNumber();
-                Optional<String> allocType =
-                        astTypeResolver.getAllocationType(callerClass, callerLine);
-                if (allocType.isPresent()
-                        && frame.thisObject() instanceof ObjectReference frameThis) {
+                Optional<String> allocType = astTypeResolver.getAllocationType(callerClass, callerLine);
+                if (allocType.isPresent() && frame.thisObject() instanceof ObjectReference frameThis) {
                     String candidate = allocType.get();
                     String rawAlloc = AstTypeResolver.extractRawTypeName(candidate);
                     String runtimeClass = frameThis.referenceType().name();
                     if (AstTypeResolver.rawTypeMatches(runtimeClass, rawAlloc)) {
-                        objectTypeMap.putIfAbsent(frameThis.uniqueID(), candidate);
-                        contexts.receiverTypeChanged(frameThis.uniqueID());
+                        metadata.recordFallback(frameThis.uniqueID(), candidate);
                     } // if
                 } // if
             } // if
 
-            Optional<String> allocType =
-                    astTypeResolver.getAllocationType(declaringClassFqn, currentLine);
+            Optional<String> allocType = astTypeResolver.getAllocationType(declaringClassFqn, currentLine);
 
-            prepassFrameVariables(
-                    frame,
-                    allocType,
-                    astTypeResolver,
-                    objectTypeMap,
-                    contexts);
+            prepassFrameVariables(frame, allocType, astTypeResolver, metadata, contexts);
 
             if (frame.thisObject() instanceof ObjectReference frameThis) {
-                if (!objectTypeMap.containsKey(frameThis.uniqueID())) {
-                    Optional<AstTypeResolver.ClassGenericInfo> info =
-                            astTypeResolver.getClassGenericInfo(declaringClassFqn);
+                if (metadata.typeOf(frameThis.uniqueID()) == null) {
+                    Optional<AstTypeResolver.ClassGenericInfo> info = astTypeResolver
+                            .getClassGenericInfo(declaringClassFqn);
                     if (info.isPresent() && info.get().typeParameters().isEmpty()) {
-                        objectTypeMap.put(frameThis.uniqueID(), declaringClassFqn);
-                        contexts.receiverTypeChanged(frameThis.uniqueID());
+                        metadata.recordFallback(frameThis.uniqueID(), declaringClassFqn);
                     } // if
                 } // if
             } // if
@@ -2251,16 +1821,12 @@ public class DebugTraceHelper {
      * @param frame Stack frame.
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Target object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param contexts Extraction-local invocation contexts.
      * @throws AbsentInformationException On absent debug info.
      */
-    private static void prepassFrameVariables(
-            StackFrame frame,
-            Optional<String> allocType,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            InvocationTypeResolver.FrameContexts contexts)
+    private static void prepassFrameVariables(StackFrame frame, Optional<String> allocType,
+            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata, ReifiedTypeMetadata.FrameBindings contexts)
             throws AbsentInformationException {
         List<LocalVariable> variables;
         try {
@@ -2271,15 +1837,7 @@ public class DebugTraceHelper {
         for (LocalVariable lv : variables) {
             Value val = frame.getValue(lv);
             if (val instanceof ObjectReference or) {
-                prepassVariableReference(
-                        frame,
-                        lv,
-                        or,
-                        allocType,
-                        astTypeResolver,
-                        objectTypeMap,
-                        contexts.bindings(frame));
-                contexts.receiverTypeChanged(or.uniqueID());
+                prepassVariableReference(frame, lv, or, allocType, astTypeResolver, metadata, contexts.bindings(frame));
             } // if
         } // for
     } // prepassFrameVariables
@@ -2292,16 +1850,11 @@ public class DebugTraceHelper {
      * @param or Object reference.
      * @param allocType Optional allocation type at line.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Target object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param bindings Current frame's lexical bindings.
      */
-    private static void prepassVariableReference(
-            StackFrame frame,
-            LocalVariable lv,
-            ObjectReference or,
-            Optional<String> allocType,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
+    private static void prepassVariableReference(StackFrame frame, LocalVariable lv, ObjectReference or,
+            Optional<String> allocType, AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
             Map<String, String> bindings) {
         String runtimeFqn = or.referenceType().name();
         Optional<String> varType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
@@ -2316,20 +1869,13 @@ public class DebugTraceHelper {
                 candidateType = astTypeResolver.reconcileRuntimeType(runtimeFqn, typeStr);
             } else {
                 if (allocType.isPresent()) {
-                    candidateType =
-                            astTypeResolver.reconcileRuntimeType(runtimeFqn, allocType.get());
+                    candidateType = astTypeResolver.reconcileRuntimeType(runtimeFqn, allocType.get());
                 } // if
             } // if
         } // if
 
         if (candidateType != null) {
-            if (!objectTypeMap.containsKey(or.uniqueID())
-                    || isMoreSpecific(
-                            candidateType,
-                            objectTypeMap.get(or.uniqueID()),
-                            runtimeFqn)) {
-                objectTypeMap.put(or.uniqueID(), candidateType);
-            } // if
+            metadata.refine(or.uniqueID(), candidateType, runtimeFqn);
         } // if
     } // prepassVariableReference
 
@@ -2342,47 +1888,26 @@ public class DebugTraceHelper {
      * @param methodLambdaAssignments Precomputed lambda assignments.
      * @param currentLine Current execution line number.
      * @param astTypeResolver AST type resolver.
-     * @param objectTypeMap Reified object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Heap reference queue.
      * @param heap Heap mapping.
      * @param stackFrameFields Target list for frame fields.
      * @param contexts Extraction-local invocation contexts.
      * @throws ClassNotLoadedException If a variable class is not loaded.
      */
-    private static void processStackFrameVariables(
-            StackFrame frame,
-            List<LocalVariable> visibleVars,
-            Set<String> finalVariableNames,
-            List<LambdaAssignment> methodLambdaAssignments,
-            int currentLine,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap,
-            List<ExecutionSnapshot.Field> stackFrameFields,
-            InvocationTypeResolver.FrameContexts contexts)
-            throws ClassNotLoadedException {
+    private static void processStackFrameVariables(StackFrame frame, List<LocalVariable> visibleVars,
+            Set<String> finalVariableNames, List<LambdaAssignment> methodLambdaAssignments, int currentLine,
+            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk,
+            Map<Long, TraceValue> heap, List<ExecutionSnapshot.Field> stackFrameFields,
+            ReifiedTypeMetadata.FrameBindings contexts) throws ClassNotLoadedException {
         for (LocalVariable lv : visibleVars) {
             TraceSession.elements(1);
             boolean isFinal = finalVariableNames.contains(lv.name());
-            Optional<String> lvLambdaImplementation =
-                    findLambdaImplementation(methodLambdaAssignments, lv.name(), currentLine);
-            String resolvedTypeName = resolveLocalVariableType(
-                    frame, lv, astTypeResolver, contexts.bindings(frame));
-            appendStackField(
-                    frame,
-                    lv,
-                    isFinal,
-                    resolvedTypeName,
-                    lvLambdaImplementation,
-                    astTypeResolver,
-                    objectTypeMap,
-                    heapReferencesToWalk,
-                    heap,
-                    stackFrameFields);
-            if (frame.getValue(lv) instanceof ObjectReference reference) {
-                contexts.receiverTypeChanged(reference.uniqueID());
-            } // if
+            Optional<String> lvLambdaImplementation = findLambdaImplementation(methodLambdaAssignments, lv.name(),
+                    currentLine);
+            String resolvedTypeName = resolveLocalVariableType(frame, lv, astTypeResolver, contexts.bindings(frame));
+            appendStackField(frame, lv, isFinal, resolvedTypeName, lvLambdaImplementation, astTypeResolver, metadata,
+                    heapReferencesToWalk, heap, stackFrameFields);
         } // for
     } // processStackFrameVariables
 
@@ -2391,7 +1916,7 @@ public class DebugTraceHelper {
      *
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Object type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param lambdaMap Lambda assignments map.
      * @param finalMap Final variable names map.
      * @param heapReferencesToWalk Heap references list.
@@ -2403,43 +1928,29 @@ public class DebugTraceHelper {
      * @throws ClassNotLoadedException On unloaded class.
      */
 
-    private static List<StackSnapshot> collectStackSnapshots(
-            ThreadReference mainThread,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            Map<String, List<LambdaAssignment>> lambdaMap,
-            Map<String, Set<String>> finalMap,
-            List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap,
+    private static List<StackSnapshot> collectStackSnapshots(ThreadReference mainThread,
+            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
+            Map<String, List<LambdaAssignment>> lambdaMap, Map<String, Set<String>> finalMap,
+            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
             ClassLoaderReference harnessClassLoader)
-            throws IncompatibleThreadStateException,
-            AbsentInformationException,
-            ClassNotLoadedException {
+            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
         List<StackFrame> frames = mainThread.frames();
-        var contexts = astTypeResolver.invocationTypes()
-                .new FrameContexts(frames, astTypeResolver, objectTypeMap);
+        ReifiedTypeMetadata.FrameBindings contexts = metadata.frames(frames);
         for (StackFrame frame : frames) {
             Method frameMethod = frame.location().method();
             ReferenceType declaringType = frameMethod.declaringType();
-            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader)
-                    || !isCapturedClass(declaringType)) {
+            if (isGuestHarnessOrReflect(declaringType, harnessClassLoader) || !isCapturedClass(declaringType)) {
                 continue;
             } // if
             TraceSession.elements(1);
             String declaringClassFqn = declaringType.name();
-            String frameMethodSignature = String.format(
-                    "%s.%s(%s)",
-                    declaringClassFqn,
-                    frameMethod.name(),
-                    frameMethod.argumentTypes().stream()
-                            .map(Type::name)
-                            .collect(Collectors.joining(",")));
-            Set<String> finalVariableNames =
-                    finalMap.getOrDefault(frameMethodSignature, Collections.emptySet());
+            String frameMethodSignature = String.format("%s.%s(%s)", declaringClassFqn, frameMethod.name(),
+                    frameMethod.argumentTypes().stream().map(Type::name).collect(Collectors.joining(",")));
+            Set<String> finalVariableNames = finalMap.getOrDefault(frameMethodSignature, Collections.emptySet());
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
-            List<LambdaAssignment> methodLambdaAssignments =
-                    lambdaMap.getOrDefault(frameMethodSignature, Collections.emptyList());
+            List<LambdaAssignment> methodLambdaAssignments = lambdaMap.getOrDefault(frameMethodSignature,
+                    Collections.emptyList());
             int currentLine = frame.location().lineNumber();
             List<LocalVariable> visibleVars;
             try {
@@ -2447,19 +1958,13 @@ public class DebugTraceHelper {
             } catch (AbsentInformationException ignored) {
                 continue;
             } // try
-            processStackFrameVariables(
-                    frame, visibleVars, finalVariableNames, methodLambdaAssignments,
-                    currentLine, astTypeResolver,
-                    objectTypeMap, heapReferencesToWalk, heap, stackFrameFields, contexts);
-            Optional<ThisObject> thisObject = resolveThisObject(
-                    frame, declaringClassFqn, objectTypeMap, heapReferencesToWalk);
+            processStackFrameVariables(frame, visibleVars, finalVariableNames, methodLambdaAssignments, currentLine,
+                    astTypeResolver, metadata, heapReferencesToWalk, heap, stackFrameFields, contexts);
+            Optional<ThisObject> thisObject = resolveThisObject(frame, declaringClassFqn, metadata,
+                    heapReferencesToWalk);
             String frameSourcePath = resolveFrameSourcePath(frame);
-            stackSnapshots.addFirst(new StackSnapshot(
-                    frame.location().method().name(),
-                    frame.location().lineNumber(),
-                    stackFrameFields,
-                    thisObject,
-                    Optional.ofNullable(frameSourcePath)));
+            stackSnapshots.addFirst(new StackSnapshot(frame.location().method().name(), frame.location().lineNumber(),
+                    stackFrameFields, thisObject, Optional.ofNullable(frameSourcePath)));
         } // for
         return stackSnapshots;
     } // collectStackSnapshots
@@ -2490,15 +1995,11 @@ public class DebugTraceHelper {
      * @param currentLine Current line.
      * @return Optional containing lambda implementation string.
      */
-    private static Optional<String> findLambdaImplementation(
-            List<LambdaAssignment> assignments, String varName, int currentLine) {
-        return assignments.stream()
-                .filter(la -> la.variableName().equals(varName) && la.lineNumber() <= currentLine)
-                .reduce((first, second) -> second)
-                .map(LambdaAssignment::lambdaImplementation)
-                .or(() -> assignments.stream()
-                        .filter(la -> la.variableName().equals(varName))
-                        .findFirst()
+    private static Optional<String> findLambdaImplementation(List<LambdaAssignment> assignments, String varName,
+            int currentLine) {
+        return assignments.stream().filter(la -> la.variableName().equals(varName) && la.lineNumber() <= currentLine)
+                .reduce((first, second) -> second).map(LambdaAssignment::lambdaImplementation)
+                .or(() -> assignments.stream().filter(la -> la.variableName().equals(varName)).findFirst()
                         .map(LambdaAssignment::lambdaImplementation));
     } // findLambdaImplementation
 
@@ -2511,10 +2012,7 @@ public class DebugTraceHelper {
      * @param bindings Current frame's lexical bindings.
      * @return Resolved type name string.
      */
-    private static String resolveLocalVariableType(
-            StackFrame frame,
-            LocalVariable lv,
-            AstTypeResolver astTypeResolver,
+    private static String resolveLocalVariableType(StackFrame frame, LocalVariable lv, AstTypeResolver astTypeResolver,
             Map<String, String> bindings) {
         String resolvedTypeName = lv.typeName();
         Optional<String> astType = astTypeResolver.resolveFrameVariableType(frame, lv.name());
@@ -2527,52 +2025,6 @@ public class DebugTraceHelper {
     } // resolveLocalVariableType
 
     /**
-     * Determines whether a new type candidate is more specific than an existing type string
-     * for a given concrete runtime class.
-     *
-     * @param newType The new type candidate.
-     * @param existingType The existing type string from objectTypeMap.
-     * @param runtimeClassFqn The concrete runtime class FQN.
-     * @return True if newType is more specific.
-     */
-    public static boolean isMoreSpecific(
-            String newType, String existingType, String runtimeClassFqn) {
-        if (newType == null) {
-            return false;
-        } // if
-        if (existingType == null) {
-            return true;
-        } // if
-        if (newType.equals(existingType)) {
-            return false;
-        } // if
-        boolean newMatchesRuntime = newType.startsWith(runtimeClassFqn);
-        boolean existingMatchesRuntime = existingType.startsWith(runtimeClassFqn);
-        if (newMatchesRuntime && !existingMatchesRuntime) {
-            return true;
-        } // if
-        if (!newMatchesRuntime && existingMatchesRuntime) {
-            return false;
-        } // if
-        boolean newHasGenerics = newType.contains("<");
-        boolean existingHasGenerics = existingType.contains("<");
-        if (newHasGenerics && !existingHasGenerics) {
-            return true;
-        } // if
-        if (!newHasGenerics && existingHasGenerics) {
-            return false;
-        } // if
-        if (newHasGenerics) {
-            boolean existingHasWildcard = existingType.contains("?");
-            boolean newHasWildcard = newType.contains("?");
-            if (existingHasWildcard && !newHasWildcard) {
-                return true;
-            } // if
-        } // if
-        return false;
-    } // isMoreSpecific
-
-    /**
      * Appends a stack variable field to the snapshot fields list.
      *
      * @param frame StackFrame.
@@ -2581,34 +2033,21 @@ public class DebugTraceHelper {
      * @param resolvedTypeName Resolved type name.
      * @param lvLambdaImplementation Optional lambda implementation.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap map.
      * @param stackFrameFields Target fields list.
      */
-    private static void appendStackField(
-            StackFrame frame,
-            LocalVariable lv,
-            boolean isFinal,
-            String resolvedTypeName,
-            Optional<String> lvLambdaImplementation,
-            AstTypeResolver astTypeResolver,
-            Map<Long, String> objectTypeMap,
-            List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap,
+    private static void appendStackField(StackFrame frame, LocalVariable lv, boolean isFinal, String resolvedTypeName,
+            Optional<String> lvLambdaImplementation, AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
+            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
             List<ExecutionSnapshot.Field> stackFrameFields) {
         switch (frame.getValue(lv)) {
-        case PrimitiveValue pv -> stackFrameFields.add(new ExecutionSnapshot.Field(
-                isFinal,
-                resolvedTypeName,
-                lv.name(),
+        case PrimitiveValue pv -> stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
                 TraceValue.Primitive.fromJdiPrimitive(pv)));
         case ObjectReference or when lvLambdaImplementation.isPresent() -> {
-            stackFrameFields.add(new ExecutionSnapshot.Field(
-                isFinal,
-                resolvedTypeName,
-                lv.name(),
-                new TraceValue.Reference(or.uniqueID())));
+            stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
+                    new TraceValue.Reference(or.uniqueID())));
             heapReferencesToWalk.add(or);
             TraceSession.elements(lvLambdaImplementation.get().length());
             heap.put(or.uniqueID(), new TraceValue.Lambda(lvLambdaImplementation.get()));
@@ -2616,25 +2055,14 @@ public class DebugTraceHelper {
         case ObjectReference or -> {
             String runtimeFqn = or.referenceType().name();
             if (resolvedTypeName != null) {
-                String candidate =
-                        astTypeResolver.reconcileRuntimeType(runtimeFqn, resolvedTypeName);
-                if (!objectTypeMap.containsKey(or.uniqueID())
-                        || isMoreSpecific(
-                                candidate,
-                                objectTypeMap.get(or.uniqueID()),
-                                runtimeFqn)) {
-                    objectTypeMap.put(or.uniqueID(), candidate);
-                } // if
+                metadata.refineDeclared(or.uniqueID(), resolvedTypeName, runtimeFqn);
             } // if
-            stackFrameFields.add(new ExecutionSnapshot.Field(
-                    isFinal,
-                    resolvedTypeName,
-                    lv.name(),
+            stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
                     new TraceValue.Reference(or.uniqueID())));
             heapReferencesToWalk.add(or);
         } // case
-        case null -> stackFrameFields.add(new ExecutionSnapshot.Field(
-                isFinal, resolvedTypeName, lv.name(), new TraceValue.Null()));
+        case null -> stackFrameFields
+                .add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(), new TraceValue.Null()));
         default -> {
             // do nothing
         } // default
@@ -2646,19 +2074,16 @@ public class DebugTraceHelper {
      *
      * @param frame StackFrame.
      * @param declaringClassFqn Declaring class FQN.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Heap references list.
      * @return Optional containing ThisObject.
      */
-    private static Optional<ThisObject> resolveThisObject(
-            StackFrame frame,
-            String declaringClassFqn,
-            Map<Long, String> objectTypeMap,
-            List<ObjectReference> heapReferencesToWalk) {
+    private static Optional<ThisObject> resolveThisObject(StackFrame frame, String declaringClassFqn,
+            ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk) {
         if (frame.thisObject() instanceof ObjectReference frameThis) {
             String thisType = declaringClassFqn;
-            if (objectTypeMap.containsKey(frameThis.uniqueID())) {
-                thisType = objectTypeMap.get(frameThis.uniqueID());
+            if (metadata.typeOf(frameThis.uniqueID()) != null) {
+                thisType = metadata.typeOf(frameThis.uniqueID());
             } // if
             TraceValue.Reference thisReference = new TraceValue.Reference(frameThis.uniqueID());
             heapReferencesToWalk.add(frameThis);
@@ -2676,11 +2101,8 @@ public class DebugTraceHelper {
      * @param heap Heap map.
      * @return List of static Field snapshots.
      */
-    private static List<ExecutionSnapshot.Field> collectStatics(
-            Iterable<ReferenceType> loadedClasses,
-            SourceAnalysis sourceAnalysis,
-            List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap) {
+    private static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
+            SourceAnalysis sourceAnalysis, List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap) {
         List<ExecutionSnapshot.Field> statics = new ArrayList<>();
         for (ReferenceType loadedClass : loadedClasses) {
             for (Field f : loadedClass.allFields()) {
@@ -2688,35 +2110,26 @@ public class DebugTraceHelper {
                 if (!f.isStatic() || !isCapturedClass(f.declaringType())) {
                     continue;
                 } // if
-                Optional<String> lambdaImplementation =
-                        sourceAnalysis.findStaticLambdaImplementation(loadedClass.name(), f.name());
+                Optional<String> lambdaImplementation = sourceAnalysis
+                        .findStaticLambdaImplementation(loadedClass.name(), f.name());
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
-                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(
-                        f.isFinal(),
-                        f.typeName(),
-                        fieldName,
+                case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                         TraceValue.Primitive.fromJdiPrimitive(pv)));
                 case ObjectReference or when lambdaImplementation.isPresent() -> {
                     heapReferencesToWalk.add(or);
                     TraceSession.elements(lambdaImplementation.get().length());
                     heap.put(or.uniqueID(), new TraceValue.Lambda(lambdaImplementation.get()));
-                    statics.add(new ExecutionSnapshot.Field(
-                            f.isFinal(),
-                            f.typeName(),
-                            fieldName,
+                    statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                             new TraceValue.Reference(or.uniqueID())));
                 } // case
                 case ObjectReference or -> {
-                    statics.add(new ExecutionSnapshot.Field(
-                            f.isFinal(),
-                            f.typeName(),
-                            fieldName,
+                    statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                             new TraceValue.Reference(or.uniqueID())));
                     heapReferencesToWalk.add(or);
                 } // case
-                case null -> statics.add(new ExecutionSnapshot.Field(
-                        f.isFinal(), f.typeName(), fieldName, new TraceValue.Null()));
+                case null -> statics
+                        .add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName, new TraceValue.Null()));
                 default -> {
                     // do nothing
                 } // default
@@ -2735,25 +2148,22 @@ public class DebugTraceHelper {
      * @param heap Heap map.
      * @return List of static Field snapshots.
      */
-    private static List<ExecutionSnapshot.Field> collectStatics(
-            Iterable<ReferenceType> loadedClasses,
-            List<CompilationUnit> parsedSources,
-            List<ObjectReference> heapReferencesToWalk,
+    private static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
+            List<CompilationUnit> parsedSources, List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap) {
-        return collectStatics(
-                loadedClasses, SourceAnalysis.from(parsedSources), heapReferencesToWalk, heap);
+        return collectStatics(loadedClasses, SourceAnalysis.from(parsedSources), heapReferencesToWalk, heap);
     } // collectStatics
 
     /**
      * Records an uncaught guest exception for the job result.
+     *
      * @param event Exception event.
      */
     private static void recordException(ExceptionEvent event) {
         if (TraceSession.current() != null) {
             String description = event.exception().referenceType().name();
             if (TraceSession.current().threadCapture() != null) {
-                description += " in thread " + event.thread().name()
-                        + " (" + event.thread().uniqueID() + ")";
+                description += " in thread " + event.thread().name() + " (" + event.thread().uniqueID() + ")";
             } // if
             TraceSession.current().guestException(description);
         } // if
@@ -2761,6 +2171,7 @@ public class DebugTraceHelper {
 
     /**
      * Waits for debugger events while observing session cancellation.
+     *
      * @param vm Guest debugger.
      * @return Events, possibly empty after a poll timeout.
      * @throws InterruptedException On thread cancellation.
@@ -2770,18 +2181,18 @@ public class DebugTraceHelper {
         if (session != null) {
             session.check();
         } // if
-        var events = vm.eventQueue().remove(100);
+        EventSet events = vm.eventQueue().remove(100);
         return events == null ? List.of() : events;
     } // nextEvents
 
     /**
      * Stores selected breakpoint state, avoiding a second unbounded history in bounded jobs.
+     *
      * @param snapshots Legacy breakpoint mapping.
      * @param line Breakpoint line.
      * @param snapshot Completed state.
      */
-    static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots,
-            int line, ExecutionSnapshot snapshot) {
+    static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots, int line, ExecutionSnapshot snapshot) {
         List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
         if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
             Optional<String> src = snapshot.sourcePath();

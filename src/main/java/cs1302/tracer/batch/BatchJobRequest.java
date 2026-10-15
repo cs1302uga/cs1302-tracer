@@ -24,24 +24,14 @@ import java.util.List;
  * @param inspection Optional inspection policy.
  * @param multithread Enable chronological platform-thread capture in modern format.
  */
-public record BatchJobRequest(
-        String id,
-        String source,
-        String format,
-        String stdin,
-        List<String> breakpoints,
-        Boolean allBreakpoints,
-        Boolean accumulateBreakpoints,
-        Boolean removeMainArgs,
-        Boolean inlineStrings,
-        Boolean removeMethodThis,
-        String typeStyle,
-        TraceLimits limits,
-        InspectionPolicy inspection,
+public record BatchJobRequest(String id, String source, String format, String stdin, List<String> breakpoints,
+        Boolean allBreakpoints, Boolean accumulateBreakpoints, Boolean removeMainArgs, Boolean inlineStrings,
+        Boolean removeMethodThis, String typeStyle, TraceLimits limits, InspectionPolicy inspection,
         Boolean multithread) {
 
     /**
      * Constructs a request using the original single-stack contract.
+     *
      * @param id Correlation ID.
      * @param source Source text.
      * @param format Trace format.
@@ -56,13 +46,11 @@ public record BatchJobRequest(
      * @param limits Job limits.
      * @param inspection Inspection policy.
      */
-    public BatchJobRequest(String id, String source, String format, String stdin,
-            List<String> breakpoints, Boolean allBreakpoints, Boolean accumulateBreakpoints,
-            Boolean removeMainArgs, Boolean inlineStrings, Boolean removeMethodThis,
-            String typeStyle, TraceLimits limits, InspectionPolicy inspection) {
-        this(id, source, format, stdin, breakpoints, allBreakpoints, accumulateBreakpoints,
-                removeMainArgs, inlineStrings, removeMethodThis, typeStyle,
-                limits, inspection, false);
+    public BatchJobRequest(String id, String source, String format, String stdin, List<String> breakpoints,
+            Boolean allBreakpoints, Boolean accumulateBreakpoints, Boolean removeMainArgs, Boolean inlineStrings,
+            Boolean removeMethodThis, String typeStyle, TraceLimits limits, InspectionPolicy inspection) {
+        this(id, source, format, stdin, breakpoints, allBreakpoints, accumulateBreakpoints, removeMainArgs,
+                inlineStrings, removeMethodThis, typeStyle, limits, inspection, false);
     } // BatchJobRequest
 
     /**

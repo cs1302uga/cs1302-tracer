@@ -32,17 +32,10 @@ import java.util.Optional;
 /**
  * A Java value (primitive, null, reference, or object).
  *
- * <p>Normative References:
- * <ul>
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.1
- *       (The Kinds of Types and Values).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.2
- *       (Primitive Types and Values).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.3
- *       (Reference Types and Values).
- *   <li>The Java Debug Interface (JDI) Specification (Java SE 21 Edition,
- *       {@code com.sun.jdi.Value}).
- * </ul>
+ * <p>Normative References: <ul> <li>The Java Language Specification (Java SE 21 Edition), &sect;4.1 (The Kinds of Types
+ * and Values). <li>The Java Language Specification (Java SE 21 Edition), &sect;4.2 (Primitive Types and Values).
+ * <li>The Java Language Specification (Java SE 21 Edition), &sect;4.3 (Reference Types and Values). <li>The Java Debug
+ * Interface (JDI) Specification (Java SE 21 Edition, {@code com.sun.jdi.Value}). </ul>
  */
 public sealed interface TraceValue {
 
@@ -54,59 +47,46 @@ public sealed interface TraceValue {
      * @param outEncounteredReferences An out parameter which accumulates encountered references.
      * @return A TraceValue that contains the same information as the given value.
      */
-    static TraceValue fromJdiValue(
-            ThreadReference mainThread,
-            Value value,
+    static TraceValue fromJdiValue(ThreadReference mainThread, Value value,
             Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
-        return fromJdiValue(
-                mainThread, value, outEncounteredReferences, null, Collections.emptyMap());
+        return fromJdiValue(mainThread, value, outEncounteredReferences, null);
     } // fromJdiValue
 
     /**
-     * Convert a JDI value mirror into a TraceValue, utilizing AstTypeResolver and objectTypeMap.
+     * Convert a JDI value mirror into a TraceValue, using snapshot-owned type metadata.
      *
      * @param mainThread The thread associated with the value you want to convert.
      * @param value The value you want to convert.
      * @param outEncounteredReferences Accumulates encountered references.
-     * @param astTypeResolver Optional AstTypeResolver for declared type lookup.
-     * @param objectTypeMap Mapping of object reference IDs to their reified type names.
+     * @param metadata Snapshot type evidence, or null when unavailable.
      * @return A TraceValue containing the converted value with reified type metadata.
      */
-    static TraceValue fromJdiValue(
-            ThreadReference mainThread,
-            Value value,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+    static TraceValue fromJdiValue(ThreadReference mainThread, Value value,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, ReifiedTypeMetadata metadata) {
         if (value == null) {
             return new Null();
         } // if
 
+        AstTypeResolver astTypeResolver = metadata == null ? null : metadata.sourceTypes();
         return switch (value) {
-            case PrimitiveValue pv -> Primitive.fromJdiPrimitive(pv);
-            case ArrayReference ar -> {
-                java.lang.String arrType = ar.referenceType().name();
-                if (objectTypeMap != null && objectTypeMap.containsKey(ar.uniqueID())) {
-                    arrType = objectTypeMap.get(ar.uniqueID());
-                } // if
-                yield new List(
-                        arrType,
-                        arrayReferenceToList(ar, outEncounteredReferences));
-            } // case
-            case StringReference sr -> stringValue(sr);
-            case ObjectReference or -> handleObjectReference(
-                    mainThread,
-                    or,
-                    outEncounteredReferences,
-                    astTypeResolver,
-                    objectTypeMap);
-            default ->
-                throw new IllegalArgumentException("Unrecognized value type: " + value);
+        case PrimitiveValue pv -> Primitive.fromJdiPrimitive(pv);
+        case ArrayReference ar -> {
+            java.lang.String arrType = ar.referenceType().name();
+            if (metadata != null && metadata.typeOf(ar.uniqueID()) != null) {
+                arrType = metadata.typeOf(ar.uniqueID());
+            } // if
+            yield new List(arrType, arrayReferenceToList(ar, outEncounteredReferences));
+        } // case
+        case StringReference sr -> stringValue(sr);
+        case ObjectReference or ->
+            handleObjectReference(mainThread, or, outEncounteredReferences, astTypeResolver, metadata);
+        default -> throw new IllegalArgumentException("Unrecognized value type: " + value);
         }; // switch
     } // fromJdiValue
 
     /**
      * Budgets JDK string backing storage before asking JDI for its contents.
+     *
      * @param string Guest string.
      * @return Owned string value.
      */
@@ -125,22 +105,18 @@ public sealed interface TraceValue {
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates encountered references.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @return Converted TraceValue.
      */
-    private static TraceValue handleObjectReference(
-            ThreadReference mainThread,
-            ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+    private static TraceValue handleObjectReference(ThreadReference mainThread, ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata) {
 
         if (!TraceSession.mayInvoke()) {
             if (isColor(or)) {
                 return handleColor(mainThread, or);
             } // if
-            return handleRegularObject(
-                    mainThread, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+            return handleRegularObject(mainThread, or, outEncounteredReferences, astTypeResolver, metadata);
         } // if
         Optional<Primitive> maybeWrappedPrimitive = Primitive.tryFromJdiValue(mainThread, or);
         if (maybeWrappedPrimitive.isPresent()) {
@@ -148,8 +124,8 @@ public sealed interface TraceValue {
             return maybeWrappedPrimitive.get();
         } // if
 
-        Optional<TraceValue> maybeContainer = handleCollectionOrMap(
-                mainThread, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+        Optional<TraceValue> maybeContainer = handleCollectionOrMap(mainThread, or, outEncounteredReferences,
+                astTypeResolver, metadata);
         if (maybeContainer.isPresent()) {
             return maybeContainer.get();
         } // if
@@ -160,13 +136,11 @@ public sealed interface TraceValue {
 
         if (isBuiltInType(or.referenceType().name())) {
             ClassType enumDecl = resolveEnumDeclaringType(or);
-            Optional<java.lang.String> enumConstant =
-                    Optional.ofNullable(extractEnumConstantName(or, enumDecl));
+            Optional<java.lang.String> enumConstant = Optional.ofNullable(extractEnumConstantName(or, enumDecl));
             return new Object(or.referenceType().name(), java.util.List.of(), enumConstant);
         } // if
 
-        return handleRegularObject(
-                mainThread, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+        return handleRegularObject(mainThread, or, outEncounteredReferences, astTypeResolver, metadata);
     } // handleObjectReference
 
     /**
@@ -209,8 +183,7 @@ public sealed interface TraceValue {
                 argbVal = pv.intValue();
             } // if
         } // if
-        if (argbVal == null && TraceSession.mayInvoke()
-                && or.referenceType() instanceof ClassType ct) {
+        if (argbVal == null && TraceSession.mayInvoke() && or.referenceType() instanceof ClassType ct) {
             try {
                 Method getRGB = ct.concreteMethodByName("getRGB", "()I");
                 if (getRGB != null) {
@@ -228,8 +201,7 @@ public sealed interface TraceValue {
         int red = (argb >> 16) & 0xFF;
         int green = (argb >> 8) & 0xFF;
         int blue = argb & 0xFF;
-        java.lang.String hex = (alpha == 255)
-                ? java.lang.String.format("#%02X%02X%02X", red, green, blue)
+        java.lang.String hex = (alpha == 255) ? java.lang.String.format("#%02X%02X%02X", red, green, blue)
                 : java.lang.String.format("#%02X%02X%02X%02X", red, green, blue, alpha);
         TraceSession.elements(hex.length());
         return new Color(classFqn, hex);
@@ -242,16 +214,8 @@ public sealed interface TraceValue {
      * @return True if built-in package.
      */
     private static boolean isBuiltInType(java.lang.String name) {
-        java.lang.String[] builtInPackages = {
-            "com.sun.",
-            "java.",
-            "javax.",
-            "jdk.",
-            "netscape.javascript.",
-            "org.ietf.jgss.",
-            "org.w3c.dom.",
-            "org.xml.sax."
-        };
+        java.lang.String[] builtInPackages = { "com.sun.", "java.", "javax.", "jdk.", "netscape.javascript.",
+            "org.ietf.jgss.", "org.w3c.dom.", "org.xml.sax." };
         for (java.lang.String prefix : builtInPackages) {
             if (name.startsWith(prefix)) {
                 return true;
@@ -266,21 +230,14 @@ public sealed interface TraceValue {
      * @param ar The array of elements.
      * @param colTypeName The container's reified type name.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      */
-    private static void propagateContainerElements(
-            ArrayReference ar,
-            java.lang.String colTypeName,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
-        if (objectTypeMap == null
-                || !colTypeName.contains("<")
-                || ar == null
-                || astTypeResolver == null) {
+    private static void propagateContainerElements(ArrayReference ar, java.lang.String colTypeName,
+            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata) {
+        if (metadata == null || !colTypeName.contains("<") || ar == null || astTypeResolver == null) {
             return;
         } // if
-        java.util.List<java.lang.String> typeArgs =
-                AstTypeResolver.extractTypeArguments(colTypeName);
+        java.util.List<java.lang.String> typeArgs = AstTypeResolver.extractTypeArguments(colTypeName);
         if (typeArgs.isEmpty()) {
             return;
         } // if
@@ -289,15 +246,7 @@ public sealed interface TraceValue {
         for (Value elemVal : ar.getValues()) {
             if (elemVal instanceof ObjectReference elemOr) {
                 java.lang.String elemRuntime = elemOr.referenceType().name();
-                java.lang.String candidate =
-                        astTypeResolver.reconcileRuntimeType(elemRuntime, elemType);
-                if (!objectTypeMap.containsKey(elemOr.uniqueID())
-                        || DebugTraceHelper.isMoreSpecific(
-                                candidate,
-                                objectTypeMap.get(elemOr.uniqueID()),
-                                elemRuntime)) {
-                    objectTypeMap.put(elemOr.uniqueID(), candidate);
-                } // if
+                metadata.refineDeclared(elemOr.uniqueID(), elemType, elemRuntime);
             } // if
         } // for
     } // propagateContainerElements
@@ -310,35 +259,24 @@ public sealed interface TraceValue {
      * @param or ObjectReference of the collection.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @return Converted collection TraceValue.
      */
-    private static Optional<TraceValue> handleCollection(
-            ThreadReference mainThread,
-            ClassType ct,
-            ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+    private static Optional<TraceValue> handleCollection(ThreadReference mainThread, ClassType ct, ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata) {
         try {
             VirtualMachine vm = or.virtualMachine();
             Method toArray = ct.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
-            ArrayReference ar =
-                    (ArrayReference) or.invokeMethod(
-                            mainThread, toArray, java.util.List.of(), 0);
-            boolean isList =
-                    !Collections.disjoint(
-                            ct.allInterfaces(), vm.classesByName("java.util.List"));
+            ArrayReference ar = (ArrayReference) or.invokeMethod(mainThread, toArray, java.util.List.of(), 0);
+            boolean isList = !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.List"));
             java.lang.String colTypeName = or.referenceType().name();
-            if (objectTypeMap != null && objectTypeMap.containsKey(or.uniqueID())) {
-                colTypeName = objectTypeMap.get(or.uniqueID());
+            if (metadata != null && metadata.typeOf(or.uniqueID()) != null) {
+                colTypeName = metadata.typeOf(or.uniqueID());
             } // if
-            propagateContainerElements(ar, colTypeName, astTypeResolver, objectTypeMap);
-            java.util.List<TraceValue> traceArray = arrayReferenceToList(
-                    ar, outEncounteredReferences);
-            return Optional.of(isList
-                    ? new List(colTypeName, traceArray)
-                    : new Collection(colTypeName, traceArray));
+            propagateContainerElements(ar, colTypeName, astTypeResolver, metadata);
+            java.util.List<TraceValue> traceArray = arrayReferenceToList(ar, outEncounteredReferences);
+            return Optional.of(isList ? new List(colTypeName, traceArray) : new Collection(colTypeName, traceArray));
         } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
             throw new IllegalStateException("Failed to inspect collection", e);
         } catch (InvocationException ignored) {
@@ -355,34 +293,28 @@ public sealed interface TraceValue {
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @return Optional containing converted container TraceValue.
      */
-    private static Optional<TraceValue> handleCollectionOrMap(
-            ThreadReference mainThread,
-            ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+    private static Optional<TraceValue> handleCollectionOrMap(ThreadReference mainThread, ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata) {
         if (!(or.referenceType() instanceof ClassType ct)) {
             return Optional.empty();
         } // if
         VirtualMachine vm = or.virtualMachine();
 
-        boolean isCollection =
-                !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.Collection"));
+        boolean isCollection = !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.Collection"));
         if (isCollection) {
-            return handleCollection(
-                    mainThread, ct, or, outEncounteredReferences, astTypeResolver, objectTypeMap);
+            return handleCollection(mainThread, ct, or, outEncounteredReferences, astTypeResolver, metadata);
         } // if
 
-        Optional<Map> maybeMap =
-                Map.tryFromJdiObjectReference(mainThread, or, outEncounteredReferences);
+        Optional<Map> maybeMap = Map.tryFromJdiObjectReference(mainThread, or, outEncounteredReferences);
         if (maybeMap.isPresent()) {
             Map map = maybeMap.get();
             java.lang.String mapTypeName = or.referenceType().name();
-            if (objectTypeMap != null && objectTypeMap.containsKey(or.uniqueID())) {
-                mapTypeName = objectTypeMap.get(or.uniqueID());
+            if (metadata != null && metadata.typeOf(or.uniqueID()) != null) {
+                mapTypeName = metadata.typeOf(or.uniqueID());
             } // if
             return Optional.of(new Map(mapTypeName, map.value()));
         } // if
@@ -397,8 +329,7 @@ public sealed interface TraceValue {
      * @param bindings Type parameter bindings.
      * @return Resolved field type string.
      */
-    private static java.lang.String resolveFieldTypeName(
-            Field objectField,
+    private static java.lang.String resolveFieldTypeName(Field objectField,
             Optional<AstTypeResolver.ClassGenericInfo> classInfo,
             java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.lang.String fieldTypeName = objectField.typeName();
@@ -408,8 +339,7 @@ public sealed interface TraceValue {
                 if (!bindings.isEmpty()) {
                     fieldTypeName = AstTypeResolver.substituteType(declared, bindings);
                 } else {
-                    if (!declared.contains("<")
-                            && !classInfo.get().typeParameters().contains(declared)) {
+                    if (!declared.contains("<") && !classInfo.get().typeParameters().contains(declared)) {
                         fieldTypeName = declared;
                     } // if
                 } // if
@@ -443,8 +373,7 @@ public sealed interface TraceValue {
      * @param enumDeclaringType The declaring enum ClassType.
      * @return The constant name, or null if not resolved.
      */
-    private static java.lang.String extractEnumConstantName(
-            ObjectReference or, ClassType enumDeclaringType) {
+    private static java.lang.String extractEnumConstantName(ObjectReference or, ClassType enumDeclaringType) {
         if (enumDeclaringType != null) {
             Field nameField = enumDeclaringType.fieldByName("name");
             if (nameField != null && or.getValue(nameField) instanceof StringReference sr) {
@@ -460,54 +389,34 @@ public sealed interface TraceValue {
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @param classInfo Generic class info.
      * @param bindings Type bindings.
      * @return Collection of snapshot fields.
      */
-    private static java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(
-            ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap,
-            Optional<AstTypeResolver.ClassGenericInfo> classInfo,
+    private static java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata, Optional<AstTypeResolver.ClassGenericInfo> classInfo,
             java.util.Map<java.lang.String, java.lang.String> bindings) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
-        java.util.List<Field> objectJdiFields =
-                or.referenceType().allFields().stream().filter(f -> !f.isStatic())
-                        .filter(f -> includeThreadField(or, f)).toList();
+        java.util.List<Field> objectJdiFields = or.referenceType().allFields().stream().filter(f -> !f.isStatic())
+                .filter(f -> includeThreadField(or, f)).toList();
         TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
-            java.lang.String fieldTypeName =
-                    resolveFieldTypeName(objectField, classInfo, bindings);
+            java.lang.String fieldTypeName = resolveFieldTypeName(objectField, classInfo, bindings);
             Value fieldValue = or.getValue(objectField);
             switch (fieldValue) {
-            case null -> objectSnapshotFields.add(new ExecutionSnapshot.Field(
-                    objectField.isFinal(), fieldTypeName, objectField.name(), new Null()));
-            case PrimitiveValue pf -> objectSnapshotFields.add(new ExecutionSnapshot.Field(
-                    objectField.isFinal(),
-                    fieldTypeName,
-                    objectField.name(),
-                    Primitive.fromJdiPrimitive(pf)));
+            case null -> objectSnapshotFields.add(
+                    new ExecutionSnapshot.Field(objectField.isFinal(), fieldTypeName, objectField.name(), new Null()));
+            case PrimitiveValue pf -> objectSnapshotFields.add(new ExecutionSnapshot.Field(objectField.isFinal(),
+                    fieldTypeName, objectField.name(), Primitive.fromJdiPrimitive(pf)));
             case ObjectReference of -> {
-                if (objectTypeMap != null && fieldTypeName != null) {
+                if (metadata != null && fieldTypeName != null) {
                     java.lang.String ofRuntimeFqn = of.referenceType().name();
-                    java.lang.String candidate = (astTypeResolver != null)
-                            ? astTypeResolver.reconcileRuntimeType(ofRuntimeFqn, fieldTypeName)
-                            : fieldTypeName;
-                    if (!objectTypeMap.containsKey(of.uniqueID())
-                            || DebugTraceHelper.isMoreSpecific(
-                                    candidate,
-                                    objectTypeMap.get(of.uniqueID()),
-                                    ofRuntimeFqn)) {
-                        objectTypeMap.put(of.uniqueID(), candidate);
-                    } // if
+                    metadata.refineDeclared(of.uniqueID(), fieldTypeName, ofRuntimeFqn);
                 } // if
-                objectSnapshotFields.add(new ExecutionSnapshot.Field(
-                        objectField.isFinal(),
-                        fieldTypeName,
-                        objectField.name(),
-                        new Reference(of.uniqueID())));
+                objectSnapshotFields.add(new ExecutionSnapshot.Field(objectField.isFinal(), fieldTypeName,
+                        objectField.name(), new Reference(of.uniqueID())));
                 outEncounteredReferences.ifPresent(l -> l.add(of));
             } // case
             default -> {
@@ -520,14 +429,14 @@ public sealed interface TraceValue {
 
     /**
      * Keeps user thread-subclass fields without traversing JVM thread bookkeeping.
+     *
      * @param object Object being inspected.
      * @param field Candidate instance field.
      * @return True when the field belongs in the heap view.
      */
     private static boolean includeThreadField(ObjectReference object, Field field) {
         TraceSession session = TraceSession.current();
-        return session == null || session.threadCapture() == null
-                || !(object instanceof ThreadReference)
+        return session == null || session.threadCapture() == null || !(object instanceof ThreadReference)
                 || session.threadCapture().applicationClass(field.declaringType().name());
     } // includeThreadField
 
@@ -538,8 +447,8 @@ public sealed interface TraceValue {
      * @param or The enum object reference.
      * @param enumDeclaringType The declaring enum ClassType.
      */
-    private static void evaluateEnumHashIfNeeded(
-            ThreadReference mainThread, ObjectReference or, ClassType enumDeclaringType) {
+    private static void evaluateEnumHashIfNeeded(ThreadReference mainThread, ObjectReference or,
+            ClassType enumDeclaringType) {
         if (mainThread == null || enumDeclaringType == null || !TraceSession.shouldEvalEnumHash()) {
             return;
         } // if
@@ -550,8 +459,8 @@ public sealed interface TraceValue {
                 break;
             } // if
         } // for
-        if (hashField != null && or.getValue(hashField) instanceof IntegerValue iv
-                && iv.value() == 0 && or.referenceType() instanceof ClassType ct) {
+        if (hashField != null && or.getValue(hashField) instanceof IntegerValue iv && iv.value() == 0
+                && or.referenceType() instanceof ClassType ct) {
             try {
                 Method hashCodeMethod = ct.concreteMethodByName("hashCode", "()I");
                 if (hashCodeMethod != null) {
@@ -570,45 +479,38 @@ public sealed interface TraceValue {
      * @param or The object reference.
      * @param outEncounteredReferences Accumulates references.
      * @param astTypeResolver AstTypeResolver instance.
-     * @param objectTypeMap Reified type map.
+     * @param metadata Snapshot-owned reified type evidence.
      * @return Converted Object TraceValue.
      */
-    private static TraceValue handleRegularObject(
-            ThreadReference mainThread,
-            ObjectReference or,
-            Optional<java.util.List<ObjectReference>> outEncounteredReferences,
-            AstTypeResolver astTypeResolver,
-            java.util.Map<java.lang.Long, java.lang.String> objectTypeMap) {
+    private static TraceValue handleRegularObject(ThreadReference mainThread, ObjectReference or,
+            Optional<java.util.List<ObjectReference>> outEncounteredReferences, AstTypeResolver astTypeResolver,
+            ReifiedTypeMetadata metadata) {
         ClassType enumDeclaringType = resolveEnumDeclaringType(or);
         evaluateEnumHashIfNeeded(mainThread, or, enumDeclaringType);
-        java.lang.String rawClassFqn = (enumDeclaringType != null)
-                ? enumDeclaringType.name()
+        java.lang.String rawClassFqn = (enumDeclaringType != null) ? enumDeclaringType.name()
                 : or.referenceType().name();
-        java.lang.String reifiedClassType =
-                (objectTypeMap != null) ? objectTypeMap.get(or.uniqueID()) : null;
+        java.lang.String reifiedClassType = (metadata != null) ? metadata.typeOf(or.uniqueID()) : null;
         java.lang.String classFqn = (reifiedClassType != null) ? reifiedClassType : rawClassFqn;
         java.lang.String constantName = extractEnumConstantName(or, enumDeclaringType);
-        java.util.Map<java.lang.String, java.lang.String> bindings =
-                (reifiedClassType != null && astTypeResolver != null)
-                        ? astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
+        java.util.Map<java.lang.String, java.lang.String> bindings = (reifiedClassType != null
+                && astTypeResolver != null) ? astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
                         : Collections.emptyMap();
-        Optional<AstTypeResolver.ClassGenericInfo> classInfo =
-                astTypeResolver != null
-                        ? astTypeResolver.getClassGenericInfo(rawClassFqn)
-                        : Optional.empty();
-        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = extractSnapshotFields(
-                or, outEncounteredReferences, astTypeResolver, objectTypeMap, classInfo, bindings);
+        Optional<AstTypeResolver.ClassGenericInfo> classInfo = astTypeResolver != null
+                ? astTypeResolver.getClassGenericInfo(rawClassFqn)
+                : Optional.empty();
+        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = extractSnapshotFields(or,
+                outEncounteredReferences, astTypeResolver, metadata, classInfo, bindings);
         return new Object(classFqn, objectSnapshotFields, Optional.ofNullable(constantName));
     } // handleRegularObject
 
     /**
      * Convert a mirrored ArrayReference into an owned List.
+     *
      * @param arrayReference The array to convert.
      * @param outEncounteredReferences An out parameter for references encountered in the array.
      * @return A List with the same contents as the ArrayReference.
      */
-    private static java.util.List<TraceValue> arrayReferenceToList(
-            ArrayReference arrayReference,
+    private static java.util.List<TraceValue> arrayReferenceToList(ArrayReference arrayReference,
             Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
         TraceSession.elements(arrayReference.length());
         java.util.List<TraceValue> tvs = new ArrayList<>(arrayReference.length());
@@ -639,16 +541,15 @@ public sealed interface TraceValue {
          */
         static Primitive fromJdiPrimitive(PrimitiveValue primitiveValue) {
             return switch (primitiveValue) {
-                case BooleanValue bv -> new Boolean(bv.value());
-                case ByteValue bv -> new Byte(bv.value());
-                case CharValue cv -> new Character(cv.value());
-                case DoubleValue dv -> new Double(dv.value());
-                case FloatValue fv -> new Float(fv.value());
-                case IntegerValue iv -> new Integer(iv.value());
-                case LongValue lv -> new Long(lv.value());
-                case ShortValue sv -> new Short(sv.value());
-                default -> throw new IllegalArgumentException(
-                        "Unknown primitive: " + primitiveValue);
+            case BooleanValue bv -> new Boolean(bv.value());
+            case ByteValue bv -> new Byte(bv.value());
+            case CharValue cv -> new Character(cv.value());
+            case DoubleValue dv -> new Double(dv.value());
+            case FloatValue fv -> new Float(fv.value());
+            case IntegerValue iv -> new Integer(iv.value());
+            case LongValue lv -> new Long(lv.value());
+            case ShortValue sv -> new Short(sv.value());
+            default -> throw new IllegalArgumentException("Unknown primitive: " + primitiveValue);
             }; // switch
         } // fromJdiPrimitive
 
@@ -664,8 +565,7 @@ public sealed interface TraceValue {
                 return Optional.of(Primitive.fromJdiPrimitive(pv));
             } // if
 
-            if (!(value instanceof ObjectReference objectReference)
-                    || !(value.type() instanceof ClassType)) {
+            if (!(value instanceof ObjectReference objectReference) || !(value.type() instanceof ClassType)) {
                 return Optional.empty();
             } // if
 
@@ -675,21 +575,17 @@ public sealed interface TraceValue {
                 return Optional.empty();
             } // if
 
-            Method getterMethod =
-                    classType.concreteMethodByName(getter.name(), getter.signature());
+            Method getterMethod = classType.concreteMethodByName(getter.name(), getter.signature());
             if (getterMethod == null) {
-                throw new IllegalStateException(java.lang.String.format(
-                        "Expected method %s with signature %s.",
+                throw new IllegalStateException(java.lang.String.format("Expected method %s with signature %s.",
                         getter.name(), getter.signature()));
             } // if
 
             try {
-                PrimitiveValue primitiveValue = (PrimitiveValue) objectReference.invokeMethod(
-                        mainThread, getterMethod, java.util.List.of(), 0);
+                PrimitiveValue primitiveValue = (PrimitiveValue) objectReference.invokeMethod(mainThread, getterMethod,
+                        java.util.List.of(), 0);
                 return Optional.of(Primitive.fromJdiPrimitive(primitiveValue));
-            } catch (IllegalArgumentException
-                    | ClassNotLoadedException
-                    | InvalidTypeException
+            } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException
                     | InvocationException e) {
                 throw new IllegalStateException("Failed to invoke getter", e);
             } catch (IncompatibleThreadStateException e) {
@@ -699,6 +595,7 @@ public sealed interface TraceValue {
 
         /**
          * A wrapper accessor and its matching JNI method signature.
+         *
          * @param name Accessor method name.
          * @param signature JNI method signature.
          */
@@ -706,20 +603,21 @@ public sealed interface TraceValue {
 
         /**
          * Gets the accessor for a primitive wrapper in one lookup.
+         *
          * @param signature Wrapper class signature.
          * @return Accessor, or null for other classes.
          */
         private static Getter getPrimitiveGetter(java.lang.String signature) {
             return switch (signature) {
-                case "Ljava/lang/Boolean;" -> new Getter("booleanValue", "()Z");
-                case "Ljava/lang/Byte;" -> new Getter("byteValue", "()B");
-                case "Ljava/lang/Character;" -> new Getter("charValue", "()C");
-                case "Ljava/lang/Short;" -> new Getter("shortValue", "()S");
-                case "Ljava/lang/Integer;" -> new Getter("intValue", "()I");
-                case "Ljava/lang/Long;" -> new Getter("longValue", "()J");
-                case "Ljava/lang/Float;" -> new Getter("floatValue", "()F");
-                case "Ljava/lang/Double;" -> new Getter("doubleValue", "()D");
-                default -> null;
+            case "Ljava/lang/Boolean;" -> new Getter("booleanValue", "()Z");
+            case "Ljava/lang/Byte;" -> new Getter("byteValue", "()B");
+            case "Ljava/lang/Character;" -> new Getter("charValue", "()C");
+            case "Ljava/lang/Short;" -> new Getter("shortValue", "()S");
+            case "Ljava/lang/Integer;" -> new Getter("intValue", "()I");
+            case "Ljava/lang/Long;" -> new Getter("longValue", "()J");
+            case "Ljava/lang/Float;" -> new Getter("floatValue", "()F");
+            case "Ljava/lang/Double;" -> new Getter("doubleValue", "()D");
+            default -> null;
             }; // switch
         } // getPrimitiveGetter
 
@@ -846,11 +744,8 @@ public sealed interface TraceValue {
      * @param fields Object fields.
      * @param enumConstant Optional enum constant name if this object is an enum constant.
      */
-    record Object(
-            java.lang.String classFqn,
-            java.util.Collection<ExecutionSnapshot.Field> fields,
-            Optional<java.lang.String> enumConstant)
-            implements TraceValue {
+    record Object(java.lang.String classFqn, java.util.Collection<ExecutionSnapshot.Field> fields,
+            Optional<java.lang.String> enumConstant) implements TraceValue {
 
         /**
          * Constructs an Object without an enum constant name.
@@ -858,9 +753,7 @@ public sealed interface TraceValue {
          * @param classFqn Declaring class FQN.
          * @param fields Object fields.
          */
-        public Object(
-                java.lang.String classFqn,
-                java.util.Collection<ExecutionSnapshot.Field> fields) {
+        public Object(java.lang.String classFqn, java.util.Collection<ExecutionSnapshot.Field> fields) {
             this(classFqn, fields, Optional.empty());
         } // Object
 
@@ -879,9 +772,7 @@ public sealed interface TraceValue {
      * @param typeName Map type name.
      * @param value Key-value map entries.
      */
-    record Map(
-            java.lang.String typeName,
-            java.util.Map<? extends TraceValue, ? extends TraceValue> value)
+    record Map(java.lang.String typeName, java.util.Map<? extends TraceValue, ? extends TraceValue> value)
             implements TraceValue {
 
         /**
@@ -901,50 +792,40 @@ public sealed interface TraceValue {
          * @param outEncounteredReferences An out parameter for references.
          * @return The converted Map TraceValue, or empty if conversion failed.
          */
-        public static Optional<Map> tryFromJdiObjectReference(
-                ThreadReference mainThread,
-                ObjectReference or,
+        public static Optional<Map> tryFromJdiObjectReference(ThreadReference mainThread, ObjectReference or,
                 Optional<java.util.List<ObjectReference>> outEncounteredReferences) {
             ClassType ct = (ClassType) or.referenceType();
             VirtualMachine vm = or.virtualMachine();
 
-            boolean isMap =
-                    !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.Map"));
+            boolean isMap = !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.Map"));
             if (!isMap) {
                 return Optional.empty();
             } // if
 
             try {
                 Method entrySet = ct.concreteMethodByName("entrySet", "()Ljava/util/Set;");
-                ObjectReference entries =
-                        (ObjectReference) or.invokeMethod(
-                                mainThread, entrySet, java.util.List.of(), 0);
+                ObjectReference entries = (ObjectReference) or.invokeMethod(mainThread, entrySet, java.util.List.of(),
+                        0);
                 ClassType entriesCt = (ClassType) entries.referenceType();
-                Method entriesToArray =
-                        entriesCt.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
-                ArrayReference ar =
-                        (ArrayReference) entries.invokeMethod(
-                                mainThread, entriesToArray, java.util.List.of(), 0);
+                Method entriesToArray = entriesCt.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
+                ArrayReference ar = (ArrayReference) entries.invokeMethod(mainThread, entriesToArray,
+                        java.util.List.of(), 0);
                 TraceSession.elements(ar.length() * 2L);
                 java.util.Map<TraceValue, TraceValue> map = new HashMap<>();
                 for (int i = 0; i < ar.length(); i++) {
                     ObjectReference entry = (ObjectReference) ar.getValue(i);
                     ClassType entryCt = (ClassType) entry.referenceType();
-                    Method entryGetKey =
-                            entryCt.concreteMethodByName("getKey", "()Ljava/lang/Object;");
-                    ObjectReference entryKey = (ObjectReference) entry.invokeMethod(
-                            mainThread, entryGetKey, java.util.List.of(), 0);
-                    Method entryGetValue =
-                            entryCt.concreteMethodByName("getValue", "()Ljava/lang/Object;");
-                    ObjectReference entryValue = (ObjectReference) entry.invokeMethod(
-                            mainThread, entryGetValue, java.util.List.of(), 0);
+                    Method entryGetKey = entryCt.concreteMethodByName("getKey", "()Ljava/lang/Object;");
+                    ObjectReference entryKey = (ObjectReference) entry.invokeMethod(mainThread, entryGetKey,
+                            java.util.List.of(), 0);
+                    Method entryGetValue = entryCt.concreteMethodByName("getValue", "()Ljava/lang/Object;");
+                    ObjectReference entryValue = (ObjectReference) entry.invokeMethod(mainThread, entryGetValue,
+                            java.util.List.of(), 0);
                     map.put(mapReference(entryKey, outEncounteredReferences),
                             mapReference(entryValue, outEncounteredReferences));
                 } // for
                 return Optional.of(new Map(or.referenceType().name(), map));
-            } catch (IllegalArgumentException
-                    | ClassNotLoadedException
-                    | InvalidTypeException e) {
+            } catch (IllegalArgumentException | ClassNotLoadedException | InvalidTypeException e) {
                 throw new IllegalStateException("Failed to inspect map entries", e);
             } catch (InvocationException ignored) {
                 return Optional.empty();
@@ -955,6 +836,7 @@ public sealed interface TraceValue {
 
         /**
          * Converts a nullable map entry reference and enqueues only live references.
+         *
          * @param value Nullable entry value.
          * @param references Encountered references.
          * @return Null or pointer value.
@@ -976,9 +858,7 @@ public sealed interface TraceValue {
      * @param typeName Collection type name.
      * @param value Collection elements.
      */
-    record Collection(
-            java.lang.String typeName,
-            java.util.Collection<? extends TraceValue> value)
+    record Collection(java.lang.String typeName, java.util.Collection<? extends TraceValue> value)
             implements TraceValue {
 
         /**
@@ -997,10 +877,7 @@ public sealed interface TraceValue {
      * @param typeName List type name.
      * @param value List elements.
      */
-    record List(
-            java.lang.String typeName,
-            java.util.List<? extends TraceValue> value)
-            implements TraceValue {} // List
+    record List(java.lang.String typeName, java.util.List<? extends TraceValue> value) implements TraceValue {} // List
 
     /**
      * A lambda with reconstructed implementation.
@@ -1015,6 +892,5 @@ public sealed interface TraceValue {
      * @param classFqn The fully qualified class name.
      * @param hex The hexadecimal color string.
      */
-    record Color(java.lang.String classFqn, java.lang.String hex)
-            implements TraceValue {} // Color
+    record Color(java.lang.String classFqn, java.lang.String hex) implements TraceValue {} // Color
 } // TraceValue

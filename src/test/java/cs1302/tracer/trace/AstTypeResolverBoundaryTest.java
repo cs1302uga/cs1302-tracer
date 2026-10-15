@@ -13,8 +13,8 @@ class AstTypeResolverBoundaryTest {
     private final AstTypeResolver resolver = new AstTypeResolver(List.of());
 
     @ParameterizedTest
-    @ValueSource(strings = {"ArrayList", "LinkedList", "Vector", "ArrayDeque", "PriorityQueue",
-            "HashSet", "LinkedHashSet", "TreeSet"})
+    @ValueSource(strings = { "ArrayList", "LinkedList", "Vector", "ArrayDeque", "PriorityQueue", "HashSet",
+        "LinkedHashSet", "TreeSet" })
     void reconcilesSupportedCollectionsWithSimpleAndQualifiedNames(String name) {
         for (String runtime : List.of(name, "java.util." + name)) {
             assertThat(resolver.reconcileRuntimeType(runtime, "Collection<? extends String>"))
@@ -23,15 +23,13 @@ class AstTypeResolverBoundaryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"HashMap", "LinkedHashMap", "TreeMap", "Hashtable", "ConcurrentHashMap"})
+    @ValueSource(strings = { "HashMap", "LinkedHashMap", "TreeMap", "Hashtable", "ConcurrentHashMap" })
     void reconcilesSupportedMapsWithSimpleAndQualifiedNames(String name) {
-        String qualified = (name.equals("ConcurrentHashMap") ? "java.util.concurrent."
-                : "java.util.") + name;
+        String qualified = (name.equals("ConcurrentHashMap") ? "java.util.concurrent." : "java.util.") + name;
         for (String runtime : List.of(name, qualified)) {
             assertThat(resolver.reconcileRuntimeType(runtime, "Map<String, Integer>"))
                     .isEqualTo(runtime + "<String, Integer>");
-            assertThat(resolver.reconcileRuntimeType(runtime, "Other<String>"))
-                    .isEqualTo(runtime);
+            assertThat(resolver.reconcileRuntimeType(runtime, "Other<String>")).isEqualTo(runtime);
         }
     }
 
@@ -50,13 +48,10 @@ class AstTypeResolverBoundaryTest {
     @Test
     void substitutesWildcardBoundsAndHandlesUnparseableTypeText() {
         Map<String, String> bindings = Map.of("T", "String");
-        assertThat(AstTypeResolver.substituteType("List<? extends T>", bindings))
-                .isEqualTo("List<? extends String>");
-        assertThat(AstTypeResolver.substituteType("List<? super T>", bindings))
-                .isEqualTo("List<? super String>");
+        assertThat(AstTypeResolver.substituteType("List<? extends T>", bindings)).isEqualTo("List<? extends String>");
+        assertThat(AstTypeResolver.substituteType("List<? super T>", bindings)).isEqualTo("List<? super String>");
         assertThat(AstTypeResolver.substituteType("List<?>", bindings)).isEqualTo("List<?>");
-        assertThat(AstTypeResolver.substituteType("T ... invalid", bindings))
-                .isEqualTo("String ... invalid");
+        assertThat(AstTypeResolver.substituteType("T ... invalid", bindings)).isEqualTo("String ... invalid");
         assertThat(AstTypeResolver.substituteType("T", Map.of("T", "Bad<"))).isEqualTo("Bad<");
         assertThat(AstTypeResolver.substituteType("p.T", bindings)).isEqualTo("p.T");
     }
@@ -73,16 +68,11 @@ class AstTypeResolverBoundaryTest {
                 }
                 """);
         var indexed = new AstTypeResolver(unit);
-        assertThat(indexed.resolveVariableType("sample.Child", "<init>", "label", 5))
-                .contains("String");
-        assertThat(indexed.resolveSubclassType("Child", "Base<Integer>"))
-                .isEqualTo("Child<Integer>");
-        assertThat(indexed.reconcileRuntimeType("sample.Child", "Base<Integer>"))
-                .isEqualTo("sample.Child<Integer>");
-        assertThat(indexed.resolveSubclassType("Child", "Other<Integer>"))
-                .isEqualTo("Child");
-        assertThat(indexed.resolveSubclassType("Child", "Base<Integer, String>"))
-                .isEqualTo("Child");
+        assertThat(indexed.resolveVariableType("sample.Child", "<init>", "label", 5)).contains("String");
+        assertThat(indexed.resolveSubclassType("Child", "Base<Integer>")).isEqualTo("Child<Integer>");
+        assertThat(indexed.reconcileRuntimeType("sample.Child", "Base<Integer>")).isEqualTo("sample.Child<Integer>");
+        assertThat(indexed.resolveSubclassType("Child", "Other<Integer>")).isEqualTo("Child");
+        assertThat(indexed.resolveSubclassType("Child", "Base<Integer, String>")).isEqualTo("Child");
     }
 
     @Test
@@ -95,12 +85,12 @@ class AstTypeResolverBoundaryTest {
         assertThat(AstTypeResolver.resolveAstType(null)).isEqualTo("java.lang.Object");
         assertThat(AstTypeResolver.resolveAstTypeWithParams(null, null)).isEqualTo("java.lang.Object");
         assertThat(AstTypeResolver.resolveAstTypeWithParams(StaticJavaParser.parseType("int"), null)).isEqualTo("int");
-        assertThat(AstTypeResolver.resolveAstTypeWithParams(StaticJavaParser.parseType("p.T"), List.of("T"))).isEqualTo("T");
-        assertThat(AstTypeResolver.resolveAstTypeWithParams(StaticJavaParser.parseType("List<>"), null)).isEqualTo("List<>");
-        assertThat(AstTypeResolver.extractTypeArguments("Map<List<A,B>,C,>"))
-                .containsExactly("List<A,B>", "C");
-        assertThat(AstTypeResolver.substituteType("T<String>", Map.of("T", "Integer")))
-                .isEqualTo("T<String>");
+        assertThat(AstTypeResolver.resolveAstTypeWithParams(StaticJavaParser.parseType("p.T"), List.of("T")))
+                .isEqualTo("T");
+        assertThat(AstTypeResolver.resolveAstTypeWithParams(StaticJavaParser.parseType("List<>"), null))
+                .isEqualTo("List<>");
+        assertThat(AstTypeResolver.extractTypeArguments("Map<List<A,B>,C,>")).containsExactly("List<A,B>", "C");
+        assertThat(AstTypeResolver.substituteType("T<String>", Map.of("T", "Integer"))).isEqualTo("T<String>");
     }
 
     @Test
@@ -147,8 +137,8 @@ class AstTypeResolverBoundaryTest {
 
     @Test
     void symbolSolverResolvesGenericAllocationsAndArrayAssignments() {
-        var config = new com.github.javaparser.ParserConfiguration().setSymbolResolver(
-                new com.github.javaparser.symbolsolver.JavaSymbolSolver(
+        var config = new com.github.javaparser.ParserConfiguration()
+                .setSymbolResolver(new com.github.javaparser.symbolsolver.JavaSymbolSolver(
                         new com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver()));
         var parser = new com.github.javaparser.JavaParser(config);
         var unit = parser.parse("""
@@ -189,18 +179,25 @@ class AstTypeResolverBoundaryTest {
                         new com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver())));
         for (String generic : List.of("java.util.List<String>", "java.util.List<?>")) {
             var unit = parser.parse("class C { " + generic + " value; }").getResult().orElseThrow();
-            var resolved = unit.findFirst(com.github.javaparser.ast.body.VariableDeclarator.class).orElseThrow().getType().resolve();
+            var resolved = unit.findFirst(com.github.javaparser.ast.body.VariableDeclarator.class).orElseThrow()
+                    .getType().resolve();
             var allocation = new com.github.javaparser.ast.expr.ObjectCreationExpr() {
-                @Override public com.github.javaparser.resolution.types.ResolvedType calculateResolvedType() { return resolved; }
+                @Override
+                public com.github.javaparser.resolution.types.ResolvedType calculateResolvedType() {
+                    return resolved;
+                }
             };
             allocation.setType("Raw");
-            assertThat(resolver.resolveObjectCreationType(allocation)).isEqualTo(
-                    generic.contains("?") ? "Raw" : "java.util.List<java.lang.String>");
+            assertThat(resolver.resolveObjectCreationType(allocation))
+                    .isEqualTo(generic.contains("?") ? "Raw" : "java.util.List<java.lang.String>");
         }
         var resolvedString = parser.parse("class C { String value; }").getResult().orElseThrow()
                 .findFirst(com.github.javaparser.ast.body.VariableDeclarator.class).orElseThrow().getType().resolve();
         var type = new com.github.javaparser.ast.type.ClassOrInterfaceType() {
-            @Override public com.github.javaparser.resolution.types.ResolvedType resolve() { return resolvedString; }
+            @Override
+            public com.github.javaparser.resolution.types.ResolvedType resolve() {
+                return resolvedString;
+            }
         };
         type.setName("String");
         type.setTypeArguments(StaticJavaParser.parseType("T"));

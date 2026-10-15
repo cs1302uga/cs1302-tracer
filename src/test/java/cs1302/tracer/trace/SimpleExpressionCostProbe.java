@@ -53,8 +53,7 @@ class SimpleExpressionCostProbe {
             results.put(expression, samples);
         }
         Files.writeString(Path.of("target", "simple-expression-cost.json"),
-                new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(
-                        Map.of("java", System.getProperty("java.version"),
-                                "traceNanos", results)));
+                new com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                        .toJson(Map.of("java", System.getProperty("java.version"), "traceNanos", results)));
     }
 }

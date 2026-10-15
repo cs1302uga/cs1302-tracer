@@ -29,10 +29,9 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Resident execution harness running inside the persistent guest JVM.
  *
- * <p>The harness coordinates job execution dispatched by the tracer host,
- * virtualizes standard input, isolates class loading via disposable
- * child {@link URLClassLoader} instances, and notifies the host debugger
- * via breakpoint sentinel hooks.</p>
+ * <p>The harness coordinates job execution dispatched by the tracer host, virtualizes standard input, isolates class
+ * loading via disposable child {@link URLClassLoader} instances, and notifies the host debugger via breakpoint sentinel
+ * hooks.</p>
  */
 public final class GuestHarness {
 
@@ -67,14 +66,12 @@ public final class GuestHarness {
     private static final PrintStream ORIGINAL_OUT = System.out;
     private static final PrintStream ORIGINAL_ERR = System.err;
     private static final InputStream ORIGINAL_IN = System.in;
-    private static final Thread.UncaughtExceptionHandler ORIGINAL_UNCAUGHT_EXCEPTION_HANDLER =
-            Thread.getDefaultUncaughtExceptionHandler();
-    private static final Properties ORIGINAL_PROPERTIES =
-            (Properties) System.getProperties().clone();
+    private static final Thread.UncaughtExceptionHandler ORIGINAL_UNCAUGHT_EXCEPTION_HANDLER = Thread
+            .getDefaultUncaughtExceptionHandler();
+    private static final Properties ORIGINAL_PROPERTIES = (Properties) System.getProperties().clone();
     private static final Locale ORIGINAL_DEFAULT_LOCALE = Locale.getDefault();
     private static final Locale ORIGINAL_FORMAT_LOCALE = Locale.getDefault(Locale.Category.FORMAT);
-    private static final Locale ORIGINAL_DISPLAY_LOCALE =
-            Locale.getDefault(Locale.Category.DISPLAY);
+    private static final Locale ORIGINAL_DISPLAY_LOCALE = Locale.getDefault(Locale.Category.DISPLAY);
     private static final TimeZone ORIGINAL_TIME_ZONE = (TimeZone) TimeZone.getDefault().clone();
 
     /** Prevents instantiation of utility harness. */
@@ -110,16 +107,16 @@ public final class GuestHarness {
     } // main
 
     /**
-     * Sentinel hook invoked when the harness is idle and waiting for a job.
-     * The host debugger places a breakpoint here to synchronize before dispatching.
+     * Sentinel hook invoked when the harness is idle and waiting for a job. The host debugger places a breakpoint here
+     * to synchronize before dispatching.
      */
     public static void readyForJob() {
         // Breakpoint hook for host debugger
     } // readyForJob
 
     /**
-     * Sentinel hook invoked when a job execution completes.
-     * The host debugger places a breakpoint here to finalize snapshots and output capture.
+     * Sentinel hook invoked when a job execution completes. The host debugger places a breakpoint here to finalize
+     * snapshots and output capture.
      */
     public static void onJobCompleted() {
         // Breakpoint hook for host debugger
@@ -134,8 +131,7 @@ public final class GuestHarness {
     private static void invokeMain(Class<?> targetClass) throws Exception {
         Method mainMethod = findMainMethod(targetClass);
         if (mainMethod == null) {
-            throw new NoSuchMethodException(
-                    "No suitable main method found on " + targetClass.getName());
+            throw new NoSuchMethodException("No suitable main method found on " + targetClass.getName());
         } // if
         mainMethod.setAccessible(true);
         Object receiver = null;
@@ -197,10 +193,9 @@ public final class GuestHarness {
 
         try {
             File cpFile = new File(cp);
-            URL[] urls = new URL[] {cpFile.toURI().toURL()};
+            URL[] urls = new URL[] { cpFile.toURI().toURL() };
             ThreadGroup jobGroup = new ThreadGroup("student-job-group");
-            try (URLClassLoader loader = new URLClassLoader(
-                    urls, ClassLoader.getPlatformClassLoader())) {
+            try (URLClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
                 Thread jobThread = new Thread(jobGroup, () -> {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
@@ -237,9 +232,9 @@ public final class GuestHarness {
     } // runJob
 
     /**
-     * Prints an uncaught student failure through the counted guest error stream.
-     * Reflection and harness frames are removed from the entire exception graph;
-     * student frames, causes, suppressed exceptions, and JVM messages are retained.
+     * Prints an uncaught student failure through the counted guest error stream. Reflection and harness frames are
+     * removed from the entire exception graph; student frames, causes, suppressed exceptions, and JVM messages are
+     * retained.
      *
      * @param failure Exception escaping the student entry point.
      */
@@ -256,9 +251,8 @@ public final class GuestHarness {
             for (int i = 0; i < frames.length; i++) {
                 if (frames[i].getClassName().equals(GuestHarness.class.getName())) {
                     int end = i;
-                    while (end > 0 && (frames[end - 1].getClassName().startsWith(
-                            "java.lang.reflect.") || frames[end - 1].getClassName().startsWith(
-                            "jdk.internal.reflect."))) {
+                    while (end > 0 && (frames[end - 1].getClassName().startsWith("java.lang.reflect.")
+                            || frames[end - 1].getClassName().startsWith("jdk.internal.reflect."))) {
                         end--;
                     } // while
                     current.setStackTrace(Arrays.copyOf(frames, end));
@@ -448,8 +442,7 @@ public final class GuestHarness {
      * @return Non-closeable forwarding print stream.
      */
     static PrintStream createForwardingPrintStream(PrintStream original, AtomicLong counter) {
-        return new PrintStream(
-                new UnclosableOutputStream(original, counter), true, StandardCharsets.UTF_8) {
+        return new PrintStream(new UnclosableOutputStream(original, counter), true, StandardCharsets.UTF_8) {
             @Override
             public void close() {
                 flush();

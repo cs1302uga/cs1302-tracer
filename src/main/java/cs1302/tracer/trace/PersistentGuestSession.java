@@ -43,9 +43,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Manages a persistent guest JVM worker process and its JDI debugger session.
  *
- * <p>A single persistent session executes multiple tracing jobs sequentially
- * by resetting state on the resident {@link GuestHarness} between runs,
- * eliminating repeated JVM startup and JDWP handshake overhead.</p>
+ * <p>A single persistent session executes multiple tracing jobs sequentially by resetting state on the resident
+ * {@link GuestHarness} between runs, eliminating repeated JVM startup and JDWP handshake overhead.</p>
  */
 public final class PersistentGuestSession implements AutoCloseable {
 
@@ -63,8 +62,6 @@ public final class PersistentGuestSession implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile boolean alive;
     private int completedJobCount;
-    private volatile OutputSlice lastJobOut;
-    private volatile OutputSlice lastJobErr;
 
     /**
      * Testing hook to simulate unexpected failures during cleanupJobRun.
@@ -81,13 +78,8 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param readyLocation Location of readyForJob hook.
      * @param completedLocation Location of onJobCompleted hook.
      */
-    PersistentGuestSession(
-            VirtualMachine vm,
-            StreamDrainer vmOut,
-            StreamDrainer vmErr,
-            ClassType harnessType,
-            Location readyLocation,
-            Location completedLocation) {
+    PersistentGuestSession(VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr, ClassType harnessType,
+            Location readyLocation, Location completedLocation) {
         this.vm = vm;
         this.vmOut = vmOut;
         this.vmErr = vmErr;
@@ -110,8 +102,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @throws Exception If launching or handshake fails.
      */
     public static PersistentGuestSession create() throws Exception {
-        Path harnessCp = Path.of(GuestHarness.class.getProtectionDomain()
-                .getCodeSource().getLocation().toURI());
+        Path harnessCp = Path.of(GuestHarness.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         VirtualMachine vm = GuestLauncher.launch(GuestHarness.class.getName(), harnessCp, true);
         StreamDrainer vmOut = new StreamDrainer(vm.process().getInputStream());
         StreamDrainer vmErr = new StreamDrainer(vm.process().getErrorStream());
@@ -127,8 +118,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return Initialized PersistentGuestSession paused at the initial ready hook.
      * @throws Exception If handshake or sentinel setup fails.
      */
-    static PersistentGuestSession attach(
-            VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) throws Exception {
+    static PersistentGuestSession attach(VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) throws Exception {
         try {
             ClassPrepareRequest cpr = vm.eventRequestManager().createClassPrepareRequest();
             cpr.addClassFilter(GuestHarness.class.getName());
@@ -141,8 +131,8 @@ public final class PersistentGuestSession implements AutoCloseable {
             Location[] locs = new Location[2];
             ClassType harnessType = awaitAndInstallSentinelsUntil(vm, cpr, bps, locs, deadline);
 
-            PersistentGuestSession session = new PersistentGuestSession(
-                    vm, vmOut, vmErr, harnessType, locs[0], locs[1]);
+            PersistentGuestSession session = new PersistentGuestSession(vm, vmOut, vmErr, harnessType, locs[0],
+                    locs[1]);
 
             session.waitForReadyBreakpoint(deadline);
             return session;
@@ -159,8 +149,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param vmOut Standard output drainer.
      * @param vmErr Standard error drainer.
      */
-    static void cleanupLaunchFailure(
-            VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) {
+    static void cleanupLaunchFailure(VirtualMachine vm, StreamDrainer vmOut, StreamDrainer vmErr) {
         try {
             vm.dispose();
         } catch (Throwable ignored) {
@@ -184,19 +173,14 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return Prepared ClassType for GuestHarness.
      * @throws InterruptedException On cancellation.
      */
-    static ClassType awaitAndInstallSentinelsUntil(
-            VirtualMachine vm,
-            ClassPrepareRequest cpr,
-            BreakpointRequest[] outBps,
-            Location[] outLocs,
-            long deadline) throws InterruptedException {
+    static ClassType awaitAndInstallSentinelsUntil(VirtualMachine vm, ClassPrepareRequest cpr,
+            BreakpointRequest[] outBps, Location[] outLocs, long deadline) throws InterruptedException {
         ClassType harnessType = null;
         while (true) {
             long remaining = deadline - System.currentTimeMillis();
             if (remaining <= 0) {
                 vm.process().destroyForcibly();
-                throw new IllegalStateException(
-                        "Timed out waiting for GuestHarness startup handshake");
+                throw new IllegalStateException("Timed out waiting for GuestHarness startup handshake");
             } // if
             EventSet eventSet = vm.eventQueue().remove(Math.min(1000, remaining));
             if (eventSet != null) {
@@ -210,15 +194,11 @@ public final class PersistentGuestSession implements AutoCloseable {
                 if (harnessType != null) {
                     cpr.disable();
                     vm.eventRequestManager().deleteEventRequest(cpr);
-                    Location readyLoc = harnessType.methodsByName(
-                            "readyForJob").getFirst().location();
-                    Location completedLoc = harnessType.methodsByName(
-                            "onJobCompleted").getFirst().location();
-                    BreakpointRequest readyBp =
-                            vm.eventRequestManager().createBreakpointRequest(readyLoc);
+                    Location readyLoc = harnessType.methodsByName("readyForJob").getFirst().location();
+                    Location completedLoc = harnessType.methodsByName("onJobCompleted").getFirst().location();
+                    BreakpointRequest readyBp = vm.eventRequestManager().createBreakpointRequest(readyLoc);
                     readyBp.enable();
-                    BreakpointRequest completedBp =
-                            vm.eventRequestManager().createBreakpointRequest(completedLoc);
+                    BreakpointRequest completedBp = vm.eventRequestManager().createBreakpointRequest(completedLoc);
                     completedBp.enable();
                     outBps[0] = readyBp;
                     outBps[1] = completedBp;
@@ -279,12 +259,8 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return Map of line number to execution snapshots.
      * @throws Exception On tracing or execution failure.
      */
-    public Map<Integer, List<ExecutionSnapshot>> traceWithSpecs(
-            CompilationResult cr,
-            Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources,
-            String stdin,
-            boolean accumulate) throws Exception {
+    public Map<Integer, List<ExecutionSnapshot>> traceWithSpecs(CompilationResult cr, Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources, String stdin, boolean accumulate) throws Exception {
         Map<Integer, List<ExecutionSnapshot>> snapshots = new TreeMap<>();
         SnapshotSink sink = new SnapshotSink() {
             @Override
@@ -293,23 +269,22 @@ public final class PersistentGuestSession implements AutoCloseable {
             } // accept
 
             @Override
-            public void materialize(byte[] sharedStdout, byte[] sharedStderr) {
+            public void materialize(JobOutput.Finished output) {
                 for (List<ExecutionSnapshot> list : snapshots.values()) {
                     for (int i = 0; i < list.size(); i++) {
-                        list.set(i, list.get(i).withSharedOutput(sharedStdout, sharedStderr));
+                        list.set(i, output.detach(list.get(i)));
                     } // for
                 } // for
             } // materialize
         };
-        runJobInternal(cr, specs, parsedSources, stdin, false, false, sink);
+        JobOutput.Finished output = runJobInternal(cr, specs, parsedSources, stdin, false, false, sink);
         TraceSession session = TraceSession.current();
-        boolean allowOutputUpdate = session == null
-                || !"trace_limit".equals(session.stopReason());
+        boolean allowOutputUpdate = session == null || !"trace_limit".equals(session.stopReason());
         if (allowOutputUpdate) {
             for (List<ExecutionSnapshot> list : snapshots.values()) {
                 int lastIdx = list.size() - 1;
                 ExecutionSnapshot last = list.get(lastIdx);
-                list.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
+                list.set(lastIdx, withUpdatedOutput(last, output.stdout(), output.stderr()));
             } // for
         } // if
         return accumulate ? snapshots : DebugTraceHelper.keepLatestOnly(snapshots);
@@ -322,13 +297,9 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param line Breakpoint line number, or -1 for synthetic exit/exception.
      * @param snap Raw execution snapshot.
      */
-    static void appendChronologicalSnapshot(
-            List<ExecutionSnapshot> chronological,
-            int line,
-            ExecutionSnapshot snap) {
+    static void appendChronologicalSnapshot(List<ExecutionSnapshot> chronological, int line, ExecutionSnapshot snap) {
         if (line == -1) {
-            if (chronological.isEmpty()
-                    || !DebugTraceHelper.isRedundantSnapshot(chronological.getLast(), snap)) {
+            if (chronological.isEmpty() || !DebugTraceHelper.isRedundantSnapshot(chronological.getLast(), snap)) {
                 chronological.add(snap);
             } // if
         } else {
@@ -346,11 +317,8 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return List of execution snapshots in chronological order.
      * @throws Exception On tracing or execution failure.
      */
-    public List<ExecutionSnapshot> traceChronologicalWithSpecs(
-            CompilationResult cr,
-            Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources,
-            String stdin) throws Exception {
+    public List<ExecutionSnapshot> traceChronologicalWithSpecs(CompilationResult cr, Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources, String stdin) throws Exception {
         return traceChronologicalWithSpecs(cr, specs, parsedSources, false, stdin);
     } // traceChronologicalWithSpecs
 
@@ -365,12 +333,8 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return List of execution snapshots in chronological order.
      * @throws Exception On tracing or execution failure.
      */
-    public List<ExecutionSnapshot> traceChronologicalWithSpecs(
-            CompilationResult cr,
-            Collection<BreakpointSpec> specs,
-            List<CompilationUnit> parsedSources,
-            boolean includeMainExit,
-            String stdin) throws Exception {
+    public List<ExecutionSnapshot> traceChronologicalWithSpecs(CompilationResult cr, Collection<BreakpointSpec> specs,
+            List<CompilationUnit> parsedSources, boolean includeMainExit, String stdin) throws Exception {
         List<ExecutionSnapshot> chronological = new ArrayList<>();
         SnapshotSink sink = new SnapshotSink() {
             @Override
@@ -379,21 +343,19 @@ public final class PersistentGuestSession implements AutoCloseable {
             } // accept
 
             @Override
-            public void materialize(byte[] sharedStdout, byte[] sharedStderr) {
+            public void materialize(JobOutput.Finished output) {
                 for (int i = 0; i < chronological.size(); i++) {
-                    chronological.set(i,
-                            chronological.get(i).withSharedOutput(sharedStdout, sharedStderr));
+                    chronological.set(i, output.detach(chronological.get(i)));
                 } // for
             } // materialize
         };
-        runJobInternal(cr, specs, parsedSources, stdin, true, includeMainExit, sink);
+        JobOutput.Finished output = runJobInternal(cr, specs, parsedSources, stdin, true, includeMainExit, sink);
         TraceSession session = TraceSession.current();
-        boolean allowOutputUpdate = session == null
-                || !"trace_limit".equals(session.stopReason());
+        boolean allowOutputUpdate = session == null || !"trace_limit".equals(session.stopReason());
         if (allowOutputUpdate && !chronological.isEmpty()) {
             int lastIdx = chronological.size() - 1;
             ExecutionSnapshot last = chronological.get(lastIdx);
-            chronological.set(lastIdx, withUpdatedOutput(last, lastJobOut, lastJobErr));
+            chronological.set(lastIdx, withUpdatedOutput(last, output.stdout(), output.stderr()));
         } // if
         return chronological;
     } // traceChronologicalWithSpecs
@@ -406,8 +368,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param stderr Updated stderr slice.
      * @return New snapshot with updated output slices.
      */
-    static ExecutionSnapshot withUpdatedOutput(
-            ExecutionSnapshot last, OutputSlice stdout, OutputSlice stderr) {
+    static ExecutionSnapshot withUpdatedOutput(ExecutionSnapshot last, OutputSlice stdout, OutputSlice stderr) {
         return last.withOutput(stdout, stderr);
     } // withUpdatedOutput
 
@@ -427,11 +388,9 @@ public final class PersistentGuestSession implements AutoCloseable {
         /**
          * Materializes all captured snapshot slices using shared output backing buffers.
          *
-         * @param sharedStdout Shared standard output buffer.
-         * @param sharedStderr Shared standard error buffer.
+         * @param output Immutable final job output.
          */
-        default void materialize(byte[] sharedStdout, byte[] sharedStderr) {
-        } // materialize
+        default void materialize(JobOutput.Finished output) {} // materialize
     } // SnapshotSink
 
     /**
@@ -445,24 +404,14 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param jobRequests List collecting active event requests.
      * @param loadedClasses Loaded reference types.
      * @param jobLoader Tracked child classloader for active job.
-     * @param startOut Initial standard output stream length.
-     * @param startErr Initial standard error stream length.
+     * @param output Per-job output owner.
      * @param snapMainEnd Whether to capture main exit.
      * @param isChronological True if running chronological trace.
      */
-    record JobContext(
-            CompilationResult cr,
-            Collection<BreakpointSpec> safeSpecs,
-            SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker,
-            SnapshotSink sink,
-            List<EventRequest> jobRequests,
-            HashSet<ReferenceType> loadedClasses,
-            AtomicReference<ClassLoaderReference> jobLoader,
-            int startOut,
-            int startErr,
-            boolean snapMainEnd,
-            boolean isChronological) {} // JobContext
+    record JobContext(CompilationResult cr, Collection<BreakpointSpec> safeSpecs, SourceAnalysis sourceAnalysis,
+            InputTracker inputTracker, SnapshotSink sink, List<EventRequest> jobRequests,
+            HashSet<ReferenceType> loadedClasses, AtomicReference<ClassLoaderReference> jobLoader, JobOutput output,
+            boolean snapMainEnd, boolean isChronological) {} // JobContext
 
     /**
      * Internal execution loop coordinating guest harness dispatch and JDI events.
@@ -473,16 +422,13 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param stdin Guest input.
      * @param isChronological True if running chronological trace.
      * @param sink Snapshot consumer.
+     * @return Immutable final job output.
      * @throws Exception On tracing failure.
      */
-    void runJobInternal(
-            CompilationResult cr,
-            Collection<BreakpointSpec> specs,
+    JobOutput.Finished runJobInternal(CompilationResult cr, Collection<BreakpointSpec> specs,
             List<CompilationUnit> parsedSources,
-            String stdin,
-            boolean isChronological,
-            SnapshotSink sink) throws Exception {
-        runJobInternal(cr, specs, parsedSources, stdin, isChronological, false, sink);
+            String stdin, boolean isChronological, SnapshotSink sink) throws Exception {
+        return runJobInternal(cr, specs, parsedSources, stdin, isChronological, false, sink);
     } // runJobInternal
 
     /**
@@ -495,16 +441,12 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param isChronological True if running chronological trace.
      * @param includeMainExit If true, includes the snapshot when main exits.
      * @param sink Snapshot consumer.
+     * @return Immutable final job output.
      * @throws Exception On tracing failure.
      */
-    void runJobInternal(
-            CompilationResult cr,
-            Collection<BreakpointSpec> specs,
+    JobOutput.Finished runJobInternal(CompilationResult cr, Collection<BreakpointSpec> specs,
             List<CompilationUnit> parsedSources,
-            String stdin,
-            boolean isChronological,
-            boolean includeMainExit,
-            SnapshotSink sink) throws Exception {
+            String stdin, boolean isChronological, boolean includeMainExit, SnapshotSink sink) throws Exception {
 
         if (!isAlive()) {
             throw new IllegalStateException("Persistent guest session is not alive");
@@ -512,15 +454,14 @@ public final class PersistentGuestSession implements AutoCloseable {
 
         TraceSession currentSession = TraceSession.current();
         if (currentSession != null && currentSession.threadCapture() != null) {
-            throw new IllegalArgumentException(
-                    "Multithread capture requires a dedicated guest JVM");
+            throw new IllegalArgumentException("Multithread capture requires a dedicated guest JVM");
         } // if
         if (currentSession != null) {
             vmOut.attachSession(currentSession);
             vmErr.attachSession(currentSession);
         } // if
-        int startOut = vmOut.size();
-        int startErr = vmErr.size();
+        JobOutput output = JobOutput.begin(vmOut, vmErr);
+        JobOutput.Finished finished = null;
         List<EventRequest> jobRequests = new ArrayList<>();
         Throwable tracingFailure = null;
         try {
@@ -531,11 +472,9 @@ public final class PersistentGuestSession implements AutoCloseable {
             Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
             setupJobRequests(cr, jobRequests);
 
-            JobContext ctx = new JobContext(
-                    cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
-                    sink, jobRequests, new HashSet<>(), new AtomicReference<>(), startOut, startErr,
-                    includeMainExit || safeSpecs.isEmpty()
-                            || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1),
+            JobContext ctx = new JobContext(cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
+                    sink, jobRequests, new HashSet<>(), new AtomicReference<>(), output,
+                    includeMainExit || safeSpecs.isEmpty() || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1),
                     isChronological);
 
             vm.resume();
@@ -547,13 +486,14 @@ public final class PersistentGuestSession implements AutoCloseable {
             throw t;
         } finally {
             try {
-                cleanupJobRun(currentSession, startOut, startErr, jobRequests, sink);
+                finished = cleanupJobRun(currentSession, output, jobRequests, sink);
             } catch (Throwable cleanupFailure) {
                 handleCleanupFailure(tracingFailure, cleanupFailure);
             } // try
         } // try
 
         completedJobCount++;
+        return finished;
     } // runJobInternal
 
     /**
@@ -563,8 +503,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param cleanupFailure Exception caught during job cleanup.
      * @throws Exception Propagated cleanup exception.
      */
-    void handleCleanupFailure(
-            Throwable tracingFailure, Throwable cleanupFailure) throws Exception {
+    void handleCleanupFailure(Throwable tracingFailure, Throwable cleanupFailure) throws Exception {
         alive = false;
         vm.process().destroyForcibly();
         if (tracingFailure != null) {
@@ -588,41 +527,34 @@ public final class PersistentGuestSession implements AutoCloseable {
      * Cleans up event requests, output drainers, and checks harness termination after job run.
      *
      * @param currentSession Active trace session.
-     * @param startOut Initial standard output stream length.
-     * @param startErr Initial standard error stream length.
+     * @param output Per-job output owner.
      * @param jobRequests List of event requests to tear down.
+     * @return Immutable final job output.
      * @throws InterruptedException On interruption while waiting for ready breakpoint.
      */
-    void cleanupJobRun(
-            TraceSession currentSession,
-            int startOut,
-            int startErr,
-            List<EventRequest> jobRequests) throws InterruptedException {
-        cleanupJobRun(currentSession, startOut, startErr, jobRequests, null);
+    JobOutput.Finished cleanupJobRun(TraceSession currentSession, JobOutput output, List<EventRequest> jobRequests)
+            throws InterruptedException {
+        return cleanupJobRun(currentSession, output, jobRequests, null);
     } // cleanupJobRun
 
     /**
      * Cleans up event requests, output drainers, and checks harness termination after job run.
      *
      * @param currentSession Active trace session.
-     * @param startOut Initial standard output stream length.
-     * @param startErr Initial standard error stream length.
+     * @param output Per-job output owner.
      * @param jobRequests List of event requests to tear down.
      * @param sink Captured snapshot consumer.
+     * @return Immutable final job output.
      * @throws InterruptedException On interruption while waiting for ready breakpoint.
      */
-    void cleanupJobRun(
-            TraceSession currentSession,
-            int startOut,
-            int startErr,
-            List<EventRequest> jobRequests,
+    JobOutput.Finished cleanupJobRun(TraceSession currentSession, JobOutput output, List<EventRequest> jobRequests,
             SnapshotSink sink) throws InterruptedException {
         if (cleanupHookForTesting != null) {
             cleanupHookForTesting.run();
         } // if
         teardownJobRequests(jobRequests);
-        drainJobStreams(startOut, startErr);
-        finalizeOutput(currentSession, startOut, startErr, sink);
+        drainJobStreams(output);
+        JobOutput.Finished finished = finalizeOutput(currentSession, output, sink);
         String harnessFailure = readHarnessFailure();
         if (harnessFailure != null) {
             throw new IllegalStateException("Guest harness failure: " + harnessFailure);
@@ -641,35 +573,24 @@ public final class PersistentGuestSession implements AutoCloseable {
             vm.resume();
             waitForReadyBreakpoint();
         } // if
+        return finished;
     } // cleanupJobRun
 
     /**
      * Drains guest stdout and stderr using barrier thresholds if available.
      *
-     * @param startOut Initial standard output stream length.
-     * @param startErr Initial standard error stream length.
+     * @param output Per-job output owner.
      */
-    private void drainJobStreams(int startOut, int startErr) {
+    private void drainJobStreams(JobOutput output) {
         long expectedOut = 0;
         long expectedErr = 0;
         try {
-            expectedOut = ((com.sun.jdi.LongValue) harnessType.getValue(
-                    harnessType.fieldByName("outBytes"))).value();
-            expectedErr = ((com.sun.jdi.LongValue) harnessType.getValue(
-                    harnessType.fieldByName("errBytes"))).value();
+            expectedOut = ((com.sun.jdi.LongValue) harnessType.getValue(harnessType.fieldByName("outBytes"))).value();
+            expectedErr = ((com.sun.jdi.LongValue) harnessType.getValue(harnessType.fieldByName("errBytes"))).value();
         } catch (Exception ignored) {
             // ignore inspection error
         } // try
-        if (expectedOut > 0) {
-            vmOut.syncUntil(startOut + expectedOut, 1000);
-        } else {
-            vmOut.sync();
-        } // if
-        if (expectedErr > 0) {
-            vmErr.syncUntil(startErr + expectedErr, 1000);
-        } else {
-            vmErr.sync();
-        } // if
+        output.drain(expectedOut, expectedErr);
         vmOut.detachSession();
         vmErr.detachSession();
     } // drainJobStreams
@@ -678,37 +599,27 @@ public final class PersistentGuestSession implements AutoCloseable {
      * Finalizes output slices and updates the active trace session if present.
      *
      * @param currentSession Active trace session.
-     * @param startOut Initial standard output stream length.
-     * @param startErr Initial standard error stream length.
+     * @param output Per-job output owner.
      * @param sink Captured snapshot consumer.
+     * @return Immutable final job output.
      */
-    private void finalizeOutput(
-            TraceSession currentSession,
-            int startOut,
-            int startErr,
-            SnapshotSink sink) {
-        OutputSlice finalOut = OutputSlice.from(
-                vmOut, startOut, Math.max(0, vmOut.size() - startOut)).materialize();
-        OutputSlice rawErr = OutputSlice.from(
-                vmErr, startErr, Math.max(0, vmErr.size() - startErr));
-        OutputSlice finalErr = DebugTraceHelper.sanitizeDebuggeeStderrSlice(rawErr).materialize();
-        this.lastJobOut = finalOut;
-        this.lastJobErr = finalErr;
-        byte[] sharedOut = finalOut.toByteArray();
-        byte[] sharedErr = finalErr.toByteArray();
+    private JobOutput.Finished finalizeOutput(TraceSession currentSession, JobOutput output, SnapshotSink sink) {
+        JobOutput.Finished finished = output.finish();
+        OutputSlice finalOut = finished.stdout();
+        OutputSlice finalErr = finished.stderr();
         if (sink != null) {
-            sink.materialize(sharedOut, sharedErr);
+            sink.materialize(finished);
         } // if
         if (currentSession != null) {
             currentSession.finishOutput(finalOut, finalErr);
-            currentSession.setCapturedOutput(
-                    finalOut.asUtf8String(), finalErr.asUtf8String(),
-                    finalOut.length(), finalErr.length());
+            currentSession.setCapturedOutput(finalOut.asUtf8String(), finalErr.asUtf8String(), finalOut.length(),
+                    finalErr.length());
             if (currentSession.isStopped()) {
                 alive = false;
                 vm.process().destroyForcibly();
             } // if
         } // if
+        return finished;
     } // finalizeOutput
 
     /**
@@ -746,9 +657,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param cr Compilation result.
      * @param jobRequests Target list of event requests.
      */
-    private void setupJobRequests(
-            CompilationResult cr,
-            List<EventRequest> jobRequests) {
+    private void setupJobRequests(CompilationResult cr, List<EventRequest> jobRequests) {
 
         for (String className : cr.compiledClassNames()) {
             ClassPrepareRequest req = vm.eventRequestManager().createClassPrepareRequest();
@@ -762,10 +671,8 @@ public final class PersistentGuestSession implements AutoCloseable {
         mainExitReq.enable();
         jobRequests.add(mainExitReq);
 
-        String[] readerClasses = {
-            "java.util.Scanner", "java.io.BufferedReader", "java.lang.IO",
-            "java.io.InputStream", "java.io.BufferedInputStream"
-        };
+        String[] readerClasses = { "java.util.Scanner", "java.io.BufferedReader", "java.lang.IO", "java.io.InputStream",
+            "java.io.BufferedInputStream" };
         for (String rc : readerClasses) {
             MethodExitRequest mer = vm.eventRequestManager().createMethodExitRequest();
             mer.addClassFilter(rc);
@@ -777,8 +684,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         er.enable();
         jobRequests.add(er);
         for (String className : cr.compiledClassNames()) {
-            ExceptionRequest caught = vm.eventRequestManager()
-                    .createExceptionRequest(null, true, false);
+            ExceptionRequest caught = vm.eventRequestManager().createExceptionRequest(null, true, false);
             caught.addClassFilter(className);
             caught.enable();
             jobRequests.add(caught);
@@ -792,7 +698,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @throws Exception On event handling error.
      */
     void executeJobEventLoop(JobContext ctx) throws Exception {
-        boolean[] recorded = new boolean[] {false};
+        boolean[] recorded = new boolean[] { false };
         boolean jobComplete = false;
         ObjectReference systemIn = DebugTraceHelper.getSystemIn(vm);
 
@@ -817,8 +723,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return True if the job has completed and the event loop should terminate.
      * @throws Exception On snapshot capture failure.
      */
-    boolean dispatchJobEvent(
-            Event event, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
+    boolean dispatchJobEvent(Event event, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
             throws Exception {
         switch (event) {
         case ClassPrepareEvent cpe -> {
@@ -826,8 +731,8 @@ public final class PersistentGuestSession implements AutoCloseable {
                 ClassLoaderReference cl = cpe.referenceType().classLoader();
                 ctx.jobLoader().compareAndSet(null, cl);
                 if (Objects.equals(ctx.jobLoader().get(), cl)) {
-                    List<BreakpointRequest> bprs = DebugTraceHelper.registerBreakpoints(
-                            vm, cpe.referenceType(), ctx.safeSpecs());
+                    List<BreakpointRequest> bprs = DebugTraceHelper.registerBreakpoints(vm, cpe.referenceType(),
+                            ctx.safeSpecs());
                     ctx.jobRequests().addAll(bprs);
                     ctx.loadedClasses().add(cpe.referenceType());
                 } // if
@@ -868,8 +773,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @return True if onJobCompleted breakpoint was reached.
      * @throws Exception On snapshot capture failure.
      */
-    boolean handleBreakpointEvent(
-            BreakpointEvent bpe, JobContext ctx, boolean[] recorded) throws Exception {
+    boolean handleBreakpointEvent(BreakpointEvent bpe, JobContext ctx, boolean[] recorded) throws Exception {
         Location loc = bpe.location();
         if (loc.equals(completedLocation)) {
             return true;
@@ -879,9 +783,9 @@ public final class PersistentGuestSession implements AutoCloseable {
             return false;
         } // if
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
-            ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
-                    bpe.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                    ctx.inputTracker(), ctx.startOut(), ctx.startErr(), harnessType.classLoader());
+            ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(bpe.thread(), ctx.loadedClasses(), vmOut, vmErr,
+                    ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
+                    harnessType.classLoader());
             ctx.sink().accept(loc.lineNumber(), snap);
             recorded[0] = true;
         } // if
@@ -897,20 +801,17 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param systemIn System.in reference.
      * @throws Exception On snapshot capture failure.
      */
-    void handleMethodExit(
-            MethodExitEvent mee, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
+    void handleMethodExit(MethodExitEvent mee, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
             throws Exception {
         ClassLoaderReference cl = mee.method().declaringType().classLoader();
-        if (ctx.jobLoader().get() != null && cl != null
-                && !Objects.equals(ctx.jobLoader().get(), cl)) {
+        if (ctx.jobLoader().get() != null && cl != null && !Objects.equals(ctx.jobLoader().get(), cl)) {
             return;
         } // if
         if (DebugTraceHelper.isMainMethodExit(mee.method())
                 && ctx.cr().mainClass().equals(mee.method().declaringType().name())) {
             if (ctx.snapMainEnd()) {
-                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
-                        mee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                        ctx.inputTracker(), ctx.startOut(), ctx.startErr(),
+                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(mee.thread(), ctx.loadedClasses(), vmOut,
+                        vmErr, ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(-1, snap);
                 recorded[0] = true;
@@ -929,13 +830,11 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param recorded Flag tracking snapshot recording.
      * @throws Exception On snapshot capture failure.
      */
-    void handleExceptionEvent(
-            ExceptionEvent ee, JobContext ctx, boolean[] recorded) throws Exception {
+    void handleExceptionEvent(ExceptionEvent ee, JobContext ctx, boolean[] recorded) throws Exception {
         Location loc = ee.location();
         Location catchLoc = ee.catchLocation();
         ClassLoaderReference cl = loc != null ? loc.declaringType().classLoader() : null;
-        if (ctx.jobLoader().get() != null && cl != null
-                && !Objects.equals(ctx.jobLoader().get(), cl)) {
+        if (ctx.jobLoader().get() != null && cl != null && !Objects.equals(ctx.jobLoader().get(), cl)) {
             return;
         } // if
         boolean uncaughtInStudent = catchLoc == null
@@ -946,9 +845,8 @@ public final class PersistentGuestSession implements AutoCloseable {
                 if (currentSession != null) {
                     currentSession.guestException(ee.exception().referenceType().name());
                 } // if
-                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(
-                        ee.thread(), ctx.loadedClasses(), vmOut, vmErr, ctx.sourceAnalysis(),
-                        ctx.inputTracker(), ctx.startOut(), ctx.startErr(),
+                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(ee.thread(), ctx.loadedClasses(), vmOut,
+                        vmErr, ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(loc.lineNumber(), snap);
                 if (!ctx.isChronological()) {
@@ -997,8 +895,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             if (remaining <= 0) {
                 alive = false;
                 vm.process().destroyForcibly();
-                throw new IllegalStateException(
-                        "Timed out waiting for GuestHarness ready breakpoint");
+                throw new IllegalStateException("Timed out waiting for GuestHarness ready breakpoint");
             } // if
             EventSet eventSet = null;
             try {
@@ -1018,8 +915,7 @@ public final class PersistentGuestSession implements AutoCloseable {
                             break;
                         } // if
                     } // if
-                    if (event instanceof VMDeathEvent
-                            || event instanceof VMDisconnectEvent) {
+                    if (event instanceof VMDeathEvent || event instanceof VMDisconnectEvent) {
                         alive = false;
                         ready = true;
                         break;

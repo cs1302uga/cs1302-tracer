@@ -41,12 +41,8 @@ import javax.tools.ToolProvider;
 /**
  * A collection of methods that are used to compile a Java program.
  *
- * <p>Normative References:
- * <ul>
- *   <li>JSR-199: The Java Compiler API (package {@code javax.tools}).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;7
- *       (Packages and Compilation Units).
- * </ul>
+ * <p>Normative References: <ul> <li>JSR-199: The Java Compiler API (package {@code javax.tools}). <li>The Java Language
+ * Specification (Java SE 21 Edition), &sect;7 (Packages and Compilation Units). </ul>
  */
 public class CompilationHelper {
 
@@ -57,12 +53,12 @@ public class CompilationHelper {
 
     /**
      * Compatibility matcher for source delimiters, with nonbacktracking whitespace and markers.
+     *
      * @deprecated Use {@link SourceDelimiters#scan(CharSequence)} for delimiter offsets and paths.
      */
     @Deprecated(since = "3.2.0")
     public static final java.util.regex.Pattern DELIMITER_PATTERN = java.util.regex.Pattern.compile(
-            "^//[ \t]*+[-=]{3,}+[ \t]*+(.*?\\.java)[ \t]*+[-=]{3,}+[ \t]*+$",
-            java.util.regex.Pattern.MULTILINE);
+            "^//[ \t]*+[-=]{3,}+[ \t]*+(.*?\\.java)[ \t]*+[-=]{3,}+[ \t]*+$", java.util.regex.Pattern.MULTILINE);
 
     /**
      * Represents an individual source file from a single-file or multi-file input stream.
@@ -71,10 +67,7 @@ public class CompilationHelper {
      * @param content Source code content.
      * @param ast Parsed CompilationUnit AST.
      */
-    public record SourceFile(
-            String relativePath,
-            String content,
-            CompilationUnit ast) {} // SourceFile
+    public record SourceFile(String relativePath, String content, CompilationUnit ast) {} // SourceFile
 
     /**
      * Parse a single-file or multi-file Java stream demarcated by comment delimiters.
@@ -96,26 +89,20 @@ public class CompilationHelper {
             filePaths.add(delimiter.path());
         } // for
 
-        JavaParser parser = new JavaParser(
-                new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
+        JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
 
         if (filePaths.isEmpty()) {
             ParseResult<CompilationUnit> parseResult = parser.parse(rawInput);
             if (!parseResult.isSuccessful()) {
-                throw new IllegalArgumentException(
-                        "Parsing failed with the following errors: "
-                                + parseResult.getProblems().stream()
-                                .map(Object::toString)
-                                .collect(Collectors.joining(", ", "[", "]")));
+                throw new IllegalArgumentException("Parsing failed with the following errors: " + parseResult
+                        .getProblems().stream().map(Object::toString).collect(Collectors.joining(", ", "[", "]")));
             } // if
             CompilationUnit cu = parseResult.getResult().get();
-            String relPath = findTopLevelDeclarationBinaryName(cu).replace('.', File.separatorChar)
-                    + ".java";
+            String relPath = findTopLevelDeclarationBinaryName(cu).replace('.', File.separatorChar) + ".java";
             return List.of(new SourceFile(relPath, rawInput, cu));
         } // if
 
-        return parseMultiFileParts(
-                rawInput, delimiterStarts, delimiterEnds, filePaths, parser);
+        return parseMultiFileParts(rawInput, delimiterStarts, delimiterEnds, filePaths, parser);
     } // parseMultiFileStream
 
     /**
@@ -128,12 +115,8 @@ public class CompilationHelper {
      * @param parser Configured JavaParser.
      * @return List of parsed SourceFiles.
      */
-    private static List<SourceFile> parseMultiFileParts(
-            String rawInput,
-            List<Integer> starts,
-            List<Integer> ends,
-            List<String> filePaths,
-            JavaParser parser) {
+    private static List<SourceFile> parseMultiFileParts(String rawInput, List<Integer> starts, List<Integer> ends,
+            List<String> filePaths, JavaParser parser) {
         List<SourceFile> result = new ArrayList<>();
         for (int i = 0; i < filePaths.size(); i++) {
             int contentStart = ends.get(i);
@@ -148,10 +131,8 @@ public class CompilationHelper {
             ParseResult<CompilationUnit> parseResult = parser.parse(content);
             if (!parseResult.isSuccessful()) {
                 throw new IllegalArgumentException(
-                        "Parsing failed for " + filePaths.get(i) + " with errors: "
-                                + parseResult.getProblems().stream()
-                                .map(Object::toString)
-                                .collect(Collectors.joining(", ", "[", "]")));
+                        "Parsing failed for " + filePaths.get(i) + " with errors: " + parseResult.getProblems().stream()
+                                .map(Object::toString).collect(Collectors.joining(", ", "[", "]")));
             } // if
             CompilationUnit cu = parseResult.getResult().get();
             String rawPath = filePaths.get(i).replace('\\', '/');
@@ -190,8 +171,7 @@ public class CompilationHelper {
             throw new IllegalArgumentException("No source files provided");
         } // if
         for (SourceFile sf : sourceFiles) {
-            if (!sf.ast().findAll(
-                    MethodDeclaration.class, CompilationHelper::isMainMethod).isEmpty()) {
+            if (!sf.ast().findAll(MethodDeclaration.class, CompilationHelper::isMainMethod).isEmpty()) {
                 return sf;
             } // if
         } // for
@@ -252,8 +232,7 @@ public class CompilationHelper {
             String[] parts = pkgName.get().split("\\.");
             Path curr = parent;
             for (int i = parts.length - 1; i >= 0; i--) {
-                if (curr.getFileName() != null
-                        && curr.getFileName().toString().equals(parts[i])) {
+                if (curr.getFileName() != null && curr.getFileName().toString().equals(parts[i])) {
                     curr = curr.getParent();
                 } else {
                     return Optional.empty();
@@ -264,10 +243,7 @@ public class CompilationHelper {
             } // if
             return Optional.empty();
         } else {
-            List<Path> candidates = List.of(
-                    Path.of("."),
-                    Path.of("src/main/java"),
-                    Path.of("src"));
+            List<Path> candidates = List.of(Path.of("."), Path.of("src/main/java"), Path.of("src"));
             for (Path candidate : candidates) {
                 Path pkgDir = candidate.resolve(pkgPathStr);
                 if (Files.isDirectory(pkgDir)) {
@@ -299,11 +275,9 @@ public class CompilationHelper {
      * @throws IOException If an I/O error occurs.
      * @throws IllegalArgumentException If the Java program failed to compile.
      */
-    public static CompilationResult compile(String javaSource, Optional<Path> sourceRoot)
-            throws IOException {
+    public static CompilationResult compile(String javaSource, Optional<Path> sourceRoot) throws IOException {
         List<SourceFile> sourceFiles = parseMultiFileStream(javaSource);
-        boolean previewEnabled =
-                detectPreviewUsage(sourceFiles.stream().map(SourceFile::ast).toList());
+        boolean previewEnabled = detectPreviewUsage(sourceFiles.stream().map(SourceFile::ast).toList());
         Path workingDir = Files.createTempDirectory("code-tracer");
         try {
             List<File> files = writeSourceFiles(workingDir, sourceFiles);
@@ -312,8 +286,7 @@ public class CompilationHelper {
             MethodDeclaration mainMethod = findMain(entryPoint.ast());
             String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
             return new CompilationResult(workingDir, classes, mainClass,
-                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir),
-                    previewEnabled);
+                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir), previewEnabled);
         } catch (IOException | RuntimeException | Error failure) {
             cleanupAfterFailure(workingDir, failure);
             throw failure;
@@ -322,6 +295,7 @@ public class CompilationHelper {
 
     /**
      * Cleans compilation output while preserving the original failure.
+     *
      * @param workingDir Owned output directory.
      * @param failure Original compilation failure.
      */
@@ -335,6 +309,7 @@ public class CompilationHelper {
 
     /**
      * Compiles source files while owning the compiler's file manager.
+     *
      * @param workingDir Output directory.
      * @param files Source files.
      * @param sourceRoot Optional dependency root.
@@ -342,22 +317,17 @@ public class CompilationHelper {
      * @return Compiled binary names.
      * @throws IOException On file manager failure.
      */
-    private static Set<String> compileFiles(
-            Path workingDir,
-            List<File> files,
-            Optional<Path> sourceRoot,
+    private static Set<String> compileFiles(Path workingDir, List<File> files, Optional<Path> sourceRoot,
             boolean previewEnabled) throws IOException {
         Set<String> classes = new HashSet<>();
-        JavaCompiler compiler = Objects.requireNonNull(
-                ToolProvider.getSystemJavaCompiler(), "Could not get Java compiler");
+        JavaCompiler compiler = Objects.requireNonNull(ToolProvider.getSystemJavaCompiler(),
+                "Could not get Java compiler");
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-        try (StandardJavaFileManager standard =
-                compiler.getStandardFileManager(diagnostics, null, null)) {
+        try (StandardJavaFileManager standard = compiler.getStandardFileManager(diagnostics, null, null)) {
             JavaFileManager forwarding = new ForwardingJavaFileManager<>(standard) {
                 @Override
-                public JavaFileObject getJavaFileForOutput(
-                        Location location, String className, Kind kind, FileObject sibling)
-                        throws IOException {
+                public JavaFileObject getJavaFileForOutput(Location location, String className, Kind kind,
+                        FileObject sibling) throws IOException {
                     classes.add(className);
                     return super.getJavaFileForOutput(location, className, kind, sibling);
                 } // getJavaFileForOutput
@@ -366,11 +336,9 @@ public class CompilationHelper {
                     buildCompilerOptions(workingDir, sourceRoot, previewEnabled), null,
                     standard.getJavaFileObjectsFromFiles(files)).call();
             if (!success) {
-                throw new IllegalArgumentException(
-                        "Compilation of provided Java source code failed"
-                        + " with the following messages:"
-                        + "\n" + diagnostics.getDiagnostics().stream()
-                        .map(Object::toString).collect(Collectors.joining("\n")));
+                throw new IllegalArgumentException("Compilation of provided Java source code failed"
+                        + " with the following messages:" + "\n" + diagnostics.getDiagnostics().stream()
+                                .map(Object::toString).collect(Collectors.joining("\n")));
             } // if
         } // try
         return classes;
@@ -384,8 +352,7 @@ public class CompilationHelper {
      * @return List of created File objects.
      * @throws IOException On write error.
      */
-    private static List<File> writeSourceFiles(
-            Path workingDir, List<SourceFile> sourceFiles) throws IOException {
+    private static List<File> writeSourceFiles(Path workingDir, List<SourceFile> sourceFiles) throws IOException {
         List<File> allSourceFiles = new ArrayList<>();
         Set<Path> destinations = new HashSet<>();
         // Validate the complete input before any write into this private directory.
@@ -394,8 +361,7 @@ public class CompilationHelper {
             Path relative = Path.of(path).normalize();
             Path target = workingDir.resolve(relative).normalize();
             if (relative.isAbsolute() || path.contains(":") || !target.startsWith(workingDir)
-                    || !relative.toString().endsWith(".java")
-                    || !destinations.add(target)) {
+                    || !relative.toString().endsWith(".java") || !destinations.add(target)) {
                 throw new IllegalArgumentException("Invalid or duplicate source path: " + path);
             } // if
             allSourceFiles.add(target.toFile());
@@ -403,8 +369,7 @@ public class CompilationHelper {
         for (int i = 0; i < sourceFiles.size(); i++) {
             Path target = allSourceFiles.get(i).toPath();
             Files.createDirectories(target.getParent());
-            Files.writeString(target, sourceFiles.get(i).content(),
-                    java.nio.file.StandardOpenOption.CREATE_NEW);
+            Files.writeString(target, sourceFiles.get(i).content(), java.nio.file.StandardOpenOption.CREATE_NEW);
         } // for
         return allSourceFiles;
     } // writeSourceFiles
@@ -417,8 +382,8 @@ public class CompilationHelper {
      * @param previewEnabled Whether preview features are enabled.
      * @return List of option strings.
      */
-    private static List<String> buildCompilerOptions(
-            Path workingDir, Optional<Path> sourceRoot, boolean previewEnabled) {
+    private static List<String> buildCompilerOptions(Path workingDir, Optional<Path> sourceRoot,
+            boolean previewEnabled) {
         List<String> compilerOptions = new ArrayList<>();
         compilerOptions.add("-g");
         if (previewEnabled) {
@@ -440,8 +405,8 @@ public class CompilationHelper {
     } // buildCompilerOptions
 
     /**
-     * Checks whether the given compilation units use preview language or library features
-     * such as java.lang.IO or instance main methods.
+     * Checks whether the given compilation units use preview language or library features such as java.lang.IO or
+     * instance main methods.
      *
      * @param compilationUnits List of compilation units to inspect.
      * @return True if preview features are detected, false otherwise.
@@ -470,8 +435,8 @@ public class CompilationHelper {
         } // if
         for (ImportDeclaration imp : cu.getImports()) {
             String name = imp.getNameAsString();
-            if (name.equals("java.lang.IO") || name.equals("java.io.IO")
-                    || name.startsWith("java.lang.IO.") || name.startsWith("java.io.IO.")) {
+            if (name.equals("java.lang.IO") || name.equals("java.io.IO") || name.startsWith("java.lang.IO.")
+                    || name.startsWith("java.io.IO.")) {
                 return true;
             } // if
         } // for
@@ -479,8 +444,7 @@ public class CompilationHelper {
         for (MethodCallExpr call : calls) {
             if (call.getScope().isPresent()) {
                 String scope = call.getScope().get().toString();
-                if (scope.equals("IO") || scope.equals("java.lang.IO")
-                        || scope.equals("java.io.IO")) {
+                if (scope.equals("IO") || scope.equals("java.lang.IO") || scope.equals("java.io.IO")) {
                     return true;
                 } // if
             } // if
@@ -496,6 +460,7 @@ public class CompilationHelper {
 
     /**
      * Deletes owned compilation files without hiding cleanup failures.
+     *
      * @param directory Private working directory.
      * @throws IOException On cleanup failure.
      */
@@ -520,27 +485,20 @@ public class CompilationHelper {
     private static String findTopLevelDeclarationBinaryName(CompilationUnit compilationUnit) {
         List<Node> topLevelNodes = new ArrayList<>();
         new Node.DirectChildrenIterator(compilationUnit).forEachRemaining(topLevelNodes::add);
-        List<TypeDeclaration<?>> topLevelPublicDeclarations =
-                topLevelNodes.stream()
-                        .filter(n -> n instanceof TypeDeclaration)
-                        .map(n -> (TypeDeclaration<?>) n)
-                        .filter(NodeWithPublicModifier::isPublic)
-                        .collect(Collectors.toList());
+        List<TypeDeclaration<?>> topLevelPublicDeclarations = topLevelNodes.stream()
+                .filter(n -> n instanceof TypeDeclaration).map(n -> (TypeDeclaration<?>) n)
+                .filter(NodeWithPublicModifier::isPublic).collect(Collectors.toList());
 
         if (topLevelPublicDeclarations.size() != 1) {
-            String lines = "[" + String.join(
-                    ", ",
-                    topLevelPublicDeclarations.stream()
-                            .filter(m -> m.getBegin().isPresent())
-                            .map(m -> m.getBegin().get().line)
-                            .map(Object::toString)
-                            .toArray(String[]::new))
+            String lines = "["
+                    + String.join(", ",
+                            topLevelPublicDeclarations.stream().filter(m -> m.getBegin().isPresent())
+                                    .map(m -> m.getBegin().get().line).map(Object::toString).toArray(String[]::new))
                     + "]";
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Java source code must have exactly one public top-level type "
-                                    + "declaration. Found %d such declarations on lines %s.",
-                            topLevelPublicDeclarations.size(), lines));
+            throw new IllegalArgumentException(String.format(
+                    "Java source code must have exactly one public top-level type "
+                            + "declaration. Found %d such declarations on lines %s.",
+                    topLevelPublicDeclarations.size(), lines));
         } // if
 
         TypeDeclaration<?> fileClass = topLevelPublicDeclarations.get(0);
@@ -557,8 +515,7 @@ public class CompilationHelper {
      * @param declaration The declaration.
      * @return The FQN of the declaration's direct ancestor.
      */
-    private static List<String> getAncestorFqn(
-            CompilationUnit compilationUnit, BodyDeclaration<?> declaration) {
+    private static List<String> getAncestorFqn(CompilationUnit compilationUnit, BodyDeclaration<?> declaration) {
         Iterator<Node> parents = new Node.ParentsVisitor(declaration);
         List<String> ancestorNames = new LinkedList<>();
         while (parents.hasNext()) {
@@ -586,17 +543,12 @@ public class CompilationHelper {
         boolean isNamedMain = m.getNameAsString().equals("main");
         boolean hasVoidReturn = m.getType().isVoidType();
         boolean hasStringArrArg = m.getParameterByType(String[].class)
-                .or(() -> m.getParameterByType("java.lang.String[]"))
-                .isPresent();
+                .or(() -> m.getParameterByType("java.lang.String[]")).isPresent();
         boolean hasStringVarargsArg = m.getParameterByType(String.class)
-                .or(() -> m.getParameterByType("java.lang.String"))
-                .map(p -> p.isVarArgs())
-                .orElse(false);
+                .or(() -> m.getParameterByType("java.lang.String")).map(p -> p.isVarArgs()).orElse(false);
         boolean hasOneArg = m.getParameters().size() == 1;
-        boolean supportedMain = isNamedMain
-                && hasVoidReturn
-                && (m.getParameters().isEmpty()
-                        || (hasOneArg && (hasStringArrArg ^ hasStringVarargsArg)));
+        boolean supportedMain = isNamedMain && hasVoidReturn
+                && (m.getParameters().isEmpty() || (hasOneArg && (hasStringArrArg ^ hasStringVarargsArg)));
         return supportedMain;
     } // isMainMethod
 
@@ -608,23 +560,15 @@ public class CompilationHelper {
      * @throws IllegalArgumentException if main method count != 1
      */
     private static MethodDeclaration findMain(CompilationUnit compilationUnit) {
-        List<MethodDeclaration> mainMethods =
-                compilationUnit.findAll(MethodDeclaration.class, CompilationHelper::isMainMethod);
+        List<MethodDeclaration> mainMethods = compilationUnit.findAll(MethodDeclaration.class,
+                CompilationHelper::isMainMethod);
 
         if (mainMethods.size() != 1) {
-            String lines = "[" + String.join(
-                    ", ",
-                    mainMethods.stream()
-                            .filter(m -> m.getBegin().isPresent())
-                            .map(m -> m.getBegin().get().line)
-                            .map(Object::toString)
-                            .toArray(String[]::new))
-                    + "]";
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Java source code must have exactly one main method. "
-                                    + "Found %d main methods on lines %s.",
-                            mainMethods.size(), lines));
+            String lines = "[" + String.join(", ", mainMethods.stream().filter(m -> m.getBegin().isPresent())
+                    .map(m -> m.getBegin().get().line).map(Object::toString).toArray(String[]::new)) + "]";
+            throw new IllegalArgumentException(String.format(
+                    "Java source code must have exactly one main method. " + "Found %d main methods on lines %s.",
+                    mainMethods.size(), lines));
         } // if
 
         return mainMethods.getFirst();
@@ -639,13 +583,8 @@ public class CompilationHelper {
      * @param sourceRoot The source root used during compilation, if any.
      * @param previewEnabled True if preview features were enabled during compilation.
      */
-    public record CompilationResult(
-            Path classPath,
-            Set<String> compiledClassNames,
-            String mainClass,
-            Optional<Path> sourceRoot,
-            boolean previewEnabled)
-            implements AutoCloseable {
+    public record CompilationResult(Path classPath, Set<String> compiledClassNames, String mainClass,
+            Optional<Path> sourceRoot, boolean previewEnabled) implements AutoCloseable {
 
         /**
          * Constructs a CompilationResult with an explicit source root.
@@ -655,10 +594,7 @@ public class CompilationHelper {
          * @param mainClass Main entry class name.
          * @param sourceRoot Source root path.
          */
-        public CompilationResult(
-                Path classPath,
-                Set<String> compiledClassNames,
-                String mainClass,
+        public CompilationResult(Path classPath, Set<String> compiledClassNames, String mainClass,
                 Optional<Path> sourceRoot) {
             this(classPath, compiledClassNames, mainClass, sourceRoot, false);
         } // CompilationResult
@@ -670,8 +606,7 @@ public class CompilationHelper {
          * @param compiledClassNames Set of compiled class names.
          * @param mainClass Main entry class name.
          */
-        public CompilationResult(
-                Path classPath, Set<String> compiledClassNames, String mainClass) {
+        public CompilationResult(Path classPath, Set<String> compiledClassNames, String mainClass) {
             this(classPath, compiledClassNames, mainClass, Optional.empty(), false);
         } // CompilationResult
 
@@ -680,8 +615,7 @@ public class CompilationHelper {
             try {
                 deleteWorkingDirectory(classPath);
             } catch (IOException failure) {
-                throw new java.io.UncheckedIOException(
-                        "Unable to clean compilation files", failure);
+                throw new java.io.UncheckedIOException("Unable to clean compilation files", failure);
             } // try
         } // close
     } // CompilationResult

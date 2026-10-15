@@ -65,8 +65,8 @@ public class InputTracker {
     } // isExhausted
 
     /**
-     * Records consumption of a token (e.g., from {@code Scanner.next*}), advancing past any
-     * leading whitespace/delimiters and through the token itself.
+     * Records consumption of a token (e.g., from {@code Scanner.next*}), advancing past any leading
+     * whitespace/delimiters and through the token itself.
      *
      * @param token The token consumed.
      */
@@ -81,9 +81,8 @@ public class InputTracker {
     } // consumeToken
 
     /**
-     * Records consumption of a full line (e.g., from {@code Scanner.nextLine},
-     * {@code BufferedReader.readLine}, or {@code IO.readln}), advancing through the line
-     * and consuming any immediate line terminator (CRLF, LF, or CR).
+     * Records consumption of a full line (e.g., from {@code Scanner.nextLine}, {@code BufferedReader.readLine}, or
+     * {@code IO.readln}), advancing through the line and consuming any immediate line terminator (CRLF, LF, or CR).
      *
      * @param line The line content consumed (excluding newline delimiter).
      */
@@ -110,8 +109,8 @@ public class InputTracker {
     } // consumeLine
 
     /**
-     * Records raw UTF-8 byte consumption, advancing only through complete code points.
-     * Character offsets remain UTF-16 indices into the supplied input string.
+     * Records raw UTF-8 byte consumption, advancing only through complete code points. Character offsets remain UTF-16
+     * indices into the supplied input string.
      *
      * @param count Number of bytes consumed by {@code InputStream.read}.
      */
@@ -122,8 +121,7 @@ public class InputTracker {
         pendingBytes += count;
         while (cursor < stdin.length()) {
             int end = cursor + Character.charCount(stdin.codePointAt(cursor));
-            int bytes = stdin.substring(cursor, end)
-                    .getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            int bytes = stdin.substring(cursor, end).getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
             if (pendingBytes < bytes) {
                 break;
             } // if

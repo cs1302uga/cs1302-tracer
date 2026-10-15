@@ -29,14 +29,14 @@ class Person {
         this.lastName = otherPerson.lastName;
         this.honorific = otherPerson.honorific;
     } // Person
-    
+
     public String getFirstName() {
         return this.firstName;
     } // getFirstName
 
     public String getLastName() {
         return this.lastName;
-    } // getLastName    
+    } // getLastName
 
     public String getHonorific() {
         return this.honorific;
@@ -48,7 +48,7 @@ class Person {
 
     public void setLastName(String lastName) {
         this.lastName = lastName;
-    } // setLastName    
+    } // setLastName
 
     public void setHonorific(String honorific) {
         this.honorific = honorific;
@@ -65,7 +65,7 @@ class Person {
     public String toString() {
         return this.getFullName();
     } // toString
-    
+
 } // Person
 
 enum Semester {
@@ -73,11 +73,11 @@ enum Semester {
 } // Semester
 
 class CourseOffering {
-    
+
     private String courseName;
     private Person instructor;
     private Semester semester;
-    private int year;    
+    private int year;
 
     public CourseOffering(String courseName, Person instructor, Semester semester, int year) {
         this.courseName = courseName;
@@ -93,7 +93,7 @@ class CourseOffering {
     public Person getInstructor() {
         return this.instructor;
     } // getPerson
-    
+
     public Semester getSemester() {
         return this.semester;
     } // getSemester
@@ -105,5 +105,5 @@ class CourseOffering {
     public String toString() {
         return String.format("%s (%s %s) with %s", this.courseName, this.semester, this.year, this.instructor);
     } // toString
-    
+
 } // CourseOffering

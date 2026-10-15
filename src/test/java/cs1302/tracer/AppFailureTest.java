@@ -15,10 +15,10 @@ class AppFailureTest {
     @Test
     void lexicalErrorsAreRejectedWithAndWithoutSymbolSolver() {
         var trace = new App.Trace();
-        assertThatThrownBy(() -> trace.parseSource("/*"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("Failed to parse Java source");
-        assertThatThrownBy(() -> trace.parseSource("/*", Optional.empty()))
-                .isInstanceOf(IllegalArgumentException.class).hasMessage("Failed to parse Java source with symbol solver");
+        assertThatThrownBy(() -> trace.parseSource("/*")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Failed to parse Java source");
+        assertThatThrownBy(() -> trace.parseSource("/*", Optional.empty())).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Failed to parse Java source with symbol solver");
     }
 
     @Test
@@ -55,10 +55,14 @@ class AppFailureTest {
         PrintStream oldOutput = System.out;
         var bytes = new ByteArrayOutputStream();
         try {
-            System.setIn(new ByteArrayInputStream("public class C {}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            System.setIn(
+                    new ByteArrayInputStream("public class C {}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             System.setOut(new PrintStream(bytes));
             trace.run();
-        } finally { System.setIn(oldInput); System.setOut(oldOutput); }
+        } finally {
+            System.setIn(oldInput);
+            System.setOut(oldOutput);
+        }
         JsonObject result = JsonParser.parseString(bytes.toString()).getAsJsonObject();
         assertThat(status.get()).isEqualTo(result.get("status").getAsString().equals("stopped") ? 3 : 1);
         return result;
@@ -67,8 +71,9 @@ class AppFailureTest {
     @Test
     void interruptedExecutionCancelsEnvelopeAndPreservesInterrupt() {
         var trace = new App.Trace() {
-            @Override List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session,
-                    TraceLimits limits, String guestStdin) throws Exception {
+            @Override
+            List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+                    String guestStdin) throws Exception {
                 throw new InterruptedException("interrupted guest");
             }
         };
@@ -76,15 +81,22 @@ class AppFailureTest {
             var result = envelope(trace, "--accumulate-breakpoints");
             assertThat(result.get("stopReason").getAsString()).isEqualTo("cancelled");
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
-        } finally { Thread.interrupted(); }
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     @Test
     void serializationFailureProducesAFailedEnvelope() {
         var trace = new App.Trace() {
-            @Override List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session,
-                    TraceLimits limits, String guestStdin) { return List.of(); }
-            @Override Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
+            @Override
+            List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+                    String guestStdin) {
+                return List.of();
+            }
+
+            @Override
+            Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
                 throw new IllegalStateException("serializer unavailable");
             }
         };
@@ -98,18 +110,21 @@ class AppFailureTest {
     @Test
     void discoveryIgnoresUnreadableUnreferencedSources(@TempDir Path directory) throws Exception {
         var trace = new App.Trace();
-        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits", List.class, Optional.class, Optional.class);
+        var discover = App.Trace.class.getDeclaredMethod("discoverAllCompilationUnits", List.class, Optional.class,
+                Optional.class);
         discover.setAccessible(true);
-        Files.write(directory.resolve("Invalid.java"), new byte[] {(byte) 0xff});
+        Files.write(directory.resolve("Invalid.java"), new byte[] { (byte) 0xff });
         Files.writeString(directory.resolve("notes.txt"), "not java");
         assertThat(discover.invoke(trace, List.of(), Optional.of(directory), Optional.empty())).isEqualTo(List.of());
-        assertThat(discover.invoke(trace, List.of(), Optional.of(directory.resolve("missing")), Optional.empty())).isEqualTo(List.of());
+        assertThat(discover.invoke(trace, List.of(), Optional.of(directory.resolve("missing")), Optional.empty()))
+                .isEqualTo(List.of());
         assertThat(trace.getInputPath()).isEmpty();
     }
 
     @Test
     void breakpointLookupFallsBackToFilename() throws Exception {
-        var method = App.ListBreakpoints.class.getDeclaredMethod("findValidLinesForFile", Map.class, CompilationHelper.SourceFile.class);
+        var method = App.ListBreakpoints.class.getDeclaredMethod("findValidLinesForFile", Map.class,
+                CompilationHelper.SourceFile.class);
         method.setAccessible(true);
         var command = new App.ListBreakpoints();
         var source = new CompilationHelper.SourceFile("src/C.java", "", new CompilationUnit());
@@ -124,7 +139,8 @@ class AppFailureTest {
     @Test
     void ordinaryModernTraceAcceptsExplicitChronologicalLines() {
         var result = AppTest.executeCommand(App.Trace::new,
-                "public class C { public static void main(String[] a) { int n = 1; } }", "-f", "modern", "-a", "-b", "1");
+                "public class C { public static void main(String[] a) { int n = 1; } }", "-f", "modern", "-a", "-b",
+                "1");
         assertThat(result).isPresent();
         assertThat(JsonParser.parseString(result.orElseThrow()).getAsJsonObject().getAsJsonArray("steps")).isNotEmpty();
     }

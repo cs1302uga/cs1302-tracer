@@ -17,8 +17,8 @@ class ThreadSerializationTest {
         var field = new ExecutionSnapshot.Field(false, "int", "args",
                 new cs1302.tracer.trace.TraceValue.Primitive.Integer(7));
         var frame = new StackSnapshot("work", 7, List.of(field), Optional.empty());
-        var snapshot = new ExecutionSnapshot(List.of(frame), List.of(), Map.of(),
-                OutputSlice.empty(), OutputSlice.empty(), Optional.empty(), "", 0,
+        var snapshot = new ExecutionSnapshot(List.of(frame), List.of(), Map.of(), OutputSlice.empty(),
+                OutputSlice.empty(), Optional.empty(), "", 0,
                 List.of(new ThreadSnapshot(1, "worker", "RUNNABLE", List.of(frame))), 1L, "step_line");
         var step = new ModernTraceSerializer(true, false, false).createStep(snapshot, 1, false);
         assertThat(step.callStack().getFirst().locals()).hasSize(1);
@@ -28,10 +28,11 @@ class ThreadSerializationTest {
     @Test
     void serializesThreadIdentityStatesAndEmptyTerminatedStacks() {
         var frame = new StackSnapshot("work", 7, List.of(), Optional.empty(), Optional.of("Main.java"));
-        var snapshot = new ExecutionSnapshot(List.of(frame), List.of(), Map.of(),
-                OutputSlice.empty(), OutputSlice.empty(), Optional.of("Main.java"), "", 0,
+        var snapshot = new ExecutionSnapshot(List.of(frame), List.of(), Map.of(), OutputSlice.empty(),
+                OutputSlice.empty(), Optional.of("Main.java"), "", 0,
                 List.of(new ThreadSnapshot(1, "worker", "RUNNABLE", List.of(frame, frame)),
-                        new ThreadSnapshot(2, "done", "TERMINATED", List.of())), 1L, "thread_death");
+                        new ThreadSnapshot(2, "done", "TERMINATED", List.of())),
+                1L, "thread_death");
         var step = new ModernTraceSerializer(false, false, false).createStep(snapshot, 1, true);
         assertThat(step.triggeringThreadId()).isEqualTo(1);
         assertThat(step.event()).isEqualTo("thread_death");

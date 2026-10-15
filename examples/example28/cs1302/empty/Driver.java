@@ -1,17 +1,11 @@
 package cs1302.empty;
 
 /**
- * Demonstrates empty string and zero-length array instances on the heap
- * alongside their non-empty counterparts.
+ * Demonstrates empty string and zero-length array instances on the heap alongside their non-empty counterparts.
  *
- * <p>
- * Normative References:
- * <ul>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §3.10.5 (String Literals).</li>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §10.1 (Array Types).</li>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li>
- * </ul>
- * </p>
+ * <p> Normative References: <ul> <li>The Java Language Specification (JLS), Java SE 21 Edition, §3.10.5 (String
+ * Literals).</li> <li>The Java Language Specification (JLS), Java SE 21 Edition, §10.1 (Array Types).</li> <li>The Java
+ * Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li> </ul> </p>
  */
 public class Driver {
 

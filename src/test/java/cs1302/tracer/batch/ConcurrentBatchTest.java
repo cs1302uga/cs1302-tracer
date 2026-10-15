@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 @Timeout(60)
 class ConcurrentBatchTest {
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @ValueSource(booleans = { false, true })
     @SuppressWarnings("try") // Explicit producer close signals EOF before awaiting stream completion.
     void streamsInConfiguredOrderBeforeInputCloses(boolean completionOrder) throws Exception {
         var secondFinished = new CountDownLatch(1);
@@ -41,7 +41,8 @@ class ConcurrentBatchTest {
             return new BatchJobResponse(request.id(), TraceResult.failed("modern", "test", "test"));
         };
         var output = new StringWriter() {
-            @Override public void flush() {
+            @Override
+            public void flush() {
                 if (getBuffer().length() > 0) {
                     firstOutput.countDown();
                 }
@@ -67,10 +68,10 @@ class ConcurrentBatchTest {
             assertThat(firstOutput.await(10, TimeUnit.SECONDS)).isTrue();
             producer.close();
             running.get(10, TimeUnit.SECONDS);
-            var ids = output.toString().lines().map(line ->
-                    JsonParser.parseString(line).getAsJsonObject().get("id").getAsString()).toList();
-            assertThat(ids).containsExactlyElementsOf(completionOrder
-                    ? List.of("fast", "slow") : List.of("slow", "fast"));
+            var ids = output.toString().lines()
+                    .map(line -> JsonParser.parseString(line).getAsJsonObject().get("id").getAsString()).toList();
+            assertThat(ids)
+                    .containsExactlyElementsOf(completionOrder ? List.of("fast", "slow") : List.of("slow", "fast"));
         } finally {
             releaseFirst.countDown();
         }
@@ -82,19 +83,17 @@ class ConcurrentBatchTest {
                 var input = Files.newInputStream(Path.of("examples/concurrent-batch/jobs.ndjson"))) {
             var output = new StringWriter();
             service.processStream(input, output);
-            var responses = output.toString().lines()
-                    .map(line -> JsonParser.parseString(line).getAsJsonObject()).toList();
+            var responses = output.toString().lines().map(line -> JsonParser.parseString(line).getAsJsonObject())
+                    .toList();
             assertThat(responses).hasSize(3);
-            assertThat(responses.stream().map(r -> r.get("id").getAsString()).toList())
-                    .containsExactly("workers", "counter", "quick");
-            assertThat(responses).allSatisfy(r -> assertThat(r.getAsJsonObject("result")
-                    .get("complete").getAsBoolean()).as("%s", r).isTrue());
+            assertThat(responses.stream().map(r -> r.get("id").getAsString()).toList()).containsExactly("workers",
+                    "counter", "quick");
+            assertThat(responses).allSatisfy(
+                    r -> assertThat(r.getAsJsonObject("result").get("complete").getAsBoolean()).as("%s", r).isTrue());
             assertThat(responses.get(0).getAsJsonObject("result").get("stdout").getAsString())
                     .isEqualTo("2\n2\njoined\n");
-            assertThat(responses.get(1).getAsJsonObject("result").get("stdout").getAsString())
-                    .isEqualTo("6\n");
-            assertThat(responses.get(2).getAsJsonObject("result").get("stdout").getAsString())
-                    .isEqualTo("quick\n");
+            assertThat(responses.get(1).getAsJsonObject("result").get("stdout").getAsString()).isEqualTo("6\n");
+            assertThat(responses.get(2).getAsJsonObject("result").get("stdout").getAsString()).isEqualTo("quick\n");
         }
     }
 
@@ -115,33 +114,38 @@ class ConcurrentBatchTest {
             }
             return new BatchJobResponse(request.id(), TraceResult.failed("modern", "test", "test"));
         };
-        var input = new ByteArrayInputStream(("{\"id\":\"first\"}\n"
-                + "{\"id\":\"second\"}\n{\"id\":\"third\"}\n").getBytes(StandardCharsets.UTF_8));
+        var input = new ByteArrayInputStream(("{\"id\":\"first\"}\n" + "{\"id\":\"second\"}\n{\"id\":\"third\"}\n")
+                .getBytes(StandardCharsets.UTF_8));
         var output = new StringWriter();
         try (var service = new BatchTraceService(2, 10, 2, true, runner)) {
             service.processStream(input, output);
         }
-        var ids = output.toString().lines().map(line ->
-                JsonParser.parseString(line).getAsJsonObject().get("id").getAsString()).toList();
+        var ids = output.toString().lines()
+                .map(line -> JsonParser.parseString(line).getAsJsonObject().get("id").getAsString()).toList();
         assertThat(ids).containsExactlyInAnyOrder("first", "second", "third");
         assertThat(ids.getFirst()).isEqualTo("second");
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @ValueSource(booleans = { false, true })
     void reportsOutputFailuresInsteadOfSilentlyDroppingResponses(boolean completionOrder) throws Exception {
         var broken = new Writer() {
-            @Override public void write(char[] buffer, int offset, int count) throws IOException {
+            @Override
+            public void write(char[] buffer, int offset, int count) throws IOException {
                 throw new IOException("output disconnected");
             }
-            @Override public void flush() {}
-            @Override public void close() {}
+
+            @Override
+            public void flush() {}
+
+            @Override
+            public void close() {}
         };
         try (var service = new BatchTraceService(1, 10, 1, completionOrder,
                 request -> new BatchJobResponse(request.id(), TraceResult.failed("modern", "test", "test")))) {
             var input = new ByteArrayInputStream("{\"id\":\"one\"}\n".getBytes(StandardCharsets.UTF_8));
-            assertThatThrownBy(() -> service.processStream(input, broken))
-                    .isInstanceOf(IOException.class).hasMessageContaining("Failed to write batch response");
+            assertThatThrownBy(() -> service.processStream(input, broken)).isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to write batch response");
         }
     }
 
@@ -150,8 +154,8 @@ class ConcurrentBatchTest {
         try (var worker = new BatchTraceWorker(10, () -> {
             throw new AssertionError("validation must precede launch");
         })) {
-            var request = new BatchJobRequest("invalid", "ignored", "pytutor", "", null,
-                    false, false, false, false, false, null, null, null, true);
+            var request = new BatchJobRequest("invalid", "ignored", "pytutor", "", null, false, false, false, false,
+                    false, null, null, null, true);
             var result = worker.execute(request).result();
             assertThat(result.status()).isEqualTo("failed");
             assertThat(result.phase()).isEqualTo("validation");
@@ -170,8 +174,8 @@ class ConcurrentBatchTest {
                 }
                 """;
         try (var worker = new BatchTraceWorker(10)) {
-            var request = new BatchJobRequest("isolated", source, "modern", "", null,
-                    false, false, false, false, false, null, null, null, true);
+            var request = new BatchJobRequest("isolated", source, "modern", "", null, false, false, false, false, false,
+                    null, null, null, true);
             var result = worker.execute(request).result();
             assertThat(result.complete()).as("%s", result).isTrue();
             assertThat(result.stdout()).isEqualTo("submitted\n");
@@ -182,8 +186,7 @@ class ConcurrentBatchTest {
     @ParameterizedTest
     @NullSource
     @EnumSource(InspectionPolicy.class)
-    void multithreadBatchRequiresExplicitlySubmittedDependencies(InspectionPolicy inspection)
-            throws Exception {
+    void multithreadBatchRequiresExplicitlySubmittedDependencies(InspectionPolicy inspection) throws Exception {
         var source = """
                 // --- Main.java ---
                 package cs1302.tracer.execution;
@@ -193,14 +196,12 @@ class ConcurrentBatchTest {
                     }
                 }
                 """;
-        var dependency = Files.readString(Path.of(
-                "src/main/java/cs1302/tracer/execution/InspectionPolicy.java"));
+        var dependency = Files.readString(Path.of("src/main/java/cs1302/tracer/execution/InspectionPolicy.java"));
         try (var worker = new BatchTraceWorker(10)) {
             for (boolean submitted : List.of(false, true)) {
                 var request = new BatchJobRequest("isolated",
-                        source + (submitted ? "// --- InspectionPolicy.java ---\n" + dependency : ""),
-                        "modern", "", null, false, false, false, false, false,
-                        null, null, inspection, true);
+                        source + (submitted ? "// --- InspectionPolicy.java ---\n" + dependency : ""), "modern", "",
+                        null, false, false, false, false, false, null, null, inspection, true);
                 var result = worker.execute(request).result();
                 assertThat(result.complete()).as("%s", result).isEqualTo(submitted);
                 assertThat(result.diagnostics()).anyMatch(message -> message.startsWith("FIELDS inspection"));
@@ -216,11 +217,11 @@ class ConcurrentBatchTest {
     @Test
     void stoppedMultithreadBatchKeepsItsThreadAwareHistory() throws Exception {
         var source = Files.readString(Path.of("examples/example34/Driver.java"));
-        var limits = new cs1302.tracer.execution.TraceLimits(
-                10000, 3, 1048576, 1000, 10000, 1048576, 1048576, 1, 16, 1024, 1048576);
+        var limits = new cs1302.tracer.execution.TraceLimits(10000, 3, 1048576, 1000, 10000, 1048576, 1048576, 1, 16,
+                1024, 1048576);
         try (var worker = new BatchTraceWorker(10)) {
-            var request = new BatchJobRequest("partial", source, "modern", "", null,
-                    false, false, false, false, false, null, limits, null, true);
+            var request = new BatchJobRequest("partial", source, "modern", "", null, false, false, false, false, false,
+                    null, limits, null, true);
             var result = worker.execute(request).result();
             assertThat(result.stopReason()).isEqualTo("snapshot_limit");
             var trace = (cs1302.tracer.model.modern.Trace) result.trace();
@@ -233,11 +234,8 @@ class ConcurrentBatchTest {
 
     @Test
     void rejectsInvalidConfiguration() {
-        assertThatThrownBy(() -> new BatchTraceService(0, 10, 1, false))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new BatchTraceService(1, 0, 1, false))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new BatchTraceService(1, 10, 0, false))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new BatchTraceService(0, 10, 1, false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new BatchTraceService(1, 0, 1, false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new BatchTraceService(1, 10, 0, false)).isInstanceOf(IllegalArgumentException.class);
     }
 }

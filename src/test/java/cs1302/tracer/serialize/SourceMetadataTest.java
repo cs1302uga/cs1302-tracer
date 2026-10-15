@@ -21,8 +21,7 @@ class SourceMetadataTest {
     void reusesParsedMetadataAcrossSnapshotTraces() {
         String code = "public class Main {}";
         SourceMetadata metadata = SourceMetadata.from(code);
-        ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
+        ExecutionSnapshot snapshot = new ExecutionSnapshot(List.of(), List.of(), Map.of(), new byte[0], new byte[0]);
         var first = pytutor.createTrace(code, "input", snapshot, metadata);
         var second = pytutor.createTrace(code, null, snapshot, metadata);
         assertThat(first.sources()).isSameAs(metadata.sources());
@@ -35,23 +34,18 @@ class SourceMetadataTest {
 
     @Test
     void rejectsAmbiguousDebugPathsInsteadOfLosingSourceFiles() {
-        String code = "// --- a/Common.java ---\nclass A {}\n"
-                + "// --- b/Common.java ---\nclass B {}\n";
-        assertThatThrownBy(() -> pytutor.createTrace(code, List.of()))
-                .isInstanceOf(IllegalArgumentException.class)
+        String code = "// --- a/Common.java ---\nclass A {}\n" + "// --- b/Common.java ---\nclass B {}\n";
+        assertThatThrownBy(() -> pytutor.createTrace(code, List.of())).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate debug source path: Common.java");
-        assertThatThrownBy(() -> modern.createTrace(code, List.of()))
-                .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> modern.createTrace(code, List.of())).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate debug source path: Common.java");
     }
 
     @Test
     void retainsEverySourceAndSelectsEntryPointWithoutSnapshots() {
         String unused = "package demo;\r\n\r\nclass Unused {}  \r\n";
-        String main = "package demo;\npublic class Main {\n"
-                + "  public static void main(String[] args) {}\n}\n\n";
-        String code = "// --- Unused.java ---\r\n" + unused
-                + "// --- src/demo/Main.java ---\n" + main;
+        String main = "package demo;\npublic class Main {\n" + "  public static void main(String[] args) {}\n}\n\n";
+        String code = "// --- Unused.java ---\r\n" + unused + "// --- src/demo/Main.java ---\n" + main;
         Map<String, String> expected = Map.of("demo/Unused.java", unused, "demo/Main.java", main);
         var py = pytutor.createTrace(code, List.of());
         var mo = modern.createTrace(code, List.of());
@@ -77,8 +71,7 @@ class SourceMetadataTest {
         String code = "package demo;\r\npublic class Main {\r\n"
                 + "  public static void main(String[] args) {}\r\n}\r\n";
         ExecutionSnapshot snapshot = new ExecutionSnapshot(
-                List.of(new StackSnapshot("main", 3, List.of(), Optional.empty(),
-                        Optional.of("demo/Main.java"))),
+                List.of(new StackSnapshot("main", 3, List.of(), Optional.empty(), Optional.of("demo/Main.java"))),
                 List.of(), Map.of(), new byte[0], new byte[0], Optional.of("demo/Main.java"));
         var py = pytutor.createTrace(code, snapshot);
         var mo = modern.createTrace(code, snapshot);
@@ -87,10 +80,8 @@ class SourceMetadataTest {
         assertThat(py.entryFile()).isEqualTo("demo/Main.java");
         assertThat(mo.entryFile()).isEqualTo(py.entryFile());
         assertThat(py.sources().get(py.trace().getFirst().file())).isEqualTo(code);
-        assertThat(py.sources().get(py.trace().getFirst().stackToRender().getFirst().file()))
-                .isEqualTo(code);
+        assertThat(py.sources().get(py.trace().getFirst().stackToRender().getFirst().file())).isEqualTo(code);
         assertThat(mo.sources().get(mo.steps().getFirst().file())).isEqualTo(code);
-        assertThat(mo.sources().get(mo.steps().getFirst().callStack().getFirst().file()))
-                .isEqualTo(code);
+        assertThat(mo.sources().get(mo.steps().getFirst().callStack().getFirst().file())).isEqualTo(code);
     }
 }

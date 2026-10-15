@@ -1,5 +1,6 @@
 public class Driver {
     static int count;
+
     static void work() {
         for (int i = 0; i < 3; i++) {
             int observed = count;
@@ -7,6 +8,7 @@ public class Driver {
             count = observed + 1;
         }
     }
+
     public static void main(String[] args) throws InterruptedException {
         Thread first = new Thread(Driver::work, "first");
         Thread second = new Thread(Driver::work, "second");

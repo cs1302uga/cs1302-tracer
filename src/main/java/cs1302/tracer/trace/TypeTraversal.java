@@ -22,12 +22,13 @@ final class TypeTraversal {
 
     /**
      * Collects types in child-before-parent order after checking every AST child.
+     *
      * @param root Type root.
      * @return Postorder types.
      */
     static List<Type> postorder(Type root) {
-        var pending = new ArrayDeque<Frame>();
-        var types = new ArrayList<Type>();
+        ArrayDeque<Frame> pending = new ArrayDeque<Frame>();
+        List<Type> types = new ArrayList<Type>();
         pending.push(new Frame(root, 1, root instanceof ArrayType ? 0 : 1));
         while (!pending.isEmpty()) {
             Frame frame = pending.pop();
@@ -46,8 +47,9 @@ final class TypeTraversal {
     } // postorder
 
     /**
-     * Conservatively bounds delimiter nesting in a type fragment, not a Java source file.
-     * Annotation text also counts; syntax validation remains the parser's responsibility.
+     * Conservatively bounds delimiter nesting in a type fragment, not a Java source file. Annotation text also counts;
+     * syntax validation remains the parser's responsibility.
+     *
      * @param text Type fragment.
      */
     static void validateText(String text) {

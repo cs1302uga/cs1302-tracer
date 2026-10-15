@@ -45,10 +45,7 @@ public class ModernTraceSerializer {
      * @param removeMethodThis Whether this references should be omitted from method frames.
      * @param typeStyle The type qualification style (FQN or SIMPLE).
      */
-    public ModernTraceSerializer(
-            boolean removeMainArgs,
-            boolean inlineStrings,
-            boolean removeMethodThis,
+    public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
             TypeStyle typeStyle) {
         this.removeMainArgs = removeMainArgs;
         this.inlineStrings = inlineStrings;
@@ -63,8 +60,7 @@ public class ModernTraceSerializer {
      * @param inlineStrings Whether strings should be inlined.
      * @param removeMethodThis Whether this references should be omitted from method frames.
      */
-    public ModernTraceSerializer(
-            boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
+    public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
         this(removeMainArgs, inlineStrings, removeMethodThis, TypeStyle.FQN);
     } // ModernTraceSerializer
 
@@ -145,8 +141,7 @@ public class ModernTraceSerializer {
      * @param breakpointSnapshots The mapping of line numbers to snapshots.
      * @return The generated modern Trace object.
      */
-    public Trace createBreakpointsTrace(
-            String javaSource, Map<Integer, ?> breakpointSnapshots) {
+    public Trace createBreakpointsTrace(String javaSource, Map<Integer, ?> breakpointSnapshots) {
         return createBreakpointsTrace(javaSource, "", breakpointSnapshots);
     } // createBreakpointsTrace
 
@@ -158,8 +153,7 @@ public class ModernTraceSerializer {
      * @param breakpointSnapshots The mapping of line numbers to snapshots.
      * @return The generated modern Trace object.
      */
-    public Trace createBreakpointsTrace(
-            String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
+    public Trace createBreakpointsTrace(String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
@@ -187,17 +181,13 @@ public class ModernTraceSerializer {
      */
     public Step createStep(ExecutionSnapshot snapshot, int stepNumber, boolean isMultiFile) {
         ValueTraversal.validate(snapshot);
-        String currentMethod =
-                snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
+        String currentMethod = snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();
         String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
 
         List<Variable> statics = new ArrayList<>();
         for (Field f : snapshot.statics()) {
-            statics.add(new Variable(
-                    f.identifier(),
-                    typeStyle.format(f.typeName()),
-                    serializeValue(f.value()),
+            statics.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
                     f.isFinal()));
         } // for
 
@@ -206,8 +196,7 @@ public class ModernTraceSerializer {
         for (int i = 0; i < stackSize; i++) {
             boolean isCurrent = (i == stackSize - 1);
             boolean isMain = (i == 0);
-            callStack.add(serializeStackFrame(
-                    snapshot.stack().get(i), isCurrent, isMain, isMultiFile));
+            callStack.add(serializeStackFrame(snapshot.stack().get(i), isCurrent, isMain, isMultiFile));
         } // for
 
         Map<String, HeapObject> heap = new LinkedHashMap<>();
@@ -221,40 +210,29 @@ public class ModernTraceSerializer {
         String stderr = decodeOutput(snapshot.stderr());
 
         List<Step.ThreadState> threads = serializeThreads(snapshot, isMultiFile);
-        return new Step(
-                stepNumber,
-                currentLine,
-                stepFile,
-                snapshot.event() == null ? "step_line" : snapshot.event(),
-                currentMethod,
-                callStack,
-                statics,
-                heap,
-                stdout,
-                stderr,
-                snapshot.stdinConsumed(),
+        return new Step(stepNumber, currentLine, stepFile, snapshot.event() == null ? "step_line" : snapshot.event(),
+                currentMethod, callStack, statics, heap, stdout, stderr, snapshot.stdinConsumed(),
                 snapshot.stdinOffset(), threads, snapshot.triggeringThreadId());
     } // createStep
 
     /**
      * Converts optional application thread states using the same frame options as the event stack.
+     *
      * @param snapshot Captured state.
      * @param isMultiFile Include source file names.
      * @return Thread models, or null for legacy output.
      */
-    private List<Step.ThreadState> serializeThreads(
-            ExecutionSnapshot snapshot, boolean isMultiFile) {
+    private List<Step.ThreadState> serializeThreads(ExecutionSnapshot snapshot, boolean isMultiFile) {
         List<Step.ThreadState> threads = null;
         if (snapshot.threads() != null) {
             threads = new ArrayList<>();
-            for (var thread : snapshot.threads()) {
+            for (ExecutionSnapshot.ThreadSnapshot thread : snapshot.threads()) {
                 List<StackFrame> frames = new ArrayList<>();
                 for (int i = 0; i < thread.stack().size(); i++) {
-                    frames.add(serializeStackFrame(thread.stack().get(i),
-                            i == thread.stack().size() - 1, i == 0, isMultiFile));
+                    frames.add(serializeStackFrame(thread.stack().get(i), i == thread.stack().size() - 1, i == 0,
+                            isMultiFile));
                 } // for
-                threads.add(new Step.ThreadState(
-                        thread.id(), thread.name(), thread.state(), frames));
+                threads.add(new Step.ThreadState(thread.id(), thread.name(), thread.state(), frames));
             } // for
         } // if
         return threads;
@@ -268,10 +246,7 @@ public class ModernTraceSerializer {
      */
     private String decodeOutput(byte[] bytes) {
         try {
-            return Charset.defaultCharset()
-                    .newDecoder()
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
+            return Charset.defaultCharset().newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
         } catch (CharacterCodingException cce) {
             return "";
         } // try
@@ -286,8 +261,8 @@ public class ModernTraceSerializer {
      * @param isMultiFile True if relative file paths should be included.
      * @return The serialized modern StackFrame.
      */
-    private StackFrame serializeStackFrame(
-            StackSnapshot frame, boolean isCurrent, boolean isMain, boolean isMultiFile) {
+    private StackFrame serializeStackFrame(StackSnapshot frame, boolean isCurrent, boolean isMain,
+            boolean isMultiFile) {
         Reference thisRef = null;
         if (!removeMethodThis && frame.thisObject().isPresent()) {
             ThisObject to = frame.thisObject().get();
@@ -296,26 +271,16 @@ public class ModernTraceSerializer {
 
         List<Variable> locals = new ArrayList<>();
         for (Field field : frame.visibleVariables()) {
-            if (removeMainArgs && isMain && "main".equals(frame.methodName())
-                    && "args".equals(field.identifier())) {
+            if (removeMainArgs && isMain && "main".equals(frame.methodName()) && "args".equals(field.identifier())) {
                 continue;
             } // if
-            locals.add(new Variable(
-                    field.identifier(),
-                    typeStyle.format(field.typeName()),
-                    serializeValue(field.value()),
-                    field.isFinal()));
+            locals.add(new Variable(field.identifier(), typeStyle.format(field.typeName()),
+                    serializeValue(field.value()), field.isFinal()));
         } // for
 
         String frameFile = isMultiFile ? frame.sourcePath().orElse(null) : null;
 
-        return new StackFrame(
-                frame.methodName(),
-                frame.methodLine(),
-                frameFile,
-                isCurrent,
-                thisRef,
-                locals);
+        return new StackFrame(frame.methodName(), frame.methodLine(), frameFile, isCurrent, thisRef, locals);
     } // serializeStackFrame
 
     /**
@@ -326,25 +291,25 @@ public class ModernTraceSerializer {
      */
     private Object serializeValue(TraceValue value) {
         return switch (value) {
-            case null -> null;
-            case TraceValue.Primitive.Float f -> f.value();
-            case TraceValue.Primitive.Double d -> {
-                if (Double.isInfinite(d.value())) {
-                    yield d.value() > 0 ? "Infinity" : "-Infinity";
-                } // if
-                if (Double.isNaN(d.value())) {
-                    yield "NaN";
-                } // if
-                yield d.value();
-            } // case
-            case TraceValue.Primitive.Character c -> Character.toString(c.value());
-            case TraceValue.Primitive.Byte b -> b.value();
-            case TraceValue.Primitive.Short s -> s.value();
-            case TraceValue.Primitive.Integer i -> i.value();
-            case TraceValue.Primitive.Long l -> l.value();
-            case TraceValue.Primitive.Boolean b -> b.value();
-            case TraceValue.Reference ref -> new Reference(ref.uniqueId());
-            default -> null;
+        case null -> null;
+        case TraceValue.Primitive.Float f -> f.value();
+        case TraceValue.Primitive.Double d -> {
+            if (Double.isInfinite(d.value())) {
+                yield d.value() > 0 ? "Infinity" : "-Infinity";
+            } // if
+            if (Double.isNaN(d.value())) {
+                yield "NaN";
+            } // if
+            yield d.value();
+        } // case
+        case TraceValue.Primitive.Character c -> Character.toString(c.value());
+        case TraceValue.Primitive.Byte b -> b.value();
+        case TraceValue.Primitive.Short s -> s.value();
+        case TraceValue.Primitive.Integer i -> i.value();
+        case TraceValue.Primitive.Long l -> l.value();
+        case TraceValue.Primitive.Boolean b -> b.value();
+        case TraceValue.Reference ref -> new Reference(ref.uniqueId());
+        default -> null;
         }; // switch
     } // serializeValue
 
@@ -357,51 +322,41 @@ public class ModernTraceSerializer {
      */
     private HeapObject serializeHeapObject(long id, TraceValue value) {
         return switch (value) {
-            case TraceValue.Object obj -> {
-                List<Variable> fields = new ArrayList<>();
-                for (Field f : obj.fields()) {
-                    fields.add(new Variable(
-                            f.identifier(),
-                            typeStyle.format(f.typeName()),
-                            serializeValue(f.value()),
-                            f.isFinal()));
-                } // for
-                String typeLabel = typeStyle.format(obj.classFqn());
-                if (obj.enumConstant().isPresent()) {
-                    typeLabel += "." + obj.enumConstant().get();
-                } // if
-                yield HeapObject.ofObject(id, typeLabel, fields);
-            } // case
-            case TraceValue.String str ->
-                    HeapObject.ofString(id, typeStyle.format("java.lang.String"), str.value());
-            case TraceValue.Lambda lambda ->
-                    HeapObject.ofLambda(id, "lambda", lambda.implementation());
-            case TraceValue.List list -> {
-                List<Object> elements = list.value().stream().map(this::serializeValue).toList();
-                yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements);
-            } // case
-            case TraceValue.Collection col -> {
-                List<Object> elements = col.value().stream().map(this::serializeValue).toList();
-                yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements);
-            } // case
-            case TraceValue.Map map -> {
-                List<Variable> entries = new ArrayList<>();
-                for (Entry<? extends TraceValue, ? extends TraceValue> entry
-                        : map.value().entrySet()) {
-                    Object k = serializeValue(entry.getKey());
-                    Object v = serializeValue(entry.getValue());
-                    entries.add(new Variable(String.valueOf(k), "entry", v, false));
-                } // for
-                yield HeapObject.ofObject(id, typeStyle.format(map.typeName()), entries);
-            } // case
-            case TraceValue.Primitive prim ->
-                    HeapObject.ofBox(
-                            id,
-                            typeStyle.format(prim.toWrapperObject().getClass().getName()),
-                            serializeValue(prim));
-            case TraceValue.Color col ->
-                    HeapObject.ofColor(id, typeStyle.format(col.classFqn()), col.hex());
-            default -> HeapObject.ofObject(id, "Object", List.of());
+        case TraceValue.Object obj -> {
+            List<Variable> fields = new ArrayList<>();
+            for (Field f : obj.fields()) {
+                fields.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
+                        f.isFinal()));
+            } // for
+            String typeLabel = typeStyle.format(obj.classFqn());
+            if (obj.enumConstant().isPresent()) {
+                typeLabel += "." + obj.enumConstant().get();
+            } // if
+            yield HeapObject.ofObject(id, typeLabel, fields);
+        } // case
+        case TraceValue.String str -> HeapObject.ofString(id, typeStyle.format("java.lang.String"), str.value());
+        case TraceValue.Lambda lambda -> HeapObject.ofLambda(id, "lambda", lambda.implementation());
+        case TraceValue.List list -> {
+            List<Object> elements = list.value().stream().map(this::serializeValue).toList();
+            yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements);
+        } // case
+        case TraceValue.Collection col -> {
+            List<Object> elements = col.value().stream().map(this::serializeValue).toList();
+            yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements);
+        } // case
+        case TraceValue.Map map -> {
+            List<Variable> entries = new ArrayList<>();
+            for (Entry<? extends TraceValue, ? extends TraceValue> entry : map.value().entrySet()) {
+                Object k = serializeValue(entry.getKey());
+                Object v = serializeValue(entry.getValue());
+                entries.add(new Variable(String.valueOf(k), "entry", v, false));
+            } // for
+            yield HeapObject.ofObject(id, typeStyle.format(map.typeName()), entries);
+        } // case
+        case TraceValue.Primitive prim ->
+            HeapObject.ofBox(id, typeStyle.format(prim.toWrapperObject().getClass().getName()), serializeValue(prim));
+        case TraceValue.Color col -> HeapObject.ofColor(id, typeStyle.format(col.classFqn()), col.hex());
+        default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch
     } // serializeHeapObject
 } // ModernTraceSerializer

@@ -8,8 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class BreakpointReaderTest {
     @Test
-    void discoversUnusedNestedAndRecordClassesWithoutExecutingGuest(@TempDir Path directory)
-            throws Exception {
+    void discoversUnusedNestedAndRecordClassesWithoutExecutingGuest(@TempDir Path directory) throws Exception {
         Path marker = directory.resolve("executed");
         String source = """
                 // --- sample/Main.java ---
@@ -43,7 +42,8 @@ class BreakpointReaderTest {
         for (boolean source : java.util.List.of(false, true)) {
             var writer = new org.objectweb.asm.ClassWriter(0);
             writer.visit(org.objectweb.asm.Opcodes.V21, 1, "Synthetic", null, "java/lang/Object", null);
-            if (source) writer.visitSource("Synthetic.java", null);
+            if (source)
+                writer.visitSource("Synthetic.java", null);
             var method = writer.visitMethod(9, "main", "()V", null, null);
             method.visitCode();
             var label = new org.objectweb.asm.Label();
@@ -54,8 +54,8 @@ class BreakpointReaderTest {
             method.visitEnd();
             writer.visitEnd();
             Files.write(directory.resolve("Synthetic.class"), writer.toByteArray());
-            var compiled = new CompilationHelper.CompilationResult(directory,
-                    java.util.Set.of("Synthetic"), "Synthetic", java.util.Optional.empty());
+            var compiled = new CompilationHelper.CompilationResult(directory, java.util.Set.of("Synthetic"),
+                    "Synthetic", java.util.Optional.empty());
             assertThat(BreakpointReader.read(compiled)).isEmpty();
         }
     }

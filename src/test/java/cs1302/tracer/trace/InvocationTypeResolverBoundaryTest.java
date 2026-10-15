@@ -15,8 +15,8 @@ import org.junit.jupiter.api.Test;
 class InvocationTypeResolverBoundaryTest {
     private Map<?, ?> infer(String source) throws Exception {
         var unit = App.parseSource(source, Optional.empty());
-        var call = unit.findAll(MethodCallExpr.class).stream()
-                .filter(c -> c.getNameAsString().equals("helper")).findFirst().orElseThrow();
+        var call = unit.findAll(MethodCallExpr.class).stream().filter(c -> c.getNameAsString().equals("helper"))
+                .findFirst().orElseThrow();
         var method = InvocationTypeResolver.class.getDeclaredMethod("infer", MethodCallExpr.class, Map.class);
         method.setAccessible(true);
         return (Map<?, ?>) method.invoke(null, call, Map.of());
@@ -25,11 +25,11 @@ class InvocationTypeResolverBoundaryTest {
     @Test
     void nestedDeclaredExpressionsPreserveFixedResults() throws Exception {
         for (String argument : List.of("this.value", "(String) value", "values[0]", "this", "super")) {
-            String expression = argument.equals("this") || argument.equals("super")
-                    ? argument + ".toString()" : "fixed(" + argument + ")";
-            assertThat(infer("class Main { String value; String[] values; "
-                    + "static String fixed(String s) { return s; } "
-                    + "static <T> void helper(T x) {} void run() { helper(" + expression + "); } }"))
+            String expression = argument.equals("this") || argument.equals("super") ? argument + ".toString()"
+                    : "fixed(" + argument + ")";
+            assertThat(infer(
+                    "class Main { String value; String[] values; " + "static String fixed(String s) { return s; } "
+                            + "static <T> void helper(T x) {} void run() { helper(" + expression + "); } }"))
                     .as(expression).isEqualTo(Map.of("T", "java.lang.String"));
         }
         assertThat(infer("class Main { static <T> void helper(T x) {} "
@@ -39,34 +39,35 @@ class InvocationTypeResolverBoundaryTest {
 
     @Test
     void unsupportedExpressionShapesAndNonmatchingFormalsStayUnresolved() throws Exception {
-        for (String expression : List.of("true ? \"a\" : \"b\"", "(\"a\")", "new Main().new Inner()",
-                "clone()", "fixed()")) {
+        for (String expression : List.of("true ? \"a\" : \"b\"", "(\"a\")", "new Main().new Inner()", "clone()",
+                "fixed()")) {
             assertThat(infer("class Main { class Inner {} "
                     + "public Main clone() { return this; } String fixed() { return \"a\"; } "
-                    + "static <T> void helper(T x) {} void run() { helper(" + expression + "); } }"))
-                    .as(expression).isEmpty();
+                    + "static <T> void helper(T x) {} void run() { helper(" + expression + "); } }")).as(expression)
+                    .isEmpty();
         }
         assertThat(infer("class Main { public Main clone() { return this; } "
                 + "static <T> void helper(T x) {} void run() { helper(this.clone()); } }"))
                 .isEqualTo(Map.of("T", "Main"));
-        assertThat(infer("class Main { static <T> void helper(String x) {} "
-                + "void run() { helper(\"a\"); } }")).isEmpty();
+        assertThat(infer("class Main { static <T> void helper(String x) {} " + "void run() { helper(\"a\"); } }"))
+                .isEmpty();
         assertThat(infer("class Main<U> { U value() { return null; } <T> void helper(U x) {} "
                 + "void run() { helper(value()); } }")).isEmpty();
-        assertThat(infer("class Main<U> { <T> void helper(U x) {} "
-                + "void run() { new Main<String>().helper(\"a\"); } }")).isEmpty();
+        assertThat(infer(
+                "class Main<U> { <T> void helper(U x) {} " + "void run() { new Main<String>().helper(\"a\"); } }"))
+                .isEmpty();
     }
 
     private boolean independent(ResolvedType type) throws Exception {
-        var method = InvocationTypeResolver.class.getDeclaredMethod("independentType",
-                ResolvedType.class, boolean.class, int.class);
+        var method = InvocationTypeResolver.class.getDeclaredMethod("independentType", ResolvedType.class,
+                boolean.class, int.class);
         method.setAccessible(true);
         return (boolean) method.invoke(null, type, false, 0);
     }
 
     private Optional<?> concrete(ResolvedType type) throws Exception {
-        var method = InvocationTypeResolver.class.getDeclaredMethod("concreteType",
-                ResolvedType.class, Map.class, MethodCallExpr.class, boolean.class);
+        var method = InvocationTypeResolver.class.getDeclaredMethod("concreteType", ResolvedType.class, Map.class,
+                MethodCallExpr.class, boolean.class);
         method.setAccessible(true);
         return (Optional<?>) method.invoke(null, type, Map.of(), new MethodCallExpr("helper"), false);
     }
@@ -100,8 +101,8 @@ class InvocationTypeResolverBoundaryTest {
     void concreteGenericTraversalRejectsExcessiveDepth() throws Exception {
         var unit = App.parseSource("class Box<T> { String value; }", Optional.empty());
         var declaration = unit.getClassByName("Box").orElseThrow().resolve();
-        ResolvedType type = unit.getClassByName("Box").orElseThrow().getFieldByName("value")
-                .orElseThrow().getVariable(0).getType().resolve();
+        ResolvedType type = unit.getClassByName("Box").orElseThrow().getFieldByName("value").orElseThrow()
+                .getVariable(0).getType().resolve();
         for (int depth = 0; depth < 10_000; depth++) {
             type = new ReferenceTypeImpl(declaration, List.of(type));
             if (depth == 31) {
@@ -117,8 +118,8 @@ class InvocationTypeResolverBoundaryTest {
         var unit = App.parseSource("class Box<T> {} class Main { static <T> void helper(T x) {} "
                 + "<U> void run(U value) { helper(value); } }", Optional.empty());
         var call = unit.findFirst(MethodCallExpr.class).orElseThrow();
-        String key = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst()
-                .resolve().getTypeParameters().getFirst().getQualifiedName();
+        String key = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst().resolve()
+                .getTypeParameters().getFirst().getQualifiedName();
         var method = InvocationTypeResolver.class.getDeclaredMethod("infer", MethodCallExpr.class, Map.class);
         method.setAccessible(true);
         for (int depth : List.of(32, 65)) {
@@ -130,15 +131,17 @@ class InvocationTypeResolverBoundaryTest {
 
     @Test
     void callerSubstitutionKeepsTheRemainingTraversalBudget() throws Exception {
-        var unit = App.parseSource("class Main { static <T> void helper(T x) {} "
-                + "<U> void run(U value) { helper(value); } }", Optional.empty());
+        var unit = App.parseSource(
+                "class Main { static <T> void helper(T x) {} " + "<U> void run(U value) { helper(value); } }",
+                Optional.empty());
         var call = unit.findFirst(MethodCallExpr.class).orElseThrow();
-        var parameter = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst()
-                .resolve().getTypeParameters().getFirst();
+        var parameter = unit.getClassByName("Main").orElseThrow().getMethodsByName("run").getFirst().resolve()
+                .getTypeParameters().getFirst();
         ResolvedType type = new ResolvedTypeVariable(parameter);
-        for (int i = 0; i < 255; i++) type = new ResolvedArrayType(type);
-        var method = InvocationTypeResolver.class.getDeclaredMethod("concreteType",
-                ResolvedType.class, Map.class, MethodCallExpr.class, boolean.class);
+        for (int i = 0; i < 255; i++)
+            type = new ResolvedArrayType(type);
+        var method = InvocationTypeResolver.class.getDeclaredMethod("concreteType", ResolvedType.class, Map.class,
+                MethodCallExpr.class, boolean.class);
         method.setAccessible(true);
         for (int dimensions : List.of(127, 128)) {
             var result = (Optional<?>) method.invoke(null, type,

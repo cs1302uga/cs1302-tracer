@@ -17,10 +17,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 class MultithreadCliTest {
-    @TempDir Path directory;
+    @TempDir
+    Path directory;
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @ValueSource(booleans = { false, true })
     void multithreadDoesNotDiscoverNeighboringSources(boolean envelope) throws Exception {
         var packageDir = Files.createDirectories(directory.resolve("isolated"));
         var input = packageDir.resolve("Main.java");
@@ -35,9 +36,10 @@ class MultithreadCliTest {
                     }
                 }
                 """;
-        var options = new ArrayList<>(List.of("--multithread", "--format", "modern",
-                "--input", input.toString(), "--timeout-ms", "10000"));
-        if (envelope) options.add("--result-envelope");
+        var options = new ArrayList<>(
+                List.of("--multithread", "--format", "modern", "--input", input.toString(), "--timeout-ms", "10000"));
+        if (envelope)
+            options.add("--result-envelope");
         for (boolean usesNeighbor : List.of(false, true)) {
             Files.writeString(input, source.formatted(usesNeighbor ? "Helper.value" : "42"));
             var command = new App.Trace();
@@ -57,14 +59,13 @@ class MultithreadCliTest {
             if (envelope) {
                 var result = JsonParser.parseString(output.toString()).getAsJsonObject();
                 assertThat(result.get("complete").getAsBoolean()).isEqualTo(!usesNeighbor);
-                assertThat(result.getAsJsonArray("diagnostics").toString())
-                        .contains("FIELDS inspection");
+                assertThat(result.getAsJsonArray("diagnostics").toString()).contains("FIELDS inspection");
             }
         }
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
+    @ValueSource(booleans = { false, true })
     void enablesChronologicalThreadCaptureWithAndWithoutEnvelope(boolean envelope) {
         var source = """
                 public class Main {
@@ -75,12 +76,14 @@ class MultithreadCliTest {
                     }
                 }
                 """;
-        var options = new ArrayList<>(List.of("--multithread", "--format", "modern",
-                "--timeout-ms", "10000", "--max-threads", "8", "--max-frames", "128",
-                "--max-snapshot-bytes", "1048576"));
-        if (envelope) options.add("--result-envelope");
-        var document = JsonParser.parseString(AppTest.executeCommand(App.Trace::new, source,
-                options.toArray(String[]::new)).orElseThrow()).getAsJsonObject();
+        var options = new ArrayList<>(List.of("--multithread", "--format", "modern", "--timeout-ms", "10000",
+                "--max-threads", "8", "--max-frames", "128", "--max-snapshot-bytes", "1048576"));
+        if (envelope)
+            options.add("--result-envelope");
+        var document = JsonParser
+                .parseString(
+                        AppTest.executeCommand(App.Trace::new, source, options.toArray(String[]::new)).orElseThrow())
+                .getAsJsonObject();
         if (envelope) {
             assertThat(document.get("complete").getAsBoolean()).isTrue();
             assertThat(document.get("stdout").getAsString()).isEqualTo("worker\n");
@@ -91,8 +94,8 @@ class MultithreadCliTest {
             assertThat(step.getAsJsonObject().has("threads")).isTrue();
             assertThat(step.getAsJsonObject().has("triggeringThreadId")).isTrue();
         });
-        assertThat(steps).anySatisfy(step -> assertThat(step.getAsJsonObject()
-                .get("event").getAsString()).isEqualTo("thread_death"));
+        assertThat(steps).anySatisfy(
+                step -> assertThat(step.getAsJsonObject().get("event").getAsString()).isEqualTo("thread_death"));
     }
 
     @Test

@@ -122,6 +122,7 @@
           <configuration>
             <showWarnings>true</showWarnings>
             <compilerArgs>
+              <arg>-Werror</arg>
               <arg>-Xlint:all</arg>
               <arg>-Xlint:-processing</arg>
               <arg>-Xlint:-this-escape</arg>

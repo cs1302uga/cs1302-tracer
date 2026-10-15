@@ -38,10 +38,8 @@ public class TypeStyleTest {
         assertThat(TypeStyle.SIMPLE.format("java.lang.String[]")).isEqualTo("String[]");
         assertThat(TypeStyle.SIMPLE.format("cs1302.generics.Pair<java.lang.String, java.lang.Integer>"))
                 .isEqualTo("Pair<String, Integer>");
-        assertThat(TypeStyle.SIMPLE.format(
-                "java.util.Map<java.lang.String, java.util.List<java.lang.Integer>>"))
+        assertThat(TypeStyle.SIMPLE.format("java.util.Map<java.lang.String, java.util.List<java.lang.Integer>>"))
                 .isEqualTo("Map<String, List<Integer>>");
-        assertThat(TypeStyle.SIMPLE.format("? extends java.lang.Number"))
-                .isEqualTo("? extends Number");
+        assertThat(TypeStyle.SIMPLE.format("? extends java.lang.Number")).isEqualTo("? extends Number");
     } // testFormatSimple
 } // TypeStyleTest

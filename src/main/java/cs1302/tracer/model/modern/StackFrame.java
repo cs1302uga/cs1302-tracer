@@ -13,11 +13,6 @@ import java.util.List;
  * @param thisObject The {@link Reference} pointing to {@code this} on the heap, or null.
  * @param locals The ordered list of local variables in this frame.
  */
-public record StackFrame(
-        @SerializedName("methodName") String methodName,
-        @SerializedName("line") long line,
-        @SerializedName("file") String file,
-        @SerializedName("isHighlighted") boolean isHighlighted,
-        @SerializedName("this") Reference thisObject,
-        @SerializedName("locals") List<Variable> locals) {
-} // StackFrame
+public record StackFrame(@SerializedName("methodName") String methodName, @SerializedName("line") long line,
+        @SerializedName("file") String file, @SerializedName("isHighlighted") boolean isHighlighted,
+        @SerializedName("this") Reference thisObject, @SerializedName("locals") List<Variable> locals) {} // StackFrame

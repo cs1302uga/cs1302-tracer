@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Demonstrates polymorphic generic container references, wildcard normalization,
- * concrete subclass reification, and nested generic collections.
+ * Demonstrates polymorphic generic container references, wildcard normalization, concrete subclass reification, and
+ * nested generic collections.
  */
 public class Driver {
 

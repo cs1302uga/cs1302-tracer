@@ -7,9 +7,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * THROWAWAY, test-only experiment: can structural equality safely extend inference?
- * No compiler-oracle input, runtime values, shared caches, or production integration.
- * Intentionally restricted to one unbounded method variable and exact type constructors.
+ * THROWAWAY, test-only experiment: can structural equality safely extend inference? No compiler-oracle input, runtime
+ * values, shared caches, or production integration. Intentionally restricted to one unbounded method variable and exact
+ * type constructors.
  */
 final class GenericInferencePrototype {
     private GenericInferencePrototype() {}
@@ -18,8 +18,7 @@ final class GenericInferencePrototype {
         try {
             var method = call.resolve();
             if (call.getTypeArguments().isPresent() || method.getTypeParameters().size() != 1
-                    || !method.getTypeParameters().getFirst().getBounds().isEmpty()
-                    || method.getNumberOfParams() == 0
+                    || !method.getTypeParameters().getFirst().getBounds().isEmpty() || method.getNumberOfParams() == 0
                     || method.getNumberOfParams() != call.getArguments().size()) {
                 return Map.of();
             }
@@ -48,8 +47,8 @@ final class GenericInferencePrototype {
     }
 
     private static boolean independent(Expression expression) {
-        if (expression.isNameExpr() || expression.isFieldAccessExpr()
-                || expression.isCastExpr() || expression.isArrayAccessExpr()) {
+        if (expression.isNameExpr() || expression.isFieldAccessExpr() || expression.isCastExpr()
+                || expression.isArrayAccessExpr()) {
             return true;
         }
         if (expression.isLiteralExpr()) {
@@ -57,8 +56,7 @@ final class GenericInferencePrototype {
         }
         if (expression.isObjectCreationExpr()) {
             var creation = expression.asObjectCreationExpr();
-            return !creation.getType().isUsingDiamondOperator()
-                    && creation.getAnonymousClassBody().isEmpty()
+            return !creation.getType().isUsingDiamondOperator() && creation.getAnonymousClassBody().isEmpty()
                     && creation.getArguments().stream().allMatch(GenericInferencePrototype::independent);
         }
         if (expression.isMethodCallExpr()) {
@@ -89,14 +87,13 @@ final class GenericInferencePrototype {
         if (formal.isReferenceType() && actual.isReferenceType()) {
             var left = formal.asReferenceType();
             var right = actual.asReferenceType();
-            if (!left.getQualifiedName().equals(right.getQualifiedName())
-                    || left.isRawType() || right.isRawType()
+            if (!left.getQualifiedName().equals(right.getQualifiedName()) || left.isRawType() || right.isRawType()
                     || left.typeParametersValues().size() != right.typeParametersValues().size()) {
                 return false;
             }
             for (int i = 0; i < left.typeParametersValues().size(); i++) {
-                if (!match(left.typeParametersValues().get(i), right.typeParametersValues().get(i),
-                        identity, bindings, depth + 1)) {
+                if (!match(left.typeParametersValues().get(i), right.typeParametersValues().get(i), identity, bindings,
+                        depth + 1)) {
                     return false;
                 }
             }

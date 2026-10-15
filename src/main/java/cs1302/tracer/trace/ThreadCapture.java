@@ -1,5 +1,7 @@
 package cs1302.tracer.trace;
 
+import com.sun.jdi.request.ThreadDeathRequest;
+import com.sun.jdi.request.ThreadStartRequest;
 import com.sun.jdi.ThreadGroupReference;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.VirtualMachine;
@@ -27,21 +29,23 @@ public final class ThreadCapture {
 
     /**
      * Installs lifecycle events before the initial VM suspension is resumed.
+     *
      * @param vm Dedicated guest VM.
      * @param names Submitted class names.
      */
     public void install(VirtualMachine vm, Collection<String> names) {
         classes.addAll(names);
-        var start = vm.eventRequestManager().createThreadStartRequest();
+        ThreadStartRequest start = vm.eventRequestManager().createThreadStartRequest();
         start.setSuspendPolicy(EventRequest.SUSPEND_ALL);
         start.enable();
-        var death = vm.eventRequestManager().createThreadDeathRequest();
+        ThreadDeathRequest death = vm.eventRequestManager().createThreadDeathRequest();
         death.setSuspendPolicy(EventRequest.SUSPEND_ALL);
         death.enable();
     } // install
 
     /**
      * Updates event context and returns a lifecycle thread requiring a snapshot.
+     *
      * @param value Current debugger event.
      * @return Application lifecycle thread, or null.
      */
@@ -77,6 +81,7 @@ public final class ThreadCapture {
 
     /**
      * Discovers application threads while all guest threads are suspended.
+     *
      * @param trigger Event thread.
      * @return Live application threads sorted by stable identity.
      */
@@ -85,13 +90,13 @@ public final class ThreadCapture {
         if (!isDying(trigger)) {
             observed.add(trigger.uniqueID());
         } // if
-        return trigger.virtualMachine().allThreads().stream()
-                .filter(t -> !isDying(t)).filter(this::belongs)
+        return trigger.virtualMachine().allThreads().stream().filter(t -> !isDying(t)).filter(this::belongs)
                 .sorted(Comparator.comparingLong(ThreadReference::uniqueID)).toList();
     } // threads
 
     /**
      * Identifies threads in the entry thread's group, descendants, or observed user code.
+     *
      * @param thread Guest thread.
      * @return True for an application thread.
      */
@@ -99,7 +104,7 @@ public final class ThreadCapture {
         if (observed.contains(thread.uniqueID())) {
             return true;
         } // if
-        for (var group = thread.threadGroup(); group != null; group = group.parent()) {
+        for (ThreadGroupReference group = thread.threadGroup(); group != null; group = group.parent()) {
             if (group.equals(applicationGroup)) {
                 return true;
             } // if
@@ -109,6 +114,7 @@ public final class ThreadCapture {
 
     /**
      * Rejects virtual threads explicitly, including threads without submitted source frames.
+     *
      * @param thread Started or executing thread.
      */
     private void rejectVirtual(ThreadReference thread) {
@@ -120,6 +126,7 @@ public final class ThreadCapture {
 
     /**
      * Tests whether a stack frame belongs to submitted code.
+     *
      * @param name Declaring class name.
      * @return True for submitted classes.
      */
@@ -129,6 +136,7 @@ public final class ThreadCapture {
 
     /**
      * Tests whether the current event reports this thread's termination.
+     *
      * @param thread Guest thread.
      * @return True for the terminating thread.
      */
@@ -138,6 +146,7 @@ public final class ThreadCapture {
 
     /**
      * Returns the current event kind.
+     *
      * @return Trace event kind.
      */
     public String event() {
@@ -146,6 +155,7 @@ public final class ThreadCapture {
 
     /**
      * Maps the JDI status without confusing debugger suspension with application blocking.
+     *
      * @param thread Guest thread.
      * @return Stable status label.
      */

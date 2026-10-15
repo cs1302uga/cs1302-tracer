@@ -52,8 +52,7 @@ class SourceAnalysisTest {
                     }
                 }
                 """;
-        var config = new ParserConfiguration()
-                .setLanguageLevel(LanguageLevel.JAVA_21)
+        var config = new ParserConfiguration().setLanguageLevel(LanguageLevel.JAVA_21)
                 .setSymbolResolver(new JavaSymbolSolver(new ReflectionTypeSolver()));
         CompilationUnit cu = new JavaParser(config).parse(code).getResult().orElseThrow();
         SourceAnalysis analysis = SourceAnalysis.from(List.of(cu));
@@ -67,10 +66,8 @@ class SourceAnalysisTest {
         assertThat(analysis.findStaticLambdaImplementation("sample.Example", "doubler")).isPresent();
         assertThat(analysis.findStaticLambdaImplementation("Example", "doubler")).isPresent();
         // Instance lambda fields should not be indexed as static lambdas
-        assertThat(analysis.findStaticLambdaImplementation("sample.Example", "instanceDoubler"))
-                .isEmpty();
-        assertThat(analysis.findStaticLambdaImplementation("Example", "instanceDoubler"))
-                .isEmpty();
+        assertThat(analysis.findStaticLambdaImplementation("sample.Example", "instanceDoubler")).isEmpty();
+        assertThat(analysis.findStaticLambdaImplementation("Example", "instanceDoubler")).isEmpty();
         assertThat(analysis.findStaticLambdaImplementation("Example", "nonexistent")).isEmpty();
         assertThat(analysis.findStaticLambdaImplementation(null, "doubler")).isEmpty();
         assertThat(analysis.findStaticLambdaImplementation("Example", null)).isEmpty();

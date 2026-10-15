@@ -22,34 +22,28 @@ import java.util.Map;
  * @param threads Application threads, or null for legacy traces.
  * @param triggeringThreadId Event thread identity, or null for legacy traces.
  */
-public record Step(
-        @SerializedName("step") int step,
-        @SerializedName("line") long line,
-        @SerializedName("file") String file,
-        @SerializedName("event") String event,
-        @SerializedName("method") String method,
-        @SerializedName("callStack") List<StackFrame> callStack,
-        @SerializedName("statics") List<Variable> statics,
-        @SerializedName("heap") Map<String, HeapObject> heap,
-        @SerializedName("stdout") String stdout,
-        @SerializedName("stderr") String stderr,
-        @SerializedName("stdinConsumed") String stdinConsumed,
-        @SerializedName("stdinOffset") int stdinOffset,
+public record Step(@SerializedName("step") int step, @SerializedName("line") long line,
+        @SerializedName("file") String file, @SerializedName("event") String event,
+        @SerializedName("method") String method, @SerializedName("callStack") List<StackFrame> callStack,
+        @SerializedName("statics") List<Variable> statics, @SerializedName("heap") Map<String, HeapObject> heap,
+        @SerializedName("stdout") String stdout, @SerializedName("stderr") String stderr,
+        @SerializedName("stdinConsumed") String stdinConsumed, @SerializedName("stdinOffset") int stdinOffset,
         @SerializedName("threads") List<ThreadState> threads,
         @SerializedName("triggeringThreadId") Long triggeringThreadId) {
 
     /**
      * A thread's stack and execution state at a trace step.
+     *
      * @param id Thread identity within this trace.
      * @param name Thread name.
      * @param state Observed execution state.
      * @param callStack Application stack frames.
      */
-    public record ThreadState(long id, String name, String state, List<StackFrame> callStack) {
-    } // ThreadState
+    public record ThreadState(long id, String name, String state, List<StackFrame> callStack) {} // ThreadState
 
     /**
      * Constructs a step without thread metadata.
+     *
      * @param step Step number.
      * @param line Source line.
      * @param file Source file.
@@ -63,11 +57,11 @@ public record Step(
      * @param stdinConsumed Consumed input.
      * @param stdinOffset Input offset.
      */
-    public Step(int step, long line, String file, String event, String method,
-            List<StackFrame> callStack, List<Variable> statics, Map<String, HeapObject> heap,
-            String stdout, String stderr, String stdinConsumed, int stdinOffset) {
-        this(step, line, file, event, method, callStack, statics, heap, stdout, stderr,
-                stdinConsumed, stdinOffset, null, null);
+    public Step(int step, long line, String file, String event, String method, List<StackFrame> callStack,
+            List<Variable> statics, Map<String, HeapObject> heap, String stdout, String stderr, String stdinConsumed,
+            int stdinOffset) {
+        this(step, line, file, event, method, callStack, statics, heap, stdout, stderr, stdinConsumed, stdinOffset,
+                null, null);
     } // Step
 
     /**
@@ -84,17 +78,8 @@ public record Step(
      * @param stdout Captured standard output.
      * @param stderr Captured standard error.
      */
-    public Step(
-            int step,
-            long line,
-            String file,
-            String event,
-            String method,
-            List<StackFrame> callStack,
-            List<Variable> statics,
-            Map<String, HeapObject> heap,
-            String stdout,
-            String stderr) {
+    public Step(int step, long line, String file, String event, String method, List<StackFrame> callStack,
+            List<Variable> statics, Map<String, HeapObject> heap, String stdout, String stderr) {
         this(step, line, file, event, method, callStack, statics, heap, stdout, stderr, "", 0);
     } // Step
 

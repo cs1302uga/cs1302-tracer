@@ -1,5 +1,7 @@
 package cs1302.tracer.trace;
 
+import java.io.InputStream;
+import java.nio.file.Path;
 import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.execution.TraceSession;
 import java.io.IOException;
@@ -23,6 +25,7 @@ public final class BreakpointReader {
 
     /**
      * Reads every compiled class, including unused and nested declarations.
+     *
      * @param compiled Owned compilation output.
      * @return Source paths mapped to executable lines.
      * @throws IOException On class file read failure.
@@ -33,8 +36,8 @@ public final class BreakpointReader {
             if (TraceSession.current() != null) {
                 TraceSession.current().check();
             } // if
-            var path = compiled.classPath().resolve(name.replace('.', '/') + ".class");
-            try (var input = Files.newInputStream(path)) {
+            Path path = compiled.classPath().resolve(name.replace('.', '/') + ".class");
+            try (InputStream input = Files.newInputStream(path)) {
                 ClassReader reader = new ClassReader(input);
                 reader.accept(new LineVisitor(lines), ClassReader.SKIP_FRAMES);
             } // try
@@ -50,8 +53,8 @@ public final class BreakpointReader {
      * @return Source paths mapped to matching executable lines.
      * @throws IOException On class file read failure.
      */
-    public static Map<String, Set<Integer>> resolve(
-            CompilationResult compiled, Collection<BreakpointSpec> specs) throws IOException {
+    public static Map<String, Set<Integer>> resolve(CompilationResult compiled, Collection<BreakpointSpec> specs)
+            throws IOException {
         return resolve(read(compiled), specs);
     } // resolve
 
@@ -62,8 +65,8 @@ public final class BreakpointReader {
      * @param specs Breakpoint specifications.
      * @return Source paths mapped to matching executable lines.
      */
-    public static Map<String, Set<Integer>> resolve(
-            Map<String, Set<Integer>> availableLines, Collection<BreakpointSpec> specs) {
+    public static Map<String, Set<Integer>> resolve(Map<String, Set<Integer>> availableLines,
+            Collection<BreakpointSpec> specs) {
         if (specs == null || specs.isEmpty()) {
             return availableLines;
         } // if
@@ -73,8 +76,7 @@ public final class BreakpointReader {
                 String sourcePath = entry.getKey();
                 if (spec.matchesSourcePath(sourcePath)) {
                     if (spec.lineNumber() == -1 || entry.getValue().contains(spec.lineNumber())) {
-                        resolved.computeIfAbsent(sourcePath, k -> new TreeSet<>())
-                                .add(spec.lineNumber());
+                        resolved.computeIfAbsent(sourcePath, k -> new TreeSet<>()).add(spec.lineNumber());
                     } // if
                 } // if
             } // for
@@ -90,6 +92,7 @@ public final class BreakpointReader {
 
         /**
          * Constructs a visitor sharing the output index.
+         *
          * @param lines Executable line index.
          */
         LineVisitor(Map<String, Set<Integer>> lines) {
@@ -98,8 +101,8 @@ public final class BreakpointReader {
         } // LineVisitor
 
         @Override
-        public void visit(int version, int access, String name, String signature,
-                String superName, String[] interfaces) {
+        public void visit(int version, int access, String name, String signature, String superName,
+                String[] interfaces) {
             int separator = name.lastIndexOf('/');
             packagePath = name.substring(0, separator + 1);
         } // visit
@@ -110,8 +113,8 @@ public final class BreakpointReader {
         } // visitSource
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor,
-                String signature, String[] exceptions) {
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
+                String[] exceptions) {
             return new MethodVisitor(Opcodes.ASM9) {
                 @Override
                 public void visitLineNumber(int line, Label start) {

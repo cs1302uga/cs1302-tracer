@@ -4,6 +4,7 @@ public class Driver {
     static void work() {
         System.out.println("task completed");
     }
+
     public static void main(String[] args) {
         var pool = Executors.newSingleThreadExecutor();
         pool.execute(Driver::work);

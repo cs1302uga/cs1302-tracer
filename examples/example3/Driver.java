@@ -1,10 +1,7 @@
 public class Driver {
 
     public static void main(String[] args) {
-        Person[] roster = new Person[] {
-            new Person("Alice", 20),
-            new Person("Bob", 22)
-        };
+        Person[] roster = new Person[] { new Person("Alice", 20), new Person("Bob", 22) };
         swap(roster, 0, 1);
     } // main
 
@@ -16,4 +13,4 @@ public class Driver {
 
 } // Driver
 
-record Person(String name, int age) { }
+record Person(String name, int age) {}

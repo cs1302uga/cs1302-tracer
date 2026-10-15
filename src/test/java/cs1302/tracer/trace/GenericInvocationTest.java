@@ -46,12 +46,11 @@ class GenericInvocationTest {
             String type = i < 2 ? "java.lang.Integer" : "java.lang.String";
             var snapshot = snapshots.get(i);
             for (TypeStyle style : TypeStyle.values()) {
-                var modern = new ModernTraceSerializer(false, false, false, style)
-                        .createTrace(source, snapshot);
-                var frame = modern.steps().getFirst().callStack().stream()
-                        .filter(f -> f.methodName().equals("max")).findFirst().orElseThrow();
-                assertThat(frame.locals()).filteredOn(v -> v.name().equals("items"))
-                        .extracting(v -> v.type()).containsExactly(style.format(type + "[]"));
+                var modern = new ModernTraceSerializer(false, false, false, style).createTrace(source, snapshot);
+                var frame = modern.steps().getFirst().callStack().stream().filter(f -> f.methodName().equals("max"))
+                        .findFirst().orElseThrow();
+                assertThat(frame.locals()).filteredOn(v -> v.name().equals("items")).extracting(v -> v.type())
+                        .containsExactly(style.format(type + "[]"));
                 assertThat(frame.locals()).filteredOn(v -> v.name().equals("item") || v.name().equals("maxItem"))
                         .extracting(v -> v.type()).containsExactly(style.format(type), style.format(type));
                 var pytutor = new PyTutorSerializer(false, false, false, style).createTrace(source, snapshot);
@@ -63,9 +62,12 @@ class GenericInvocationTest {
                     if (f.get("func_name").getAsString().startsWith("max:")) {
                         found = true;
                         var attrs = f.getAsJsonObject("locals_attrs");
-                        assertThat(attrs.getAsJsonObject("items").get("type").getAsString()).isEqualTo(style.format(type + "[]"));
-                        assertThat(attrs.getAsJsonObject("item").get("type").getAsString()).isEqualTo(style.format(type));
-                        assertThat(attrs.getAsJsonObject("maxItem").get("type").getAsString()).isEqualTo(style.format(type));
+                        assertThat(attrs.getAsJsonObject("items").get("type").getAsString())
+                                .isEqualTo(style.format(type + "[]"));
+                        assertThat(attrs.getAsJsonObject("item").get("type").getAsString())
+                                .isEqualTo(style.format(type));
+                        assertThat(attrs.getAsJsonObject("maxItem").get("type").getAsString())
+                                .isEqualTo(style.format(type));
                     }
                 }
                 assertThat(found).isTrue();
@@ -79,9 +81,9 @@ class GenericInvocationTest {
     }
 
     private List<String> types(List<ExecutionSnapshot> snapshots, String method, String variable) {
-        return snapshots.stream().flatMap(s -> s.stack().stream())
-                .filter(f -> f.methodName().equals(method)).flatMap(f -> f.visibleVariables().stream())
-                .filter(f -> f.identifier().equals(variable)).map(f -> f.typeName()).toList();
+        return snapshots.stream().flatMap(s -> s.stack().stream()).filter(f -> f.methodName().equals(method))
+                .flatMap(f -> f.visibleVariables().stream()).filter(f -> f.identifier().equals(variable))
+                .map(f -> f.typeName()).toList();
     }
 
     @Test
@@ -103,8 +105,8 @@ class GenericInvocationTest {
         var snapshots = capture(source);
         assertThat(types(snapshots, "helper", "item")).containsExactly("java.lang.Number", "java.lang.Number");
         assertThat(types(snapshots, "helper", "local")).containsExactly("java.lang.Number", "java.lang.Number");
-        assertThat(types(snapshots, "helper", "nested"))
-                .containsExactly("java.util.List<java.lang.Number[]>", "java.util.List<java.lang.Number[]>");
+        assertThat(types(snapshots, "helper", "nested")).containsExactly("java.util.List<java.lang.Number[]>",
+                "java.util.List<java.lang.Number[]>");
         assertThat(snapshots.getFirst().heap().values()).anyMatch(v -> v.toString().contains("Integer"));
     }
 
@@ -126,8 +128,8 @@ class GenericInvocationTest {
                 }
                 """;
         var snapshots = capture(source);
-        assertThat(types(snapshots, "recur", "item"))
-                .contains("java.lang.Integer", "java.lang.String").doesNotContain("T", "U");
+        assertThat(types(snapshots, "recur", "item")).contains("java.lang.Integer", "java.lang.String")
+                .doesNotContain("T", "U");
         assertThat(types(snapshots, "forward", "item")).containsOnly("java.lang.Integer");
     }
 
@@ -179,8 +181,7 @@ class GenericInvocationTest {
                     }
                 }
                 """;
-        assertThat(types(capture(source), "helper", "array"))
-                .containsExactly("java.util.List<java.lang.String>[]");
+        assertThat(types(capture(source), "helper", "array")).containsExactly("java.util.List<java.lang.String>[]");
     }
 
     @Test
@@ -206,10 +207,10 @@ class GenericInvocationTest {
                 }
                 """;
         var snapshots = capture(source);
-        assertThat(types(snapshots, "helper", "item"))
-                .containsExactly("java.lang.Number", "java.lang.CharSequence", "java.lang.Integer");
-        assertThat(types(snapshots, "helper", "local"))
-                .containsExactly("java.lang.Number", "java.lang.CharSequence", "java.lang.Integer");
+        assertThat(types(snapshots, "helper", "item")).containsExactly("java.lang.Number", "java.lang.CharSequence",
+                "java.lang.Integer");
+        assertThat(types(snapshots, "helper", "local")).containsExactly("java.lang.Number", "java.lang.CharSequence",
+                "java.lang.Integer");
     }
 
     @Test
@@ -234,12 +235,10 @@ class GenericInvocationTest {
                 }
                 """;
         var snapshots = capture(source);
-        assertThat(types(snapshots, "consume", "value"))
-                .containsExactly("java.lang.String", "java.lang.Number",
-                        "java.util.List<java.lang.String[]>");
-        assertThat(types(snapshots, "consume", "local"))
-                .containsExactly("java.lang.String", "java.lang.Number",
-                        "java.util.List<java.lang.String[]>");
+        assertThat(types(snapshots, "consume", "value")).containsExactly("java.lang.String", "java.lang.Number",
+                "java.util.List<java.lang.String[]>");
+        assertThat(types(snapshots, "consume", "local")).containsExactly("java.lang.String", "java.lang.Number",
+                "java.util.List<java.lang.String[]>");
     }
 
     @Test
@@ -263,10 +262,10 @@ class GenericInvocationTest {
                 class Person {}
                 """;
         var snapshots = capture(source);
-        assertThat(types(snapshots, "helper", "item"))
-                .containsExactly("Person", "int[]", "java.util.List<int[]>", "int[]", "int[][]");
-        assertThat(types(snapshots, "helper", "local"))
-                .containsExactly("Person", "int[]", "java.util.List<int[]>", "int[]", "int[][]");
+        assertThat(types(snapshots, "helper", "item")).containsExactly("Person", "int[]", "java.util.List<int[]>",
+                "int[]", "int[][]");
+        assertThat(types(snapshots, "helper", "local")).containsExactly("Person", "int[]", "java.util.List<int[]>",
+                "int[]", "int[][]");
     }
 
     @Test
@@ -309,10 +308,11 @@ class GenericInvocationTest {
                 }
                 """;
         if (expressions) {
-            source = source.replace("Number value = Integer.valueOf(7);\n            helper(value);",
-                            "helper(number());")
+            source = source
+                    .replace("Number value = Integer.valueOf(7);\n            helper(value);", "helper(number());")
                     .replace("String value = \"word\";\n            helper(value);", "helper(\"word\");")
-                    .replace("static <T> void helper", "static Number number() { return 7; }\n    static <T> void helper");
+                    .replace("static <T> void helper",
+                            "static Number number() { return 7; }\n    static <T> void helper");
             assertThat(source).doesNotContain("helper(value)");
         }
         try (var session = new cs1302.tracer.execution.TraceSession(
@@ -323,12 +323,11 @@ class GenericInvocationTest {
             var snapshots = DebugTraceHelper.traceChronological(compiled,
                     DebugTraceHelper.getValidBreakpointLines(compiled),
                     List.of(App.parseSource(source, Optional.empty())), true);
-            var labels = snapshots.stream().flatMap(s -> s.threads().stream())
-                    .flatMap(t -> t.stack().stream()).filter(f -> f.methodName().equals("helper"))
-                    .flatMap(f -> f.visibleVariables().stream())
+            var labels = snapshots.stream().flatMap(s -> s.threads().stream()).flatMap(t -> t.stack().stream())
+                    .filter(f -> f.methodName().equals("helper")).flatMap(f -> f.visibleVariables().stream())
                     .filter(f -> f.identifier().equals("item")).map(f -> f.typeName()).toList();
-            assertThat(labels).contains("java.lang.Number", "java.lang.String")
-                    .doesNotContain("T", "java.lang.Integer");
+            assertThat(labels).contains("java.lang.Number", "java.lang.String").doesNotContain("T",
+                    "java.lang.Integer");
         }
     }
 
@@ -343,8 +342,8 @@ class GenericInvocationTest {
                 }
                 """;
         try (var compiled = CompilationHelper.compile(source)) {
-            var snapshots = DebugTraceHelper.trace(compiled, List.of(4),
-                    com.github.javaparser.StaticJavaParser.parse(source), "").get(4);
+            var snapshots = DebugTraceHelper
+                    .trace(compiled, List.of(4), com.github.javaparser.StaticJavaParser.parse(source), "").get(4);
             assertThat(types(snapshots, "helper", "item")).containsExactly("T");
         }
     }
@@ -373,9 +372,11 @@ class GenericInvocationTest {
                     }
                     """.formatted(type);
             if (expressions) {
-                source = source.replace("Main.<" + type + ">helper(null);",
+                source = source
+                        .replace("Main.<" + type + ">helper(null);",
                                 type.equals("Number") ? "helper(number());" : "helper(\"word\");")
-                        .replace("static <T> void helper", "static Number number() { return 7; }\n    static <T> void helper");
+                        .replace("static <T> void helper",
+                                "static Number number() { return 7; }\n    static <T> void helper");
             }
             var request = new com.google.gson.JsonObject();
             request.addProperty("id", type);
@@ -426,8 +427,8 @@ class GenericInvocationTest {
                 }
                 """;
         var snapshots = capture(source);
-        assertThat(types(snapshots, "recur", "local"))
-                .contains("java.lang.String", "Main.Person").doesNotContain("T", "U");
+        assertThat(types(snapshots, "recur", "local")).contains("java.lang.String", "Main.Person").doesNotContain("T",
+                "U");
         assertThat(types(snapshots, "forward", "item")).containsOnly("java.lang.String");
     }
 }

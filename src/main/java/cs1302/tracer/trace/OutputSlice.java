@@ -70,9 +70,7 @@ public final class OutputSlice {
         } // if
         int safeOffset = Math.max(0, offset);
         int safeLength = Math.min(length, bytes.length - safeOffset);
-        return new OutputSlice(
-                Arrays.copyOfRange(bytes, safeOffset, safeOffset + safeLength),
-                null, 0, safeLength);
+        return new OutputSlice(Arrays.copyOfRange(bytes, safeOffset, safeOffset + safeLength), null, 0, safeLength);
     } // from
 
     /**
@@ -223,8 +221,7 @@ public final class OutputSlice {
      */
     public byte byteAt(int index) {
         if (index < 0 || index >= length) {
-            throw new IndexOutOfBoundsException(
-                    "Index " + index + " out of bounds for length " + length);
+            throw new IndexOutOfBoundsException("Index " + index + " out of bounds for length " + length);
         } // if
         if (drainer != null) {
             return drainer.byteAt(offset + index);
@@ -276,8 +273,8 @@ public final class OutputSlice {
     } // startsWith
 
     /**
-     * Returns the index within this slice of the first occurrence of the specified byte,
-     * starting at the specified index.
+     * Returns the index within this slice of the first occurrence of the specified byte, starting at the specified
+     * index.
      *
      * @param b The byte to search for.
      * @param fromIndex The index to start the search from.
@@ -313,9 +310,8 @@ public final class OutputSlice {
             return false;
         } // if
         if (this.directBytes != null && other.directBytes != null) {
-            return Arrays.equals(
-                    this.directBytes, this.offset, this.offset + this.length,
-                    other.directBytes, other.offset, other.offset + other.length);
+            return Arrays.equals(this.directBytes, this.offset, this.offset + this.length, other.directBytes,
+                    other.offset, other.offset + other.length);
         } // if
         for (int i = 0; i < length; i++) {
             if (this.byteAt(i) != other.byteAt(i)) {

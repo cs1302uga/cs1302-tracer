@@ -28,18 +28,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Container class for methods that help serialize a trace into the OnlinePythonTutor format
- * using Gson.
+ * Container class for methods that help serialize a trace into the OnlinePythonTutor format using Gson.
  *
  * @param removeMainArgs True if the args parameter to main should be excluded.
  * @param inlineStrings True if strings should be inlined as literals.
  * @param removeMethodThis True if this references for method calls should be excluded.
  * @param typeStyle The type qualification style (FQN or SIMPLE).
  */
-public record PyTutorSerializer(
-        boolean removeMainArgs,
-        boolean inlineStrings,
-        boolean removeMethodThis,
+public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
         TypeStyle typeStyle) {
 
     /**
@@ -49,16 +45,14 @@ public record PyTutorSerializer(
      * @param inlineStrings True if strings should be inlined as literals.
      * @param removeMethodThis True if this references for method calls should be excluded.
      */
-    public PyTutorSerializer(
-            boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
+    public PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {
         this(removeMainArgs, inlineStrings, removeMethodThis, TypeStyle.FQN);
     } // PyTutorSerializer
 
-    private static final Gson GSON =
-            new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
 
-    private static final Gson PRETTY_GSON =
-            new GsonBuilder().serializeNulls().disableHtmlEscaping().setPrettyPrinting().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().setPrettyPrinting()
+            .create();
 
     /**
      * Get the configured Gson instance.
@@ -98,8 +92,7 @@ public record PyTutorSerializer(
      * @param snapshot The snapshot that should be serialized.
      * @return The structured PyTutorTrace model.
      */
-    public PyTutorTrace createTrace(
-            String javaSource, String stdin, ExecutionSnapshot snapshot) {
+    public PyTutorTrace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot) {
         return createTrace(javaSource, stdin, snapshot, SourceMetadata.from(javaSource));
     } // createTrace
 
@@ -112,12 +105,10 @@ public record PyTutorSerializer(
      * @param metadata The source metadata parsed once for the output.
      * @return The structured PyTutorTrace model.
      */
-    public PyTutorTrace createTrace(
-            String javaSource, String stdin, ExecutionSnapshot snapshot,
+    public PyTutorTrace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot,
             SourceMetadata metadata) {
         TraceStep step = createTraceStep(snapshot, true);
-        return new PyTutorTrace(
-                javaSource, stdin == null ? "" : stdin, List.of(step), "", metadata);
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, List.of(step), "", metadata);
     } // createTrace
 
     /**
@@ -132,18 +123,15 @@ public record PyTutorSerializer(
     } // createTrace
 
     /**
-     * Create a {@link PyTutorTrace} model representing a chronological sequence of snapshots and
-     * standard input.
+     * Create a {@link PyTutorTrace} model representing a chronological sequence of snapshots and standard input.
      *
      * @param javaSource The source code for the program corresponding to the execution snapshots.
      * @param stdin The standard input string.
      * @param snapshots The list of snapshots in chronological order that should be serialized.
      * @return The structured PyTutorTrace model.
      */
-    public PyTutorTrace createTrace(
-            String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
-        List<TraceStep> steps =
-                snapshots.stream().map(s -> createTraceStep(s, true)).toList();
+    public PyTutorTrace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
+        List<TraceStep> steps = snapshots.stream().map(s -> createTraceStep(s, true)).toList();
         return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
     } // createTrace
 
@@ -169,8 +157,7 @@ public record PyTutorSerializer(
         if (snapshot.threads() != null) {
             throw new IllegalArgumentException("Multithread snapshots require modern format");
         } // if
-        String currentMethod =
-                snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
+        String currentMethod = snapshot.stack().isEmpty() ? "" : snapshot.stack().getLast().methodName();
         long currentLine = snapshot.stack().isEmpty() ? 0 : snapshot.stack().getLast().methodLine();
 
         Map<String, Object> serializedStatics = new LinkedHashMap<>();
@@ -180,9 +167,7 @@ public record PyTutorSerializer(
         for (Field f : snapshot.statics()) {
             serializedStatics.put(f.identifier(), serializeTraceValue(f.value(), snapshot.heap()));
             orderedStatics.add(f.identifier());
-            globalsAttrs.put(
-                    f.identifier(),
-                    Map.of("type", typeStyle.format(f.typeName()), "final", f.isFinal()));
+            globalsAttrs.put(f.identifier(), Map.of("type", typeStyle.format(f.typeName()), "final", f.isFinal()));
         } // for
 
         Map<Long, String> declaredTypes = collectDeclaredTypes(snapshot);
@@ -194,34 +179,17 @@ public record PyTutorSerializer(
         for (int frameId = 0; frameId < stackSize; frameId++) {
             boolean isCurrent = (frameId == stackSize - 1);
             boolean isMain = (frameId == 0);
-            serializedStack.add(serializeStackSnapshot(
-                    snapshot.stack().get(frameId),
-                    frameId,
-                    isCurrent,
-                    isMain,
-                    snapshot.heap(),
-                    isMultiFile));
+            serializedStack.add(serializeStackSnapshot(snapshot.stack().get(frameId), frameId, isCurrent, isMain,
+                    snapshot.heap(), isMultiFile));
         } // for
 
         String stdout = decodeOutput(snapshot.stdout());
         String stderr = decodeOutput(snapshot.stderr());
         String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
 
-        return new TraceStep(
-                stdout,
-                stderr,
-                "step_line",
-                currentMethod,
-                currentLine,
-                serializedStack,
-                serializedStatics,
-                globalsAttrs,
-                orderedStatics,
-                serializedHeap,
-                heapAttrs,
-                stepFile,
-                snapshot.stdinConsumed(),
-                snapshot.stdinOffset());
+        return new TraceStep(stdout, stderr, "step_line", currentMethod, currentLine, serializedStack,
+                serializedStatics, globalsAttrs, orderedStatics, serializedHeap, heapAttrs, stepFile,
+                snapshot.stdinConsumed(), snapshot.stdinOffset());
     } // createTraceStep
 
     /**
@@ -271,11 +239,9 @@ public record PyTutorSerializer(
         for (Entry<Long, TraceValue> e : heap.entrySet()) {
             if (!(inlineStrings && e.getValue() instanceof TraceValue.String)) {
                 if (e.getValue() instanceof TraceValue.Primitive prim) {
-                    serializedHeap.put(
-                            e.getKey().toString(), serializeHeapPrimitive(prim));
+                    serializedHeap.put(e.getKey().toString(), serializeHeapPrimitive(prim));
                 } else {
-                    serializedHeap.put(
-                            e.getKey().toString(), serializeTraceValue(e.getValue(), heap));
+                    serializedHeap.put(e.getKey().toString(), serializeTraceValue(e.getValue(), heap));
                 } // if
             } // if
         } // for
@@ -290,19 +256,16 @@ public record PyTutorSerializer(
      */
     private Object serializeHeapPrimitive(TraceValue.Primitive prim) {
         String boxedFqn = switch (prim) {
-            case TraceValue.Primitive.Integer i -> "java.lang.Integer";
-            case TraceValue.Primitive.Double d -> "java.lang.Double";
-            case TraceValue.Primitive.Boolean b -> "java.lang.Boolean";
-            case TraceValue.Primitive.Long l -> "java.lang.Long";
-            case TraceValue.Primitive.Float f -> "java.lang.Float";
-            case TraceValue.Primitive.Character c -> "java.lang.Character";
-            case TraceValue.Primitive.Byte b -> "java.lang.Byte";
-            case TraceValue.Primitive.Short s -> "java.lang.Short";
+        case TraceValue.Primitive.Integer i -> "java.lang.Integer";
+        case TraceValue.Primitive.Double d -> "java.lang.Double";
+        case TraceValue.Primitive.Boolean b -> "java.lang.Boolean";
+        case TraceValue.Primitive.Long l -> "java.lang.Long";
+        case TraceValue.Primitive.Float f -> "java.lang.Float";
+        case TraceValue.Primitive.Character c -> "java.lang.Character";
+        case TraceValue.Primitive.Byte b -> "java.lang.Byte";
+        case TraceValue.Primitive.Short s -> "java.lang.Short";
         }; // switch
-        return List.of(
-                "INSTANCE",
-                typeStyle.format(boxedFqn),
-                List.of("value", serializePrimitive(prim)));
+        return List.of("INSTANCE", typeStyle.format(boxedFqn), List.of("value", serializePrimitive(prim)));
     } // serializeHeapPrimitive
 
     /**
@@ -312,8 +275,7 @@ public record PyTutorSerializer(
      * @param declaredTypes Declared type mappings for references.
      * @return Map of heap attributes.
      */
-    private Map<String, Object> buildHeapAttrs(
-            Map<Long, TraceValue> heap, Map<Long, String> declaredTypes) {
+    private Map<String, Object> buildHeapAttrs(Map<Long, TraceValue> heap, Map<Long, String> declaredTypes) {
         Map<String, Object> heapAttrs = new LinkedHashMap<>();
         for (Entry<Long, TraceValue> e : heap.entrySet()) {
             String key = e.getKey().toString();
@@ -321,11 +283,8 @@ public record PyTutorSerializer(
             TraceValue val = e.getValue();
             switch (val) {
             case TraceValue.Object o -> {
-                List<String> objectTypes =
-                        o.fields().stream()
-                                .map(Field::typeName)
-                                .map(typeStyle::format)
-                                .collect(Collectors.toList());
+                List<String> objectTypes = o.fields().stream().map(Field::typeName).map(typeStyle::format)
+                        .collect(Collectors.toList());
                 heapAttrs.put(key, Map.of("type", objectTypes));
             } // case
             case TraceValue.List a -> {
@@ -340,27 +299,20 @@ public record PyTutorSerializer(
                 String resolvedType = resolveCollectionType(id, c, declaredTypes, heap);
                 heapAttrs.put(key, Map.of("type", typeStyle.format(resolvedType)));
             } // case
-            case TraceValue.String s ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.String")));
-            case TraceValue.Primitive.Integer i ->
-                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("int"))));
+            case TraceValue.String s -> heapAttrs.put(key, Map.of("type", typeStyle.format("java.lang.String")));
+            case TraceValue.Primitive.Integer i -> heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("int"))));
             case TraceValue.Primitive.Double d ->
                 heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("double"))));
             case TraceValue.Primitive.Boolean b ->
                 heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("boolean"))));
-            case TraceValue.Primitive.Long l ->
-                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("long"))));
-            case TraceValue.Primitive.Float f ->
-                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("float"))));
+            case TraceValue.Primitive.Long l -> heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("long"))));
+            case TraceValue.Primitive.Float f -> heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("float"))));
             case TraceValue.Primitive.Character c ->
                 heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("char"))));
-            case TraceValue.Primitive.Byte b ->
-                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("byte"))));
-            case TraceValue.Primitive.Short s ->
-                heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("short"))));
+            case TraceValue.Primitive.Byte b -> heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("byte"))));
+            case TraceValue.Primitive.Short s -> heapAttrs.put(key, Map.of("type", List.of(typeStyle.format("short"))));
             case TraceValue.Lambda l -> heapAttrs.put(key, Map.of("type", "lambda"));
-            case TraceValue.Color c ->
-                heapAttrs.put(key, Map.of("type", typeStyle.format(c.classFqn())));
+            case TraceValue.Color c -> heapAttrs.put(key, Map.of("type", typeStyle.format(c.classFqn())));
             default -> {
                 // do nothing
             } // default
@@ -377,10 +329,7 @@ public record PyTutorSerializer(
      */
     private String decodeOutput(byte[] bytes) {
         try {
-            return Charset.defaultCharset()
-                    .newDecoder()
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString();
+            return Charset.defaultCharset().newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
         } catch (CharacterCodingException cce) {
             return "";
         } // try
@@ -418,8 +367,7 @@ public record PyTutorSerializer(
      * @param pretty True to enable pretty-printing.
      * @return The serialized execution snapshot as a JSON string.
      */
-    public String serialize(
-            String javaSource, String stdin, ExecutionSnapshot snapshot, boolean pretty) {
+    public String serialize(String javaSource, String stdin, ExecutionSnapshot snapshot, boolean pretty) {
         PyTutorTrace trace = createTrace(javaSource, stdin, snapshot);
         return getGson(pretty).toJson(trace);
     } // serialize
@@ -435,13 +383,8 @@ public record PyTutorSerializer(
      * @param isMultiFile Whether to serialize source file metadata.
      * @return The RenderStackFrame model.
      */
-    private RenderStackFrame serializeStackSnapshot(
-            StackSnapshot stackSnapshot,
-            int uniqueFrameId,
-            boolean isCurrentFrame,
-            boolean isMainFrame,
-            Map<Long, TraceValue> heap,
-            boolean isMultiFile) {
+    private RenderStackFrame serializeStackSnapshot(StackSnapshot stackSnapshot, int uniqueFrameId,
+            boolean isCurrentFrame, boolean isMainFrame, Map<Long, TraceValue> heap, boolean isMultiFile) {
 
         Map<String, Object> encodedLocals = new LinkedHashMap<>();
         List<String> orderedVarnames = new ArrayList<>();
@@ -450,9 +393,7 @@ public record PyTutorSerializer(
         stackSnapshot.thisObject().ifPresent(t -> {
             if (!removeMethodThis) {
                 orderedVarnames.add("this");
-                localsAttrs.put(
-                        "this",
-                        Map.of("type", typeStyle.format(t.typeName()), "final", true));
+                localsAttrs.put("this", Map.of("type", typeStyle.format(t.typeName()), "final", true));
                 encodedLocals.put("this", serializeTraceValue(t.value(), heap));
             } // if
         });
@@ -462,28 +403,16 @@ public record PyTutorSerializer(
                 continue;
             } // if
             orderedVarnames.add(field.identifier());
-            localsAttrs.put(
-                    field.identifier(),
+            localsAttrs.put(field.identifier(),
                     Map.of("type", typeStyle.format(field.typeName()), "final", field.isFinal()));
             encodedLocals.put(field.identifier(), serializeTraceValue(field.value(), heap));
         } // for
 
-        String funcName =
-                String.format("%s:%d", stackSnapshot.methodName(), stackSnapshot.methodLine());
+        String funcName = String.format("%s:%d", stackSnapshot.methodName(), stackSnapshot.methodLine());
         String frameFile = isMultiFile ? stackSnapshot.sourcePath().orElse(null) : null;
 
-        return new RenderStackFrame(
-                funcName,
-                encodedLocals,
-                localsAttrs,
-                orderedVarnames,
-                Collections.emptyList(),
-                isCurrentFrame,
-                false,
-                false,
-                String.valueOf(uniqueFrameId),
-                uniqueFrameId,
-                frameFile);
+        return new RenderStackFrame(funcName, encodedLocals, localsAttrs, orderedVarnames, Collections.emptyList(),
+                isCurrentFrame, false, false, String.valueOf(uniqueFrameId), uniqueFrameId, frameFile);
     } // serializeStackSnapshot
 
     /**
@@ -501,53 +430,50 @@ public record PyTutorSerializer(
 
     /**
      * Converts a value after its inline children have been converted.
+     *
      * @param value Current value.
      * @param heap Heap references.
      * @param converted Completed child values, keyed by identity.
      * @return JSON-compatible value.
      */
-    private Object convertValue(TraceValue value, Map<Long, TraceValue> heap,
-            Map<TraceValue, Object> converted) {
+    private Object convertValue(TraceValue value, Map<Long, TraceValue> heap, Map<TraceValue, Object> converted) {
         return switch (value) {
-            case null -> null;
-            case TraceValue.Null nullVal -> null;
-            case TraceValue.Primitive prim -> serializePrimitive(prim);
-            case TraceValue.Reference referenceValue -> {
-                TraceValue target = heap.get(referenceValue.uniqueId());
-                if (target instanceof TraceValue.String string && inlineStrings) {
-                    yield string.value();
-                } // if
-                yield List.of("REF", referenceValue.uniqueId());
-            } // case
-            case TraceValue.String stringValue -> {
-                if (inlineStrings) {
-                    yield stringValue.value();
-                } // if
-                yield List.of(
-                        "INSTANCE", "String", List.of("___NO_LABEL!___", stringValue.value()));
-            } // case
-            case TraceValue.Lambda lambdaValue ->
-                    List.of("JAVA_LAMBDA", lambdaValue.implementation());
-            case TraceValue.List listValue -> {
-                List<Object> list = new ArrayList<>();
-                list.add("LIST");
-                for (TraceValue elem : listValue.value()) {
-                    list.add(converted.get(elem));
-                } // for
-                yield list;
-            } // case
-            case TraceValue.Collection collectionValue -> {
-                List<Object> list = new ArrayList<>();
-                list.add("SET");
-                for (TraceValue elem : collectionValue.value()) {
-                    list.add(converted.get(elem));
-                } // for
-                yield list;
-            } // case
-            case TraceValue.Map mapValue -> serializeMap(mapValue, converted);
-            case TraceValue.Object objectValue -> serializeObject(objectValue, converted);
-            case TraceValue.Color colorValue ->
-                    List.of("COLOR", typeStyle.format(colorValue.classFqn()), colorValue.hex());
+        case null -> null;
+        case TraceValue.Null nullVal -> null;
+        case TraceValue.Primitive prim -> serializePrimitive(prim);
+        case TraceValue.Reference referenceValue -> {
+            TraceValue target = heap.get(referenceValue.uniqueId());
+            if (target instanceof TraceValue.String string && inlineStrings) {
+                yield string.value();
+            } // if
+            yield List.of("REF", referenceValue.uniqueId());
+        } // case
+        case TraceValue.String stringValue -> {
+            if (inlineStrings) {
+                yield stringValue.value();
+            } // if
+            yield List.of("INSTANCE", "String", List.of("___NO_LABEL!___", stringValue.value()));
+        } // case
+        case TraceValue.Lambda lambdaValue -> List.of("JAVA_LAMBDA", lambdaValue.implementation());
+        case TraceValue.List listValue -> {
+            List<Object> list = new ArrayList<>();
+            list.add("LIST");
+            for (TraceValue elem : listValue.value()) {
+                list.add(converted.get(elem));
+            } // for
+            yield list;
+        } // case
+        case TraceValue.Collection collectionValue -> {
+            List<Object> list = new ArrayList<>();
+            list.add("SET");
+            for (TraceValue elem : collectionValue.value()) {
+                list.add(converted.get(elem));
+            } // for
+            yield list;
+        } // case
+        case TraceValue.Map mapValue -> serializeMap(mapValue, converted);
+        case TraceValue.Object objectValue -> serializeObject(objectValue, converted);
+        case TraceValue.Color colorValue -> List.of("COLOR", typeStyle.format(colorValue.classFqn()), colorValue.hex());
         }; // switch
     } // serializeTraceValue
 
@@ -559,12 +485,10 @@ public record PyTutorSerializer(
      */
     private Object serializePrimitive(TraceValue.Primitive prim) {
         return switch (prim) {
-            case TraceValue.Primitive.Float f ->
-                    List.of("NUMBER-LITERAL", Float.toString(f.value()));
-            case TraceValue.Primitive.Double d -> serializeDouble(d.value());
-            case TraceValue.Primitive.Character c ->
-                    List.of("CHAR-LITERAL", Character.toString(c.value()));
-            default -> prim.toWrapperObject();
+        case TraceValue.Primitive.Float f -> List.of("NUMBER-LITERAL", Float.toString(f.value()));
+        case TraceValue.Primitive.Double d -> serializeDouble(d.value());
+        case TraceValue.Primitive.Character c -> List.of("CHAR-LITERAL", Character.toString(c.value()));
+        default -> prim.toWrapperObject();
         }; // switch
     } // serializePrimitive
 
@@ -578,11 +502,8 @@ public record PyTutorSerializer(
     private Object serializeMap(TraceValue.Map mapValue, Map<TraceValue, Object> converted) {
         List<Object> list = new ArrayList<>();
         list.add("DICT");
-        for (Entry<? extends TraceValue, ? extends TraceValue> entry
-                : mapValue.value().entrySet()) {
-            list.add(Arrays.asList(
-                    converted.get(entry.getKey()),
-                    converted.get(entry.getValue())));
+        for (Entry<? extends TraceValue, ? extends TraceValue> entry : mapValue.value().entrySet()) {
+            list.add(Arrays.asList(converted.get(entry.getKey()), converted.get(entry.getValue())));
         } // for
         return list;
     } // serializeMap
@@ -594,8 +515,7 @@ public record PyTutorSerializer(
      * @param converted Completed child values.
      * @return Serialized list representation.
      */
-    private Object serializeObject(
-            TraceValue.Object objectValue, Map<TraceValue, Object> converted) {
+    private Object serializeObject(TraceValue.Object objectValue, Map<TraceValue, Object> converted) {
         List<Object> list = new ArrayList<>();
         list.add("INSTANCE");
         String typeLabel = typeStyle.format(objectValue.classFqn());
@@ -604,8 +524,7 @@ public record PyTutorSerializer(
         } // if
         list.add(typeLabel);
         for (Field field : objectValue.fields()) {
-            list.add(Arrays.asList(
-                    field.identifier(), converted.get(field.value())));
+            list.add(Arrays.asList(field.identifier(), converted.get(field.value())));
         } // for
         return list;
     } // serializeObject
@@ -656,10 +575,7 @@ public record PyTutorSerializer(
      * @param heap The heap map.
      * @return The resolved type name.
      */
-    private static String resolveListType(
-            Long id,
-            TraceValue.List list,
-            Map<Long, String> declaredTypes,
+    private static String resolveListType(Long id, TraceValue.List list, Map<Long, String> declaredTypes,
             Map<Long, TraceValue> heap) {
         String typeName = list.typeName();
         if (typeName.endsWith("[]")) {
@@ -691,10 +607,7 @@ public record PyTutorSerializer(
      * @param heap The heap map.
      * @return The resolved type name.
      */
-    private static String resolveCollectionType(
-            Long id,
-            TraceValue.Collection col,
-            Map<Long, String> declaredTypes,
+    private static String resolveCollectionType(Long id, TraceValue.Collection col, Map<Long, String> declaredTypes,
             Map<Long, TraceValue> heap) {
         String typeName = col.typeName();
         if (typeName.contains("<")) {
@@ -723,10 +636,7 @@ public record PyTutorSerializer(
      * @param heap The heap map.
      * @return The resolved type name.
      */
-    private static String resolveMapType(
-            Long id,
-            TraceValue.Map map,
-            Map<Long, String> declaredTypes,
+    private static String resolveMapType(Long id, TraceValue.Map map, Map<Long, String> declaredTypes,
             Map<Long, TraceValue> heap) {
         String typeName = map.typeName();
         if (typeName.contains("<")) {
@@ -754,8 +664,8 @@ public record PyTutorSerializer(
      * @param heap The heap map.
      * @return Inferred type name, or null if ambiguous.
      */
-    private static String sampleElementType(
-            java.util.Collection<? extends TraceValue> elements, Map<Long, TraceValue> heap) {
+    private static String sampleElementType(java.util.Collection<? extends TraceValue> elements,
+            Map<Long, TraceValue> heap) {
         String inferred = null;
         for (TraceValue elem : elements) {
             String type = getSimpleTypeName(elem, heap);
@@ -793,24 +703,24 @@ public record PyTutorSerializer(
             value = target;
         } // while
         return switch (value) {
-            case TraceValue.String s -> "String";
-            case TraceValue.Primitive.Integer i -> "Integer";
-            case TraceValue.Primitive.Double d -> "Double";
-            case TraceValue.Primitive.Boolean b -> "Boolean";
-            case TraceValue.Primitive.Long l -> "Long";
-            case TraceValue.Primitive.Float f -> "Float";
-            case TraceValue.Primitive.Character c -> "Character";
-            case TraceValue.Primitive.Byte b -> "Byte";
-            case TraceValue.Primitive.Short s -> "Short";
-            case TraceValue.Object o -> {
-                String fqn = o.classFqn();
-                int lastDot = fqn.lastIndexOf('.');
-                yield (lastDot != -1) ? fqn.substring(lastDot + 1) : fqn;
-            } // case
-            case TraceValue.List l -> l.typeName();
-            case TraceValue.Map m -> m.typeName();
-            case TraceValue.Collection c -> c.typeName();
-            default -> null;
+        case TraceValue.String s -> "String";
+        case TraceValue.Primitive.Integer i -> "Integer";
+        case TraceValue.Primitive.Double d -> "Double";
+        case TraceValue.Primitive.Boolean b -> "Boolean";
+        case TraceValue.Primitive.Long l -> "Long";
+        case TraceValue.Primitive.Float f -> "Float";
+        case TraceValue.Primitive.Character c -> "Character";
+        case TraceValue.Primitive.Byte b -> "Byte";
+        case TraceValue.Primitive.Short s -> "Short";
+        case TraceValue.Object o -> {
+            String fqn = o.classFqn();
+            int lastDot = fqn.lastIndexOf('.');
+            yield (lastDot != -1) ? fqn.substring(lastDot + 1) : fqn;
+        } // case
+        case TraceValue.List l -> l.typeName();
+        case TraceValue.Map m -> m.typeName();
+        case TraceValue.Collection c -> c.typeName();
+        default -> null;
         }; // switch
     } // getSimpleTypeName
 } // PyTutorSerializer

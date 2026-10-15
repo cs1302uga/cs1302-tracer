@@ -19,6 +19,7 @@ public final class ValueTraversal {
 
     /**
      * Checks every value root before snapshot accounting or conversion.
+     *
      * @param snapshot Snapshot owned by the caller; must not be mutated during serialization.
      */
     public static void validate(ExecutionSnapshot snapshot) {
@@ -32,6 +33,7 @@ public final class ValueTraversal {
 
     /**
      * Checks frame locals. The this-object is always a leaf reference.
+     *
      * @param frame Stack frame.
      */
     private static void validateFrame(ExecutionSnapshot.StackSnapshot frame) {
@@ -40,23 +42,24 @@ public final class ValueTraversal {
 
     /**
      * Checks one inline value tree.
+     *
      * @param value Root value.
      */
     private static void validateValue(TraceValue value) {
-        visit(value, ignored -> { });
+        visit(value, ignored -> {});
     } // validateValue
 
     /**
-     * Visits children before their parent, rejecting deep paths and identity cycles.
-     * Shared values are visited once; cached heights check each incoming path.
-     * Record hashCode is never invoked.
+     * Visits children before their parent, rejecting deep paths and identity cycles. Shared values are visited once;
+     * cached heights check each incoming path. Record hashCode is never invoked.
+     *
      * @param root Root value, possibly null.
      * @param visitor Postorder consumer.
      */
     public static void visit(TraceValue root, Consumer<TraceValue> visitor) {
         Set<TraceValue> active = Collections.newSetFromMap(new IdentityHashMap<>());
-        var heights = new IdentityHashMap<TraceValue, Integer>();
-        var stack = new ArrayDeque<Frame>();
+        IdentityHashMap<TraceValue, Integer> heights = new IdentityHashMap<TraceValue, Integer>();
+        ArrayDeque<Frame> stack = new ArrayDeque<Frame>();
         stack.push(new Frame(root, null));
         while (!stack.isEmpty()) {
             Frame frame = stack.pop();
@@ -81,7 +84,7 @@ public final class ValueTraversal {
                 stack.push(new Frame(frame.children().next(), null));
             } else {
                 int height = 1;
-                var children = children(frame.value());
+                Iterator<? extends TraceValue> children = children(frame.value());
                 while (children.hasNext()) {
                     height = Math.max(height, heights.get(children.next()) + 1);
                 } // while
@@ -94,6 +97,7 @@ public final class ValueTraversal {
 
     /**
      * Returns inline children without following heap references or copying wide containers.
+     *
      * @param value Value to inspect.
      * @return Child iterator.
      */
@@ -101,10 +105,9 @@ public final class ValueTraversal {
         return switch (value) {
         case TraceValue.List list -> list.value().iterator();
         case TraceValue.Collection collection -> collection.value().iterator();
-        case TraceValue.Object object -> object.fields().stream()
-                .map(ExecutionSnapshot.Field::value).iterator();
-        case TraceValue.Map map -> map.value().entrySet().stream()
-                .flatMap(e -> Stream.<TraceValue>of(e.getKey(), e.getValue())).iterator();
+        case TraceValue.Object object -> object.fields().stream().map(ExecutionSnapshot.Field::value).iterator();
+        case TraceValue.Map map ->
+            map.value().entrySet().stream().flatMap(e -> Stream.<TraceValue>of(e.getKey(), e.getValue())).iterator();
         case null, default -> Collections.emptyIterator();
         }; // switch
     } // children

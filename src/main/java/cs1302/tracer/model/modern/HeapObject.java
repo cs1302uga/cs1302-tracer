@@ -8,20 +8,15 @@ import java.util.List;
  *
  * @param id The unique reference ID of this heap object.
  * @param type The runtime or declared type of the object.
- * @param kind The category of heap object:
- *     "object", "array", "string", "lambda", "box", or "color".
+ * @param kind The category of heap object: "object", "array", "string", "lambda", "box", or "color".
  * @param fields The list of instance fields for objects.
  * @param elements The list of element values for arrays.
  * @param value The scalar string or boxed value.
  * @param sam The single abstract method implementation for lambdas.
  */
-public record HeapObject(
-        @SerializedName("id") long id,
-        @SerializedName("type") String type,
-        @SerializedName("kind") String kind,
-        @SerializedName("fields") List<Variable> fields,
-        @SerializedName("elements") List<Object> elements,
-        @SerializedName("value") Object value,
+public record HeapObject(@SerializedName("id") long id, @SerializedName("type") String type,
+        @SerializedName("kind") String kind, @SerializedName("fields") List<Variable> fields,
+        @SerializedName("elements") List<Object> elements, @SerializedName("value") Object value,
         @SerializedName("sam") String sam) {
 
     /**

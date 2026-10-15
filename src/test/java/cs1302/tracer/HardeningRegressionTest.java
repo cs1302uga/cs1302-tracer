@@ -16,10 +16,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class HardeningRegressionTest {
     @ParameterizedTest
-    @ValueSource(strings = {"../Escape.java", "..\\Escape.java", "C:/Escape.java", "/Escape.java"})
+    @ValueSource(strings = { "../Escape.java", "..\\Escape.java", "C:/Escape.java", "/Escape.java" })
     void rejectsEscapingSourcePaths(String path) {
-        assertThatThrownBy(() -> CompilationHelper.compile("// --- " + path
-                + " ---\npublic class Escape { public static void main(String[] args) {} }"))
+        assertThatThrownBy(() -> CompilationHelper
+                .compile("// --- " + path + " ---\npublic class Escape { public static void main(String[] args) {} }"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("source path");
     }
 
@@ -28,8 +28,7 @@ class HardeningRegressionTest {
         Path target = directory.resolve("Owned.java");
         String source = "// --- " + target + " ---\npublic class Owned {}\n"
                 + "// --- Main.java ---\npublic class Main { public static void main(String[] a) {} }";
-        assertThatThrownBy(() -> CompilationHelper.compile(source))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CompilationHelper.compile(source)).isInstanceOf(IllegalArgumentException.class);
         assertThat(target).doesNotExist();
     }
 
@@ -37,16 +36,16 @@ class HardeningRegressionTest {
     void rejectsNormalizedDuplicates() {
         String source = "// --- Main.java ---\npublic class Main { public static void main(String[] a) {} }\n"
                 + "// --- sub/../Main.java ---\npublic class Main {}";
-        assertThatThrownBy(() -> CompilationHelper.compile(source))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("duplicate");
+        assertThatThrownBy(() -> CompilationHelper.compile(source)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("duplicate");
     }
 
     @Test
     void failedCompilationsCleanTemporaryFiles() throws Exception {
         Set<Path> before = compilationDirectories();
         for (int i = 0; i < 3; i++) {
-            assertThatThrownBy(() -> CompilationHelper.compile(
-                    "public class Bad { public static void main(String[] a) { int x = false; } }"))
+            assertThatThrownBy(() -> CompilationHelper
+                    .compile("public class Bad { public static void main(String[] a) { int x = false; } }"))
                     .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> CompilationHelper.compile("public class NoMain {}"))
                     .isInstanceOf(IllegalArgumentException.class);
@@ -79,8 +78,8 @@ class HardeningRegressionTest {
                     .map(v -> (TraceValue.Map) v).findFirst().orElseThrow();
             assertThat(map.value().keySet()).anyMatch(v -> v instanceof TraceValue.Null);
             assertThat(map.value().values()).anyMatch(v -> v instanceof TraceValue.Null);
-            String modern = ModernTraceSerializer.getGson().toJson(
-                    new ModernTraceSerializer(false, false, false).createTrace(source, snapshot));
+            String modern = ModernTraceSerializer.getGson()
+                    .toJson(new ModernTraceSerializer(false, false, false).createTrace(source, snapshot));
             String legacy = new PyTutorSerializer(false, false, false).serialize(source, snapshot, false);
             assertThat(modern).contains("null");
             assertThat(legacy).contains("null");

@@ -1,5 +1,6 @@
 package cs1302.tracer.trace;
 
+import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.StaticJavaParser;
 import cs1302.tracer.execution.NestingException;
 import com.github.javaparser.ast.CompilationUnit;
@@ -29,32 +30,27 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Extracts and indexes static type information from JavaParser ASTs to support generic type
- * reification during runtime tracing.
+ * Extracts and indexes static type information from JavaParser ASTs to support generic type reification during runtime
+ * tracing.
  *
- * <p>Normative References:
- * <ul>
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.5 (Parameterized Types).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;4.6 (Type Erasure).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;8.1.2
- *       (Generic Classes and Type Parameters).
- *   <li>The Java Language Specification (Java SE 21 Edition), &sect;15.9
- *       (Class Instance Creation Expressions).
- *   <li>The Java Virtual Machine Specification (Java SE 21 Edition), &sect;4.7.9
- *       (The Signature Attribute).
- * </ul>
+ * <p>Normative References: <ul> <li>The Java Language Specification (Java SE 21 Edition), &sect;4.5 (Parameterized
+ * Types). <li>The Java Language Specification (Java SE 21 Edition), &sect;4.6 (Type Erasure). <li>The Java Language
+ * Specification (Java SE 21 Edition), &sect;8.1.2 (Generic Classes and Type Parameters). <li>The Java Language
+ * Specification (Java SE 21 Edition), &sect;15.9 (Class Instance Creation Expressions). <li>The Java Virtual Machine
+ * Specification (Java SE 21 Edition), &sect;4.7.9 (The Signature Attribute). </ul>
  */
 public class AstTypeResolver {
 
     /** Source solver retained for invocation-level inference. */
-    public static final com.github.javaparser.ast.DataKey<
-            com.github.javaparser.resolution.TypeSolver> TYPE_SOLVER =
-                new com.github.javaparser.ast.DataKey<>() {};
+    public static final com.github.javaparser.ast.DataKey<com.github.javaparser.resolution.TypeSolver> TYPE_SOLVER =
+            new com.github.javaparser.ast.DataKey<>() {
+            };
 
     private final InvocationTypeResolver invocationTypes;
 
     /**
      * Returns the source invocation resolver.
+     *
      * @return Invocation resolver.
      */
     InvocationTypeResolver invocationTypes() {
@@ -71,13 +67,8 @@ public class AstTypeResolver {
      * @param implementedTypes List of implemented interface type strings.
      * @param extendedType Optional extended superclass type string.
      */
-    public record ClassGenericInfo(
-            String classFqn,
-            List<String> typeParameters,
-            Map<String, String> fieldTypes,
-            Map<String, Boolean> fieldIsFinal,
-            List<String> implementedTypes,
-            Optional<String> extendedType) {
+    public record ClassGenericInfo(String classFqn, List<String> typeParameters, Map<String, String> fieldTypes,
+            Map<String, Boolean> fieldIsFinal, List<String> implementedTypes, Optional<String> extendedType) {
 
         /**
          * Backward-compatible 4-argument constructor.
@@ -87,18 +78,9 @@ public class AstTypeResolver {
          * @param fieldTypes Map of field names to declared type strings.
          * @param fieldIsFinal Map of field names to final modifiers.
          */
-        public ClassGenericInfo(
-                String classFqn,
-                List<String> typeParameters,
-                Map<String, String> fieldTypes,
+        public ClassGenericInfo(String classFqn, List<String> typeParameters, Map<String, String> fieldTypes,
                 Map<String, Boolean> fieldIsFinal) {
-            this(
-                    classFqn,
-                    typeParameters,
-                    fieldTypes,
-                    fieldIsFinal,
-                    Collections.emptyList(),
-                    Optional.empty());
+            this(classFqn, typeParameters, fieldTypes, fieldIsFinal, Collections.emptyList(), Optional.empty());
         } // ClassGenericInfo
     } // ClassGenericInfo
 
@@ -112,11 +94,7 @@ public class AstTypeResolver {
      * @param isParameter True if this variable is a parameter.
      */
     public record VariableInfo(
-            String name,
-            String declaredType,
-            int startLine,
-            int endLine,
-            boolean isParameter) {} // VariableInfo
+            String name, String declaredType, int startLine, int endLine, boolean isParameter) {} // VariableInfo
 
     private final List<CompilationUnit> compilationUnits;
     private final Map<String, ClassGenericInfo> classInfoMap = new HashMap<>();
@@ -129,8 +107,7 @@ public class AstTypeResolver {
      * @param compilationUnits The compilation units to analyze.
      */
     public AstTypeResolver(List<CompilationUnit> compilationUnits) {
-        this.compilationUnits =
-                compilationUnits != null ? compilationUnits : Collections.emptyList();
+        this.compilationUnits = compilationUnits != null ? compilationUnits : Collections.emptyList();
         invocationTypes = new InvocationTypeResolver(this.compilationUnits);
         indexCompilationUnits();
     } // AstTypeResolver
@@ -161,8 +138,7 @@ public class AstTypeResolver {
      * @param typeDecl The type declaration AST node.
      */
     private void indexTypeDeclaration(TypeDeclaration<?> typeDecl) {
-        String classFqn =
-                typeDecl.getFullyQualifiedName().orElseGet(typeDecl::getNameAsString);
+        String classFqn = typeDecl.getFullyQualifiedName().orElseGet(typeDecl::getNameAsString);
 
         List<String> typeParams = new ArrayList<>();
         List<String> implementedTypes = new ArrayList<>();
@@ -174,8 +150,7 @@ public class AstTypeResolver {
                 implementedTypes.add(resolveAstTypeWithParams(it, typeParams));
             } // for
             if (!cid.getExtendedTypes().isEmpty()) {
-                extendedType = Optional.of(
-                        resolveAstTypeWithParams(cid.getExtendedTypes().get(0), typeParams));
+                extendedType = Optional.of(resolveAstTypeWithParams(cid.getExtendedTypes().get(0), typeParams));
             } // if
         } // if
 
@@ -184,22 +159,13 @@ public class AstTypeResolver {
         for (FieldDeclaration fd : typeDecl.getFields()) {
             boolean isFinal = fd.isFinal();
             for (VariableDeclarator vd : fd.getVariables()) {
-                fieldTypes.put(
-                        vd.getNameAsString(),
-                        resolveAstTypeWithParams(vd.getType(), typeParams));
+                fieldTypes.put(vd.getNameAsString(), resolveAstTypeWithParams(vd.getType(), typeParams));
                 fieldIsFinal.put(vd.getNameAsString(), isFinal);
             } // for
         } // for
 
-        classInfoMap.put(
-                classFqn,
-                new ClassGenericInfo(
-                        classFqn,
-                        typeParams,
-                        fieldTypes,
-                        fieldIsFinal,
-                        implementedTypes,
-                        extendedType));
+        classInfoMap.put(classFqn,
+                new ClassGenericInfo(classFqn, typeParams, fieldTypes, fieldIsFinal, implementedTypes, extendedType));
 
         indexConstructors(classFqn, typeParams, typeDecl);
         indexMethods(classFqn, typeParams, typeDecl);
@@ -212,12 +178,10 @@ public class AstTypeResolver {
      * @param typeParams Class type parameters.
      * @param typeDecl Type declaration AST node.
      */
-    private void indexConstructors(
-            String classFqn, List<String> typeParams, TypeDeclaration<?> typeDecl) {
+    private void indexConstructors(String classFqn, List<String> typeParams, TypeDeclaration<?> typeDecl) {
         for (ConstructorDeclaration cd : typeDecl.getConstructors()) {
             String methodKey = makeMethodKey(classFqn, "<init>");
-            List<VariableInfo> vars =
-                    methodVariablesMap.computeIfAbsent(methodKey, k -> new ArrayList<>());
+            List<VariableInfo> vars = methodVariablesMap.computeIfAbsent(methodKey, k -> new ArrayList<>());
 
             List<String> constructorTypeParams = new ArrayList<>(typeParams);
             cd.getTypeParameters().forEach(tp -> constructorTypeParams.add(tp.getNameAsString()));
@@ -226,22 +190,14 @@ public class AstTypeResolver {
             int endLine = cd.getRange().map(r -> r.end.line).orElse(Integer.MAX_VALUE);
 
             for (Parameter p : cd.getParameters()) {
-                vars.add(new VariableInfo(
-                        p.getNameAsString(),
-                        resolveAstTypeWithParams(p.getType(), constructorTypeParams),
-                        startLine,
-                        endLine,
-                        true));
+                vars.add(new VariableInfo(p.getNameAsString(),
+                        resolveAstTypeWithParams(p.getType(), constructorTypeParams), startLine, endLine, true));
             } // for
 
             for (VariableDeclarator vd : cd.findAll(VariableDeclarator.class)) {
                 int vdStart = vd.getRange().map(r -> r.begin.line).orElse(startLine);
-                vars.add(new VariableInfo(
-                        vd.getNameAsString(),
-                        resolveAstTypeWithParams(vd.getType(), constructorTypeParams),
-                        vdStart,
-                        endLine,
-                        false));
+                vars.add(new VariableInfo(vd.getNameAsString(),
+                        resolveAstTypeWithParams(vd.getType(), constructorTypeParams), vdStart, endLine, false));
             } // for
 
             indexAllocationSites(classFqn, cd);
@@ -255,12 +211,10 @@ public class AstTypeResolver {
      * @param typeParams Class type parameters.
      * @param typeDecl Type declaration AST node.
      */
-    private void indexMethods(
-            String classFqn, List<String> typeParams, TypeDeclaration<?> typeDecl) {
+    private void indexMethods(String classFqn, List<String> typeParams, TypeDeclaration<?> typeDecl) {
         for (MethodDeclaration md : typeDecl.getMethods()) {
             String methodKey = makeMethodKey(classFqn, md.getNameAsString());
-            List<VariableInfo> vars =
-                    methodVariablesMap.computeIfAbsent(methodKey, k -> new ArrayList<>());
+            List<VariableInfo> vars = methodVariablesMap.computeIfAbsent(methodKey, k -> new ArrayList<>());
 
             List<String> methodTypeParams = new ArrayList<>(typeParams);
             md.getTypeParameters().forEach(tp -> methodTypeParams.add(tp.getNameAsString()));
@@ -269,22 +223,14 @@ public class AstTypeResolver {
             int endLine = md.getRange().map(r -> r.end.line).orElse(Integer.MAX_VALUE);
 
             for (Parameter p : md.getParameters()) {
-                vars.add(new VariableInfo(
-                        p.getNameAsString(),
-                        resolveAstTypeWithParams(p.getType(), methodTypeParams),
-                        startLine,
-                        endLine,
-                        true));
+                vars.add(new VariableInfo(p.getNameAsString(), resolveAstTypeWithParams(p.getType(), methodTypeParams),
+                        startLine, endLine, true));
             } // for
 
             for (VariableDeclarator vd : md.findAll(VariableDeclarator.class)) {
                 int vdStart = vd.getRange().map(r -> r.begin.line).orElse(startLine);
-                vars.add(new VariableInfo(
-                        vd.getNameAsString(),
-                        resolveAstTypeWithParams(vd.getType(), methodTypeParams),
-                        vdStart,
-                        endLine,
-                        false));
+                vars.add(new VariableInfo(vd.getNameAsString(),
+                        resolveAstTypeWithParams(vd.getType(), methodTypeParams), vdStart, endLine, false));
             } // for
 
             indexAllocationSites(classFqn, md);
@@ -311,13 +257,13 @@ public class AstTypeResolver {
 
     /**
      * Resolves one type after its children.
+     *
      * @param type Current type.
      * @param typeParams In-scope type parameters.
      * @param resolved Already resolved children.
      * @return Descriptive type string.
      */
-    private static String resolveTypeNode(Type type, List<String> typeParams,
-            Map<Type, String> resolved) {
+    private static String resolveTypeNode(Type type, List<String> typeParams, Map<Type, String> resolved) {
         String typeStr = type.asString();
         if (typeParams != null && typeParams.contains(typeStr)) {
             return typeStr;
@@ -358,8 +304,7 @@ public class AstTypeResolver {
      * @param scopeNode Scope AST node.
      */
     private void indexAllocationSites(String classFqn, Node scopeNode) {
-        Map<Integer, String> lineAllocations =
-                allocationSiteMap.computeIfAbsent(classFqn, k -> new HashMap<>());
+        Map<Integer, String> lineAllocations = allocationSiteMap.computeIfAbsent(classFqn, k -> new HashMap<>());
 
         for (VariableDeclarator vd : scopeNode.findAll(VariableDeclarator.class)) {
             if (vd.getInitializer().isPresent()) {
@@ -512,8 +457,7 @@ public class AstTypeResolver {
                 || "java.util.LinkedHashMap".equals(classFqn) || "LinkedHashMap".equals(classFqn)
                 || "java.util.TreeMap".equals(classFqn) || "TreeMap".equals(classFqn)
                 || "java.util.Hashtable".equals(classFqn) || "Hashtable".equals(classFqn)
-                || "java.util.concurrent.ConcurrentHashMap".equals(classFqn)
-                || "ConcurrentHashMap".equals(classFqn);
+                || "java.util.concurrent.ConcurrentHashMap".equals(classFqn) || "ConcurrentHashMap".equals(classFqn);
     } // isStandardMap
 
     /**
@@ -560,9 +504,7 @@ public class AstTypeResolver {
             return concreteClassFqn;
         } // if
 
-        List<String> normalizedTargetArgs = targetArgs.stream()
-                .map(AstTypeResolver::normalizeWildcard)
-                .toList();
+        List<String> normalizedTargetArgs = targetArgs.stream().map(AstTypeResolver::normalizeWildcard).toList();
 
         List<String> hierarchy = new ArrayList<>(info.implementedTypes());
         info.extendedType().ifPresent(hierarchy::add);
@@ -592,8 +534,8 @@ public class AstTypeResolver {
     } // resolveSubclassType
 
     /**
-     * Reconciles a concrete runtime class with a declared reference type to produce
-     * a fully parameterized concrete type name.
+     * Reconciles a concrete runtime class with a declared reference type to produce a fully parameterized concrete type
+     * name.
      *
      * @param runtimeClassFqn The concrete runtime class FQN.
      * @param declaredType The declared variable type.
@@ -608,8 +550,7 @@ public class AstTypeResolver {
         } // if
 
         String declaredRaw = extractRawTypeName(declaredType);
-        List<String> declaredArgs = extractTypeArguments(declaredType).stream()
-                .map(AstTypeResolver::normalizeWildcard)
+        List<String> declaredArgs = extractTypeArguments(declaredType).stream().map(AstTypeResolver::normalizeWildcard)
                 .toList();
         if (declaredArgs.isEmpty()) {
             return runtimeClassFqn;
@@ -660,10 +601,8 @@ public class AstTypeResolver {
         } // if
 
         if (oce.getTypeArguments().isPresent() && !oce.getTypeArguments().get().isEmpty()) {
-            List<String> explicitArgs = oce.getTypeArguments().get().stream()
-                    .map(AstTypeResolver::resolveAstType)
-                    .map(AstTypeResolver::normalizeWildcard)
-                    .toList();
+            List<String> explicitArgs = oce.getTypeArguments().get().stream().map(AstTypeResolver::resolveAstType)
+                    .map(AstTypeResolver::normalizeWildcard).toList();
             return createdType + "<" + String.join(", ", explicitArgs) + ">";
         } // if
 
@@ -718,8 +657,8 @@ public class AstTypeResolver {
      * @param lineNumber Current line number.
      * @return Optional containing the declared AST type string.
      */
-    public Optional<String> resolveVariableType(
-            String classFqn, String methodName, String variableName, int lineNumber) {
+    public Optional<String> resolveVariableType(String classFqn, String methodName, String variableName,
+            int lineNumber) {
         String methodKey = makeMethodKey(classFqn, methodName);
         List<VariableInfo> vars = methodVariablesMap.get(methodKey);
         if (vars == null || vars.isEmpty()) {
@@ -728,9 +667,7 @@ public class AstTypeResolver {
 
         for (int i = vars.size() - 1; i >= 0; i--) {
             VariableInfo vi = vars.get(i);
-            if (vi.name().equals(variableName)
-                    && lineNumber >= vi.startLine()
-                    && lineNumber <= vi.endLine()) {
+            if (vi.name().equals(variableName) && lineNumber >= vi.startLine() && lineNumber <= vi.endLine()) {
                 return Optional.of(vi.declaredType());
             } // if
         } // for
@@ -746,39 +683,38 @@ public class AstTypeResolver {
 
     /**
      * Resolve a local against the exact active method before using legacy source metadata.
+     *
      * @param frame Active frame.
      * @param name Local variable name.
      * @return Declared type, preserving lexical type variables.
      */
     Optional<String> resolveFrameVariableType(com.sun.jdi.StackFrame frame, String name) {
-        var method = frame.location().method();
-        var source = invocationTypes.declaration(method);
+        com.sun.jdi.Method method = frame.location().method();
+        Optional<CallableDeclaration<?>> source = invocationTypes.declaration(method);
         if (source.isEmpty()) {
             return resolveVariableType(method.declaringType().name(), method.name(), name,
                     frame.location().lineNumber());
         } // if
-        var declaration = source.get();
+        CallableDeclaration<?> declaration = source.get();
         List<String> parameters = new ArrayList<>();
-        getClassGenericInfo(method.declaringType().name()).ifPresent(info ->
-                parameters.addAll(info.typeParameters()));
+        getClassGenericInfo(method.declaringType().name()).ifPresent(info -> parameters.addAll(info.typeParameters()));
         declaration.getTypeParameters().forEach(tp -> parameters.add(tp.getNameAsString()));
         int line = frame.location().lineNumber();
         VariableDeclarator selected = null;
         for (VariableDeclarator variable : declaration.findAll(VariableDeclarator.class)) {
             if (!variable.getNameAsString().equals(name)
                     || variable.stream(Node.TreeTraversal.PARENTS)
-                            .filter(com.github.javaparser.ast.body.CallableDeclaration.class
-                                    ::isInstance).findFirst()
+                            .filter(com.github.javaparser.ast.body.CallableDeclaration.class::isInstance).findFirst()
                             .orElse(null) != declaration
-                    || variable.getParentNode().filter(VariableDeclarationExpr.class::isInstance)
-                            .isEmpty()
+                    || variable.getParentNode().filter(VariableDeclarationExpr.class::isInstance).isEmpty()
                     || variable.getRange().map(r -> r.begin.line > line).orElse(true)) {
                 continue;
             } // if
-            var scope = variable.stream(Node.TreeTraversal.PARENTS).filter(node ->
-                    node instanceof com.github.javaparser.ast.stmt.BlockStmt
-                    || node instanceof com.github.javaparser.ast.stmt.ForStmt
-                    || node instanceof com.github.javaparser.ast.stmt.ForEachStmt).findFirst();
+            Optional<Node> scope = variable.stream(Node.TreeTraversal.PARENTS)
+                    .filter(node -> node instanceof com.github.javaparser.ast.stmt.BlockStmt
+                            || node instanceof com.github.javaparser.ast.stmt.ForStmt
+                            || node instanceof com.github.javaparser.ast.stmt.ForEachStmt)
+                    .findFirst();
             if (scope.flatMap(Node::getRange).map(r -> r.end.line >= line).orElse(false)) {
                 selected = variable;
             } // if
@@ -787,9 +723,7 @@ public class AstTypeResolver {
             return Optional.of(resolveAstTypeWithParams(selected.getType(), parameters));
         } // if
         return declaration.getParameters().stream().filter(p -> p.getNameAsString().equals(name))
-                .map(p -> resolveAstTypeWithParams(p.getType(), parameters)
-                        + (p.isVarArgs() ? "[]" : ""))
-                .findFirst();
+                .map(p -> resolveAstTypeWithParams(p.getType(), parameters) + (p.isVarArgs() ? "[]" : "")).findFirst();
     } // resolveFrameVariableType
 
     /**
@@ -900,8 +834,7 @@ public class AstTypeResolver {
         } catch (Throwable t) {
             String result = typeWithParams;
             for (Map.Entry<String, String> entry : bindings.entrySet()) {
-                result = result.replaceAll(
-                        "\\b" + Pattern.quote(entry.getKey()) + "\\b",
+                result = result.replaceAll("\\b" + Pattern.quote(entry.getKey()) + "\\b",
                         Matcher.quoteReplacement(entry.getValue()));
             } // for
             return result;
@@ -927,18 +860,16 @@ public class AstTypeResolver {
 
     /**
      * Substitutes one bounded type node after its children.
+     *
      * @param type Current type.
      * @param bindings Type bindings.
      * @param converted Completed child types.
      * @return Substituted type.
      */
-    private static Type substituteNode(Type type, Map<String, String> bindings,
-            Map<Type, Type> converted) {
+    private static Type substituteNode(Type type, Map<String, String> bindings, Map<Type, Type> converted) {
         if (type instanceof ClassOrInterfaceType cit) {
             String name = cit.getNameAsString();
-            if (bindings.containsKey(name)
-                    && cit.getScope().isEmpty()
-                    && cit.getTypeArguments().isEmpty()) {
+            if (bindings.containsKey(name) && cit.getScope().isEmpty() && cit.getTypeArguments().isEmpty()) {
                 String replacement = bindings.get(name);
                 try {
                     return StaticJavaParser.parseType(replacement);
@@ -948,8 +879,7 @@ public class AstTypeResolver {
             } // if
             ClassOrInterfaceType cloned = cit.clone();
             if (cloned.getTypeArguments().isPresent()) {
-                com.github.javaparser.ast.NodeList<Type> newArgs =
-                        new com.github.javaparser.ast.NodeList<>();
+                com.github.javaparser.ast.NodeList<Type> newArgs = new com.github.javaparser.ast.NodeList<>();
                 for (Type arg : cit.getTypeArguments().get()) {
                     newArgs.add(converted.get(arg));
                 } // for
@@ -964,12 +894,10 @@ public class AstTypeResolver {
                 if (type instanceof WildcardType wt) {
                     WildcardType cloned = wt.clone();
                     if (cloned.getExtendedType().isPresent()) {
-                        cloned.setExtendedType(
-                                (ReferenceType) converted.get(wt.getExtendedType().get()));
+                        cloned.setExtendedType((ReferenceType) converted.get(wt.getExtendedType().get()));
                     } // if
                     if (cloned.getSuperType().isPresent()) {
-                        cloned.setSuperType(
-                                (ReferenceType) converted.get(wt.getSuperType().get()));
+                        cloned.setSuperType((ReferenceType) converted.get(wt.getSuperType().get()));
                     } // if
                     return cloned;
                 } // if

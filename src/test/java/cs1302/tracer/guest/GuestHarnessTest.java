@@ -54,23 +54,20 @@ public class GuestHarnessTest {
     @Test
     void exceptionReportingPreservesStudentFramesAndHandlesCycles() {
         StackTraceElement student = new StackTraceElement("Driver", "main", "Driver.java", 5);
-        StackTraceElement reflection = new StackTraceElement(
-                "java.lang.reflect.Method", "invoke", "Method.java", 1);
-        StackTraceElement internalReflection = new StackTraceElement(
-                "jdk.internal.reflect.DirectMethodHandleAccessor", "invoke", "Accessor.java", 1);
-        StackTraceElement harness = new StackTraceElement(
-                GuestHarness.class.getName(), "invokeMain", "GuestHarness.java", 1);
+        StackTraceElement reflection = new StackTraceElement("java.lang.reflect.Method", "invoke", "Method.java", 1);
+        StackTraceElement internalReflection = new StackTraceElement("jdk.internal.reflect.DirectMethodHandleAccessor",
+                "invoke", "Accessor.java", 1);
+        StackTraceElement harness = new StackTraceElement(GuestHarness.class.getName(), "invokeMain",
+                "GuestHarness.java", 1);
         RuntimeException failure = new RuntimeException("outer");
         RuntimeException cause = new RuntimeException("cause");
         RuntimeException suppressed = new RuntimeException("suppressed");
         failure.initCause(cause);
         cause.initCause(failure);
         failure.addSuppressed(suppressed);
-        failure.setStackTrace(new StackTraceElement[] {
-            student, internalReflection, reflection, harness
-        });
-        cause.setStackTrace(new StackTraceElement[] {harness});
-        suppressed.setStackTrace(new StackTraceElement[] {student});
+        failure.setStackTrace(new StackTraceElement[] { student, internalReflection, reflection, harness });
+        cause.setStackTrace(new StackTraceElement[] { harness });
+        suppressed.setStackTrace(new StackTraceElement[] { student });
         GuestHarness.reportStudentException(failure);
         assertThat(failure.getStackTrace()).containsExactly(student);
         assertThat(cause.getStackTrace()).isEmpty();
@@ -330,8 +327,7 @@ public class GuestHarnessTest {
     void testStopLingeringThreads() throws Exception {
         ClassLoader loader = new java.net.URLClassLoader(new java.net.URL[0]);
         java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
-        java.util.concurrent.atomic.AtomicBoolean interrupted =
-                new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.atomic.AtomicBoolean interrupted = new java.util.concurrent.atomic.AtomicBoolean(false);
         Thread lingering = new Thread(() -> {
             started.countDown();
             try {
@@ -378,7 +374,8 @@ public class GuestHarnessTest {
     @Test
     void testStopLingeringThreadsUncooperativeThread() {
         GuestHarness.shouldTerminate = false;
-        ClassLoader dummyLoader = new ClassLoader() {};
+        ClassLoader dummyLoader = new ClassLoader() {
+        };
         Thread rogue = new Thread(() -> {
             for (int i = 0; i < 5; i++) {
                 try {
@@ -416,11 +413,9 @@ public class GuestHarnessTest {
 
     @Test
     void testCleanStateRestoresDefaultUncaughtExceptionHandler() {
-        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-        });
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {});
         GuestHarness.cleanState();
-        assertThat(Thread.getDefaultUncaughtExceptionHandler()).isEqualTo(
-                originalUncaughtExceptionHandler);
+        assertThat(Thread.getDefaultUncaughtExceptionHandler()).isEqualTo(originalUncaughtExceptionHandler);
     } // testCleanStateRestoresDefaultUncaughtExceptionHandler
 
     @Test
@@ -448,8 +443,7 @@ public class GuestHarnessTest {
         assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("beforeafter");
         assertThat(counter.get()).isEqualTo(11);
         original.print("original");
-        assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8))
-                .isEqualTo("beforeafteroriginal");
+        assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("beforeafteroriginal");
     } // forwardingPrintStreamRemainsWritableAfterClose
 
     @Test
@@ -507,8 +501,7 @@ public class GuestHarnessTest {
     } // testVariousMainEntryPoints
 
     /** Dummy target inheriting main. */
-    public static class InheritedTarget extends StaticNoArgsTarget {
-    } // InheritedTarget
+    public static class InheritedTarget extends StaticNoArgsTarget {} // InheritedTarget
 
     /** Dummy target with non-void main. */
     public static class NonVoidMainTarget {
@@ -521,21 +514,18 @@ public class GuestHarnessTest {
     /** Dummy target with wrong param type. */
     public static class WrongParamMainTarget {
         /** Main with int param. */
-        public static void main(int x) {
-        } // main
+        public static void main(int x) {} // main
     } // WrongParamMainTarget
 
     /** Dummy target with multiple params for direct reflection test. */
     public static class MultiParamMainTarget {
         /** Main with multiple params. */
-        public static void main(String[] a, int b) {
-        } // main
+        public static void main(String[] a, int b) {} // main
     } // MultiParamMainTarget
 
     @Test
     void testIsMainMethodDirect() throws Exception {
-        assertThat(GuestHarness.isMainMethod(
-                MultiParamMainTarget.class.getMethod("main", String[].class, int.class)))
+        assertThat(GuestHarness.isMainMethod(MultiParamMainTarget.class.getMethod("main", String[].class, int.class)))
                 .isFalse();
     } // testIsMainMethodDirect
 
@@ -594,7 +584,8 @@ public class GuestHarnessTest {
     @Test
     void testStopLingeringThreadsCooperativeExits() throws Exception {
         GuestHarness.shouldTerminate = false;
-        ClassLoader dummyLoader = new ClassLoader() {};
+        ClassLoader dummyLoader = new ClassLoader() {
+        };
         Thread cooperative = new Thread(() -> {
             try {
                 Thread.sleep(10000);
@@ -616,8 +607,10 @@ public class GuestHarnessTest {
 
     @Test
     void testIsJobThreadDirect() {
-        ClassLoader loader = new ClassLoader() {};
-        ClassLoader otherLoader = new ClassLoader() {};
+        ClassLoader loader = new ClassLoader() {
+        };
+        ClassLoader otherLoader = new ClassLoader() {
+        };
         ThreadGroup jobGroup = new ThreadGroup("test-job-group");
         ThreadGroup childGroup = new ThreadGroup(jobGroup, "test-child-group");
         ThreadGroup otherGroup = new ThreadGroup("other-group");
@@ -634,6 +627,7 @@ public class GuestHarnessTest {
         tOther.setContextClassLoader(otherLoader);
         assertThat(GuestHarness.isJobThread(tOther, loader, jobGroup)).isFalse();
     } // testIsJobThreadDirect
+
     @Test
     void staticInitializerFailureDoesNotPreventTheNextJob() {
         GuestHarness.nextClassPath = new File("target/test-classes").getAbsolutePath();
@@ -649,9 +643,11 @@ public class GuestHarnessTest {
 
     public static class FailingInitializerTarget {
         static final Object VALUE = fail();
+
         private static Object fail() {
             throw new IllegalStateException("initializer failed");
         }
+
         public static void main(String[] args) {}
     }
 

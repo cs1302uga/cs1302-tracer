@@ -14,13 +14,17 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 class JdiValueContractTest {
     static <T> T mirror(Class<T> type, Map<String, Object> values) {
-        return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type},
-                (self, method, arguments) -> {
-                    if (method.getName().equals("toString")) return type.getSimpleName();
-                    if (method.getName().equals("equals")) return self == arguments[0];
-                    if (method.getName().equals("hashCode")) return System.identityHashCode(self);
+        return type.cast(
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] { type }, (self, method, arguments) -> {
+                    if (method.getName().equals("toString"))
+                        return type.getSimpleName();
+                    if (method.getName().equals("equals"))
+                        return self == arguments[0];
+                    if (method.getName().equals("hashCode"))
+                        return System.identityHashCode(self);
                     Object value = values.get(method.getName());
-                    if (value instanceof Throwable failure) throw failure;
+                    if (value instanceof Throwable failure)
+                        throw failure;
                     return value;
                 }));
     }
@@ -36,24 +40,22 @@ class JdiValueContractTest {
     @MethodSource("primitiveValues")
     void primitiveMirrorsPreserveTheirBoxedValues(Class<? extends PrimitiveValue> type, Object value) {
         var primitive = mirror(type, Map.of("value", value));
-        assertThat(((TraceValue.Primitive) TraceValue.fromJdiValue(null, primitive, Optional.empty()))
-                .toWrapperObject()).isEqualTo(value);
-        assertThat(TraceValue.Primitive.tryFromJdiValue(null, primitive).orElseThrow()
-                .toWrapperObject()).isEqualTo(value);
+        assertThat(
+                ((TraceValue.Primitive) TraceValue.fromJdiValue(null, primitive, Optional.empty())).toWrapperObject())
+                .isEqualTo(value);
+        assertThat(TraceValue.Primitive.tryFromJdiValue(null, primitive).orElseThrow().toWrapperObject())
+                .isEqualTo(value);
     }
 
     @Test
     void unknownMirrorsFailExplicitlyRatherThanBecomingNull() {
-        assertThatThrownBy(() -> TraceValue.fromJdiValue(null, mirror(Value.class, Map.of()),
-                Optional.empty())).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unrecognized value");
-        assertThatThrownBy(() -> TraceValue.Primitive.fromJdiPrimitive(
-                mirror(PrimitiveValue.class, Map.of()))).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unknown primitive");
+        assertThatThrownBy(() -> TraceValue.fromJdiValue(null, mirror(Value.class, Map.of()), Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Unrecognized value");
+        assertThatThrownBy(() -> TraceValue.Primitive.fromJdiPrimitive(mirror(PrimitiveValue.class, Map.of())))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Unknown primitive");
         assertThat(TraceValue.Primitive.tryFromJdiValue(null, null)).isEmpty();
         assertThat(TraceValue.Primitive.tryFromJdiValue(null,
-                mirror(ObjectReference.class, Map.of("type", mirror(ArrayType.class, Map.of())))))
-                .isEmpty();
+                mirror(ObjectReference.class, Map.of("type", mirror(ArrayType.class, Map.of()))))).isEmpty();
     }
 
     @Test
@@ -66,20 +68,20 @@ class JdiValueContractTest {
 
     static Stream<Arguments> getterFailures() {
         return Stream.of(new IllegalArgumentException("bad argument"), new InvalidTypeException(),
-                new ClassNotLoadedException("Missing"), new InvocationException(
-                        mirror(ObjectReference.class, Map.of())), new IncompatibleThreadStateException())
-                .map(Arguments::of);
+                new ClassNotLoadedException("Missing"),
+                new InvocationException(mirror(ObjectReference.class, Map.of())),
+                new IncompatibleThreadStateException()).map(Arguments::of);
     }
 
     @ParameterizedTest
     @MethodSource("getterFailures")
     void wrapperGetterFailuresKeepTheirCause(Exception failure) {
-        var type = mirror(ClassType.class, Map.of("signature", "Ljava/lang/Integer;",
-                "concreteMethodByName", mirror(com.sun.jdi.Method.class, Map.of())));
+        var type = mirror(ClassType.class, Map.of("signature", "Ljava/lang/Integer;", "concreteMethodByName",
+                mirror(com.sun.jdi.Method.class, Map.of())));
         var object = mirror(ObjectReference.class, Map.of("type", type, "invokeMethod", failure));
         assertThatThrownBy(() -> TraceValue.Primitive.tryFromJdiValue(null, object))
-                .isInstanceOf(failure instanceof IncompatibleThreadStateException
-                        ? IllegalArgumentException.class : IllegalStateException.class)
+                .isInstanceOf(failure instanceof IncompatibleThreadStateException ? IllegalArgumentException.class
+                        : IllegalStateException.class)
                 .hasCause(failure);
     }
 }

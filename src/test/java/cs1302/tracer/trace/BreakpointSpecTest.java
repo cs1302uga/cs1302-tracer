@@ -52,48 +52,30 @@ class BreakpointSpecTest {
     @Test
     @DisplayName("rejects invalid breakpoint strings")
     void testParseInvalid() {
-        assertThatThrownBy(() -> BreakpointSpec.parse(null))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse(""))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("   "))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("abc"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse(":15"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:abc"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:15:20"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("0"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("-2"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:0"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-5"))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-1"))
-                .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> BreakpointSpec.parse(null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("   ")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("abc")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse(":15")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:abc")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:15:20")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("0")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("-2")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:0")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-5")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.parse("Main.java:-1")).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Main-exit sentinel (-1)");
     } // testParseInvalid
 
     @Test
     @DisplayName("rejects non-positive line numbers during construction")
     void testConstructInvalid() {
-        assertThatThrownBy(() -> BreakpointSpec.of(0))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.of(-2))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", 0))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -5))
-                .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -1))
-                .isInstanceOf(IllegalArgumentException.class)
+        assertThatThrownBy(() -> BreakpointSpec.of(0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of(-2)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -5)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> BreakpointSpec.of("Main.java", -1)).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Main-exit sentinel (-1)");
     } // testConstructInvalid
 
@@ -142,33 +124,30 @@ class BreakpointSpecTest {
         ReferenceType refTypeNullInfo = createProxyReferenceType(null, "sample.Other", null);
         assertThat(spec.matchesReferenceType(refTypeNullInfo)).isFalse();
 
-        ReferenceType refTypeSourceName = createProxyReferenceType(
-                "Main.java", "sample.DifferentName", List.of("Main.java"));
+        ReferenceType refTypeSourceName = createProxyReferenceType("Main.java", "sample.DifferentName",
+                List.of("Main.java"));
         assertThat(spec.matchesReferenceType(refTypeSourceName)).isTrue();
 
-        ReferenceType refTypeOtherPaths = createProxyReferenceType("Other.java", "sample.Other", List.of("pkg/Main.java"));
+        ReferenceType refTypeOtherPaths = createProxyReferenceType("Other.java", "sample.Other",
+                List.of("pkg/Main.java"));
         assertThat(spec.matchesReferenceType(refTypeOtherPaths)).isTrue();
 
-        ReferenceType refTypeMismatch = createProxyReferenceType("Other.java", "sample.Other", List.of("pkg/Mismatch.java"));
+        ReferenceType refTypeMismatch = createProxyReferenceType("Other.java", "sample.Other",
+                List.of("pkg/Mismatch.java"));
         assertThat(spec.matchesReferenceType(refTypeMismatch)).isFalse();
     } // testMatchesReferenceType
 
     @Test
     @DisplayName("resolves breakpoint specs against ASM valid line map")
     void testResolveBreakpointSpecs() {
-        Map<String, Set<Integer>> validLines = Map.of(
-                "sample/Main.java", Set.of(5, 10, 15),
-                "sample/Helper.java", Set.of(3, 7, 12));
+        Map<String, Set<Integer>> validLines = Map.of("sample/Main.java", Set.of(5, 10, 15), "sample/Helper.java",
+                Set.of(3, 7, 12));
 
         assertThat(BreakpointReader.resolve(validLines, null)).isSameAs(validLines);
         assertThat(BreakpointReader.resolve(validLines, List.of())).isSameAs(validLines);
 
-        List<BreakpointSpec> specs = List.of(
-                BreakpointSpec.of(5),
-                BreakpointSpec.of("Helper.java", 7),
-                BreakpointSpec.of("Helper.java", 99),
-                BreakpointSpec.of("Nonexistent.java", 5),
-                BreakpointSpec.of(-1));
+        List<BreakpointSpec> specs = List.of(BreakpointSpec.of(5), BreakpointSpec.of("Helper.java", 7),
+                BreakpointSpec.of("Helper.java", 99), BreakpointSpec.of("Nonexistent.java", 5), BreakpointSpec.of(-1));
 
         Map<String, Set<Integer>> resolved = BreakpointReader.resolve(validLines, specs);
         assertThat(resolved.get("sample/Main.java")).contains(5, -1);
@@ -183,17 +162,12 @@ class BreakpointSpecTest {
 
         List<String> rawWithBlanks = Arrays.asList(null, "   ", "5", "Main.java:10, , Helper.java:12", "15");
         List<BreakpointSpec> parsed = JobOptions.parseBreakpoints(rawWithBlanks);
-        assertThat(parsed).containsExactly(
-                BreakpointSpec.of(5),
-                BreakpointSpec.of("Main.java", 10),
-                BreakpointSpec.of("Helper.java", 12),
-                BreakpointSpec.of(15));
+        assertThat(parsed).containsExactly(BreakpointSpec.of(5), BreakpointSpec.of("Main.java", 10),
+                BreakpointSpec.of("Helper.java", 12), BreakpointSpec.of(15));
 
         JobOptions options = new JobOptions();
         options.breakpoints = List.of("8", "Other.java:9");
-        assertThat(options.breakpointSpecs()).containsExactly(
-                BreakpointSpec.of(8),
-                BreakpointSpec.of("Other.java", 9));
+        assertThat(options.breakpointSpecs()).containsExactly(BreakpointSpec.of(8), BreakpointSpec.of("Other.java", 9));
     } // testJobOptionsParsing
 
     @Test
@@ -208,21 +182,16 @@ class BreakpointSpecTest {
                 }
                 """;
         try (var compiled = CompilationHelper.compile(source)) {
-            List<BreakpointSpec> specs = List.of(
-                    BreakpointSpec.of("Main.java", 3),
-                    BreakpointSpec.of(4),
+            List<BreakpointSpec> specs = List.of(BreakpointSpec.of("Main.java", 3), BreakpointSpec.of(4),
                     BreakpointSpec.of("Other.java", 3));
             Map<String, Set<Integer>> resolved = BreakpointReader.resolve(compiled, specs);
             assertThat(resolved.values().stream().flatMap(Set::stream).toList()).contains(3, 4);
         } // try
     } // testResolveWithCompilationResult
 
-    private static ReferenceType createProxyReferenceType(
-            String sourceName, String fqn, List<String> sourcePaths) {
-        return (ReferenceType) Proxy.newProxyInstance(
-                BreakpointSpecTest.class.getClassLoader(),
-                new Class<?>[] {ReferenceType.class},
-                (proxy, method, args) -> {
+    private static ReferenceType createProxyReferenceType(String sourceName, String fqn, List<String> sourcePaths) {
+        return (ReferenceType) Proxy.newProxyInstance(BreakpointSpecTest.class.getClassLoader(),
+                new Class<?>[] { ReferenceType.class }, (proxy, method, args) -> {
                     if ("sourceName".equals(method.getName())) {
                         return sourceName;
                     } // if
@@ -237,10 +206,8 @@ class BreakpointSpecTest {
     } // createProxyReferenceType
 
     private static ReferenceType createProxyReferenceTypeWithAbsentInfo(String fqn) {
-        return (ReferenceType) Proxy.newProxyInstance(
-                BreakpointSpecTest.class.getClassLoader(),
-                new Class<?>[] {ReferenceType.class},
-                (proxy, method, args) -> {
+        return (ReferenceType) Proxy.newProxyInstance(BreakpointSpecTest.class.getClassLoader(),
+                new Class<?>[] { ReferenceType.class }, (proxy, method, args) -> {
                     if ("sourceName".equals(method.getName()) || "sourcePaths".equals(method.getName())) {
                         throw new AbsentInformationException();
                     } // if

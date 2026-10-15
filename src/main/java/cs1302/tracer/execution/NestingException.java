@@ -6,6 +6,7 @@ public final class NestingException extends IllegalArgumentException {
 
     /**
      * Constructs a rejection with a machine-readable reason.
+     *
      * @param reason Nesting or inline-cycle reason.
      */
     public NestingException(String reason) {

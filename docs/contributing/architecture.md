@@ -146,6 +146,31 @@ To capture heap state without depending on guest JVM memory addresses after exec
 
 ---
 
+### Reified type metadata
+
+`ReifiedTypeMetadata` owns inferred object types and dependent frame bindings for
+one snapshot. The snapshot shares one instance across captured threads and heap
+traversal; reusable source indexes remain in `AstTypeResolver`. Callers record
+fallback evidence or refine candidates without mutating a map or invalidating
+bindings themselves. Returned frame bindings are read-only.
+
+Fallback evidence fills missing entries. Refinement preserves runtime-name,
+generic, and concrete-over-wildcard precedence; conflicting concrete arguments
+retain the earlier candidate. All captured threads finish their type prepasses
+before stack rendering, followed by heap traversal. Refinement does not rewrite
+already-rendered values. These rules preserve existing serialized output.
+
+This refactor intentionally breaks the Java interface: the overload
+`TraceValue.fromJdiValue(thread, value, references, resolver, typeMap)` is replaced
+by `TraceValue.fromJdiValue(thread, value, references, metadata)`, where `metadata`
+is a `new ReifiedTypeMetadata(resolver)` shared for that snapshot. Use
+`recordFallback`, `refine`, or `refineDeclared` to submit evidence and `typeOf` to
+read it. `DebugTraceHelper.isMoreSpecific` has been removed; candidate precedence
+is internal to the metadata module. The three-argument conversion overload and
+both serialized output formats remain supported.
+
+---
+
 ### E. Serialization Subsystem (`cs1302.tracer.serialize`)
 
 #### 1. PythonTutor Format (`PyTutorSerializer`)
@@ -186,6 +211,25 @@ cs1302.tracer.model
 ```
 
 ---
+
+## Per-job output ownership
+
+`JobOutput` owns each job's stdout/stderr ranges and leading JVM-banner filtering.
+Persistent execution starts a range after previously drained bytes; dedicated guest
+execution starts at byte zero. Snapshot capture samples prefix lengths and their raw
+byte cost together, leaving budget enforcement in `TraceSession`.
+
+The execution path establishes guest completion and requests draining before calling
+`finish()`. Finishing returns the same immutable output on repeated calls. Each
+retained snapshot is detached onto prefixes of that output before persistent drainers
+are reset. `PersistentGuestSession` returns final output from job cleanup rather than
+keeping a session-wide last-job output field. `TraceSession` still decides whether
+trailing bytes fit the snapshot and trace budgets. Guest termination and reuse remain
+with the execution path. Neither serialized trace format changes.
+
+Java callers implementing `PersistentGuestSession.SnapshotSink.materialize` now
+receive `JobOutput.Finished` instead of two byte arrays. Use `output.detach(snapshot)`
+to preserve each snapshot's prefix lengths while sharing immutable backing storage.
 
 ## Bounded execution
 

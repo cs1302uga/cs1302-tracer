@@ -13,12 +13,22 @@ class StreamDrainerFailureTest {
     private static class ControlledInput extends InputStream {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
-        @Override public int read() throws IOException {
+
+        @Override
+        public int read() throws IOException {
             entered.countDown();
-            try { release.await(); } catch (InterruptedException ex) { throw new IOException(ex); }
+            try {
+                release.await();
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            }
             return -1;
         }
-        @Override public void close() throws IOException { throw new IOException("close failure"); }
+
+        @Override
+        public void close() throws IOException {
+            throw new IOException("close failure");
+        }
     }
 
     @Test
@@ -48,8 +58,10 @@ class StreamDrainerFailureTest {
         var input = new ControlledInput();
         var calls = new AtomicInteger();
         var drainer = new StreamDrainer(input) {
-            @Override public int size() {
-                if (calls.incrementAndGet() == 1) return 0;
+            @Override
+            public int size() {
+                if (calls.incrementAndGet() == 1)
+                    return 0;
                 Thread.currentThread().interrupt();
                 return 1;
             }
@@ -71,14 +83,27 @@ class StreamDrainerFailureTest {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         InputStream source = new InputStream() {
-            @Override public int read() { throw new AssertionError("bulk read expected"); }
-            @Override public int read(byte[] bytes) throws IOException {
+            @Override
+            public int read() {
+                throw new AssertionError("bulk read expected");
+            }
+
+            @Override
+            public int read(byte[] bytes) throws IOException {
                 entered.countDown();
-                try { release.await(); } catch (InterruptedException e) { throw new IOException(e); }
+                try {
+                    release.await();
+                } catch (InterruptedException e) {
+                    throw new IOException(e);
+                }
                 bytes[0] = 65;
                 return 1;
             }
-            @Override public void close() { release.countDown(); }
+
+            @Override
+            public void close() {
+                release.countDown();
+            }
         };
         var drainer = new StreamDrainer(source);
         try {
@@ -99,7 +124,8 @@ class StreamDrainerFailureTest {
         var input = new ControlledInput();
         var calls = new AtomicInteger();
         try (var drainer = new StreamDrainer(input) {
-            @Override public int size() {
+            @Override
+            public int size() {
                 if (calls.incrementAndGet() == 1) {
                     input.release.countDown();
                     waitForEof(1000);
@@ -120,7 +146,10 @@ class StreamDrainerFailureTest {
         var input = new ControlledInput();
         var calls = new AtomicInteger();
         var drainer = new StreamDrainer(input) {
-            @Override public int size() { return calls.getAndIncrement() == 0 ? 0 : 1; }
+            @Override
+            public int size() {
+                return calls.getAndIncrement() == 0 ? 0 : 1;
+            }
         };
         try {
             assertThat(input.entered.await(1, TimeUnit.SECONDS)).isTrue();
@@ -137,8 +166,8 @@ class StreamDrainerFailureTest {
     @Test
     void detachedDrainerDoesNotNotifySessionWhenLimitExceeded() throws Exception {
         var limits = new cs1302.tracer.execution.TraceLimits(0, 0, 5, 0, 0, 0, 0, 0);
-        try (var session = new cs1302.tracer.execution.TraceSession(
-                limits, cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
+        try (var session = new cs1302.tracer.execution.TraceSession(limits,
+                cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
             var input = new java.io.PipedInputStream();
             var output = new java.io.PipedOutputStream(input);
             var drainer = new StreamDrainer(input);

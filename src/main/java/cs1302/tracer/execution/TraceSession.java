@@ -6,9 +6,9 @@ import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
 import com.sun.jdi.VirtualMachine;
-import cs1302.tracer.trace.DebugTraceHelper;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
+import cs1302.tracer.trace.JobOutput;
 import cs1302.tracer.trace.StreamDrainer;
 import cs1302.tracer.trace.ThreadCapture;
 import cs1302.tracer.trace.ValueTraversal;
@@ -26,18 +26,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Owns a single tracing operation and its cancellation/retention budgets.
- * The thread-local binding bridges existing extraction helpers; it is never inherited.
+ * Owns a single tracing operation and its cancellation/retention budgets. The thread-local binding bridges existing
+ * extraction helpers; it is never inherited.
  */
 public final class TraceSession implements AutoCloseable {
 
     private static final ThreadLocal<TraceSession> CURRENT = new ThreadLocal<>();
     private static final Gson GSON = new com.google.gson.GsonBuilder()
             .registerTypeHierarchyAdapter(java.util.Optional.class,
-                    (com.google.gson.JsonSerializer<java.util.Optional<?>>)
-                    (value, type, context) -> context.serialize(value.orElse(null)))
-            .registerTypeAdapter(OutputSlice.class, new OutputSliceTypeAdapter().nullSafe())
-            .create();
+                    (com.google.gson.JsonSerializer<java.util.Optional<?>>) (value, type, context) -> context
+                            .serialize(value.orElse(null)))
+            .registerTypeAdapter(OutputSlice.class, new OutputSliceTypeAdapter().nullSafe()).create();
     private final TraceLimits limits;
     private ThreadCapture threadCapture;
     private final InspectionPolicy inspection;
@@ -72,24 +71,24 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Binds a session to the calling thread until closed.
+     *
      * @param limits Effective budgets.
      * @param inspection Guest inspection policy.
      * @param accumulate Whether every snapshot is retained.
      */
     public TraceSession(TraceLimits limits, InspectionPolicy inspection, boolean accumulate) {
-        this(limits, inspection, accumulate,
-                UNBOUNDED_EVAL_ENUM_HASH.get() == null || UNBOUNDED_EVAL_ENUM_HASH.get());
+        this(limits, inspection, accumulate, UNBOUNDED_EVAL_ENUM_HASH.get() == null || UNBOUNDED_EVAL_ENUM_HASH.get());
     } // TraceSession
 
     /**
      * Binds a session to the calling thread until closed with enum hash configuration.
+     *
      * @param limits Effective budgets.
      * @param inspection Guest inspection policy.
      * @param accumulate Whether every snapshot is retained.
      * @param evalEnumHash Whether lazy enum hash codes should be evaluated.
      */
-    public TraceSession(TraceLimits limits, InspectionPolicy inspection, boolean accumulate,
-            boolean evalEnumHash) {
+    public TraceSession(TraceLimits limits, InspectionPolicy inspection, boolean accumulate, boolean evalEnumHash) {
         if (CURRENT.get() != null) {
             throw new IllegalStateException("A trace session is already active on this thread");
         } // if
@@ -106,6 +105,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns the calling thread's session, or null for legacy API calls.
+     *
      * @return Current session.
      */
     public static TraceSession current() {
@@ -113,13 +113,12 @@ public final class TraceSession implements AutoCloseable {
     } // current
 
     /**
-     * Enables chronological thread capture without invoking guest methods.
-     * Use DebugTraceHelper.traceChronological with this accumulating session.
+     * Enables chronological thread capture without invoking guest methods. Use DebugTraceHelper.traceChronological with
+     * this accumulating session.
      */
     public void enableMultithread() {
         if (!accumulate) {
-            throw new IllegalArgumentException(
-                    "Multithread capture requires accumulating snapshots");
+            throw new IllegalArgumentException("Multithread capture requires accumulating snapshots");
         } // if
         threadCapture = new ThreadCapture();
         diagnostics.add("Multithread capture uses field-only inspection and application frames.");
@@ -127,6 +126,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns thread capture state, or null for legacy capture.
+     *
      * @return Per-job thread capture.
      */
     public ThreadCapture threadCapture() {
@@ -135,6 +135,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Enforces live thread and total frame ceilings before reading stack frames.
+     *
      * @param threads Live application threads.
      * @param frames Total frames across these threads.
      */
@@ -145,6 +146,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Temporarily sets enum hash evaluation setting when running outside a session.
+     *
      * @param evalEnumHash Whether lazy enum hash codes should be evaluated.
      * @return AutoCloseable scope restoring previous setting.
      */
@@ -162,15 +164,17 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns whether helpers may invoke guest methods.
+     *
      * @return True for trusted inspection.
      */
     public static boolean mayInvoke() {
-        return current() == null || (current().inspection == InspectionPolicy.TRUSTED
-                && current().threadCapture == null);
+        return current() == null
+                || (current().inspection == InspectionPolicy.TRUSTED && current().threadCapture == null);
     } // mayInvoke
 
     /**
      * Returns whether helpers should evaluate lazy enum hash codes.
+     *
      * @return True if enabled and methods may be invoked.
      */
     public static boolean shouldEvalEnumHash() {
@@ -201,6 +205,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Starts the independent watchdog before guest launch.
+     *
      * @param value Current execution phase.
      */
     public void phase(String value) {
@@ -224,6 +229,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Attaches a launched guest, handling cancellation during launch.
+     *
      * @param vm Guest debugger connection.
      */
     public void attach(VirtualMachine vm) {
@@ -232,6 +238,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Attaches a launched guest process with control over destruction on normal close.
+     *
      * @param guest Launched process.
      * @param destroyOnClose Whether process should be forcibly destroyed on normal close.
      */
@@ -263,6 +270,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Registers an output drainer for session cleanup and counters.
+     *
      * @param drainer Guest stream drainer.
      */
     public void register(StreamDrainer drainer) {
@@ -271,6 +279,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns the per-stream output cap.
+     *
      * @return Byte limit, or zero for unlimited.
      */
     public long outputLimit() {
@@ -284,6 +293,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns whether this session has been stopped or cancelled.
+     *
      * @return True if stopped.
      */
     public boolean isStopped() {
@@ -292,6 +302,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns the machine-readable stop reason if stopped, or null.
+     *
      * @return Machine-readable stop reason.
      */
     public String stopReason() {
@@ -300,6 +311,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Stops this job; the first observed reason wins.
+     *
      * @param value Machine-readable stop reason.
      */
     public void stop(String value) {
@@ -325,6 +337,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Accounts element storage before fetching or allocating it.
+     *
      * @param count Elements to inspect.
      */
     public static void elements(long count) {
@@ -339,6 +352,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Accounts estimated extraction storage before allocation.
+     *
      * @param bytes Conservative storage units.
      */
     public void allocate(long bytes) {
@@ -349,6 +363,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Accounts a reachable reference before queueing it.
+     *
      * @param id Guest object identity.
      * @return True if this is the first encounter in this snapshot.
      */
@@ -365,6 +380,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Applies a resource ceiling, permitting values exactly at the boundary.
+     *
      * @param used Accounted usage.
      * @param limit Zero or finite ceiling.
      * @param failure Stop reason.
@@ -379,6 +395,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Commits a completed snapshot, retaining only the latest when requested.
+     *
      * @param snapshot Fully extracted state.
      */
     public void commit(ExecutionSnapshot snapshot) {
@@ -395,8 +412,7 @@ public final class TraceSession implements AutoCloseable {
         enforce(size, limits.snapshotBytes(), "snapshot_byte_limit");
         enforce(Math.addExact(retainedBytes, size), limits.traceBytes(), "trace_limit");
         if (!accumulate) {
-            int line = snapshot.stack().isEmpty() ? -1
-                    : (int) snapshot.stack().getLast().methodLine();
+            int line = snapshot.stack().isEmpty() ? -1 : (int) snapshot.stack().getLast().methodLine();
             SnapshotLineKey key = new SnapshotLineKey(line, snapshot.sourcePath());
             ExecutionSnapshot previous = latest.put(key, snapshot);
             if (previous != null) {
@@ -413,6 +429,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Records an observed uncaught exception without losing later output.
+     *
      * @param description Exception type and source location.
      */
     public void guestException(String description) {
@@ -422,13 +439,13 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Sets isolated guest process output explicitly.
+     *
      * @param stdout Captured standard output string.
      * @param stderr Captured standard error string.
      * @param stdoutBytes Total standard output bytes.
      * @param stderrBytes Total standard error bytes.
      */
-    public void setCapturedOutput(
-            String stdout, String stderr, long stdoutBytes, long stderrBytes) {
+    public void setCapturedOutput(String stdout, String stderr, long stdoutBytes, long stderrBytes) {
         this.explicitStdout = stdout;
         this.explicitStderr = stderr;
         this.explicitStdoutBytes = stdoutBytes;
@@ -437,6 +454,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns whether a guest was launched, even if it produced no snapshots.
+     *
      * @return Whether trace capture was available.
      */
     public boolean traceAvailable() {
@@ -445,6 +463,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Reports whether all captured states are retained.
+     *
      * @return True for chronological or accumulating jobs.
      */
     public boolean accumulates() {
@@ -453,6 +472,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Returns a copy of committed snapshots for serialization.
+     *
      * @return Completed snapshots only.
      */
     public List<ExecutionSnapshot> snapshots() {
@@ -461,6 +481,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Builds a result after tracing or a recoverable failure.
+     *
      * @param format Payload format name.
      * @param payload Trace or null when unavailable.
      * @param failure Optional caught failure.
@@ -472,8 +493,7 @@ public final class TraceSession implements AutoCloseable {
         String stopped = reason.get();
         if (failure != null && stopped == null) {
             stopped = failure instanceof NestingException ? failure.getMessage()
-                    : phase.equals("compile") || phase.equals("source")
-                            ? "compile_error" : "tracer_error";
+                    : phase.equals("compile") || phase.equals("source") ? "compile_error" : "tracer_error";
             diagnostics.add(failure.toString());
         } // if
         if (stopped == null && guestFailed) {
@@ -508,15 +528,16 @@ public final class TraceSession implements AutoCloseable {
             } // if
         } // if
         String status = stopped == null ? "completed"
-                : stopped.endsWith("error") || stopped.equals("guest_exception")
-                        || stopped.equals("guest_exit")
-                        ? "failed" : "stopped";
-        return new TraceResult(1, format, status, stopped, phase, stopped == null,
-                payload, limits, counts, List.copyOf(diagnostics), output(1), output(0));
+                : stopped.endsWith("error") || stopped.equals("guest_exception") || stopped.equals("guest_exit")
+                        ? "failed"
+                        : "stopped";
+        return new TraceResult(1, format, status, stopped, phase, stopped == null, payload, limits, counts,
+                List.copyOf(diagnostics), output(1), output(0));
     } // result
 
     /**
      * Returns bounded guest output even when no snapshot was completed.
+     *
      * @param index Registered drainer index (stderr first).
      * @return UTF-8 output with replacement for incomplete byte sequences.
      */
@@ -527,8 +548,8 @@ public final class TraceSession implements AutoCloseable {
         if (index == 0 && explicitStderr != null) {
             return explicitStderr;
         } // if
-        return index >= drainers.size() ? "" : new String(drainers.get(index).getBytes(),
-                java.nio.charset.StandardCharsets.UTF_8);
+        return index >= drainers.size() ? ""
+                : new String(drainers.get(index).getBytes(), java.nio.charset.StandardCharsets.UTF_8);
     } // output
 
     /** Refreshes final output on the last complete snapshot after successful execution. */
@@ -536,12 +557,13 @@ public final class TraceSession implements AutoCloseable {
         if (completed.isEmpty() || drainers.size() != 2) {
             return;
         } // if
-        finishOutput(drainers.get(1).snapshotOutput(),
-                DebugTraceHelper.sanitizeDebuggeeStderrSlice(drainers.get(0).snapshotOutput()));
+        JobOutput.Finished output = JobOutput.fromStart(drainers.get(1), drainers.get(0)).finish();
+        finishOutput(output.stdout(), output.stderr());
     } // finishOutput
 
     /**
      * Refreshes final output on the last complete snapshot using explicit slices.
+     *
      * @param stdout Captured standard output slice.
      * @param stderr Captured standard error slice.
      */
@@ -558,8 +580,7 @@ public final class TraceSession implements AutoCloseable {
         ExecutionSnapshot last = completed.getLast();
         int outLen = safeOut != null ? safeOut.length() : last.stdoutLength();
         int errLen = safeErr != null ? safeErr.length() : last.stderrLength();
-        long extra = Math.max(0, outLen - last.stdoutLength())
-                + Math.max(0, errLen - last.stderrLength());
+        long extra = Math.max(0, outLen - last.stdoutLength()) + Math.max(0, errLen - last.stderrLength());
         if (extra == 0) {
             return;
         } // if
@@ -573,8 +594,7 @@ public final class TraceSession implements AutoCloseable {
             stop("trace_limit");
             return;
         } // if
-        ExecutionSnapshot updated = last.withOutput(
-                safeOut != null ? safeOut : last.stdoutSlice(),
+        ExecutionSnapshot updated = last.withOutput(safeOut != null ? safeOut : last.stdoutSlice(),
                 safeErr != null ? safeErr : last.stderrSlice());
         completed.set(completed.size() - 1, updated);
         latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
@@ -603,6 +623,7 @@ public final class TraceSession implements AutoCloseable {
 
     /**
      * Detaches snapshot prefixes while sharing the finalized output slices.
+     *
      * @param stdout Final standard output, or null to retain captured output.
      * @param stderr Final standard error, or null to retain captured output.
      */
@@ -613,10 +634,8 @@ public final class TraceSession implements AutoCloseable {
                 continue;
             } // if
             ExecutionSnapshot newSnap = oldSnap.withOutput(
-                    stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength())
-                            : oldSnap.stdoutSlice().materialize(),
-                    stderr != null ? stderr.subSlice(0, oldSnap.stderrLength())
-                            : oldSnap.stderrSlice().materialize());
+                    stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength()) : oldSnap.stdoutSlice().materialize(),
+                    stderr != null ? stderr.subSlice(0, oldSnap.stderrLength()) : oldSnap.stderrSlice().materialize());
             updateMaterializedSnapshot(i, oldSnap, newSnap);
         } // for
     } // materializeSnapshots
@@ -628,8 +647,7 @@ public final class TraceSession implements AutoCloseable {
      * @param oldSnap Previous snapshot instance.
      * @param newSnap Replaced snapshot instance.
      */
-    private void updateMaterializedSnapshot(
-            int index, ExecutionSnapshot oldSnap, ExecutionSnapshot newSnap) {
+    private void updateMaterializedSnapshot(int index, ExecutionSnapshot oldSnap, ExecutionSnapshot newSnap) {
         if (oldSnap != newSnap) {
             completed.set(index, newSnap);
             sizes.put(newSnap, sizes.remove(oldSnap));
@@ -668,6 +686,7 @@ public final class TraceSession implements AutoCloseable {
 
         /**
          * Constructs a stop signal without a costly stack trace.
+         *
          * @param reason Machine-readable reason.
          */
         public Stopped(String reason) {

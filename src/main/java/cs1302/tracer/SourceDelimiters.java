@@ -11,6 +11,7 @@ public final class SourceDelimiters {
 
     /**
      * A delimiter with offsets excluding its line terminator.
+     *
      * @param start Start offset.
      * @param end Exclusive end offset.
      * @param path Trimmed source path.
@@ -19,6 +20,7 @@ public final class SourceDelimiters {
 
     /**
      * Finds file delimiters with work bounded by the input length.
+     *
      * @param source Source stream.
      * @return Delimiters in source order.
      */
@@ -39,18 +41,20 @@ public final class SourceDelimiters {
 
     /**
      * Recognizes the terminators used by Java's multiline regular expressions.
+     *
      * @param c Character.
      * @return Whether the character ends a line.
      */
     private static boolean isLineEnd(char c) {
         return switch (c) {
-            case '\n', '\r', '\u0085', '\u2028', '\u2029' -> true;
-            default -> false;
+        case '\n', '\r', '\u0085', '\u2028', '\u2029' -> true;
+        default -> false;
         }; // switch
     } // isLineEnd
 
     /**
      * Matches one complete delimiter line from its two ends.
+     *
      * @param source Source stream.
      * @param start Line start.
      * @param end Line end.
@@ -84,6 +88,7 @@ public final class SourceDelimiters {
 
     /**
      * Skips trailing horizontal spaces.
+     *
      * @param source Source stream.
      * @param start Inclusive limit.
      * @param end Initial exclusive end.
@@ -99,6 +104,7 @@ public final class SourceDelimiters {
 
     /**
      * Skips horizontal spaces.
+     *
      * @param source Source stream.
      * @param start Initial offset.
      * @param end Exclusive limit.
@@ -114,6 +120,7 @@ public final class SourceDelimiters {
 
     /**
      * Tests horizontal delimiter whitespace.
+     *
      * @param c Character.
      * @return Whether the character is space or tab.
      */
@@ -123,6 +130,7 @@ public final class SourceDelimiters {
 
     /**
      * Tests delimiter marker characters.
+     *
      * @param c Character.
      * @return Whether the character is a marker.
      */

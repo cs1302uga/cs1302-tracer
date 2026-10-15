@@ -11,15 +11,12 @@ class SourceOutputTest {
     @Test
     void sourceKeysMatchRealDebugLocationsInBothFormats() {
         String unused = "package demo;\npublic class Unused {}\n";
-        String main = "package demo;\npublic class Main {\n"
-                + "  public static void main(String[] args) {\n"
+        String main = "package demo;\npublic class Main {\n" + "  public static void main(String[] args) {\n"
                 + "    System.out.println(42);\n  }\n}\n";
-        String stream = "// --- src/demo/Unused.java ---\n" + unused
-                + "// --- src/demo/Main.java ---\n" + main;
-        for (String format : new String[] {"pytutor", "modern"}) {
-            for (String input : new String[] {main, stream}) {
-                String output = AppTest.executeCommand(App.Trace::new, input, "-f", format)
-                        .orElseThrow();
+        String stream = "// --- src/demo/Unused.java ---\n" + unused + "// --- src/demo/Main.java ---\n" + main;
+        for (String format : new String[] { "pytutor", "modern" }) {
+            for (String input : new String[] { main, stream }) {
+                String output = AppTest.executeCommand(App.Trace::new, input, "-f", format).orElseThrow();
                 JsonObject root = JsonParser.parseString(output).getAsJsonObject();
                 assertThat(root.get("code").getAsString()).isEqualTo(input);
                 assertThat(root.get("entryFile").getAsString()).isEqualTo("demo/Main.java");

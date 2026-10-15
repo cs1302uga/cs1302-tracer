@@ -3,25 +3,23 @@ package cs1302.tracer.model;
 import java.util.regex.Pattern;
 
 /**
- * Represents the type qualification style used when rendering types in stack frames,
- * object labels, and variable attributes.
+ * Represents the type qualification style used when rendering types in stack frames, object labels, and variable
+ * attributes.
  */
 public enum TypeStyle {
 
     /**
-     * Fully qualified type names
-     * (e.g., {@code java.lang.String}, {@code pkg.Pair<java.lang.String, java.lang.Integer>}).
+     * Fully qualified type names (e.g., {@code java.lang.String},
+     * {@code pkg.Pair<java.lang.String, java.lang.Integer>}).
      */
     FQN("fqn"),
 
     /**
-     * Simplified type names without package prefixes
-     * (e.g., {@code String}, {@code Pair<String, Integer>}).
+     * Simplified type names without package prefixes (e.g., {@code String}, {@code Pair<String, Integer>}).
      */
     SIMPLE("simple");
 
-    private static final Pattern PACKAGE_PREFIX_PATTERN =
-        Pattern.compile("\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\.");
+    private static final Pattern PACKAGE_PREFIX_PATTERN = Pattern.compile("\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\.");
 
     private final String value;
 

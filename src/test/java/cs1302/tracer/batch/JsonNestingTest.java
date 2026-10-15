@@ -20,14 +20,12 @@ class JsonNestingTest {
         JsonNesting.validate("{\"a\":[true,false,null,1.5,\"[\\\"{\\\\\"]}");
         assertThatThrownBy(() -> JsonNesting.validate("[".repeat(65) + "0" + "]".repeat(65)))
                 .hasMessage("json_nesting_limit");
-        assertThatThrownBy(() -> JsonNesting.validate("{\"x\":[}"))
-                .isInstanceOf(java.io.IOException.class);
+        assertThatThrownBy(() -> JsonNesting.validate("{\"x\":[}")).isInstanceOf(java.io.IOException.class);
     }
 
     @Test
     void oversizedUnknownPropertyDoesNotPreventNextBatchJob() throws Exception {
-        String deep = "{\"id\":\"bad\",\"ignored\":" + "[".repeat(10000) + "0"
-                + "]".repeat(10000) + "}";
+        String deep = "{\"id\":\"bad\",\"ignored\":" + "[".repeat(10000) + "0" + "]".repeat(10000) + "}";
         String input = deep + "\n{\"id\":\"good\"}\n";
         var output = new StringWriter();
         var calls = new AtomicInteger();

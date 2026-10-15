@@ -18,6 +18,7 @@ final class GuestLauncher {
 
     /**
      * Launches a suspended guest with a single literal classpath entry.
+     *
      * @param mainClass Guest entry point.
      * @param classPath Compiled classes or harness location.
      * @param preview Whether preview bytecode is enabled.

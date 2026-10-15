@@ -1,17 +1,12 @@
 package cs1302.wrappers.numeric;
 
 /**
- * Demonstrates all six numeric primitive wrapper class types in Java:
- * {@link Byte}, {@link Short}, {@link Integer}, {@link Long}, {@link Float}, and {@link Double}.
+ * Demonstrates all six numeric primitive wrapper class types in Java: {@link Byte}, {@link Short}, {@link Integer},
+ * {@link Long}, {@link Float}, and {@link Double}.
  *
- * <p>
- * Normative References:
- * <ul>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §5.1.7 (Boxing Conversion).</li>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li>
- *   <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.2 (Primitive Types and Values).</li>
- * </ul>
- * </p>
+ * <p> Normative References: <ul> <li>The Java Language Specification (JLS), Java SE 21 Edition, §5.1.7 (Boxing
+ * Conversion).</li> <li>The Java Language Specification (JLS), Java SE 21 Edition, §4.3.1 (Objects).</li> <li>The Java
+ * Language Specification (JLS), Java SE 21 Edition, §4.2 (Primitive Types and Values).</li> </ul> </p>
  */
 public class Driver {
 
@@ -30,14 +25,7 @@ public class Driver {
         Double doubleVal = 2.5;
 
         // Polymorphic array referencing all numeric wrapper instances
-        Number[] numbers = new Number[] {
-            byteVal,
-            shortVal,
-            intVal,
-            longVal,
-            floatVal,
-            doubleVal
-        };
+        Number[] numbers = new Number[] { byteVal, shortVal, intVal, longVal, floatVal, doubleVal };
     } // main
 
 } // Driver

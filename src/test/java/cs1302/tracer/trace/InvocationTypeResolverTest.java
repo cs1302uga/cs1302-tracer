@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 
 class InvocationTypeResolverTest {
     private Method method(String owner, String name, String descriptor) {
-        return mirror(Method.class, Map.of("name", name, "signature", descriptor,
-                "declaringType", mirror(ReferenceType.class, Map.of("name", owner))));
+        return mirror(Method.class, Map.of("name", name, "signature", descriptor, "declaringType",
+                mirror(ReferenceType.class, Map.of("name", owner))));
     }
 
     private StackFrame frame(Method method, int line, Map<String, Object> extras) {
@@ -31,8 +31,7 @@ class InvocationTypeResolverTest {
         assertThat(duplicate.declaration(method("Main", "helper", "(Ljava/lang/Object;)V"))).isEmpty();
         var resolver = resolver("class Main { void run() {} }");
         assertThat(resolver.invocationTypes().declaration(method("Main", "missing", "()V"))).isEmpty();
-        assertThat(resolver.invocationTypes().invocationBindings(
-                frame(method("External", "run", "()V"), 1, Map.of()),
+        assertThat(resolver.invocationTypes().invocationBindings(frame(method("External", "run", "()V"), 1, Map.of()),
                 method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of())).isEmpty();
     }
 
@@ -44,42 +43,44 @@ class InvocationTypeResolverTest {
         for (Object frames : List.of(new IncompatibleThreadStateException(), List.of())) {
             var thread = mirror(ThreadReference.class, Map.of("frames", frames));
             var target = frame(targetMethod, 1, Map.of("thread", thread, "thisObject", receiver));
-            assertThat(resolver.invocationTypes().bindings(target, resolver,
-                    Map.of(1L, "Main<java.lang.String>"))).containsEntry("T", "T");
+            var metadata = new ReifiedTypeMetadata(resolver);
+            metadata.recordFallback(1L, "Main<java.lang.String>");
+            assertThat(metadata.bindings(target)).containsEntry("T", "T");
         }
         var props = new HashMap<String, Object>();
         var thread = mirror(ThreadReference.class, props);
         var target = frame(targetMethod, 1, Map.of("thread", thread));
         props.put("frames", List.of(target));
-        assertThat(resolver.invocationTypes().bindings(target, resolver, Map.of())).containsEntry("T", "T");
+        assertThat(new ReifiedTypeMetadata(resolver).bindings(target)).containsEntry("T", "T");
     }
 
     @Test
     void unsupportedCallFormsDoNotGuessBindings() {
         for (String statement : List.of("helper(null);", "helper(1, 2);", "helper(new Object() {});")) {
-            String declaration = statement.contains("1, 2")
-                    ? "static <T> void helper(T x, T y) {}" : "static <T> void helper(T x) {}";
+            String declaration = statement.contains("1, 2") ? "static <T> void helper(T x, T y) {}"
+                    : "static <T> void helper(T x) {}";
             var resolver = resolver("class Main { " + declaration + "\n void run() { " + statement + " } }");
-            String descriptor = statement.contains("1, 2")
-                    ? "(Ljava/lang/Object;Ljava/lang/Object;)V" : "(Ljava/lang/Object;)V";
-            assertThat(resolver.invocationTypes().invocationBindings(
-                    frame(method("Main", "run", "()V"), 2, Map.of()),
+            String descriptor = statement.contains("1, 2") ? "(Ljava/lang/Object;Ljava/lang/Object;)V"
+                    : "(Ljava/lang/Object;)V";
+            assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 2, Map.of()),
                     method("Main", "helper", descriptor), Map.of())).isEmpty();
         }
-        var resolver = resolver("class Main { static <T> void helper(T... items) {}\n void run() { String[] a = {}; helper(a); } }");
-        assertThat(resolver.invocationTypes().invocationBindings(
-                frame(method("Main", "run", "()V"), 2, Map.of()),
+        var resolver = resolver(
+                "class Main { static <T> void helper(T... items) {}\n void run() { String[] a = {}; helper(a); } }");
+        assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 2, Map.of()),
                 method("Main", "helper", "([Ljava/lang/Object;)V"), Map.of())).isEmpty();
     }
 
     @Test
     void unknownCallerVariablesAndMissingSolverStayUnresolved() {
-        var unit = App.parseSource("class Main { static <T> void helper(T x) {}\n <U> void run(U item) { helper(item); } }", Optional.empty());
+        var unit = App.parseSource(
+                "class Main { static <T> void helper(T x) {}\n <U> void run(U item) { helper(item); } }",
+                Optional.empty());
         var resolver = new AstTypeResolver(unit);
         var caller = frame(method("Main", "run", "(Ljava/lang/Object;)V"), 2, Map.of());
         var callee = method("Main", "helper", "(Ljava/lang/Object;)V");
-        String key = unit.findAll(com.github.javaparser.ast.body.MethodDeclaration.class).get(1)
-                .resolve().getTypeParameters().getFirst().getQualifiedName();
+        String key = unit.findAll(com.github.javaparser.ast.body.MethodDeclaration.class).get(1).resolve()
+                .getTypeParameters().getFirst().getQualifiedName();
         assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of(key, "U"))).isEmpty();
         assertThat(resolver.invocationTypes().invocationBindings(caller, callee, Map.of(key, "java.lang.Number")))
                 .containsEntry("T", "java.lang.Number");
@@ -114,9 +115,10 @@ class InvocationTypeResolverTest {
     @Test
     void fieldsCastsAndArrayAccessesUseDeclaredTypes() {
         for (String argument : List.of("this.value", "(Number) value", "values[0]")) {
-            var resolver = resolver("class Main { Number value; Number[] values; static <T> void helper(T x) {}\n void run() { helper(" + argument + "); } }");
-            assertThat(resolver.invocationTypes().invocationBindings(
-                    frame(method("Main", "run", "()V"), 2, Map.of()),
+            var resolver = resolver(
+                    "class Main { Number value; Number[] values; static <T> void helper(T x) {}\n void run() { helper("
+                            + argument + "); } }");
+            assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 2, Map.of()),
                     method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of()))
                     .containsEntry("T", "java.lang.Number");
         }
@@ -124,13 +126,12 @@ class InvocationTypeResolverTest {
 
     @Test
     void externalAndUnresolvableCallsCannotSupplyBindings() {
-        var resolver = resolver("class Main { static <T> void helper(T x) {}\n void run() { Main.<String>helper(null); } }");
-        assertThat(resolver.invocationTypes().invocationBindings(
-                frame(method("Main", "run", "()V"), 2, Map.of()),
+        var resolver = resolver(
+                "class Main { static <T> void helper(T x) {}\n void run() { Main.<String>helper(null); } }");
+        assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 2, Map.of()),
                 method("Other", "helper", "(Ljava/lang/Object;)V"), Map.of())).isEmpty();
         resolver = resolver("class Main { void run() { Missing.helper(null); } }");
-        assertThat(resolver.invocationTypes().invocationBindings(
-                frame(method("Main", "run", "()V"), 1, Map.of()),
+        assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 1, Map.of()),
                 method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of())).isEmpty();
     }
 
@@ -143,7 +144,7 @@ class InvocationTypeResolverTest {
         var external = frame(method("External", "invoke", "()V"), 1, Map.of());
         var caller = frame(method("Main", "run", "()V"), 1, Map.of());
         props.put("frames", List.of(target, caller, external));
-        assertThat(resolver.invocationTypes().bindings(target, resolver, Map.of())).containsEntry("T", "T");
+        assertThat(new ReifiedTypeMetadata(resolver).bindings(target)).containsEntry("T", "T");
     }
 
     @Test
@@ -160,12 +161,16 @@ class InvocationTypeResolverTest {
             var call = unit.findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class).orElseThrow();
             assertThat((Map<?, ?>) infer.invoke(null, call, Map.of())).isEmpty();
         }
-        var unit = App.parseSource("class Main { static <T> void helper(T x) {} <U> void run(U x) { Main.<U>helper(x); } }", Optional.empty());
+        var unit = App.parseSource(
+                "class Main { static <T> void helper(T x) {} <U> void run(U x) { Main.<U>helper(x); } }",
+                Optional.empty());
         var call = unit.findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class).orElseThrow();
-        String key = call.getTypeArguments().orElseThrow().get(0).resolve()
-                .asTypeVariable().asTypeParameter().getQualifiedName();
+        String key = call.getTypeArguments().orElseThrow().get(0).resolve().asTypeVariable().asTypeParameter()
+                .getQualifiedName();
         assertThat((Map<?, ?>) infer.invoke(null, call, Map.of(key, ""))).isEmpty();
-        unit = App.parseSource("class Main { static <T> void helper(T x) {} <U> void run() { Main.<java.util.List<U>>helper(null); } }", Optional.empty());
+        unit = App.parseSource(
+                "class Main { static <T> void helper(T x) {} <U> void run() { Main.<java.util.List<U>>helper(null); } }",
+                Optional.empty());
         call = unit.findFirst(com.github.javaparser.ast.expr.MethodCallExpr.class).orElseThrow();
         assertThat((Map<?, ?>) infer.invoke(null, call, Map.of())).isEmpty();
     }
@@ -207,34 +212,38 @@ class InvocationTypeResolverTest {
         var receiver = mirror(ObjectReference.class, Map.of("uniqueID", 1L));
         var frames = new ArrayList<StackFrame>();
         for (int i = 0; i < 30; i++) {
-            frames.add(frame(method("Main", "helper", "(Ljava/lang/Object;)V"),
-                    4, Map.of("thisObject", receiver)));
+            frames.add(frame(method("Main", "helper", "(Ljava/lang/Object;)V"), 4, Map.of("thisObject", receiver)));
         }
-        frames.add(frame(method("Main", "forward", "(Ljava/lang/Object;)V"),
-                7, Map.of("thisObject", receiver)));
-        var objectTypes = new HashMap<Long, String>(Map.of(1L, "Main<java.lang.String>"));
-        var contexts = resolver.invocationTypes().new FrameContexts(frames, resolver, objectTypes);
+        frames.add(frame(method("Main", "forward", "(Ljava/lang/Object;)V"), 7, Map.of("thisObject", receiver)));
+        var metadata = new ReifiedTypeMetadata(resolver);
+        metadata.recordFallback(1L, "Main<?>");
+        var contexts = metadata.frames(frames);
+        var otherThreadContexts = metadata.frames(frames);
+        var otherBindings = otherThreadContexts.bindings(frames.getFirst());
         var bindings = contexts.bindings(frames.getFirst());
-        assertThat(bindings).containsEntry("U", "java.lang.String");
+        assertThatThrownBy(() -> bindings.put("U", "corrupted")).isInstanceOf(UnsupportedOperationException.class);
         for (StackFrame frame : frames) {
             var cached = contexts.bindings(frame);
             for (int local = 0; local < 20; local++) {
                 assertThat(contexts.bindings(frame)).isSameAs(cached);
             }
         }
-        objectTypes.put(2L, "Main<java.lang.Number>");
-        contexts.receiverTypeChanged(2L);
+        metadata.recordFallback(2L, "Main<java.lang.Number>");
         assertThat(contexts.bindings(frames.getFirst())).isSameAs(bindings);
-        contexts.receiverTypeChanged(1L);
+        metadata.refine(1L, "Main<?>", "Main");
         assertThat(contexts.bindings(frames.getFirst())).isSameAs(bindings);
-        objectTypes.put(1L, "Main<java.lang.Number>");
-        contexts.receiverTypeChanged(1L);
-        assertThat(contexts.bindings(frames.getFirst()))
-                .isNotSameAs(bindings).containsEntry("U", "java.lang.Number");
-        var separate = resolver.invocationTypes().new FrameContexts(frames, resolver,
-                Map.of(1L, "Main<java.lang.String>"));
-        assertThat(separate.bindings(frames.getFirst()))
-                .isNotSameAs(bindings).containsEntry("U", "java.lang.String");
+        metadata.refine(1L, "Main<java.lang.Number>", "Main");
+        assertThat(contexts.bindings(frames.getFirst())).isNotSameAs(bindings).containsEntry("U", "java.lang.Number");
+        assertThat(otherThreadContexts.bindings(frames.getFirst())).isNotSameAs(otherBindings).containsEntry("U",
+                "java.lang.Number");
+        var refined = contexts.bindings(frames.getFirst());
+        metadata.refine(1L, "Main<java.lang.String>", "Main");
+        metadata.recordFallback(1L, "Main<java.lang.String>");
+        assertThat(contexts.bindings(frames.getFirst())).isSameAs(refined);
+        var separateMetadata = new ReifiedTypeMetadata(resolver);
+        separateMetadata.recordFallback(1L, "Main<java.lang.String>");
+        var separate = separateMetadata.frames(frames);
+        assertThat(separate.bindings(frames.getFirst())).isNotSameAs(bindings).containsEntry("U", "java.lang.String");
     }
 
     @Test
@@ -245,11 +254,10 @@ class InvocationTypeResolverTest {
                     void run() { int item = 1; helper(item); }
                 }
                 """);
-        assertThat(resolver.invocationTypes().invocationBindings(
-                frame(method("Main", "run", "()V"), 3, Map.of()),
-                method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of()))
-                .doesNotContainValue("int");
+        assertThat(resolver.invocationTypes().invocationBindings(frame(method("Main", "run", "()V"), 3, Map.of()),
+                method("Main", "helper", "(Ljava/lang/Object;)V"), Map.of())).doesNotContainValue("int");
     }
+
     @Test
     void expressionInferenceRequiresRetainedSolverMetadata() {
         var unit = App.parseSource("class Main { static <T> void helper(T x) {}\n"
@@ -271,7 +279,7 @@ class InvocationTypeResolverTest {
         assertThat(resolver.invocationTypes().declaration(callee)).isPresent();
         unit.removeData(com.github.javaparser.ast.Node.SYMBOL_RESOLVER_KEY);
         var target = frame(callee, 1, Map.of());
-        var contexts = resolver.invocationTypes().new FrameContexts(List.of(target), resolver, Map.of());
+        var contexts = new ReifiedTypeMetadata(resolver).frames(List.of(target));
         assertThat(contexts.bindings(target)).containsExactlyEntriesOf(Map.of("T", "T"));
     }
 

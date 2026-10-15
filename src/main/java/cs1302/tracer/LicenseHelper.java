@@ -6,12 +6,8 @@ import java.nio.charset.StandardCharsets;
 /**
  * A helper class that contains license text and dynamically loads third-party notices.
  *
- * <p>Normative References:
- * <ul>
- *   <li>The SPDX License List and Specification (Version 3.0, ISO/IEC 5962:2021).
- *   <li>The Apache License, Version 2.0.
- *   <li>The MIT License specification.
- * </ul>
+ * <p>Normative References: <ul> <li>The SPDX License List and Specification (Version 3.0, ISO/IEC 5962:2021). <li>The
+ * Apache License, Version 2.0. <li>The MIT License specification. </ul>
  */
 public class LicenseHelper {
 
@@ -20,8 +16,7 @@ public class LicenseHelper {
      */
     private LicenseHelper() {} // LicenseHelper
 
-    static final String APACHE_2_0 =
-            """
+    static final String APACHE_2_0 = """
 
                                           Apache License
                                     Version 2.0, January 2004
@@ -233,8 +228,7 @@ public class LicenseHelper {
      */
     public static String getThirdPartyNotices() {
         String content = "";
-        try (InputStream is =
-                LicenseHelper.class.getResourceAsStream("/META-INF/THIRD-PARTY.txt")) {
+        try (InputStream is = LicenseHelper.class.getResourceAsStream("/META-INF/THIRD-PARTY.txt")) {
             if (is != null) {
                 content = new String(is.readAllBytes(), StandardCharsets.UTF_8).trim();
             } // if
@@ -245,11 +239,11 @@ public class LicenseHelper {
             return content;
         } // if
         return """
-            Lists of third-party dependencies:
-            \t(The Apache Software License, Version 2.0) JavaParser (https://github.com/javaparser)
-            \t(The Apache Software License, Version 2.0) Gson (https://github.com/google/gson)
-            \t(The Apache Software License, Version 2.0) picocli (https://picocli.info)\
-            """;
+                Lists of third-party dependencies:
+                \t(The Apache Software License, Version 2.0) JavaParser (https://github.com/javaparser)
+                \t(The Apache Software License, Version 2.0) Gson (https://github.com/google/gson)
+                \t(The Apache Software License, Version 2.0) picocli (https://picocli.info)\
+                """;
     } // getThirdPartyNotices
 
     /**
@@ -258,9 +252,7 @@ public class LicenseHelper {
      * @return The complete formatted license text.
      */
     public static String getLicenseText() {
-        return "This program includes and uses several open source projects:\n\n"
-                + getThirdPartyNotices()
-                + "\n\n"
+        return "This program includes and uses several open source projects:\n\n" + getThirdPartyNotices() + "\n\n"
                 + APACHE_2_0;
     } // getLicenseText
 } // LicenseHelper

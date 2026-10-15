@@ -6,6 +6,7 @@ public class Driver {
         int value = 7;
         System.out.println(value);
     }
+
     public static void main(String[] args) throws InterruptedException {
         var pool = Executors.newFixedThreadPool(2);
         pool.execute(Driver::work);

@@ -1,9 +1,8 @@
 package cs1302.inheritance;
 
 /**
- * Demonstrates multi-level inheritance, constructor chaining with super(...),
- * inherited heap field layouts, polymorphic references, dynamic dispatch, and
- * pattern-matching downcasting.
+ * Demonstrates multi-level inheritance, constructor chaining with super(...), inherited heap field layouts, polymorphic
+ * references, dynamic dispatch, and pattern-matching downcasting.
  */
 public class Driver {
 

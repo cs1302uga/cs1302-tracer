@@ -22,20 +22,14 @@ import java.util.Map;
  * @param stdinConsumed Standard input consumed up to this step.
  * @param stdinOffset Character offset reached in standard input up to this step.
  */
-public record TraceStep(
-        @SerializedName("stdout") String stdout,
-        @SerializedName("stderr") String stderr,
-        @SerializedName("event") String event,
-        @SerializedName("func_name") String funcName,
-        @SerializedName("line") long line,
-        @SerializedName("stack_to_render") List<RenderStackFrame> stackToRender,
+public record TraceStep(@SerializedName("stdout") String stdout, @SerializedName("stderr") String stderr,
+        @SerializedName("event") String event, @SerializedName("func_name") String funcName,
+        @SerializedName("line") long line, @SerializedName("stack_to_render") List<RenderStackFrame> stackToRender,
         @SerializedName("globals") Map<String, Object> globals,
         @SerializedName("globals_attrs") Map<String, Object> globalsAttrs,
         @SerializedName("ordered_globals") List<String> orderedGlobals,
-        @SerializedName("heap") Map<String, Object> heap,
-        @SerializedName("heap_attrs") Map<String, Object> heapAttrs,
-        @SerializedName("file") String file,
-        @SerializedName("stdinConsumed") String stdinConsumed,
+        @SerializedName("heap") Map<String, Object> heap, @SerializedName("heap_attrs") Map<String, Object> heapAttrs,
+        @SerializedName("file") String file, @SerializedName("stdinConsumed") String stdinConsumed,
         @SerializedName("stdinOffset") int stdinOffset) {
 
     /**
@@ -53,33 +47,11 @@ public record TraceStep(
      * @param heap Heap objects map.
      * @param heapAttrs Heap attributes.
      */
-    public TraceStep(
-            String stdout,
-            String stderr,
-            String event,
-            String funcName,
-            long line,
-            List<RenderStackFrame> stackToRender,
-            Map<String, Object> globals,
-            Map<String, Object> globalsAttrs,
-            List<String> orderedGlobals,
-            Map<String, Object> heap,
-            Map<String, Object> heapAttrs) {
-        this(
-                stdout,
-                stderr,
-                event,
-                funcName,
-                line,
-                stackToRender,
-                globals,
-                globalsAttrs,
-                orderedGlobals,
-                heap,
-                heapAttrs,
-                null,
-                "",
-                0);
+    public TraceStep(String stdout, String stderr, String event, String funcName, long line,
+            List<RenderStackFrame> stackToRender, Map<String, Object> globals, Map<String, Object> globalsAttrs,
+            List<String> orderedGlobals, Map<String, Object> heap, Map<String, Object> heapAttrs) {
+        this(stdout, stderr, event, funcName, line, stackToRender, globals, globalsAttrs, orderedGlobals, heap,
+                heapAttrs, null, "", 0);
     } // TraceStep
 
     /**
@@ -98,33 +70,10 @@ public record TraceStep(
      * @param heapAttrs Heap attributes.
      * @param file Relative source file path.
      */
-    public TraceStep(
-            String stdout,
-            String stderr,
-            String event,
-            String funcName,
-            long line,
-            List<RenderStackFrame> stackToRender,
-            Map<String, Object> globals,
-            Map<String, Object> globalsAttrs,
-            List<String> orderedGlobals,
-            Map<String, Object> heap,
-            Map<String, Object> heapAttrs,
-            String file) {
-        this(
-                stdout,
-                stderr,
-                event,
-                funcName,
-                line,
-                stackToRender,
-                globals,
-                globalsAttrs,
-                orderedGlobals,
-                heap,
-                heapAttrs,
-                file,
-                "",
-                0);
+    public TraceStep(String stdout, String stderr, String event, String funcName, long line,
+            List<RenderStackFrame> stackToRender, Map<String, Object> globals, Map<String, Object> globalsAttrs,
+            List<String> orderedGlobals, Map<String, Object> heap, Map<String, Object> heapAttrs, String file) {
+        this(stdout, stderr, event, funcName, line, stackToRender, globals, globalsAttrs, orderedGlobals, heap,
+                heapAttrs, file, "", 0);
     } // TraceStep
 } // TraceStep

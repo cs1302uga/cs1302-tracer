@@ -7,5 +7,4 @@ import com.google.gson.annotations.SerializedName;
  *
  * @param ref The unique numerical ID of the referenced heap object.
  */
-public record Reference(@SerializedName("ref") long ref) {
-} // Reference
+public record Reference(@SerializedName("ref") long ref) {} // Reference
