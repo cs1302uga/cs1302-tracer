@@ -1,0 +1,52 @@
+[project]
+name = "scripts"
+version = "0.1.0"
+description = "Support scripts for cs1302-tracer."
+readme = "README.md"
+requires-python = ">=3.14"
+authors = [
+    { name = "Michael E. Cotterell", email = "mepcotterell@gmail.com" }
+]
+maintainers = [
+    { name = "Michael E. Cotterell", email = "mepcotterell@gmail.com" }
+]
+classifiers = [
+    "Private :: Do Not Upload"
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff",
+    "ty",
+]
+
+[tool.uv]
+python-preference = "only-managed"
+
+[tool.uv.pip]
+system = false
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D", "ANN", "TC", "UP"]
+
+ignore = [
+    "ANN002", # Missing type annotation for `*args`
+    "ANN003", # Missing type annotation for `**kwargs`
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+order-by-type = true
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
