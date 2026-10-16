@@ -3,7 +3,7 @@ name = "scripts"
 version = "0.1.0"
 description = "Support scripts for cs1302-tracer."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 authors = [
     { name = "Michael E. Cotterell", email = "mepcotterell@gmail.com" }
 ]

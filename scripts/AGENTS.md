@@ -15,7 +15,7 @@ tools and dependencies. Direct `./scripts/uvw.sh` invocation behaves like uv.
 From the repository root:
 
 ```sh
-./scripts/uv python pin 3.14 --directory scripts
+./scripts/uv python pin 3.15 --directory scripts
 ./scripts/uv sync
 ./scripts/uv run python scripts/docs_release.py check
 ./scripts/uv run python -m unittest discover -s scripts -p 'test_*.py'
@@ -29,6 +29,12 @@ defaults; omit those repeated options in normal commands. Consult `pyproject.tom
 `.python-version`, and `uv.lock` for project configuration. Read the header of
 `uvw.sh` when changing the uv pin, cache, offline behavior, or self-update flow;
 it also documents optional Git commit prompts and `UVW_GIT_COMMIT=never`.
+
+When a script needs external Python dependencies, prefer inline PEP 723 metadata
+(`# /// script` blocks) in that script so its requirements
+travel with it. Keep shared development tools in `pyproject.toml`. Run scripts
+with inline metadata through `./scripts/uv run path/to/script.py` so uv resolves
+their declared dependencies.
 
 ## Available scripts
 
