@@ -1,26 +1,14 @@
-const fs = require('node:fs');
-const path = require('node:path');
-
-const read = (name, fallback) => {
-  const file = path.join(__dirname, name);
-  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : fallback;
-};
-const snapshots = read('versions.json', []);
-// Deployment supplies the released subset. Local builds preview every snapshot.
-const released = read('published-versions.json', snapshots);
-for (const version of released) {
-  if (!snapshots.includes(version)) throw new Error(`Missing snapshot: ${version}`);
-}
-const latest = released[0];
+const release = require('./release-manifest.json');
+const latest = release.latestVersion;
 
 module.exports = {
   title: 'cs1302-tracer',
   tagline: 'Trace Java execution and inspect memory states',
-  url: 'https://cs1302uga.github.io',
-  baseUrl: '/cs1302-tracer/',
+  url: release.origin,
+  baseUrl: release.baseUrl,
   trailingSlash: true,
   staticDirectories: ['static', 'generated-api'],
-  customFields: {latestDocVersion: latest || null},
+  customFields: {latestDocVersion: latest, documentationRelease: release},
   organizationName: 'cs1302uga',
   projectName: 'cs1302-tracer',
   onBrokenLinks: 'throw',
@@ -36,13 +24,10 @@ module.exports = {
       routeBasePath: '/',
       sidebarPath: require.resolve('./sidebars.js'),
       lastVersion: latest || 'current',
-      onlyIncludeVersions: ['current', ...released],
-      versions: {
-        current: { label: 'Development (main)', path: latest ? 'next' : '/', banner: latest ? 'unreleased' : 'none' },
-        ...Object.fromEntries(released.map(version => [version, {
-          label: version, path: version, banner: 'none',
-        }])),
-      },
+      onlyIncludeVersions: release.versions.map(version => version.name),
+      versions: Object.fromEntries(release.versions.map(version => [version.name, {
+        label: version.label, path: version.docsPath, banner: version.banner,
+      }])),
     },
     blog: false,
     pages: latest ? {path: 'src/pages'} : false,

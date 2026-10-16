@@ -28,3 +28,14 @@ The stdout and sanitized stderr belonging to one guest execution. Live prefixes 
 
 **Input observation**:
 The per-job interpretation of supported reader activity as consumption of standard input. It owns standard-input identity and fallback, logical read recognition, and the consumed-input cursor. Nested reads count once, unrelated streams do not count, and each job starts with a fresh cursor. Existing cursor-offset semantics are preserved; guest execution retains ownership of event loops and request cleanup.
+
+## Documentation releases
+
+**Documentation release selection**:
+The decision about which documentation versions are available, which version is the default, and which source revision and routes belong to each version. Guides and Javadoc share this selection.
+
+**Preview mode**:
+An explicit documentation build mode that includes prepared snapshots and development documentation. An untagged snapshot matching the current project version may use working sources for its Javadoc.
+
+**Published mode**:
+An explicit documentation build mode that includes published stable releases with prepared snapshots, alongside development documentation. Release Javadoc requires the matching release tag; working sources cannot substitute for a missing tag.

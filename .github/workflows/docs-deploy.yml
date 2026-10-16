@@ -49,9 +49,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s '.' > "$RUNNER_TEMP/releases.json"
-          python3 scripts/docs_release.py published "$RUNNER_TEMP/releases.json"
       - run: npm --prefix website ci
-      - run: npm --prefix website run build
+      - run: npm --prefix website run build -- --mode published --releases "$RUNNER_TEMP/releases.json"
       - run: python3 scripts/check_site.py
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

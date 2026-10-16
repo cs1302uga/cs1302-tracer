@@ -38,5 +38,6 @@ website/build/
 website/generated-api/
 website/.docusaurus/
 website/published-versions.json
+website/release-manifest.json
 __pycache__/
 external-links-report.md

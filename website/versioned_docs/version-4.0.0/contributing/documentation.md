@@ -33,9 +33,22 @@ Maven versions, and Javadoc errors fail the build. Deployment selects the same
 published releases for guides and API references. Local builds preview all prepared
 snapshots; an untagged snapshot matching the current Maven version uses the working
 source until release. Generated HTML lives in ignored `website/generated-api/` and
-is copied into the site build, rather than committed. To preview the deployment's
-published selection locally, use `docs_release.py published` as described below;
-remove `website/published-versions.json` to return to previewing all snapshots.
+is copied into the site build, rather than committed.
+
+Build mode is explicit: `start`, `build`, and `api` default to `--mode preview`.
+A leftover `published-versions.json` never changes their behavior. To reproduce a
+published build, save the GitHub release records as a JSON array and run:
+
+```sh
+npm --prefix website run build -- --mode published --releases /path/to/releases.json
+```
+
+The Python documentation release module validates selection, tag provenance, and
+routes once. It generates ignored `website/release-manifest.json` for Javadoc,
+Docusaurus, and navigation. The completed build includes its own copy of the
+manifest so validation and local serving use the decisions belonging to that build.
+The legacy `docs_release.py published` command still exports a selected-version list
+for inspection; that file no longer selects the build mode.
 
 `check_docs.py` compares CLI help to the executable, runs the marked quickstart
 blocks, checks Markdown file destinations, compares both JSON examples after

@@ -44,7 +44,8 @@ def main():
         # The newer prepared snapshot must stay private until its software release exists.
         releases.write_text(json.dumps([{'tag_name': 'v9998.0.0'}]))
         run('python3', 'scripts/docs_release.py', 'published', str(releases))
-        run('npm', '--prefix', 'website', 'run', 'build')
+        run('npm', '--prefix', 'website', 'run', 'build', '--', '--mode', 'published',
+            '--releases', str(releases))
         run('python3', 'scripts/check_site.py')
         assert (site / 'build/9998.0.0/index.html').exists()
         assert (site / 'build/next/index.html').exists()
@@ -54,7 +55,8 @@ def main():
 
         releases.write_text(json.dumps([{'tag_name': 'v9998.0.0'}, {'tag_name': 'v9999.0.0'}]))
         run('python3', 'scripts/docs_release.py', 'published', str(releases))
-        run('npm', '--prefix', 'website', 'run', 'build')
+        run('npm', '--prefix', 'website', 'run', 'build', '--', '--mode', 'published',
+            '--releases', str(releases))
         run('python3', 'scripts/check_site.py')
         assert (site / 'build/9998.0.0/index.html').exists()
         assert (site / 'build/9999.0.0/index.html').exists()
@@ -71,7 +73,8 @@ def main():
         api_index = site / 'generated-api/api/9999.0.0/index.html'
         previous_index = api_index.read_bytes()
         run('git', 'tag', '-d', 'v9999.0.0')
-        missing = subprocess.run(['python3', 'scripts/build_javadoc.py'], cwd=root,
+        missing = subprocess.run(['python3', 'scripts/docs_site.py', 'api', '--mode', 'published',
+                                  '--releases', str(releases)], cwd=root,
                                  text=True, capture_output=True)
         assert missing.returncode != 0 and 'Missing release tag for 9999.0.0' in missing.stderr
         assert api_index.read_bytes() == previous_index
