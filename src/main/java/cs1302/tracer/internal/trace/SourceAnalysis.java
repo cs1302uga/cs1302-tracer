@@ -41,10 +41,6 @@ import java.util.stream.IntStream;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class SourceAnalysis {
 
-    /** A simple JavaParser object so we don't have to make a new one every time. */
-    private static final JavaParser SIMPLE_JAVA_PARSER = new JavaParser(
-            new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
-
     /**
      * An assignment or declaration of a lambda to a variable with line information.
      *
@@ -301,7 +297,8 @@ public final class SourceAnalysis {
             sb.append(lambda.getBody());
         } // if
 
-        return SIMPLE_JAVA_PARSER.parseMethodDeclaration(sb.toString()).getResult().map(Object::toString);
+        JavaParser parser = new JavaParser(new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
+        return parser.parseMethodDeclaration(sb.toString()).getResult().map(Object::toString);
     } // tryImplementLambdaSam
 
     /**

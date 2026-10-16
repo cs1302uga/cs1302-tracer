@@ -54,6 +54,10 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Keep lambda-rendering parser state independent across concurrent batch jobs,
+  preventing parser assertions and missing lambda metadata without changing output
+  representations.
+
 - Trace valid Java NaN and infinity values without snapshot-accounting failures.
   Modern non-finite floats use the existing special-double string convention;
   Python Tutor encodings, finite numbers, and output structures stay unchanged.

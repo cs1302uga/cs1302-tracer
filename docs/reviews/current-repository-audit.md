@@ -49,3 +49,17 @@ floating-point values; it never emits consumer JSON. Modern non-finite floats us
 the existing special-double string convention, while finite floats and all Python
 Tutor encodings retain their existing representations. No fields or protocol
 structures are added or removed.
+
+## BR-004: concurrent lambda rendering shared a mutable parser
+
+**Medium; verified by execution; remediated.** Source analysis rendered lambda
+implementations through a static `JavaParser` instance. The installed parser
+reuses mutable parser state, so independent batch workers could interfere. A
+public `BatchTracer` regression with four workers, sixteen jobs, and twenty-four
+lambda fields per job reproduced a failed request with `AssertionError: A reference
+was unexpectedly null` before the fix.
+
+Each lambda-rendering call now creates its own parser. The regression verifies
+that every job completes, preserves stdout, retains all twenty-four lambda
+implementations, and associates distinct implementations with the correct fields.
+The same test passes after the change. No wire representation changes are made.
