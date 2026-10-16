@@ -1,7 +1,6 @@
 package cs1302.tracer.trace;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
@@ -17,13 +16,41 @@ import org.junit.jupiter.api.Test;
 class SourceAnalysisTest {
 
     @Test
+    void observationsMatchOverloadsAndSelectLambdaAtCapturedLine() {
+        String code = """
+                class Example {
+                    void run(int value) {
+                        final int fixed = 1;
+                        Runnable action = () -> System.out.println(1);
+                        action = () -> System.out.println(2);
+                    }
+                    void run(String value) { int fixed = 2; }
+                }
+                """;
+        var config = new ParserConfiguration()
+                .setSymbolResolver(new JavaSymbolSolver(new ReflectionTypeSolver()));
+        var source = new JavaParser(config).parse(code).getResult().orElseThrow();
+        var analysis = SourceAnalysis.from(List.of(source));
+        var first = analysis.observations("Example", "run", List.of("int"), 4);
+        assertThat(first.isFinal("fixed")).isTrue();
+        assertThat(first.lambdaImplementation("action")).contains("void run() {\n    System.out.println(1);\n}");
+        assertThat(analysis.observations("Example", "run", List.of("int"), 5)
+                .lambdaImplementation("action")).contains("void run() {\n    System.out.println(2);\n}");
+        assertThat(analysis.observations("Example", "run", List.of("int"), 1)
+                .lambdaImplementation("action")).contains("void run() {\n    System.out.println(1);\n}");
+        var overload = analysis.observations("Example", "run", List.of("java.lang.String"), 7);
+        assertThat(overload.isFinal("fixed")).isFalse();
+        assertThat(overload.lambdaImplementation("action")).isEmpty();
+    }
+
+    @Test
     @DisplayName("empty analysis provides default safe instances")
     void testEmptyAnalysis() {
         SourceAnalysis empty = SourceAnalysis.empty();
         assertThat(empty.parsedSources()).isEmpty();
         assertThat(empty.astTypeResolver()).isNotNull();
-        assertThat(empty.lambdaMethodAssignments()).isEmpty();
-        assertThat(empty.finalMethodVariables()).isEmpty();
+        assertThat(empty.observations("Foo", "run", List.of(), 1).isFinal("x")).isFalse();
+        assertThat(empty.observations("Foo", "run", List.of(), 1).lambdaImplementation("x")).isEmpty();
         assertThat(empty.findClassDeclaration("Foo")).isEmpty();
         assertThat(empty.findClassDeclaration(null)).isEmpty();
         assertThat(empty.findStaticLambdaImplementation("Foo", "bar")).isEmpty();
@@ -73,13 +100,9 @@ class SourceAnalysisTest {
         assertThat(analysis.findStaticLambdaImplementation("Example", null)).isEmpty();
 
         assertThat(analysis.astTypeResolver()).isNotNull();
-        assertThat(analysis.lambdaMethodAssignments()).isNotEmpty();
-        assertThat(analysis.finalMethodVariables()).isNotEmpty();
-
-        var lambdaList = analysis.lambdaMethodAssignments().values().iterator().next();
-        assertThatThrownBy(lambdaList::clear).isInstanceOf(UnsupportedOperationException.class);
-        var finalSet = analysis.finalMethodVariables().values().iterator().next();
-        assertThatThrownBy(finalSet::clear).isInstanceOf(UnsupportedOperationException.class);
+        var observations = analysis.observations("sample.Example", "main", List.of("java.lang.String[]"), 10);
+        assertThat(observations.isFinal("factor")).isTrue();
+        assertThat(observations.lambdaImplementation("tripler")).isPresent();
     } // testSourceIndexing
 
     @Test
@@ -102,10 +125,7 @@ class SourceAnalysisTest {
 
         assertThat(analysis.findClassDeclaration("sample.Unresolved")).isPresent();
         assertThat(analysis.findStaticLambdaImplementation("sample.Unresolved", "lambda")).isEmpty();
-        assertThat(analysis.lambdaMethodAssignments().getOrDefault("sample.Unresolved.test()", List.of())).isEmpty();
-
-        var lambdas = cu.findAll(com.github.javaparser.ast.expr.LambdaExpr.class);
-        assertThatThrownBy(() -> DebugTraceHelper.tryImplementLambdaSam(lambdas.get(0)))
-                .isInstanceOf(RuntimeException.class);
+        assertThat(analysis.observations("sample.Unresolved", "test", List.of(), 6)
+                .lambdaImplementation("localLambda")).isEmpty();
     } // testIsolatesLambdaResolutionFailures
 } // SourceAnalysisTest

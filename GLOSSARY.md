@@ -14,6 +14,9 @@ The work that turns submitted Java sources and permitted dependencies into a com
 **Source-discovery policy**:
 The caller's explicit choice of which sources may participate in preparation and which source-resolution fallbacks apply. Existing choices distinguish neighboring-source discovery from submitted sources only; they need not be identical for every execution path.
 
+**Source observations**:
+Descriptions derived from source evidence for a captured location, including final-variable flags and lambda implementation text. Source analysis owns indexing, method matching, and location-sensitive selection of that evidence. These observations preserve existing inference behavior, including the first-assignment fallback when no lambda assignment precedes the captured line.
+
 **Snapshot retention**:
 Ownership of the captured execution history and its presentation rules, including replacement, accumulation, duplicate handling, and output projection. It also owns retained-byte accounting and admission of completed snapshots: rejecting a snapshot must not partially update the history or its accounting. Budgeted history remains distinct from format-specific presentation. Retention uses job output without taking ownership of its immutable bytes.
 

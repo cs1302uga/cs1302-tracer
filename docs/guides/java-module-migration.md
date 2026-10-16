@@ -55,3 +55,11 @@ Batch callers continue to treat an empty chronological selection as all valid li
 Capture returns `FinalState`, `Chronological`, or `Breakpoints`. Renderers consume these
 results without invoking guest execution. The existing `DebugTraceHelper` and
 `PersistentGuestSession` tracing methods remain available to Java callers.
+
+`SourceAnalysis.observations(declaringClass, methodName, argumentTypes, line)` returns
+source observations for a captured location. Use `isFinal(variable)` and
+`lambdaImplementation(variable)` on that result instead of reading the removed
+`finalMethodVariables()` and `lambdaMethodAssignments()` maps. Supply runtime class
+and argument type names. Source analysis owns method matching and lambda selection,
+including the existing first-assignment fallback before any recorded assignment.
+Unmatched methods return empty evidence. Static lambda lookup remains available.

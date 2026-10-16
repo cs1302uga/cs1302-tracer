@@ -36,13 +36,12 @@ class DebuggerTypeMetadataTest {
                     }
                 }
                 """);
-        var lambdas = unit.findAll(LambdaExpr.class);
-        var signature = new Class<?>[] { LambdaExpr.class };
-        assertThat(call("tryImplementLambdaSam", signature, lambdas.get(0)).toString())
+        var observations = SourceAnalysis.from(List.of(unit)).observations("C", "m", List.of(), 20);
+        assertThat(observations.lambdaImplementation("action")).get().asString()
                 .contains("void run()", "System.out.println()").doesNotContain("return");
-        assertThat(call("tryImplementLambdaSam", signature, lambdas.get(1)).toString())
+        assertThat(observations.lambdaImplementation("size")).get().asString()
                 .contains("java.lang.String text", "return text.length()");
-        assertThat(call("tryImplementLambdaSam", signature, lambdas.get(2))).isEqualTo(Optional.empty());
+        assertThat(observations.lambdaImplementation("invalid")).isEmpty();
     }
 
     @Test
@@ -59,13 +58,10 @@ class DebuggerTypeMetadataTest {
                     }
                 }
                 """);
-        var lambdas = new HashMap<String, List<?>>();
-        var finals = new HashMap<String, Set<String>>();
-        call("buildLambdaAndFinalMaps", new Class<?>[] { List.class, Map.class, Map.class }, Arrays.asList(null, unit),
-                lambdas, finals);
-        assertThat(lambdas.get("C.m()")).hasSize(2);
-        assertThat(call("findLambdaImplementation", new Class<?>[] { List.class, String.class, int.class },
-                lambdas.get("C.m()"), "local", 1)).toString().contains("void run()");
+        var observations = SourceAnalysis.from(Arrays.asList(null, unit)).observations("C", "m", List.of(), 1);
+        assertThat(observations.lambdaImplementation("action")).contains("void run() {\n}");
+        assertThat(observations.lambdaImplementation("local")).contains("void run() {\n}");
+        assertThat(observations.lambdaImplementation("actions")).isEmpty();
     }
 
     private static StackFrame frame(String methodName, ObjectReference self) {
@@ -162,9 +158,10 @@ class DebuggerTypeMetadataTest {
                 return declaration;
             }
         };
-        var lambda = StaticJavaParser.parseExpression("(int value) -> value").asLambdaExpr();
+        var unit = parse("class C { void m() { java.util.function.IntUnaryOperator op = value -> value; } }");
+        var lambda = unit.findFirst(LambdaExpr.class).orElseThrow();
         lambda.setParameter(0, parameter);
-        assertThat(call("formatLambdaParam", new Class<?>[] { LambdaExpr.class, int.class }, lambda, 0))
-                .isEqualTo("int value");
+        assertThat(SourceAnalysis.from(List.of(unit)).observations("C", "m", List.of(), 1)
+                .lambdaImplementation("op")).contains("int applyAsInt(int value) {\n    return value;\n}");
     }
 }

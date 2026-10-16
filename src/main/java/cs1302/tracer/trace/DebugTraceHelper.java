@@ -1,28 +1,13 @@
 package cs1302.tracer.trace;
 
 import com.sun.jdi.event.EventSet;
-import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.Modifier;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.AssignExpr;
-import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.LambdaExpr;
-import com.github.javaparser.ast.expr.VariableDeclarationExpr;
-import com.github.javaparser.ast.stmt.ExpressionStmt;
-import com.github.javaparser.resolution.MethodUsage;
-import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
-import com.github.javaparser.resolution.types.ResolvedLambdaConstraintType;
-import com.github.javaparser.resolution.types.ResolvedType;
 import com.sun.jdi.AbsentInformationException;
 import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.ClassNotLoadedException;
 import com.sun.jdi.Field;
 import com.sun.jdi.IncompatibleThreadStateException;
-import com.sun.jdi.IntegerValue;
 import com.sun.jdi.LocalVariable;
 import com.sun.jdi.Location;
 import com.sun.jdi.Method;
@@ -30,7 +15,6 @@ import com.sun.jdi.ObjectReference;
 import com.sun.jdi.PrimitiveValue;
 import com.sun.jdi.ReferenceType;
 import com.sun.jdi.StackFrame;
-import com.sun.jdi.StringReference;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.Type;
 import com.sun.jdi.VMDisconnectedException;
@@ -54,28 +38,20 @@ import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.execution.TraceSession;
 import cs1302.tracer.execution.SnapshotRetention;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * A collection of methods that are used to generate a debug trace.
@@ -90,19 +66,6 @@ public class DebugTraceHelper {
      * Private constructor to prevent direct instantiation of utility class.
      */
     private DebugTraceHelper() {} // DebugTraceHelper
-
-    /** A simple JavaParser object so we don't have to make a new one every time. */
-    private static final JavaParser SIMPLE_JAVA_PARSER = new JavaParser(
-            new ParserConfiguration().setLanguageLevel(LanguageLevel.CURRENT));
-
-    /**
-     * An assignment or declaration of a lambda to a variable with line information.
-     *
-     * @param variableName Variable name.
-     * @param lineNumber Line number.
-     * @param lambdaImplementation Lambda method implementation text.
-     */
-    record LambdaAssignment(String variableName, int lineNumber, String lambdaImplementation) {} // LambdaAssignment
 
     /**
      * Take snapshots of a program's execution state at the given breakpoints.
@@ -1305,59 +1268,6 @@ public class DebugTraceHelper {
     } // handleReaderMethodExit
 
     /**
-     * Convert a lambda expression in the AST into an implementation.
-     *
-     * @param lambda The lambda expression to convert.
-     * @return A string containing a valid method implementation.
-     */
-    static Optional<String> tryImplementLambdaSam(LambdaExpr lambda) {
-        Optional<MethodUsage> maybeSam = FunctionalInterfaceLogic.getFunctionalMethod(lambda.calculateResolvedType());
-        if (maybeSam.isEmpty()) {
-            return Optional.empty();
-        } // if
-
-        MethodUsage sam = maybeSam.get();
-        StringBuilder sb = new StringBuilder();
-
-        String resolvedReturnType = lambda.calculateResolvedType().asReferenceType().getTypeParametersMap().stream()
-                .filter(p -> sam.returnType().isTypeVariable())
-                .filter(p -> p.a.getName().equals(sam.returnType().asTypeVariable().describe()))
-                .map(p -> p.b.describe()).findFirst().orElse(sam.returnType().describe());
-
-        sb.append(resolvedReturnType).append(" ").append(sam.getName());
-
-        sb.append(IntStream.range(0, sam.getDeclaration().getNumberOfParams())
-                .mapToObj(i -> formatLambdaParam(lambda, i)).collect(Collectors.joining(", ", "(", ")")));
-
-        if (lambda.getBody() instanceof ExpressionStmt e) {
-            sb.append("{\n");
-            if (!resolvedReturnType.equals("void")) {
-                sb.append("return ");
-            } // if
-            sb.append(e).append("}");
-        } else {
-            sb.append(lambda.getBody());
-        } // if
-
-        return SIMPLE_JAVA_PARSER.parseMethodDeclaration(sb.toString()).getResult().map(Object::toString);
-    } // tryImplementLambdaSam
-
-    /**
-     * Formats a lambda parameter with its resolved type and name.
-     *
-     * @param lambda Lambda expression.
-     * @param i Parameter index.
-     * @return Formatted parameter string.
-     */
-    private static String formatLambdaParam(LambdaExpr lambda, int i) {
-        String typeDesc = switch (lambda.getParameter(i).resolve().getType()) {
-        case ResolvedLambdaConstraintType c -> c.getBound().describe();
-        case ResolvedType d -> d.describe();
-        }; // switch
-        return String.format("%s %s", typeDesc, lambda.getParameter(i).getName());
-    } // formatLambdaParam
-
-    /**
      * Take a snapshot of a thread's memory state at this instant of execution.
      *
      * @param mainThread A suspended thread.
@@ -1488,7 +1398,7 @@ public class DebugTraceHelper {
         if (capture == null) {
             prepassObjectTypes(mainThread, astTypeResolver, metadata, harnessClassLoader);
             List<StackSnapshot> stack = collectStackSnapshots(mainThread, astTypeResolver, metadata,
-                    sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
+                    sourceAnalysis,
                     heapReferencesToWalk, heap, harnessClassLoader);
             return List.of(new ExecutionSnapshot.ThreadSnapshot(0, "", "", stack));
         } // if
@@ -1504,7 +1414,7 @@ public class DebugTraceHelper {
         } // for
         for (ThreadReference thread : capturedThreads) {
             List<StackSnapshot> stack = collectStackSnapshots(thread, astTypeResolver, metadata,
-                    sourceAnalysis.lambdaMethodAssignments(), sourceAnalysis.finalMethodVariables(),
+                    sourceAnalysis,
                     heapReferencesToWalk, heap, harnessClassLoader);
             threads.add(new ExecutionSnapshot.ThreadSnapshot(thread.uniqueID(), thread.name(),
                     ThreadCapture.state(thread), stack));
@@ -1582,96 +1492,6 @@ public class DebugTraceHelper {
         } // try
         return null;
     } // resolveStepSourcePath
-
-    /**
-     * Builds lambda assignment and final variable maps from parsed compilation units.
-     *
-     * @param parsedSources List of compilation units.
-     * @param lambdaMap Target map for lambda assignments.
-     * @param finalMap Target map for final variable names.
-     */
-    static void buildLambdaAndFinalMaps(List<CompilationUnit> parsedSources,
-            Map<String, List<LambdaAssignment>> lambdaMap, Map<String, Set<String>> finalMap) {
-        for (CompilationUnit cu : parsedSources) {
-            if (cu == null) {
-                continue;
-            } // if
-            for (MethodDeclaration m : cu.findAll(MethodDeclaration.class)) {
-                String sig = resolveMethodSignature(m);
-                lambdaMap.put(sig, extractMethodLambdaAssignments(m));
-
-                Set<String> finals = m.findAll(VariableDeclarationExpr.class).stream()
-                        .filter(v -> v.getModifiers().contains(Modifier.finalModifier()))
-                        .map(VariableDeclarationExpr::getVariables).flatMap(Collection::stream)
-                        .map(VariableDeclarator::getNameAsString).collect(Collectors.toSet());
-                finalMap.put(sig, finals);
-            } // for
-        } // for
-    } // buildLambdaAndFinalMaps
-
-    /**
-     * Extracts lambda assignments from a method declaration.
-     *
-     * @param m MethodDeclaration AST node.
-     * @return List of lambda assignments.
-     */
-    private static List<LambdaAssignment> extractMethodLambdaAssignments(MethodDeclaration m) {
-        List<LambdaAssignment> assignments = new ArrayList<>();
-
-        for (VariableDeclarator d : m.findAll(VariableDeclarator.class)) {
-            if (d.getInitializer().map(Expression::isLambdaExpr).orElse(false)) {
-                try {
-                    tryImplementLambdaSam(d.getInitializer().get().asLambdaExpr())
-                            .ifPresent(impl -> assignments.add(new LambdaAssignment(d.getNameAsString(),
-                                    d.getRange().map(r -> r.begin.line).orElse(0), impl)));
-                } catch (RuntimeException e) {
-                    // Ignore unresolved local lambdas
-                } // try
-            } // if
-        } // for
-
-        for (AssignExpr a : m.findAll(AssignExpr.class)) {
-            if (a.getValue().isLambdaExpr()) {
-                String varName = null;
-                if (a.getTarget().isNameExpr()) {
-                    varName = a.getTarget().asNameExpr().getNameAsString();
-                } else {
-                    if (a.getTarget().isFieldAccessExpr()) {
-                        varName = a.getTarget().asFieldAccessExpr().getNameAsString();
-                    } // if
-                } // if
-                if (varName != null) {
-                    final String finalVarName = varName;
-                    try {
-                        tryImplementLambdaSam(a.getValue().asLambdaExpr())
-                                .ifPresent(impl -> assignments.add(new LambdaAssignment(finalVarName,
-                                        a.getRange().map(r -> r.begin.line).orElse(0), impl)));
-                    } catch (RuntimeException e) {
-                        // Ignore unresolved local lambdas
-                    } // try
-                } // if
-            } // if
-        } // for
-
-        assignments.sort(Comparator.comparingInt(LambdaAssignment::lineNumber));
-        return assignments;
-    } // extractMethodLambdaAssignments
-
-    /**
-     * Resolves a method qualified signature string.
-     *
-     * @param m MethodDeclaration AST node.
-     * @return Resolved signature.
-     */
-    private static String resolveMethodSignature(MethodDeclaration m) {
-        try {
-            return m.resolve().getQualifiedSignature().replaceAll("\\.\\.\\.", "[]").replaceAll("\\s", "");
-        } catch (Throwable t) {
-            String params = m.getParameters().stream().map(p -> p.getType().asString())
-                    .collect(Collectors.joining(","));
-            return m.getNameAsString() + "(" + params + ")";
-        } // try
-    } // resolveMethodSignature
 
     /**
      * Returns true if declaring class corresponds to internal coordinator harness or reflection. Student classes named
@@ -1862,9 +1682,7 @@ public class DebugTraceHelper {
      *
      * @param frame Stack frame.
      * @param visibleVars Visible local variables.
-     * @param finalVariableNames Set of final variable names.
-     * @param methodLambdaAssignments Precomputed lambda assignments.
-     * @param currentLine Current execution line number.
+     * @param observations Source observations for the captured location.
      * @param astTypeResolver AST type resolver.
      * @param metadata Snapshot-owned reified type evidence.
      * @param heapReferencesToWalk Heap reference queue.
@@ -1874,15 +1692,14 @@ public class DebugTraceHelper {
      * @throws ClassNotLoadedException If a variable class is not loaded.
      */
     private static void processStackFrameVariables(StackFrame frame, List<LocalVariable> visibleVars,
-            Set<String> finalVariableNames, List<LambdaAssignment> methodLambdaAssignments, int currentLine,
+            SourceAnalysis.Observations observations,
             AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk,
             Map<Long, TraceValue> heap, List<ExecutionSnapshot.Field> stackFrameFields,
             ReifiedTypeMetadata.FrameBindings contexts) throws ClassNotLoadedException {
         for (LocalVariable lv : visibleVars) {
             TraceSession.elements(1);
-            boolean isFinal = finalVariableNames.contains(lv.name());
-            Optional<String> lvLambdaImplementation = findLambdaImplementation(methodLambdaAssignments, lv.name(),
-                    currentLine);
+            boolean isFinal = observations.isFinal(lv.name());
+            Optional<String> lvLambdaImplementation = observations.lambdaImplementation(lv.name());
             String resolvedTypeName = resolveLocalVariableType(frame, lv, astTypeResolver, contexts.bindings(frame));
             appendStackField(frame, lv, isFinal, resolvedTypeName, lvLambdaImplementation, metadata,
                     heapReferencesToWalk, heap, stackFrameFields);
@@ -1895,8 +1712,7 @@ public class DebugTraceHelper {
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
      * @param metadata Snapshot-owned reified type evidence.
-     * @param lambdaMap Lambda assignments map.
-     * @param finalMap Final variable names map.
+     * @param sourceAnalysis Source observations for captured locations.
      * @param heapReferencesToWalk Heap references list.
      * @param heap Heap trace values map.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
@@ -1908,7 +1724,7 @@ public class DebugTraceHelper {
 
     private static List<StackSnapshot> collectStackSnapshots(ThreadReference mainThread,
             AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
-            Map<String, List<LambdaAssignment>> lambdaMap, Map<String, Set<String>> finalMap,
+            SourceAnalysis sourceAnalysis,
             List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
             ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
@@ -1923,20 +1739,17 @@ public class DebugTraceHelper {
             } // if
             TraceSession.elements(1);
             String declaringClassFqn = declaringType.name();
-            String frameMethodSignature = String.format("%s.%s(%s)", declaringClassFqn, frameMethod.name(),
-                    frameMethod.argumentTypes().stream().map(Type::name).collect(Collectors.joining(",")));
-            Set<String> finalVariableNames = finalMap.getOrDefault(frameMethodSignature, Collections.emptySet());
+            SourceAnalysis.Observations observations = sourceAnalysis.observations(declaringClassFqn,
+                    frameMethod.name(), frameMethod.argumentTypes().stream().map(Type::name).toList(),
+                    frame.location().lineNumber());
             List<ExecutionSnapshot.Field> stackFrameFields = new ArrayList<>();
-            List<LambdaAssignment> methodLambdaAssignments = lambdaMap.getOrDefault(frameMethodSignature,
-                    Collections.emptyList());
-            int currentLine = frame.location().lineNumber();
             List<LocalVariable> visibleVars;
             try {
                 visibleVars = frame.visibleVariables();
             } catch (AbsentInformationException ignored) {
                 continue;
             } // try
-            processStackFrameVariables(frame, visibleVars, finalVariableNames, methodLambdaAssignments, currentLine,
+            processStackFrameVariables(frame, visibleVars, observations,
                     astTypeResolver, metadata, heapReferencesToWalk, heap, stackFrameFields, contexts);
             Optional<ThisObject> thisObject = resolveThisObject(frame, declaringClassFqn, metadata,
                     heapReferencesToWalk);
@@ -1964,22 +1777,6 @@ public class DebugTraceHelper {
             } // try
         } // try
     } // resolveFrameSourcePath
-
-    /**
-     * Finds lambda implementation for a variable.
-     *
-     * @param assignments List of assignments.
-     * @param varName Variable name.
-     * @param currentLine Current line.
-     * @return Optional containing lambda implementation string.
-     */
-    private static Optional<String> findLambdaImplementation(List<LambdaAssignment> assignments, String varName,
-            int currentLine) {
-        return assignments.stream().filter(la -> la.variableName().equals(varName) && la.lineNumber() <= currentLine)
-                .reduce((first, second) -> second).map(LambdaAssignment::lambdaImplementation)
-                .or(() -> assignments.stream().filter(la -> la.variableName().equals(varName)).findFirst()
-                        .map(LambdaAssignment::lambdaImplementation));
-    } // findLambdaImplementation
 
     /**
      * Resolves declared type for a local variable.
