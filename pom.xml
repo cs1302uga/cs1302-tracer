@@ -9,6 +9,7 @@
   <version>4.0.0</version>
 
   <name>cs1302-tracer</name>
+  <inceptionYear>2025</inceptionYear>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
 
   <licenses>
@@ -23,6 +24,8 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
     <javaparser.version>3.28.2</javaparser.version>
+    <picocli.version>4.7.7</picocli.version>
+    <automatic.module.name>cs1302.tracer</automatic.module.name>
   </properties>
 
   <dependencyManagement>
@@ -39,6 +42,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.apiguardian</groupId>
+      <artifactId>apiguardian-api</artifactId>
+      <version>1.1.2</version>
+    </dependency>
+    <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
       <version>9.10.1</version>
@@ -52,7 +60,7 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
-      <version>4.7.7</version>
+      <version>${picocli.version}</version>
     </dependency>
     <!-- https://github.com/javaparser/javaparser -->
     <dependency>
@@ -128,6 +136,23 @@
               <arg>-Xlint:-this-escape</arg>
             </compilerArgs>
           </configuration>
+          <executions>
+            <execution>
+              <id>default-compile</id>
+              <configuration>
+                <annotationProcessorPaths>
+                  <path>
+                    <groupId>info.picocli</groupId>
+                    <artifactId>picocli-codegen</artifactId>
+                    <version>${picocli.version}</version>
+                  </path>
+                </annotationProcessorPaths>
+                <compilerArgs combine.children="append">
+                  <arg>-Aproject=${project.groupId}/${project.artifactId}</arg>
+                </compilerArgs>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -136,6 +161,17 @@
           <configuration>
             <failOnError>true</failOnError>
             <doclint>all,-missing</doclint>
+            <overview>${project.basedir}/src/main/javadoc/overview.html</overview>
+            <bottom><![CDATA[
+              Copyright &#169; ${project.inceptionYear} - ${currentYear} Michael E. Cotterell and the University of Georgia. Released under the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/LICENSE" target="_blank">MIT License</a>.
+            ]]></bottom>
+            <excludePackageNames>
+              cs1302.tracer.internal:cs1302.tracer.internal.*
+            </excludePackageNames>
+            <links>
+              <link>https://javadoc.io/static/com.github.javaparser/javaparser-core/${javaparser.version}/</link>
+              <link>https://javadoc.io/static/com.github.javaparser/javaparser-symbol-solver-core/${javaparser.version}/</link>
+            </links>
           </configuration>
         </plugin>
         <plugin>
@@ -147,6 +183,13 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>3.5.1</version>
+          <configuration>
+            <archive>
+              <manifestEntries>
+                <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+              </manifestEntries>
+            </archive>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -199,6 +242,26 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.2</version>
+        <executions>
+          <execution>
+            <id>copyright-year</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>timestamp-property</goal>
+            </goals>
+            <configuration>
+              <name>currentYear</name>
+              <pattern>yyyy</pattern>
+              <locale>en,US</locale>
+              <timeZone>UTC</timeZone>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -267,10 +330,13 @@
                   <addClasspath>true</addClasspath>
                   <mainClass>cs1302.tracer.App</mainClass>
                 </manifest>
+                <manifestEntries>
+                  <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+                </manifestEntries>
               </archive>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
+              <descriptors>
+                <descriptor>src/assembly/jar-with-dependencies.xml</descriptor>
+              </descriptors>
               <finalName>code-tracer</finalName>
             </configuration>
           </execution>
@@ -307,8 +373,8 @@
                 <rule>
                   <element>PACKAGE</element>
                   <includes>
-                    <include>cs1302.tracer.model</include>
-                    <include>cs1302.tracer.serialize</include>
+                    <include>cs1302.tracer.internal.model</include>
+                    <include>cs1302.tracer.internal.serialize</include>
                   </includes>
                   <limits>
                     <limit>

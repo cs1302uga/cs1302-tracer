@@ -4,6 +4,19 @@
 
 ---
 
+## Supported Java interface
+
+The supported interface is `cs1302.tracer.api`, plus the CLI launcher
+`cs1302.tracer.App`. See [Java integration and migration](../reference/java-api.md).
+Parser ASTs, debugger objects, wire models, and serializer configuration belong
+to `cs1302.tracer.internal` and are omitted from public Javadoc. The API exposure
+check covers public/protected declarations, including generics and annotations.
+API Guardian is the sole external annotation exception: supported types declare
+`STABLE`, and public implementation types declare `INTERNAL`, since 4.0.0.
+Its types remain forbidden in supported signatures outside that metadata.
+One-shot jobs and batch workers share execution; the CLI batch command uses
+`BatchTracer`, and envelope rendering shares detached outcome construction.
+
 ## 1. System Decomposition
 
 The project is structured into modular components:
@@ -31,15 +44,16 @@ graph TD
 
 | Package | Purpose |
 | :--- | :--- |
-| `cs1302.tracer` | Entry point, CLI command definitions (`App.java`), and compilation pipeline (`CompilationHelper.java`). |
-| `cs1302.tracer.trace` | JDI execution engine (`DebugTraceHelper`), snapshot representation (`ExecutionSnapshot`), and heap value extractor (`TraceValue`). |
-| `cs1302.tracer.model` | Common trace metadata and shared models (`TraceFormat`, `BreakpointEntry`). |
-| `cs1302.tracer.model.pytutor` | PythonTutor compatibility models (`PyTutorTrace`, `TraceStep`, `RenderStackFrame`). |
-| `cs1302.tracer.model.modern` | Modern clean JSON models (`Trace`, `Step`, `StackFrame`, `Variable`, `HeapObject`, `Reference`). |
-| `cs1302.tracer.execution` | Budgets, job options, result envelopes, and session lifecycle. |
-| `cs1302.tracer.batch` | NDJSON protocol and worker pool. |
-| `cs1302.tracer.guest` | Harness executing jobs within persistent guest JVMs. |
-| `cs1302.tracer.serialize` | Serializers converting snapshots into JSON (`PyTutorSerializer`, `ModernTraceSerializer`). |
+| `cs1302.tracer.api` | Supported requests, detached outcomes, budgets, presentation options, and tracing operations. |
+| `cs1302.tracer.internal` | CLI command definitions (`App.java`), and compilation pipeline (`CompilationHelper.java`). |
+| `cs1302.tracer.internal.trace` | JDI execution engine (`DebugTraceHelper`), snapshot representation (`ExecutionSnapshot`), and heap value extractor (`TraceValue`). |
+| `cs1302.tracer.internal.model` | Wire metadata and source models (`SourceMetadata`, `BreakpointEntry`). |
+| `cs1302.tracer.internal.model.pytutor` | PythonTutor compatibility models (`PyTutorTrace`, `TraceStep`, `RenderStackFrame`). |
+| `cs1302.tracer.internal.model.modern` | Modern clean JSON models (`Trace`, `Step`, `StackFrame`, `Variable`, `HeapObject`, `Reference`). |
+| `cs1302.tracer.internal.execution` | Budgets, job options, result envelopes, and session lifecycle. |
+| `cs1302.tracer.internal.batch` | NDJSON protocol and worker pool. |
+| `cs1302.tracer.internal.guest` | Harness executing jobs within persistent guest JVMs. |
+| `cs1302.tracer.internal.serialize` | Serializers converting snapshots into JSON (`PyTutorSerializer`, `ModernTraceSerializer`). |
 
 ---
 
@@ -171,7 +185,7 @@ both serialized output formats remain supported.
 
 ---
 
-### E. Serialization Subsystem (`cs1302.tracer.serialize`)
+### E. Serialization Subsystem (`cs1302.tracer.internal.serialize`)
 
 #### 1. PythonTutor Format (`PyTutorSerializer`)
 
@@ -191,11 +205,11 @@ Generates an explicit, developer-friendly JSON format:
 
 ---
 
-## 3. Data Models (`cs1302.tracer.model`)
+## 3. Data Models (`cs1302.tracer.internal.model`)
 
 ```text
-cs1302.tracer.model
-├── TraceFormat.java                     # Trace format enum (PYTUTOR, MODERN)
+cs1302.tracer.internal.model
+├── SourceMetadata.java                  # Submitted source metadata
 ├── BreakpointEntry.java                 # Breakpoint line validity model
 ├── pytutor/                             # PythonTutor format models
 │   ├── PyTutorTrace.java                # Root PythonTutor trace wrapper
@@ -233,8 +247,8 @@ to preserve each snapshot's prefix lengths while sharing immutable backing stora
 
 ## Bounded execution
 
-`cs1302.tracer.execution` contains the execution limits, result contract, inspection
-policy, and `TraceSession`. A session binds to the caller thread for existing
+`cs1302.tracer.internal.execution` contains the wire result contract, CLI job options,
+and `TraceSession`; public limits and inspection policy live in `cs1302.tracer.api`. A session binds to the caller thread for existing
 static extraction helpers and owns the guest process, output-drainer lifecycle,
 watchdog, stop reason, and retained snapshots. It is closed with try-with-resources;
 the binding is not inherited by other threads. Cancellation can be requested from

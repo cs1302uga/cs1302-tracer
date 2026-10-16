@@ -14,9 +14,17 @@ Run commands from the repository root. Use a full JDK; CI tests Java 21 and 25 o
 ./mvnw -B -ntp package -DskipTests
 ```
 
+Maven runs `picocli-codegen` as an annotation processor, using the same
+`picocli.version` as the runtime library. It checks command annotations during
+compilation and writes Picocli reflection, resource, and proxy configuration under
+`META-INF/native-image/picocli-generated/cs1302uga/cs1302-tracer/` in the JARs.
+The processor is a build dependency only; it is not bundled with the application.
+This metadata does not establish native-image support for the tracer's compiler,
+JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchanged.
+
 ### JaCoCo Coverage Requirement
 
-The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.model` and `cs1302.tracer.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
+The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
 
 ### Running Example Traces
 
@@ -94,3 +102,16 @@ Regenerate fixtures only intentionally with `python3 examples/verify.py --update
 See [documentation maintenance](documentation.md) for site checks and release preparation.
 
 See [security analysis](security-analysis.md) for CodeQL regression coverage and alert dispositions.
+
+## Supported Java interface checks
+
+`ApiExposureTest` scans compiled supported declarations and rejects third-party or
+internal types in public/protected signatures, generic bounds, inheritance, and
+annotations, with a narrow exception for API Guardian's `@API` and its status
+metadata. It requires explicit `STABLE` annotations on supported types and
+`INTERNAL` on public implementation types, including nested types. It also
+compiles an external consumer with only tracer classes and API Guardian on the
+compile classpath. `TracerTest` exercises detached outcomes, failures, budgets,
+breakpoint discovery, and consecutive batch jobs through the supported interface.
+Runtime dependencies remain required for execution. Run these with
+`./mvnw -B -ntp -Djacoco.skip=true -Dtest=ApiExposureTest,TracerTest test`.

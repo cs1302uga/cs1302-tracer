@@ -11,7 +11,8 @@ interactive visualization itself.
 Start with [installation](guides/installation.md) and [your first trace](tutorials/first-trace.md).
 Use [tracing options](guides/tracing.md) to select snapshots and provide program input.
 
-For integrations, read the [output reference](reference/output.md),
+For Java integrations, read [the supported interface and 4.0 migration guide](reference/java-api.md).
+For JSON integrations, read the [output reference](reference/output.md),
 [bounded result contract](BOUNDED_TRACING.md), and [runner contract](RUNNER_CONTRACT.md).
 For contributions, see [development](contributing/development.md) and
 [architecture](contributing/architecture.md).

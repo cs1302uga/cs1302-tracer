@@ -27,6 +27,9 @@ and configuration overrides are rejected before generation. `start` accepts
 
 Both `start` and `build` generate Javadoc first; `npm --prefix website run api`
 generates it separately. Fetch release tags with `git fetch --tags` before building.
+For a direct Maven invocation, run `./mvnw -B -ntp validate javadoc:javadoc`.
+The wrapper includes `validate` so the build-helper execution sets `currentYear`
+before Javadoc resolves the copyright footer.
 The **API Reference** navigation link follows the selected documentation version.
 Javadoc keeps its own navigation, search, and styling under `api/next/` for development
 and `api/<version>/` for releases, beneath the site's `/cs1302-tracer/` base path.

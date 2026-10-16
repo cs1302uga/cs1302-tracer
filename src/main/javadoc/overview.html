@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>cs1302-tracer Java API</title>
+</head>
+<body>
+<p>Embed Java execution tracing in your application with cs1302-tracer.
+Submit self-contained Java source, discover executable breakpoints, or process
+batch jobs, and receive Python Tutor or modern JSON output.</p>
+
+<h1>Using the Java API</h1>
+<h2>Start with a single trace</h2>
+<p>{@link cs1302.tracer.api.Tracer} compiles the submitted program, traces it in a
+guest JVM, and releases the job's resources before returning a detached
+{@link cs1302.tracer.api.TraceOutcome}. This complete example prints the guest's
+output, followed by the JSON result envelope:</p>
+
+<pre><code>import cs1302.tracer.api.TraceOutcome;
+import cs1302.tracer.api.TraceRequest;
+import cs1302.tracer.api.Tracer;
+
+public class TraceExample {
+    public static void main(String[] args) {
+        String source = """
+            public class Main {
+                public static void main(String[] args) {
+                    System.out.println("hello");
+                }
+            }
+            """;
+        TraceOutcome outcome = Tracer.trace(new TraceRequest(source));
+        System.out.print(outcome.stdout());
+        System.out.println(outcome.json());
+    }
+}
+</code></pre>
+
+<p>The convenience {@link cs1302.tracer.api.TraceRequest#TraceRequest(String)
+TraceRequest constructor} selects Python Tutor output, main-exit capture, finite
+instructor budgets, and trusted inspection. Use the full constructor to supply
+stdin, choose a format and capture settings, or configure
+{@link cs1302.tracer.api.TraceLimits} and {@link cs1302.tracer.api.InspectionPolicy}.
+Input is source text, including the documented delimited multi-file syntax;
+neighboring source files are not discovered automatically.</p>
+
+<h2>Choose an entry point</h2>
+<ul>
+  <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest)
+  Tracer.trace}: execute one self-contained tracing request.</li>
+  <li>{@link cs1302.tracer.api.Tracer#discoverBreakpoints(String)
+  Tracer.discoverBreakpoints}: compile source and discover executable lines without
+  running guest code. Inspect the returned locations and preparation diagnostics.</li>
+  <li>{@link cs1302.tracer.api.BatchTracer}: process the NDJSON batch protocol with
+  reusable workers. Use try-with-resources to release workers; call
+  {@code processStream} sequentially. Input and output streams remain caller-owned.</li>
+</ul>
+
+<h2>Read the outcome</h2>
+<p>Expected compilation and execution failures are represented in the outcome.
+Inspect {@code status()}, {@code complete()}, {@code stopReason()}, and
+{@code diagnostics()} before treating a trace as complete. {@code json()} returns
+the result envelope; {@code traceJson()} returns its trace payload, or the JSON
+literal {@code null} when no payload is available. The payload follows batch
+result-envelope conventions, rather than ordinary CLI selected-breakpoint map
+presentation. Outcomes remain usable after cleanup and after subsequent jobs.</p>
+
+<h2>Runtime and compatibility</h2>
+<p>Run with a full JDK 21 or later and the tracer's runtime dependencies. The
+regular JAR is intended for library integration; the dependency-bundled JAR is
+the executable CLI distribution. Both use the automatic module name
+{@code cs1302.tracer}. Features of submitted programs depend on the active JDK.</p>
+<p>API Guardian is a transitive compile dependency. Maven resolves it automatically;
+manual compilation against the regular JAR also requires the API Guardian JAR
+to avoid missing annotation warnings. It supplies stability metadata, while
+supported method and field types remain project-owned or ordinary Java types.</p>
+<p>The supported Java interface is {@link cs1302.tracer.api}, together with the
+{@link cs1302.tracer.App} launcher. Packages under {@code cs1302.tracer.internal}
+are implementation details outside that contract. Java API compatibility and
+serialized JSON compatibility are separate concerns. Guest execution is not a
+sandbox: resource budgets do not replace process or host isolation.</p>
+<p>Supported types declare {@code @API(status = STABLE, since = "4.0.0")}, promising
+compatibility throughout the 4.x series. Public implementation types declare
+{@code INTERNAL}. A type's status applies to its public members unless explicitly
+overridden. The {@code since} value dates the stability status, rather than the
+original introduction of the code.</p>
+
+<h2>Further reading</h2>
+<p>The following links lead to the current development documentation:</p>
+<ul>
+  <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/java-api.md">Java integration and 4.0 migration</a></li>
+  <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md">JSON output formats</a></li>
+  <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/batch.md">NDJSON batch protocol</a></li>
+  <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/RUNNER_CONTRACT.md">Hosted execution and isolation</a></li>
+</ul>
+</body>
+</html>

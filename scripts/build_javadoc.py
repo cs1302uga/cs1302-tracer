@@ -11,7 +11,7 @@ def generate(root, source, destination):
     if generated.exists():
         shutil.rmtree(generated)
     subprocess.run([str(root / 'mvnw'), '-B', '-ntp', '-f', str(source / 'pom.xml'),
-                    '-Djacoco.skip=true', 'javadoc:javadoc'], cwd=source, check=True)
+                    '-Djacoco.skip=true', 'validate', 'javadoc:javadoc'], cwd=source, check=True)
     if not (generated / 'index.html').is_file():
         raise RuntimeError(f'Javadoc index missing in {generated}')
     shutil.copytree(generated, destination)

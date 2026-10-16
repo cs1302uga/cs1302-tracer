@@ -1,0 +1,30 @@
+package cs1302.tracer.internal.model;
+
+import org.apiguardian.api.API;
+
+import com.google.gson.annotations.SerializedName;
+
+/**
+ * Represents a line entry for list-breakpoints in JSON format.
+ *
+ * @param lineNumber The 1-based source line number.
+ * @param validBreakpoint True if this line is a valid breakpoint location.
+ * @param lineContent The source code text of this line.
+ * @param file The optional relative source file path for multi-file programs.
+ */
+@API(status = API.Status.INTERNAL, since = "4.0.0")
+public record BreakpointEntry(@SerializedName("lineNumber") int lineNumber,
+        @SerializedName("validBreakpoint") boolean validBreakpoint, @SerializedName("lineContent") String lineContent,
+        @SerializedName("file") String file) {
+
+    /**
+     * Constructs a single-file breakpoint entry.
+     *
+     * @param lineNumber The 1-based source line number.
+     * @param validBreakpoint True if this line is a valid breakpoint location.
+     * @param lineContent The source code text of this line.
+     */
+    public BreakpointEntry(int lineNumber, boolean validBreakpoint, String lineContent) {
+        this(lineNumber, validBreakpoint, lineContent, null);
+    } // BreakpointEntry
+} // BreakpointEntry
