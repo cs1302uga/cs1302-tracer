@@ -1,5 +1,4 @@
 """Release regression tests: prevent unpublished or mismatched docs becoming stable."""
-import json
 from pathlib import Path
 import tempfile
 import subprocess

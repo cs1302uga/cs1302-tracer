@@ -1,5 +1,4 @@
 """Release decisions through the project interface, using real files and Git tags."""
-import json
 from pathlib import Path
 import subprocess
 import tempfile
