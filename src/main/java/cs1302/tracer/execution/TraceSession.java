@@ -1,26 +1,16 @@
 package cs1302.tracer.execution;
 
-import com.google.gson.Gson;
-import com.google.gson.TypeAdapter;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
-import com.google.gson.stream.JsonWriter;
 import com.sun.jdi.VirtualMachine;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.OutputSlice;
 import cs1302.tracer.trace.JobOutput;
 import cs1302.tracer.trace.StreamDrainer;
 import cs1302.tracer.trace.ThreadCapture;
-import cs1302.tracer.trace.ValueTraversal;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,20 +22,13 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TraceSession implements AutoCloseable {
 
     private static final ThreadLocal<TraceSession> CURRENT = new ThreadLocal<>();
-    private static final Gson GSON = new com.google.gson.GsonBuilder()
-            .registerTypeHierarchyAdapter(java.util.Optional.class,
-                    (com.google.gson.JsonSerializer<java.util.Optional<?>>) (value, type, context) -> context
-                            .serialize(value.orElse(null)))
-            .registerTypeAdapter(OutputSlice.class, new OutputSliceTypeAdapter().nullSafe()).create();
     private final TraceLimits limits;
     private ThreadCapture threadCapture;
     private final InspectionPolicy inspection;
     private final boolean accumulate;
     private final Thread owner = Thread.currentThread();
     private final AtomicReference<String> reason = new AtomicReference<>();
-    private final List<ExecutionSnapshot> completed = new ArrayList<>();
-    private final Map<SnapshotLineKey, ExecutionSnapshot> latest = new LinkedHashMap<>();
-    private final Map<ExecutionSnapshot, Long> sizes = new java.util.IdentityHashMap<>();
+    private final SnapshotRetention retention;
     private final Set<Long> objects = new HashSet<>();
     private final List<StreamDrainer> drainers = new ArrayList<>();
     private volatile Process process;
@@ -57,10 +40,8 @@ public final class TraceSession implements AutoCloseable {
     private Long explicitStderrBytes;
     private long started;
     private Thread watchdog;
-    private long captured;
     private long elements;
     private long buildingBytes;
-    private long retainedBytes;
     private boolean extracting;
     private boolean guestFailed;
     private boolean droppedSnapshot;
@@ -99,6 +80,7 @@ public final class TraceSession implements AutoCloseable {
                     + "guest methods and stream flush are not invoked.");
         } // if
         this.accumulate = accumulate;
+        this.retention = new SnapshotRetention(limits, accumulate, this::check);
         this.evalEnumHash = evalEnumHash;
         CURRENT.set(this);
     } // TraceSession
@@ -325,7 +307,7 @@ public final class TraceSession implements AutoCloseable {
     /** Begins an atomic snapshot extraction. */
     public void beginSnapshot() {
         check();
-        if (limits.snapshots() != 0 && captured >= limits.snapshots()) {
+        if (limits.snapshots() != 0 && this.retention.captured() >= limits.snapshots()) {
             stop("snapshot_limit");
             throw new Stopped(reason.get());
         } // if
@@ -358,7 +340,7 @@ public final class TraceSession implements AutoCloseable {
     public void allocate(long bytes) {
         buildingBytes = Math.addExact(buildingBytes, bytes);
         enforce(buildingBytes, limits.snapshotBytes(), "snapshot_byte_limit");
-        enforce(Math.addExact(retainedBytes, buildingBytes), limits.traceBytes(), "trace_limit");
+        enforce(Math.addExact(this.retention.retainedBytes(), buildingBytes), limits.traceBytes(), "trace_limit");
     } // allocate
 
     /**
@@ -399,31 +381,12 @@ public final class TraceSession implements AutoCloseable {
      * @param snapshot Fully extracted state.
      */
     public void commit(ExecutionSnapshot snapshot) {
-        check();
         try {
-            ValueTraversal.validate(snapshot);
-        } catch (NestingException failure) {
+            this.retention.commit(snapshot, buildingBytes);
+        } catch (NestingException | SnapshotRetention.LimitExceeded failure) {
             stop(failure.getMessage());
             throw new Stopped(reason.get());
         } // try
-        SnapshotCounter counter = new SnapshotCounter();
-        GSON.toJson(snapshot, counter);
-        long size = Math.max(buildingBytes, counter.bytes);
-        enforce(size, limits.snapshotBytes(), "snapshot_byte_limit");
-        enforce(Math.addExact(retainedBytes, size), limits.traceBytes(), "trace_limit");
-        if (!accumulate) {
-            int line = snapshot.stack().isEmpty() ? -1 : (int) snapshot.stack().getLast().methodLine();
-            SnapshotLineKey key = new SnapshotLineKey(line, snapshot.sourcePath());
-            ExecutionSnapshot previous = latest.put(key, snapshot);
-            if (previous != null) {
-                retainedBytes -= sizes.remove(previous);
-                completed.remove(previous);
-            } // if
-        } // if
-        completed.add(snapshot);
-        sizes.put(snapshot, size);
-        retainedBytes += size;
-        captured++;
         extracting = false;
     } // commit
 
@@ -476,8 +439,18 @@ public final class TraceSession implements AutoCloseable {
      * @return Completed snapshots only.
      */
     public List<ExecutionSnapshot> snapshots() {
-        return List.copyOf(completed);
+        return this.retention.snapshots();
     } // snapshots
+
+    /**
+     * Returns a targeted-output presentation when the trace budget permits it.
+     *
+     * @return Retained states with final output on each targeted location's last hit.
+     */
+    public List<ExecutionSnapshot> targetedSnapshots() {
+        return "trace_limit".equals(this.reason.get()) ? this.retention.snapshots()
+                : this.retention.targetedSnapshots();
+    } // targetedSnapshots
 
     /**
      * Builds a result after tracing or a recoverable failure.
@@ -508,9 +481,9 @@ public final class TraceSession implements AutoCloseable {
                 diagnostics.add("Guest process exited with code " + exitCode);
             } // if
         } // if
-        counts.put("snapshotsCaptured", captured);
-        counts.put("snapshotsRetained", (long) completed.size());
-        counts.put("retainedBytes", retainedBytes);
+        counts.put("snapshotsCaptured", this.retention.captured());
+        counts.put("snapshotsRetained", (long) this.retention.size());
+        counts.put("retainedBytes", this.retention.retainedBytes());
         counts.put("droppedSnapshots", droppedSnapshot ? 1L : 0L);
         counts.put("elapsedMillis", started == 0 ? 0 : (System.nanoTime() - started) / 1_000_000);
         if (explicitStderrBytes != null) {
@@ -554,7 +527,7 @@ public final class TraceSession implements AutoCloseable {
 
     /** Refreshes final output on the last complete snapshot after successful execution. */
     public void finishOutput() {
-        if (completed.isEmpty() || drainers.size() != 2) {
+        if (this.retention.size() == 0 || drainers.size() != 2) {
             return;
         } // if
         JobOutput.Finished output = JobOutput.fromStart(drainers.get(1), drainers.get(0)).finish();
@@ -571,89 +544,26 @@ public final class TraceSession implements AutoCloseable {
         if (reason.get() == null) {
             check();
         } // if
-        if (completed.isEmpty()) {
-            return;
+        String rejected = this.retention.finishOutput(stdout, stderr);
+        if (rejected != null) {
+            stop(rejected);
         } // if
-        OutputSlice safeOut = stdout != null ? stdout.materialize() : null;
-        OutputSlice safeErr = stderr != null ? stderr.materialize() : null;
-        materializeSnapshots(safeOut, safeErr);
-        ExecutionSnapshot last = completed.getLast();
-        int outLen = safeOut != null ? safeOut.length() : last.stdoutLength();
-        int errLen = safeErr != null ? safeErr.length() : last.stderrLength();
-        long extra = Math.max(0, outLen - last.stdoutLength()) + Math.max(0, errLen - last.stderrLength());
-        if (extra == 0) {
-            return;
-        } // if
-        // Raw byte arrays cost at most five ASCII JSON characters per byte in accounting.
-        long newRetained = Math.addExact(retainedBytes, extra * 15);
-        if (limits.snapshotBytes() != 0 && sizes.get(last) + extra * 15 > limits.snapshotBytes()) {
-            stop("snapshot_byte_limit");
-            return;
-        } // if
-        if (limits.traceBytes() != 0 && newRetained > limits.traceBytes()) {
-            stop("trace_limit");
-            return;
-        } // if
-        ExecutionSnapshot updated = last.withOutput(safeOut != null ? safeOut : last.stdoutSlice(),
-                safeErr != null ? safeErr : last.stderrSlice());
-        completed.set(completed.size() - 1, updated);
-        latest.replaceAll((key, snapshot) -> snapshot == last ? updated : snapshot);
-        sizes.put(updated, sizes.remove(last) + extra * 15);
-        retainedBytes = newRetained;
     } // finishOutput
 
     /** Materializes all completed snapshot output slices into self-contained buffers. */
     public synchronized void materializeSnapshots() {
-        for (int i = 0; i < completed.size(); i++) {
-            ExecutionSnapshot oldSnap = completed.get(i);
-            ExecutionSnapshot newSnap = oldSnap.materializeOutput();
-            updateMaterializedSnapshot(i, oldSnap, newSnap);
-        } // for
+        this.retention.materializeSnapshots();
     } // materializeSnapshots
 
     /**
-     * Materializes all completed snapshot output slices using shared output buffers.
+     * Materializes completed snapshot output using shared output buffers.
      *
      * @param sharedStdout Shared standard output buffer.
      * @param sharedStderr Shared standard error buffer.
      */
     public synchronized void materializeSnapshots(byte[] sharedStdout, byte[] sharedStderr) {
-        materializeSnapshots(OutputSlice.from(sharedStdout), OutputSlice.from(sharedStderr));
+        this.retention.materializeSnapshots(sharedStdout, sharedStderr);
     } // materializeSnapshots
-
-    /**
-     * Detaches snapshot prefixes while sharing the finalized output slices.
-     *
-     * @param stdout Final standard output, or null to retain captured output.
-     * @param stderr Final standard error, or null to retain captured output.
-     */
-    private synchronized void materializeSnapshots(OutputSlice stdout, OutputSlice stderr) {
-        for (int i = 0; i < completed.size(); i++) {
-            ExecutionSnapshot oldSnap = completed.get(i);
-            if (oldSnap.stdoutLength() == 0 && oldSnap.stderrLength() == 0) {
-                continue;
-            } // if
-            ExecutionSnapshot newSnap = oldSnap.withOutput(
-                    stdout != null ? stdout.subSlice(0, oldSnap.stdoutLength()) : oldSnap.stdoutSlice().materialize(),
-                    stderr != null ? stderr.subSlice(0, oldSnap.stderrLength()) : oldSnap.stderrSlice().materialize());
-            updateMaterializedSnapshot(i, oldSnap, newSnap);
-        } // for
-    } // materializeSnapshots
-
-    /**
-     * Updates completed snapshot reference and maintains sizes and latest maps.
-     *
-     * @param index Index in completed list.
-     * @param oldSnap Previous snapshot instance.
-     * @param newSnap Replaced snapshot instance.
-     */
-    private void updateMaterializedSnapshot(int index, ExecutionSnapshot oldSnap, ExecutionSnapshot newSnap) {
-        if (oldSnap != newSnap) {
-            completed.set(index, newSnap);
-            sizes.put(newSnap, sizes.remove(oldSnap));
-            latest.replaceAll((key, snapshot) -> snapshot == oldSnap ? newSnap : snapshot);
-        } // if
-    } // updateMaterializedSnapshot
 
     @Override
     public void close() {
@@ -673,9 +583,7 @@ public final class TraceSession implements AutoCloseable {
         drainers.forEach(StreamDrainer::close);
         drainers.forEach(StreamDrainer::detachSession);
         drainers.clear();
-        completed.clear();
-        latest.clear();
-        sizes.clear();
+        this.retention.clear();
         process = null;
         CURRENT.remove();
     } // close
@@ -694,55 +602,4 @@ public final class TraceSession implements AutoCloseable {
         } // Stopped
     } // Stopped
 
-    /** Counts an upper bound of UTF-8 snapshot bytes without building a JSON string. */
-    private final class SnapshotCounter extends Writer {
-        private long bytes;
-
-        /** Constructs a snapshot size counter. */
-        SnapshotCounter() {} // SnapshotCounter
-
-        @Override
-        public void write(char[] buffer, int offset, int length) {
-            bytes = Math.addExact(bytes, length * 3L);
-            enforce(Math.addExact(retainedBytes, bytes), limits.traceBytes(), "trace_limit");
-        } // write
-
-        @Override
-        public void flush() {} // flush
-
-        @Override
-        public void close() {} // close
-    } // SnapshotCounter
-
-    /** Streams OutputSlice byte elements without materializing a byte array. */
-    private static final class OutputSliceTypeAdapter extends TypeAdapter<OutputSlice> {
-        @Override
-        public void write(JsonWriter out, OutputSlice slice) throws IOException {
-            if (slice == null) {
-                out.nullValue();
-                return;
-            } // if
-            out.beginArray();
-            slice.forEachByte(b -> out.value(b));
-            out.endArray();
-        } // write
-
-        @Override
-        public OutputSlice read(JsonReader in) throws IOException {
-            if (in.peek() == JsonToken.NULL) {
-                in.nextNull();
-                return null;
-            } // if
-            in.beginArray();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            while (in.hasNext()) {
-                baos.write((byte) in.nextInt());
-            } // while
-            in.endArray();
-            return OutputSlice.from(baos.toByteArray());
-        } // read
-    } // OutputSliceTypeAdapter
-
-    /** Key for tracking latest snapshot per line and source file. */
-    private record SnapshotLineKey(int line, Optional<String> sourcePath) {}
 } // TraceSession

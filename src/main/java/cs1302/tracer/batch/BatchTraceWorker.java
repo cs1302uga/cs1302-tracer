@@ -19,13 +19,10 @@ import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.PersistentGuestSession;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Callable;
 
 /**
@@ -274,21 +271,8 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @return Completed states with the session's latest-per-line or accumulation policy.
      */
     private List<ExecutionSnapshot> retainedSnapshots(BatchJobRequest req, TraceSession traceSession) {
-        List<ExecutionSnapshot> snapshots = new ArrayList<>(traceSession.snapshots());
-        if (snapshots.isEmpty() || Boolean.TRUE.equals(req.allBreakpoints()) || Boolean.TRUE.equals(req.multithread())
-                || "trace_limit".equals(traceSession.stopReason())) {
-            return snapshots;
-        } // if
-        ExecutionSnapshot last = snapshots.getLast();
-        Map<Optional<String>, Set<Long>> updated = new HashMap<>();
-        for (int i = snapshots.size() - 1; i >= 0; i--) {
-            ExecutionSnapshot snapshot = snapshots.get(i);
-            long line = snapshot.stack().isEmpty() ? -1 : snapshot.stack().getLast().methodLine();
-            if (updated.computeIfAbsent(snapshot.sourcePath(), key -> new HashSet<>()).add(line)) {
-                snapshots.set(i, snapshot.withOutput(last.stdoutSlice(), last.stderrSlice()));
-            } // if
-        } // for
-        return snapshots;
+        return Boolean.TRUE.equals(req.allBreakpoints()) || Boolean.TRUE.equals(req.multithread())
+                ? traceSession.snapshots() : traceSession.targetedSnapshots();
     } // retainedSnapshots
 
     /**

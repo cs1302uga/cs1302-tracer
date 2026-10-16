@@ -751,29 +751,6 @@ class BatchTraceWorkerTest {
         }
     }
 
-    @Test
-    void retainedSnapshotsRefreshOnlyTheLastHitPerLocation() throws Exception {
-        var retain = BatchTraceWorker.class.getDeclaredMethod("retainedSnapshots", BatchJobRequest.class,
-                cs1302.tracer.execution.TraceSession.class);
-        retain.setAccessible(true);
-        try (var worker = new BatchTraceWorker(5);
-                var session = new cs1302.tracer.execution.TraceSession(TraceLimits.unlimited(),
-                        cs1302.tracer.execution.InspectionPolicy.FIELDS, true)) {
-            var first = emptySnapshot();
-            var last = new cs1302.tracer.trace.ExecutionSnapshot(List.of(), List.of(), java.util.Map.of(),
-                    new byte[] { 65 }, new byte[0]);
-            session.commit(first);
-            session.commit(last);
-            assertThat(retain.invoke(worker, request(BASIC_SOURCE, true), session)).isEqualTo(List.of(first, last));
-            var result = (List<?>) retain.invoke(worker, request(BASIC_SOURCE, false), session);
-            assertThat(result.getFirst()).isSameAs(first);
-            assertThat(((cs1302.tracer.trace.ExecutionSnapshot) result.getLast()).stdout()).containsExactly((byte) 65);
-            session.stop("trace_limit");
-            var limited = (List<?>) retain.invoke(worker, request(BASIC_SOURCE, false), session);
-            assertThat(limited.getLast()).isSameAs(last);
-        }
-    }
-
     private static BatchJobRequest request(String source, boolean allBreakpoints) {
         return new BatchJobRequest("coverage-job", source, "modern", null, null, allBreakpoints, false, false, false,
                 false, "fqn", TraceLimits.unlimited(), null);

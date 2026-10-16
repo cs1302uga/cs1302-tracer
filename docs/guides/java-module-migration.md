@@ -24,3 +24,19 @@ source evidence list is immutable; its JavaParser compilation units remain mutab
 remain available for existing Java callers. New tracing callers should use
 `SourcePreparation.prepare` so they do not have to coordinate compilation, source
 resolution, and cleanup themselves.
+
+`TraceSession` now delegates admitted history and retained-byte accounting to
+`SnapshotRetention`. Existing session calls remain available. Cancellation, deadlines,
+extraction limits, and the first stop reason remain session responsibilities.
+
+For direct retention use, supply the effective limits, accumulation policy, and a
+cancellation checkpoint when constructing `SnapshotRetention`. `commit` validates and
+sizes a completed snapshot before changing the history. Its `LimitExceeded` exception
+carries the existing machine-readable budget reason. A replacement must fit alongside
+the old history before the old state is removed, preserving existing limit behavior.
+
+`snapshots()` returns canonical retained history. `targetedSnapshots()` produces the
+legacy final-output presentation for selected locations without changing that history
+or its accounting. Session callers use `TraceSession.targetedSnapshots()`, which keeps
+canonical output prefixes after a `trace_limit` stop. `JobOutput` continues to own the
+finished output bytes.

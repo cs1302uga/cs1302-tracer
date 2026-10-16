@@ -53,6 +53,7 @@ import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot;
 import cs1302.tracer.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.execution.TraceSession;
+import cs1302.tracer.execution.SnapshotRetention;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -329,16 +330,7 @@ public class DebugTraceHelper {
      * @return Reduced mapping containing the latest snapshot per source file for each line.
      */
     static Map<Integer, List<ExecutionSnapshot>> keepLatestOnly(Map<Integer, List<ExecutionSnapshot>> snapshots) {
-        Map<Integer, List<ExecutionSnapshot>> latest = new TreeMap<>();
-        for (Map.Entry<Integer, List<ExecutionSnapshot>> entry : snapshots.entrySet()) {
-            List<ExecutionSnapshot> list = entry.getValue();
-            Map<Optional<String>, ExecutionSnapshot> perSource = new LinkedHashMap<>();
-            for (ExecutionSnapshot snap : list) {
-                perSource.put(snap.sourcePath(), snap);
-            } // for
-            latest.put(entry.getKey(), new ArrayList<>(perSource.values()));
-        } // for
-        return latest;
+        return SnapshotRetention.keepLatestOnly(snapshots);
     } // keepLatestOnly
 
     /**
@@ -669,21 +661,7 @@ public class DebugTraceHelper {
      * @return True if both snapshots share identical location and execution state.
      */
     static boolean isRedundantSnapshot(ExecutionSnapshot prev, ExecutionSnapshot current) {
-        if (prev == current) {
-            return true;
-        } // if
-        if (prev == null || current == null) {
-            return false;
-        } // if
-        return Objects.equals(prev.sourcePath(), current.sourcePath())
-                && Objects.equals(prev.threads(), current.threads())
-                && Objects.equals(prev.triggeringThreadId(), current.triggeringThreadId())
-                && Objects.equals(prev.event(), current.event()) && Objects.equals(prev.stack(), current.stack())
-                && Objects.equals(prev.statics(), current.statics()) && Objects.equals(prev.heap(), current.heap())
-                && prev.stdoutSlice().contentEquals(current.stdoutSlice())
-                && prev.stderrSlice().contentEquals(current.stderrSlice())
-                && Objects.equals(prev.stdinConsumed(), current.stdinConsumed())
-                && prev.stdinOffset() == current.stdinOffset();
+        return SnapshotRetention.isRedundantSnapshot(prev, current);
     } // isRedundantSnapshot
 
     /**
@@ -2192,12 +2170,8 @@ public class DebugTraceHelper {
      * @param snapshot Completed state.
      */
     static void storeSnapshot(Map<Integer, List<ExecutionSnapshot>> snapshots, int line, ExecutionSnapshot snapshot) {
-        List<ExecutionSnapshot> entries = snapshots.computeIfAbsent(line, key -> new ArrayList<>());
-        if (TraceSession.current() != null && !TraceSession.current().accumulates()) {
-            Optional<String> src = snapshot.sourcePath();
-            entries.removeIf(existing -> Objects.equals(existing.sourcePath(), src));
-        } // if
-        entries.add(snapshot);
+        TraceSession session = TraceSession.current();
+        SnapshotRetention.storeBreakpoint(snapshots, line, snapshot, session == null || session.accumulates());
     } // storeSnapshot
 
     /** Deduplicates and budgets references before retaining them for heap traversal. */

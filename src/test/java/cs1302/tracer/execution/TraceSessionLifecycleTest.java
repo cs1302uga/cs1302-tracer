@@ -378,10 +378,11 @@ class TraceSessionLifecycleTest {
     @Test
     void snapshotCounterHonorsWriterFlushAndCloseContract() throws Exception {
         try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.TRUSTED, true)) {
-            Class<?> type = Class.forName("cs1302.tracer.execution.TraceSession$SnapshotCounter");
-            var constructor = type.getDeclaredConstructor(TraceSession.class);
+            Class<?> type = Class.forName("cs1302.tracer.execution.SnapshotRetention$SnapshotCounter");
+            var constructor = type.getDeclaredConstructor(SnapshotRetention.class);
             constructor.setAccessible(true);
-            try (java.io.Writer writer = (java.io.Writer) constructor.newInstance(session)) {
+            try (java.io.Writer writer = (java.io.Writer) constructor.newInstance(
+                    new SnapshotRetention(TraceLimits.unlimited(), true, session::check))) {
                 writer.write("hello");
                 writer.flush();
                 var bytes = type.getDeclaredField("bytes");
@@ -407,7 +408,7 @@ class TraceSessionLifecycleTest {
 
     @Test
     void outputSliceTypeAdapterSerializesAndDeserializes() throws Exception {
-        Class<?> adapterClass = Class.forName("cs1302.tracer.execution.TraceSession$OutputSliceTypeAdapter");
+        Class<?> adapterClass = Class.forName("cs1302.tracer.execution.SnapshotRetention$OutputSliceTypeAdapter");
         var constructor = adapterClass.getDeclaredConstructor();
         constructor.setAccessible(true);
         @SuppressWarnings("unchecked")
@@ -643,4 +644,18 @@ class TraceSessionLifecycleTest {
         }
     }
 
+    @Test
+    void traceLimitKeepsTargetedOutputAtItsCanonicalPrefixes() {
+        try (var session = new TraceSession(TraceLimits.unlimited(), InspectionPolicy.FIELDS, true)) {
+            var first = snapshot(1);
+            var last = snapshot(2).withOutput(cs1302.tracer.trace.OutputSlice.from(new byte[] {65}),
+                    cs1302.tracer.trace.OutputSlice.empty());
+            session.commit(first);
+            session.commit(last);
+            assertThat(session.targetedSnapshots().getFirst().stdout()).containsExactly((byte) 65);
+            assertThat(session.snapshots()).containsExactly(first, last);
+            session.stop("trace_limit");
+            assertThat(session.targetedSnapshots()).containsExactly(first, last);
+        }
+    }
 }
