@@ -4,6 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 class TracerTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "0, 1, 1", "-1, 1, 1", "1, 0, 1", "1, -1, 1", "1, 1, 0", "1, 1, -1"
+    })
+    void batchRejectsNonpositiveSettings(int workers, int maxJobsPerWorker, int maxInFlight) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> {
+            try (BatchTracer batch = new BatchTracer(workers, maxJobsPerWorker, maxInFlight, false)) {
+                assertThat(batch).isNotNull();
+            }
+        }).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void oneShotTraceDoesNotDiscoverUnsubmittedNeighbors(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root)
             throws Exception {

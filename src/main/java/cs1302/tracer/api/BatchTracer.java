@@ -14,12 +14,13 @@ public final class BatchTracer implements AutoCloseable {
 
     /**
      * Creates a batch processor; close it to release worker processes and scheduler resources.
-     * Numeric settings below one are clamped to one, matching the command-line batch behavior.
+     * All numeric settings must be positive.
      *
      * @param workers Concurrent worker sessions.
      * @param maxJobsPerWorker Jobs before recycling a guest.
      * @param maxInFlight Maximum admitted requests.
      * @param completionOrder Whether to emit completion order instead of submission order.
+     * @throws IllegalArgumentException If any numeric setting is less than one.
      */
     public BatchTracer(int workers, int maxJobsPerWorker, int maxInFlight, boolean completionOrder) {
         this.service = new BatchTraceService(workers, maxJobsPerWorker, maxInFlight, completionOrder);

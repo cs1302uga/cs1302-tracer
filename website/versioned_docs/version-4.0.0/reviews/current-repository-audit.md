@@ -23,3 +23,13 @@ compiled-source directory explicitly. The legacy CLI/batch discovery policy and
 FIELDS inspection policy are preserved. A positive multi-file request also checks
 that other submitted sources still compile and execute. No serializer or protocol
 shape changes are involved.
+
+## BR-002: constructor documentation promised nonexistent clamping
+
+**Low; verified by code inspection; remediated.** `BatchTracer` documented that
+numeric settings below one were clamped. Its constructor delegates to
+`BatchTraceService`, which rejects such values before allocating workers, and the
+CLI does not clamp them either. The Javadoc now requires positive settings and
+documents `IllegalArgumentException`. A public-API test checks zero and negative
+values for each numeric argument. This corrects documentation and locks in existing
+behavior; it does not change argument handling or output formats.
