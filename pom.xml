@@ -6,10 +6,31 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>3.2.5</version>
+  <version>4.0.0</version>
 
   <name>cs1302-tracer</name>
+  <inceptionYear>2025</inceptionYear>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
+
+  <developers>
+    <developer>
+      <name>Michael E. Cotterell</name>
+      <email>mepcotterell@gmail.com</email>
+      <url>https://michaelcotterell.com/</url>
+      <roles>
+        <role>developer</role>
+        <role>maintainer</role>
+      </roles>
+    </developer>
+    <developer>
+      <name>Gabe Livengood</name>
+      <email>gabe@ggliv.com</email>
+      <url>https://ggliv.com/</url>
+      <roles>
+        <role>developer</role>
+      </roles>
+    </developer>
+  </developers>
 
   <licenses>
     <license>
@@ -23,6 +44,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>21</maven.compiler.release>
     <javaparser.version>3.28.2</javaparser.version>
+    <picocli.version>4.7.7</picocli.version>
+    <checkstyle.version>14.3.0</checkstyle.version>
+    <automatic.module.name>cs1302.tracer</automatic.module.name>
   </properties>
 
   <dependencyManagement>
@@ -34,14 +58,52 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- Test-library transitives; keep their inherited test scope. -->
+      <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>20260814</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.18.15</version>
+      </dependency>
+      <!-- JavaParser support libraries, validated against trace compatibility fixtures. -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.7.2-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>org.javassist</groupId>
+        <artifactId>javassist</artifactId>
+        <version>3.33.0-GA</version>
+      </dependency>
+      <!-- Align annotations shared by Guava, Gson, and the test framework. -->
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.50.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jspecify</groupId>
+        <artifactId>jspecify</artifactId>
+        <version>1.0.1</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
   <dependencies>
     <dependency>
+      <groupId>org.apiguardian</groupId>
+      <artifactId>apiguardian-api</artifactId>
+      <version>1.1.2</version>
+    </dependency>
+    <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
-      <version>9.10.1</version>
+      <version>9.11</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -52,7 +114,7 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
-      <version>4.7.7</version>
+      <version>${picocli.version}</version>
     </dependency>
     <!-- https://github.com/javaparser/javaparser -->
     <dependency>
@@ -122,11 +184,29 @@
           <configuration>
             <showWarnings>true</showWarnings>
             <compilerArgs>
+              <arg>-Werror</arg>
               <arg>-Xlint:all</arg>
               <arg>-Xlint:-processing</arg>
               <arg>-Xlint:-this-escape</arg>
             </compilerArgs>
           </configuration>
+          <executions>
+            <execution>
+              <id>default-compile</id>
+              <configuration>
+                <annotationProcessorPaths>
+                  <path>
+                    <groupId>info.picocli</groupId>
+                    <artifactId>picocli-codegen</artifactId>
+                    <version>${picocli.version}</version>
+                  </path>
+                </annotationProcessorPaths>
+                <compilerArgs combine.children="append">
+                  <arg>-Aproject=${project.groupId}/${project.artifactId}</arg>
+                </compilerArgs>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -135,6 +215,17 @@
           <configuration>
             <failOnError>true</failOnError>
             <doclint>all,-missing</doclint>
+            <overview>${project.basedir}/src/main/javadoc/overview.html</overview>
+            <bottom><![CDATA[
+              Copyright &#169; ${project.inceptionYear} - ${currentYear} Michael E. Cotterell and the University of Georgia. Released under the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/LICENSE" target="_blank">MIT License</a>.
+            ]]></bottom>
+            <excludePackageNames>
+              cs1302.tracer.internal:cs1302.tracer.internal.*
+            </excludePackageNames>
+            <links>
+              <link>https://javadoc.io/static/com.github.javaparser/javaparser-core/${javaparser.version}/</link>
+              <link>https://javadoc.io/static/com.github.javaparser/javaparser-symbol-solver-core/${javaparser.version}/</link>
+            </links>
           </configuration>
         </plugin>
         <plugin>
@@ -146,6 +237,13 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>3.5.1</version>
+          <configuration>
+            <archive>
+              <manifestEntries>
+                <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+              </manifestEntries>
+            </archive>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -181,7 +279,7 @@
             <dependency>
               <groupId>com.puppycrawl.tools</groupId>
               <artifactId>checkstyle</artifactId>
-              <version>14.1.0</version>
+              <version>${checkstyle.version}</version>
             </dependency>
           </dependencies>
         </plugin>
@@ -198,6 +296,51 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.3</version>
+        <executions>
+          <execution>
+            <id>build-toolchain</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.10.0,)</version>
+                  <message>Use ./mvnw (Maven 3.10.0 or later) to build this project.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>A full JDK 21 or later is required to build the tracer.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.2</version>
+        <executions>
+          <execution>
+            <id>copyright-year</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>timestamp-property</goal>
+            </goals>
+            <configuration>
+              <name>currentYear</name>
+              <pattern>yyyy</pattern>
+              <locale>en,US</locale>
+              <timeZone>UTC</timeZone>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -266,10 +409,13 @@
                   <addClasspath>true</addClasspath>
                   <mainClass>cs1302.tracer.App</mainClass>
                 </manifest>
+                <manifestEntries>
+                  <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
+                </manifestEntries>
               </archive>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
+              <descriptors>
+                <descriptor>src/assembly/jar-with-dependencies.xml</descriptor>
+              </descriptors>
               <finalName>code-tracer</finalName>
             </configuration>
           </execution>
@@ -306,8 +452,8 @@
                 <rule>
                   <element>PACKAGE</element>
                   <includes>
-                    <include>cs1302.tracer.model</include>
-                    <include>cs1302.tracer.serialize</include>
+                    <include>cs1302.tracer.internal.model</include>
+                    <include>cs1302.tracer.internal.serialize</include>
                   </includes>
                   <limits>
                     <limit>
@@ -335,7 +481,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>14.1.0</version>
+            <version>${checkstyle.version}</version>
           </dependency>
         </dependencies>
         <executions>

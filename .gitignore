@@ -35,7 +35,12 @@ buildNumber.properties
 # Documentation site
 website/node_modules/
 website/build/
+website/generated-api/
 website/.docusaurus/
 website/published-versions.json
+website/release-manifest.json
 __pycache__/
 external-links-report.md
+
+# Python coverage artifacts
+.coverage*

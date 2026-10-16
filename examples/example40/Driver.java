@@ -6,6 +6,7 @@ public class Driver {
             Thread.currentThread().interrupt();
         }
     }
+
     static void finish() {
         try {
             Thread.sleep(100);
@@ -14,6 +15,7 @@ public class Driver {
         }
         System.out.println("worker completed");
     }
+
     public static void main(String[] args) {
         Thread daemon = new Thread(Driver::background, "daemon");
         daemon.setDaemon(true);

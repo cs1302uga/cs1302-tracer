@@ -4,6 +4,7 @@ public class Driver {
         value++;
         System.out.println(value);
     }
+
     public static void main(String[] args) throws InterruptedException {
         Thread first = new Thread(Driver::work, "first");
         Thread second = new Thread(Driver::work, "second");

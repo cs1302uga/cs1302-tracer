@@ -6,25 +6,26 @@ untrusted users requires the controls in the [runner contract](../RUNNER_CONTRAC
 
 ## Regression coverage
 
-The September 2026 review identified three failures and added regression coverage:
+The earlier security review identified three failures and added regression coverage:
 
 - Source delimiter matching used overlapping regex quantifiers. A malformed line
   with a long tab sequence caused quadratic work. `SourceDelimiters.scan` now scans
   lines from their two ends and supplies both parsing and source-file counting.
   Tests compare accepted syntax and offsets with the previous recognizer and count
   character reads on adversarial inputs, without depending on machine speed.
-  The public `DELIMITER_PATTERN` remains as a deprecated compatibility matcher
-  with possessive whitespace/marker quantifiers; the same tests cover it.
+  The internal `CompilationHelper.DELIMITER_PATTERN` remains as a deprecated
+  compatibility matcher with possessive whitespace/marker quantifiers; the same
+  tests cover it.
 - Embedded quotes in a guest classpath broke JDI's argument tokenization.
   `GuestLauncher` selects a quote character absent from the literal paths and
   configures JDI to use it. Standalone traces and the persistent harness use the
   same launcher. An integration test relocates compiled classes into a directory
   with spaces, quotes, and a conflicting quote delimiter.
 - Python Tutor element-type sampling recursively followed heap references.
-  Library-supplied snapshots with long or cyclic reference chains could overflow
+  Internally supplied snapshots with long or cyclic reference chains could overflow
   the stack. The walk is now iterative and tracks visited references. Tests cover
   10,000 references and a cycle. Captured guest object links normally use references
-  to concrete heap values, so this also hardens the library snapshot boundary.
+  to concrete heap values, so this also hardens internal snapshot conversion.
 
 The private heap traversal queue uses composition rather than inheriting
 `LinkedList`'s cloning contract. Its tests cover FIFO removal and deduplication
@@ -57,9 +58,13 @@ Representation safety checks apply even when resource budgets are unlimited:
   Excessive inference depth leaves the method type unresolved instead of
   overflowing the host stack; legal 255-dimensional arrays remain supported.
 
-Library callers receive `NestingException` with `value_nesting_limit`,
-`inline_value_cycle`, or `type_nesting_limit`. Session snapshot rejection stops the
-job with that reason and retains only previously committed snapshots. These are
+Internal snapshot/type utilities throw `NestingException` with
+`value_nesting_limit`, `inline_value_cycle`, or `type_nesting_limit`. The supported
+`Tracer.trace` API reports job failures through `TraceOutcome` and its stop reason
+and diagnostics; consumers should not depend on internal exception classes.
+`Tracer.discoverBreakpoints` reports preparation failures through
+`BreakpointDiscovery.diagnostics`. Session snapshot rejection stops the job with
+that reason and retains only previously committed snapshots. These are
 fixed representation ceilings, not additional configurable `TraceLimits` fields.
 Callers must not mutate snapshots during validation or serialization. The shared
 Gson accessor is not a general-purpose validator for arbitrary caller-built models.
@@ -88,16 +93,21 @@ service wrapping the tracer. Revisit them if input ownership or execution change
 
 ## Repeating the scan
 
-Use a fresh, traced compilation of production Java sources and an explicit suite
-containing official security-and-quality and security-experimental queries, plus
-available Trail of Bits and Community alert queries. Enable local input sources
+For a whole-repository scan, create fresh Java, Python, and JavaScript databases;
+trace compilation of production Java sources and extract current tooling and
+workflow sources for the interpreted languages. Use explicit suites containing
+official security-and-quality and security-experimental queries, installed GitHub
+Security Lab queries for each language, and installed Trail of Bits Java queries.
+Verify pack availability and versions for each run; the exact selections from the
+October 2026 audit are recorded in [its report](../reviews/current-repository-audit.md). Enable local input sources
 alongside the default remote sources. Retain the Picocli annotation and JDI launch
 models with the scan artifacts and validate that the models match actual source
 and sink locations.
 
-Keep generated databases, logs, reproducers, and SARIF under `target/`; Maven
-`clean` deletes that directory. Preserve artifacts elsewhere temporarily when a
-clean build is required. Verify database extraction and nonempty suite resolution
+Keep generated databases, logs, reproducers, and SARIF in an ignored analysis
+directory. The October 2026 audit used `static_analysis_codeql_2/` at the repository
+root; earlier runs used `target/`. Maven `clean` deletes `target/`, so preserve any
+needed evidence there before cleaning. Verify database extraction and nonempty suite resolution
 before interpreting results. Preserve raw SARIF, label Community debugging records
 separately, and compare findings by rule and location rather than only total count.
 

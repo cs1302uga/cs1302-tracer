@@ -1,0 +1,72 @@
+[project]
+name = "scripts"
+version = "0.1.0"
+description = "Support scripts for cs1302-tracer."
+readme = "README.md"
+requires-python = ">=3.15"
+authors = [
+    { name = "Michael E. Cotterell", email = "mepcotterell@gmail.com" }
+]
+maintainers = [
+    { name = "Michael E. Cotterell", email = "mepcotterell@gmail.com" }
+]
+classifiers = [
+    "Private :: Do Not Upload"
+]
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "coverage>=7.16.2",
+    "ruff",
+    "ty",
+]
+
+[tool.uv]
+python-preference = "only-managed"
+
+[tool.uv.pip]
+system = false
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "D", "ANN", "TC", "UP"]
+
+ignore = [
+    "ANN002", # Missing type annotation for `*args`
+    "ANN003", # Missing type annotation for `**kwargs`
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+order-by-type = true
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["scripts"]
+source_pkgs = [
+    "build_javadoc", "check_docs", "check_external_links", "check_site",
+    "docs_release", "docs_site", "rehearse_docs_release", "serve_docs",
+]
+omit = ["*/scripts/tests/*", "*/scripts/.venv/*", "*/scripts/.uv/*"]
+patch = ["subprocess"]
+parallel = true
+
+[tool.coverage.paths]
+scripts = ["scripts", "*/scripts"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+precision = 2

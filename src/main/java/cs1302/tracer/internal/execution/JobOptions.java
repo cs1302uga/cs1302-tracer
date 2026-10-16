@@ -1,0 +1,132 @@
+package cs1302.tracer.internal.execution;
+
+import org.apiguardian.api.API;
+
+import cs1302.tracer.api.InspectionPolicy;
+import cs1302.tracer.api.TraceLimits;
+import cs1302.tracer.internal.trace.BreakpointSpec;
+import java.util.Collection;
+import java.util.List;
+import picocli.CommandLine.Option;
+
+/** CLI settings for tracing budgets and the opt-in versioned result envelope. */
+@API(status = API.Status.INTERNAL, since = "4.0.0")
+public class JobOptions {
+
+    @Option(names = "--result-envelope", description = "Emit versioned job status and trace JSON.")
+    public boolean envelope;
+    @Option(names = "--multithread", description = "Capture application threads in modern JSON.")
+    public boolean multithread;
+    @Option(names = "--max-threads", description = "Live application threads; 0 is unlimited.")
+    Long threads;
+    @Option(names = "--max-frames", description = "Total frames per snapshot; 0 is unlimited.")
+    Long frames;
+    @Option(names = "--max-snapshot-bytes", description = "Bytes per snapshot; 0 is unlimited.")
+    Long snapshotBytes;
+    @Option(names = "--unlimited", description = "Disable default budgets; explicit limits still apply.")
+    public boolean unlimited;
+    @Option(names = "--timeout-ms", description = "Tracing deadline in milliseconds; 0 is unlimited.")
+    Long timeoutMillis;
+    @Option(names = "--max-snapshots", description = "Maximum captured snapshots; 0 is unlimited.")
+    Long snapshots;
+    @Option(names = "--max-output-bytes", description = "Guest bytes per stream; 0 is unlimited.")
+    Long outputBytes;
+    @Option(names = "--max-heap-objects", description = "Objects per snapshot; 0 is unlimited.")
+    Long heapObjects;
+    @Option(names = "--max-elements", description = "Inspected elements per snapshot; 0 is unlimited.")
+    Long elements;
+    @Option(names = "--max-trace-bytes", description = "Accounted snapshot bytes; 0 is unlimited.")
+    Long traceBytes;
+    @Option(names = "--max-source-bytes", description = "UTF-8 source bytes; 0 is unlimited.")
+    public Long sourceBytes;
+    @Option(names = "--max-source-files", description = "Streamed source files; 0 is unlimited.")
+    Long sourceFiles;
+    @Option(names = "--inspection", defaultValue = "TRUSTED",
+            description = "Inspection policy: ${COMPLETION-CANDIDATES}; FIELDS invokes no methods.")
+    public InspectionPolicy inspection = InspectionPolicy.TRUSTED;
+
+    /** Configured breakpoint target specifications. */
+    @Option(names = { "--breakpoints", "-b" }, split = ",", paramLabel = "<spec>",
+            description = "Breakpoints at which to take snapshots (e.g. '12', "
+                    + "'Main.java:12', or comma-separated '12,Helper.java:5').")
+    public List<String> breakpoints;
+
+    /**
+     * Sets whether enum hash codes should not be evaluated.
+     *
+     * @param noEval True to disable enum hash evaluation.
+     */
+    @Option(names = "--no-eval-enum-hash",
+            description = "Do not evaluate lazy enum hash codes when capturing snapshots.")
+    void setNoEvalEnumHash(boolean noEval) {
+        this.evalEnumHash = !noEval;
+    } // setNoEvalEnumHash
+
+    /**
+     * Sets whether enum hash codes should be evaluated.
+     *
+     * @param eval True to enable enum hash evaluation.
+     */
+    @Option(names = "--eval-enum-hash", description = "Evaluate lazy enum hash codes when capturing snapshots.")
+    void setEvalEnumHash(boolean eval) {
+        this.evalEnumHash = eval;
+    } // setEvalEnumHash
+
+    public boolean evalEnumHash = true;
+
+    /** Constructs default trusted options. */
+    public JobOptions() {} // JobOptions
+
+    /**
+     * Parses a collection of raw breakpoint strings into BreakpointSpec objects.
+     *
+     * @param raw Raw breakpoint strings.
+     * @return List of parsed BreakpointSpec objects, or empty list if null.
+     */
+    public static List<BreakpointSpec> parseBreakpoints(Collection<String> raw) {
+        return TraceJob.parseBreakpoints(raw);
+    } // parseBreakpoints
+
+    /**
+     * Returns the parsed breakpoint specifications for these options.
+     *
+     * @return List of BreakpointSpec instances.
+     */
+    public List<BreakpointSpec> breakpointSpecs() {
+        return parseBreakpoints(breakpoints);
+    } // breakpointSpecs
+
+    /**
+     * Validates and returns the selected budgets.
+     *
+     * @return Effective limits.
+     */
+    public TraceLimits limits() {
+        TraceLimits defaults = this.unlimited ? TraceLimits.unlimited() : profile().defaultLimits();
+        return new TraceLimits(select(timeoutMillis, defaults.timeoutMillis()), select(snapshots, defaults.snapshots()),
+                select(outputBytes, defaults.outputBytes()), select(heapObjects, defaults.heapObjects()),
+                select(elements, defaults.elements()), select(traceBytes, defaults.traceBytes()),
+                select(sourceBytes, defaults.sourceBytes()), select(sourceFiles, defaults.sourceFiles()),
+                select(threads, defaults.threads()), select(frames, defaults.frames()),
+                select(snapshotBytes, defaults.snapshotBytes()));
+    } // limits
+
+    /**
+     * Identifies the command's output contract.
+     * @return Command caller profile.
+     */
+    public TraceJob.Profile profile() {
+        return this.envelope ? TraceJob.Profile.ENVELOPE : TraceJob.Profile.CLI;
+    } // profile
+
+    /**
+     * Applies a default when an option was omitted.
+     *
+     * @param override Explicit value.
+     * @param fallback Default value.
+     * @return Effective value.
+     */
+    private static long select(Long override, long fallback) {
+        return override != null ? override : fallback;
+    } // select
+} // JobOptions

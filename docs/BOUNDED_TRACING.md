@@ -1,6 +1,6 @@
 # Bounded tracing and result schema v1
 
-Ordinary instructor invocations now use finite budgets while preserving successful
+Ordinary instructor invocations use finite budgets while preserving successful
 Python Tutor and modern JSON shapes. A limit stop writes no JSON to stdout, prints
 its reason to stderr, and exits with code 3. Use `--result-envelope` for explicit
 job status and completed partial snapshots. These settings do not isolate a program from the host.
@@ -11,7 +11,9 @@ trace data, 1 MiB of submitted source, 128 streamed source files, 64 live
 application threads, 4,096 total frames per snapshot, and 8 MiB per snapshot. These are
 configurable interactive-workload defaults, not measured process-memory ceilings.
 Source limits cover submitted input, not neighboring sources discovered on disk.
-The tracing deadline excludes source reading, parsing, and compilation.
+The tracing deadline begins when execution enters the trace phase, after source
+reading, parsing, and compilation. Dedicated guest launch is within that phase;
+reusable guest startup happens before it and is not covered by this deadline.
 
 Use `--unlimited` to disable these defaults. An explicit individual limit still
 applies with `--unlimited`, regardless of option order; zero disables that limit.
@@ -38,7 +40,7 @@ Negative values and unsupported options are rejected before tracing.
 
 | Option | Meaning |
 | --- | --- |
-| `--timeout-ms` | Monotonic elapsed deadline beginning before breakpoint discovery/guest launch. Compilation and input reading are excluded; the runner must bound the whole job. |
+| `--timeout-ms` | Monotonic elapsed deadline beginning at the trace phase. Dedicated launch is included; source preparation and reusable guest startup are excluded. The runner must bound the whole job. |
 | `--max-snapshots` | Number of complete snapshots captured, including snapshots subsequently replaced in selected-breakpoint mode. The next attempted snapshot stops the job. |
 | `--max-output-bytes` | Retained guest bytes **per stream**, independently for stdout and stderr. Excess bytes trigger a stop; retention is capped before copying them. |
 | `--max-heap-objects` | Distinct reachable object identities per snapshot. |
@@ -129,10 +131,12 @@ configuration, and 3 for controlled stops. Invalid CLI configuration follows
 Picocli's stderr diagnostics and need not produce an envelope. Guest stdout/stderr
 are data inside the envelope; tracer diagnostics must not be mixed into JSON stdout.
 
-Library callers can bind a `TraceSession` with try-with-resources, set phase to
-`trace` before launching, and call `cancel()` from another thread. Owner-thread
-interruption also requests cancellation. Sessions are not nested or inherited by
-child threads. The CLI demonstrates the full compile/capture/result lifecycle.
+Library callers use `Tracer.trace(TraceRequest)` with `TraceLimits` and inspect the
+returned `TraceOutcome`; see [Java integration](reference/java-api.md). The supported
+interface does not expose a session handle or an explicit cancellation method.
+Internally, `TraceSession` owns deadlines, cancellation, and retention. Its binding
+is confined to the owner thread and is not inherited by child threads. Session
+cancellation and owner-thread interruption are implementation lifecycle controls.
 
 The runner must not rely on an envelope after forced termination, JVM exhaustion,
 a fatal JVM error, or host failure. A kill may interrupt JSON writing. Reject
@@ -143,15 +147,16 @@ Recovering checkpoints after a kill is deferred.
 
 ```sh
 ./mvnw -B -ntp clean package
-python3 -m unittest discover -s examples -p test_verify.py
-python3 examples/verify.py
+./scripts/uv run python -m unittest discover -s examples -p test_verify.py
+./scripts/uv run python examples/verify.py
 ```
 
-The committed regression fixtures were generated from `main` at `bd7626f` using
-JDK 25. Verification never overwrites fixtures. Regeneration is explicit:
+The committed regression fixtures live in `examples/regression/`; their manifest
+selects the source programs and capture options. Git history records fixture and
+source-line updates. Verification never overwrites fixtures. Regeneration is explicit:
 
 ```sh
-python3 examples/verify.py --update
+./scripts/uv run python examples/verify.py --update
 ```
 
 Review every regenerated diff. The normalizer changes heap IDs only, preserving

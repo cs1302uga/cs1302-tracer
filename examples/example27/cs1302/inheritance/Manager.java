@@ -18,13 +18,7 @@ public class Manager extends Employee {
      * @param department Managed department name.
      * @param bonus Manager annual bonus.
      */
-    public Manager(
-            String name,
-            int age,
-            int id,
-            double salary,
-            String department,
-            double bonus) {
+    public Manager(String name, int age, int id, double salary, String department, double bonus) {
         super(name, age, id, salary);
         this.department = department;
         this.bonus = bonus;

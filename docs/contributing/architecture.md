@@ -1,220 +1,197 @@
 # Architecture
 
-`cs1302-tracer` is a programmatic Java execution tracer built on top of the Java Debug Interface (JDI) and JavaParser. It compiles arbitrary guest Java code (including multi-file packages and streamed sources), executes it inside a separate guest JVM (without establishing host isolation), inspects execution states at method/line breakpoints, traverses the reachable object graph on the heap, and serializes the execution trace into JSON.
+The tracer compiles submitted Java programs, executes them in a guest JVM through
+JDI, captures stacks and reachable heap objects, and renders Python Tutor or modern
+JSON. Guest execution does not establish host isolation. The
+[runner contract](../RUNNER_CONTRACT.md) defines separate hosting requirements.
 
----
+Shared terms and ownership rules are defined in the repository-root `GLOSSARY.md`.
+The [internal tracing guide](../guides/java-module-migration.md) describes contributor
+call conventions; [Java integration](../reference/java-api.md) describes the supported
+consumer interface.
 
-## 1. System Decomposition
+## Entry points and execution flow
 
-The project is structured into modular components:
-
-```mermaid
-graph TD
-    CLI["CLI Driver: App.java / picocli"] --> Comp["Compiler: CompilationHelper.java"]
-    CLI --> Tracer["Trace Engine: DebugTraceHelper.java"]
-    CLI --> SerPy["PyTutorSerializer.java"]
-    CLI --> SerMod["ModernTraceSerializer.java"]
-
-    Comp --> AST["JavaParser AST Analysis"]
-    Comp --> Javac["Java Compiler API"]
-
-    Tracer --> GuestJVM["Guest JVM Process"]
-    GuestJVM -. "JDI Events" .-> Tracer
-    Tracer --> Extractor["Value Extractor: TraceValue.java"]
-    Extractor --> Snap["ExecutionSnapshot Record"]
-
-    Snap --> SerPy --> OutPy["PythonTutor JSON"]
-    Snap --> SerMod --> OutMod["Modern JSON"]
-```
-
-### Package Organization
-
-| Package | Purpose |
-| :--- | :--- |
-| `cs1302.tracer` | Entry point, CLI command definitions (`App.java`), and compilation pipeline (`CompilationHelper.java`). |
-| `cs1302.tracer.trace` | JDI execution engine (`DebugTraceHelper`), snapshot representation (`ExecutionSnapshot`), and heap value extractor (`TraceValue`). |
-| `cs1302.tracer.model` | Common trace metadata and shared models (`TraceFormat`, `BreakpointEntry`). |
-| `cs1302.tracer.model.pytutor` | PythonTutor compatibility models (`PyTutorTrace`, `TraceStep`, `RenderStackFrame`). |
-| `cs1302.tracer.model.modern` | Modern clean JSON models (`Trace`, `Step`, `StackFrame`, `Variable`, `HeapObject`, `Reference`). |
-| `cs1302.tracer.execution` | Budgets, job options, result envelopes, and session lifecycle. |
-| `cs1302.tracer.batch` | NDJSON protocol and worker pool. |
-| `cs1302.tracer.guest` | Harness executing jobs within persistent guest JVMs. |
-| `cs1302.tracer.serialize` | Serializers converting snapshots into JSON (`PyTutorSerializer`, `ModernTraceSerializer`). |
-
----
-
-## 2. Core Subsystems
-
-### A. CLI Driver (`App.java`)
-
-Built using [Picocli](https://picocli.info/), `App.java` handles argument parsing, subcommand routing, and pipeline orchestration.
-
-- **Commands**:
-  - `trace`: Main execution command. Options:
-    - `-b, --breakpoints`: Specific line numbers to take snapshots at.
-    - `-a, --all-breakpoints`: Traces every executable line chronologically.
-    - `--accumulate-breakpoints`: Accumulates multiple hits on the same line into arrays.
-    - `-f, --format`: Choose output format: `pytutor` (default) or `modern`.
-    - `--remove-main-args`: Strips the `args` array parameter from `main(String[])` frame locals.
-    - `--inline-strings`: Displays string values directly in variable slots rather than pointing to heap objects.
-    - `--remove-method-this`: Omits the `this` reference from instance method stack frames.
-  - `list-breakpoints`: Analyzes source files and lists valid line numbers where breakpoints can be set.
-  - `batch-trace`: Processes bounded concurrent NDJSON jobs using persistent guest JVMs for
-    single-stack traces and fresh guest JVMs for multithread traces.
-  - `show-licenses`: Dynamically reads and prints bundled third-party license notices (`META-INF/THIRD-PARTY.txt`).
-
----
-
-### B. Compilation Engine (`CompilationHelper.java`)
-
-`CompilationHelper` parses and compiles guest Java code into an isolated temporary directory before launching the tracer.
-
-1. **Source Discovery & Parsing**:
-   - Uses `com.github.javaparser` to inspect the Abstract Syntax Tree (AST).
-   - Identifies package declarations, public classes/interfaces/enums/records, and locates the `main(String[] args)` method.
-2. **Multi-File & Streaming Support**:
-   - **File Inputs**: Resolves source roots based on package declarations (e.g. `cs1302/account/Driver.java` -> root directory).
-   - **Standard Input Streaming**: Accepts multiple source files concatenated via standard input separated by comment headers:
-
-     ```java
-     // --- cs1302/math/Calculator.java ---
-     package cs1302.math;
-     public class Calculator { ... }
-
-     // --- cs1302/math/Driver.java ---
-     package cs1302.math;
-     public class Driver { public static void main(String[] args) { ... } }
-     ```
-
-   - Automatically splits the stream, writes files into their corresponding package directory structure, and tracks file boundaries.
-3. **Compilation**:
-   - Compiles using `javax.tools.JavaCompiler` with debug flags (`-g`) enabled so full local variable tables and line number tables are emitted in `.class` files.
-   - Wraps compiled classes in an autocloseable `CompilationResult` that cleans up temporary directories upon exit.
-
----
-
-### C. Trace Engine (`DebugTraceHelper.java`)
-
-`DebugTraceHelper` launches and debugs the guest JVM using the Java Debug Interface (`com.sun.jdi`).
+The supported interface is `cs1302.tracer.api`, plus the CLI launcher
+`cs1302.tracer.App`. The launcher delegates to Picocli commands in
+`cs1302.tracer.internal.App`. The command class, parser ASTs, debugger objects,
+wire models, and serializer configuration are internal implementation details.
 
 ```mermaid
-sequenceDiagram
-    participant Tracer as DebugTraceHelper
-    participant JDI as JDI EventQueue
-    participant Guest as Guest JVM
-
-    Tracer->>Guest: Launch guest JVM with JDI connector
-    Tracer->>JDI: Register MethodEntryRequest for Main.main()
-    Guest->>JDI: VMStartEvent -> resume()
-    Guest->>JDI: MethodEntryEvent (main)
-    Tracer->>JDI: Register BreakpointRequest(s) / StepRequest
-    loop Step / Breakpoint Event Loop
-        Guest->>JDI: BreakpointEvent / StepEvent
-        Tracer->>Tracer: Capture ExecutionSnapshot (Stack, Statics, Heap)
-        Tracer->>Guest: resume()
-    end
-    Guest->>JDI: VMDeathEvent / VMDisconnectEvent
-    Tracer->>Guest: Terminate & dispose VM
+flowchart TD
+    CLI[CLI launcher and internal commands] --> Ordinary[Ordinary or envelope trace]
+    CLI --> Batch[BatchTracer]
+    Java[Tracer.trace] --> Worker[BatchTraceWorker]
+    Batch --> Pool[BatchTraceService: admission and ordering]
+    Pool --> Worker
+    Ordinary --> Preparation[SourcePreparation]
+    Worker --> Preparation
+    Preparation --> Compiler[CompilationHelper: javac and temporary files]
+    Ordinary --> Dispatch[TraceDispatch]
+    Worker --> Dispatch
+    Dispatch --> Dedicated[DebugTraceHelper: dedicated guest]
+    Dispatch --> Persistent[PersistentGuestSession: reusable guest]
+    Dedicated --> Capture[Snapshots: stacks, statics, reachable heap]
+    Persistent --> Capture
+    Capture --> Retention[SnapshotRetention through TraceSession]
+    Retention --> Render[Modern or Python Tutor rendering]
+    Render --> Result[Ordinary JSON or detached result envelope]
 ```
 
-- **Tracing Modes**:
-  - **Single Snapshot (Default)**: Takes a single snapshot at main exit.
-  - **Selected Breakpoints (`-b`)**: Places breakpoints at specified lines and records snapshots when hit.
-  - **Chronological Stepping (`-a`)**: Automatically steps through every line across all files in the execution path.
-- **Multi-File Context**:
-  - Tags each snapshot, stack frame, and breakpoint with its relative source file path (e.g., `cs1302/account/Account.java`).
-- **VM Lifecycle & I/O Isolation**:
-  - Captures `stdout` and `stderr` streams separately in real time.
-  - Destroys the guest process during cleanup and disposes the debugger connection. Bounded sessions also wait for process termination within a cleanup deadline.
+`Tracer.trace` resolves a typed `TraceRequest` into an internal `TraceJob` and passes
+it directly to the shared worker, without a wire-model conversion. It closes its
+worker before returning a detached `TraceOutcome`. The Java caller profile selects
+submitted-source discovery with compiled-source resolution. Single-stack requests use a persistent
+guest owned for that operation; multithread requests use a dedicated guest.
 
----
+`BatchTracer` owns the NDJSON processor. `BatchTraceService` handles admission,
+worker scheduling, correlation, and response ordering. Each `BatchTraceWorker`
+executes jobs sequentially and owns guest reuse/recycling. Multithread jobs close
+any reusable guest and use a fresh guest. The CLI batch command uses `BatchTracer`.
 
-### D. Value Extractor & Reachable Heap Traversal (`TraceValue.java`)
+Ordinary and envelope CLI tracing use dedicated guests. Ordinary output preserves
+mode-specific roots, while envelopes contain a sequence root and status metadata.
+The CLI still owns ordinary rendering selection; the worker renders batch and
+one-shot payloads. `TraceOutcomes` freezes payloads and envelopes into JSON text.
 
-To capture heap state without depending on guest JVM memory addresses after execution ends, `TraceValue` inspects mirrored JDI values and converts them into host JVM objects:
+`Tracer.discoverBreakpoints` prepares submitted sources and reads class-file line
+tables without launching a guest. CLI `list-breakpoints` also reads line tables,
+with its file-input source-discovery behavior.
 
-1. **Primitive & Wrapper Values**: Extracted directly (e.g., `IntegerValue`, `BooleanValue`, `DoubleValue` handling `NaN` and infinities).
-2. **String Values**: Captured as `TraceValue.String`.
-3. **Reachable Object Graph Traversal**:
-   - Starting from all static fields and active stack frame local variables, reachable objects are traversed recursively.
-   - Circular references and pointer aliasing are tracked via `ObjectReference.uniqueID()`, ensuring shared objects reference the same heap entry.
-4. **Specialized Heap Types**:
-   - `ArrayReference` / `java.util.List` / `java.util.Collection` -> Array/List elements with reified runtime types.
-   - `java.util.Map` -> Key-value pairs serialized as structured entries.
-   - Lambdas & Method References -> Inspected via enclosing class and functional interface SAM name.
-   - Boxed Primitives (`java.lang.Integer`, etc.) -> Extracted with underlying primitive payload.
+`TraceJob` resolves caller-specific defaults, effective inspection, source discovery,
+capture intent, and presentation settings. Its Java, ordinary CLI, envelope CLI,
+and NDJSON profiles preserve their existing contracts. The NDJSON adapter alone
+interprets wire values and attaches request correlation. Breakpoint text stays
+unparsed until each caller's established validation point: before source access
+for CLI commands, and after compilation for Java and NDJSON jobs. Guest ownership,
+session accounting, cancellation, and rendering stay with their existing owners.
 
----
+## Package responsibilities
 
-### E. Serialization Subsystem (`cs1302.tracer.serialize`)
+| Package | Responsibility |
+| --- | --- |
+| `cs1302.tracer.api` | Supported requests, detached outcomes, limits, presentation choices, discovery, and batch processing. |
+| `cs1302.tracer` | Supported CLI launcher. |
+| `cs1302.tracer.internal` | CLI commands, source delimiters, preparation, compilation, and license notices. |
+| `cs1302.tracer.internal.trace` | Guest launching/execution, capture, source observations, type inference, input observation, and job output. |
+| `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job resolution/options, and internal result envelopes. |
+| `cs1302.tracer.internal.batch` | NDJSON request/response models, bounded scheduling, and workers. |
+| `cs1302.tracer.internal.guest` | Harness running jobs inside reusable guest JVMs. |
+| `cs1302.tracer.internal.model` | Source and breakpoint metadata; `modern` and `pytutor` subpackages hold wire models. |
+| `cs1302.tracer.internal.serialize` | Format conversion and detached outcome construction. |
 
-#### 1. PythonTutor Format (`PyTutorSerializer`)
+Supported types declare API Guardian `STABLE`, and public implementation types
+(including nested types) declare `INTERNAL`, since 4.0.0. API Guardian annotations
+are the sole permitted external metadata in supported declarations. Exposure tests
+reject other third-party/internal types, including in generics and annotations.
+Public internal classes remain accessible on the classpath and through the automatic
+module, but are outside the supported compatibility contract and public Javadoc.
 
-Converts snapshots into the tuple/list JSON schema expected by Online Python Tutor:
+## Source preparation and observations
 
-- Heap objects encoded as tuple lists: `["INSTANCE", "ClassName", ["field", value], ...]` or `["LIST", elem1, elem2]`.
-- Reified collection type labels in `heap_attrs` map.
+`SourcePreparation` owns compiled classes and parsed source evidence until tracing
+finishes. It closes temporary files on completion and on preparation failure.
+`CompilationHelper` splits delimited bundles, identifies the entry point, validates
+source destinations, and invokes javac with debug information. It returns a
+closeable compiled-program description; source evidence is reparsed with symbol
+resolution under the selected discovery policy.
 
-#### 2. Modern Clean Format (`ModernTraceSerializer`)
+Discovery is caller-specific. Trusted ordinary CLI and batch tracing permit
+neighbor discovery with compiled-source fallback; bounded CLI uses neighbor
+discovery without that fallback. One-shot Java tracing permits submitted sources
+with compiled-source resolution. Field-only inspection and supported breakpoint
+discovery restrict evidence to submitted sources. These policies are not identical;
+see the [internal guide](../guides/java-module-migration.md) for the four choices.
 
-Generates an explicit, developer-friendly JSON format:
+`SourceAnalysis` builds source indexes, final-variable observations, and lambda
+implementation text. Capture requests observations for a declaring class, method,
+argument types, and source line. Method matching and location-sensitive lambda
+selection remain with source analysis, including the first-assignment fallback.
+Lambda rendering uses a call-local parser, so independent workers do not share
+mutable parser state. `AstTypeResolver` holds reusable source-derived type indexes.
 
-- **Reference Semantics**: Pointer values are modeled explicitly as `{"ref": 42}`.
-- **Heap Map**: Keyed by object ID (`"heap": { "42": { "kind": "object", "type": "Account", "fields": [...] } }`).
-- **Flat Typed Variables**: `[{"name": "x", "type": "int", "value": 5, "final": false}]`.
-- **Source File Metadata**: Steps and stack frames contain `"file": "cs1302/account/Driver.java"`.
+`BreakpointReader` uses ASM to read SourceFile and line-number attributes without
+loading or executing guest classes. All compiled classes contribute to its index,
+including unused nested classes and records. The build targets Java 21; the active
+JDK, parser, and bytecode-reader support together constrain guest compatibility.
+Dependency versions are selected in `pom.xml`.
 
----
+## Capture and reified type metadata
 
-## 3. Data Models (`cs1302.tracer.model`)
+`TraceDispatch` selects final-state, selected-breakpoint, or chronological capture
+without rendering output. Its dedicated and persistent adapters retain distinct
+launch, event-loop, cleanup, and reuse rules. Multithread capture uses dedicated
+execution and `ThreadCapture`; it observes application threads and invokes no guest
+methods during inspection.
 
-```text
-cs1302.tracer.model
-├── TraceFormat.java                     # Trace format enum (PYTUTOR, MODERN)
-├── BreakpointEntry.java                 # Breakpoint line validity model
-├── pytutor/                             # PythonTutor format models
-│   ├── PyTutorTrace.java                # Root PythonTutor trace wrapper
-│   ├── TraceStep.java                   # Individual PythonTutor execution step
-│   └── RenderStackFrame.java            # Stack frame structure for PythonTutor
-└── modern/                              # Modern format models
-    ├── Trace.java                       # Root modern trace wrapper
-    ├── Step.java                        # Individual modern execution step
-    ├── StackFrame.java                  # Modern stack frame with thisObject ref
-    ├── Variable.java                    # Typed variable representation
-    ├── HeapObject.java                  # Heap object representation (object/array/string/box/lambda)
-    └── Reference.java                   # Pointer reference object {"ref": id}
-```
+Capture constructs `ExecutionSnapshot` values from stacks, static fields, and a
+reachable heap. `TraceValue` converts JDI values; object identities preserve sharing
+and cycles. Trusted inspection has specialized collection, map, wrapper, and lambda
+representations. Field-only inspection avoids those guest method calls and uses
+raw fields for ordinary objects. Arrays and strings retain dedicated handling.
 
----
+`ReifiedTypeMetadata` owns inferred object types and dependent frame bindings for
+one snapshot. All captured threads share it. Callers submit fallback or refined
+evidence instead of mutating a map or invalidating bindings. Frame bindings are
+read-only. `InvocationTypeResolver` contributes source-based method substitutions.
 
-## Bounded execution
+Fallback evidence fills missing entries. Refinement preserves runtime-name,
+generic, and concrete-over-wildcard precedence; conflicting concrete arguments
+retain the earlier candidate. All captured threads finish their type prepasses
+before stack rendering, followed by heap traversal. Refinement does not rewrite
+already-rendered values. These descriptions are conservative evidence, not recovery
+of erased runtime generic arguments; see [type labels](../reference/output.md#generic-method-variable-types).
 
-`cs1302.tracer.execution` contains the execution limits, result contract, inspection
-policy, and `TraceSession`. A session binds to the caller thread for existing
-static extraction helpers and owns the guest process, output-drainer lifecycle,
-watchdog, stop reason, and retained snapshots. It is closed with try-with-resources;
-the binding is not inherited by other threads. Cancellation can be requested from
-another thread. The watchdog operates independently of JDI event handling.
+## Per-job input and output
 
-Snapshot extraction accounts references/elements before retaining them and commits
-only complete states. Size accounting uses a streaming counter rather than an
-intermediate JSON string. Selected-breakpoint jobs can replace previous states
-instead of retaining every hit. Budgeted output drainers cap retained bytes and
-signal a stop while continuing to drain during teardown. The envelope is written
-to stdout through Gson's writer API.
+`InputObservation` owns standard-input identity, supported reader recognition,
+nested-read suppression, and the logical consumed-input cursor for one job.
+`InputTracker` maintains cursor progress, including UTF-16 offsets. Guest execution
+owns event processing and reader-request cleanup. Each job gets a fresh observation,
+including when its guest is reused.
 
-`BreakpointReader` uses ASM 9.10.1 to read SourceFile and line-number attributes
-without loading or executing compiled classes. This keeps the project compatible
-with the Java 21 runtime baseline while supporting the tested class-file versions.
-See the [ASM release history](https://asm.ow2.io/versions.html). All compiled classes,
-including unused nested classes and records, contribute to the source-line index.
-Numeric CLI breakpoints retain their existing meaning across source files.
+`JobOutput` owns stdout/stderr ranges and leading JVM-banner filtering. Persistent
+execution starts after previously drained bytes; dedicated execution starts at zero.
+Capture samples prefix lengths and byte cost together. Execution establishes guest
+completion and requests draining before finishing output.
 
-`FIELDS` inspection bypasses guest collection/accessor/wrapper/flush calls and
-uses raw fields for ordinary objects. It intentionally differs from specialized
-TRUSTED presentation and reports that policy in result diagnostics. This does not
-constrain code executed by the guest itself.
+Finishing returns immutable output and is idempotent. Retained snapshots are detached
+onto prefixes of that output before reusable drainers reset. `PersistentGuestSession`
+returns finished output from job cleanup. `TraceSession` and `SnapshotRetention`
+decide whether trailing output fits the budgets; guest termination and reuse stay
+with the execution path.
 
-The [result schema](../BOUNDED_TRACING.md) documents limits, partial outputs, and
-failure semantics. The [runner contract](../RUNNER_CONTRACT.md) defines the
-separate whole-job isolation boundary and authoritative external termination status.
+## Budgets and snapshot retention
+
+`TraceSession` owns cancellation, the tracing deadline, guest/process attachment,
+output drainers, first stop reason, and access to retained snapshots. Its thread-local
+binding bridges internal extraction helpers; it is not inherited by child threads.
+The independent watchdog can stop a guest while JDI method invocation blocks.
+Supported consumers configure `TraceLimits` through requests rather than manipulating
+sessions. Limits and status semantics are documented in [bounded tracing](../BOUNDED_TRACING.md).
+
+`SnapshotRetention` owns admitted history, retained-byte accounting, replacement,
+duplicate handling, and final-output projection. A rejected snapshot leaves history
+and accounting unchanged. A replacement must fit while the prior state remains
+charged. Completed snapshots are committed atomically; interrupted captures are
+not published with partial heap graphs.
+
+The byte counter writes internal snapshot JSON into a counting sink rather than
+allocating an intermediate string. Its special-floating-point support is internal
+accounting, not consumer JSON. Retained-byte accounting does not measure all host
+allocations or replace an external memory ceiling.
+
+## Rendering and consumer formats
+
+`PyTutorSerializer` emits tagged tuple arrays, reference tuples, and auxiliary type
+metadata. `ModernTraceSerializer` emits explicit stack/heap records and reference
+objects. Both consume completed snapshots and source metadata. Non-finite numbers
+use each format's documented valid-JSON representation.
+
+Ordinary CLI rendering branches on capture shape; selected-breakpoint output can be
+a mapping rather than a sequence root. Envelope and batch payloads use sequence
+roots and may retain completed partial snapshots. `TraceOutcomes` serializes the
+internal result into a dependency-free, detached `TraceOutcome`. Neither supported
+outcomes nor their JSON require guest or compilation resources to remain alive.
+See [JSON output](../reference/output.md) and [batch protocol](../reference/batch.md)
+for the consumer contracts.
