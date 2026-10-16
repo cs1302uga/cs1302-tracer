@@ -20,6 +20,10 @@ python3 scripts/check_site.py
 
 Preview with `npm --prefix website start`, or serve the production build with
 `npm --prefix website run serve`. Open the printed URL under `/cs1302-tracer/`.
+The build wrapper owns `website/build`; custom output directories, site roots,
+and configuration overrides are rejected before generation. `start` accepts
+`--host`, `--port` (or `-p`), and `--no-open`; both `start` and `build` accept
+`--no-minify`.
 
 Both `start` and `build` generate Javadoc first; `npm --prefix website run api`
 generates it separately. Fetch release tags with `git fetch --tags` before building.

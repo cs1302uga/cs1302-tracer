@@ -18,3 +18,22 @@ Inspected both query definitions. The Community rule reports any `pass` or
 `continue` in an exception handler without considering exception type or cleanup.
 The official rule specifically requests an explanatory comment for an empty
 handler. This resolution changes neither server behavior nor trace output.
+
+## BR-001 — Keep build output and its manifest together
+
+Verified a Medium-severity defect at the CLI boundary: forwarding Docusaurus
+`--out-dir` produced a site outside `website/build` while the manifest copy still
+used that fixed directory. A fresh build failed at the copy; an existing build
+received a manifest belonging to the new output. Positional site roots and config
+replacement could likewise bypass the wrapper's ownership.
+
+Resolved by rejecting unsupported overrides before invoking any build tools or
+writing manifests. Supported preview host/port and no-open flags, and build/start
+no-minify, remain available and are documented. Five CLI tests use real temporary
+projects, Git tags, and files, with stand-ins only for external Maven/npm execution.
+Red-green checks prove early rejection and supported flag forwarding. Tests also
+verify archived release sources, successful build provenance, preservation of
+prior API output after partial generation failure, and no new completed-build
+manifest when npm fails before changing output. They do not assert that Docusaurus
+itself atomically preserves old output during a failed rebuild. A deliberate
+working-source-for-release mutation was detected by the pinned-source test.
