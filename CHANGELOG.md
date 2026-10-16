@@ -54,6 +54,12 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Trace valid Java NaN and infinity values without snapshot-accounting failures.
+  Modern non-finite floats use the existing special-double string convention;
+  Python Tutor encodings, finite numbers, and output structures stay unchanged.
+- Correct `BatchTracer` constructor documentation to require positive numeric
+  settings; rejection of invalid settings is unchanged.
+
 - Correct one-shot `Tracer.trace` source discovery to use only submitted sources,
   as documented, rather than discovering neighboring files in the caller's working
   directory. CLI/batch discovery and serialized output formats are unchanged.

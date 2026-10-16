@@ -29,7 +29,8 @@ import java.util.Optional;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class SnapshotRetention {
 
-    private static final Gson GSON = new com.google.gson.GsonBuilder()
+    // This Gson writes only to the accounting sink, never to consumer JSON.
+    private static final Gson GSON = new com.google.gson.GsonBuilder().serializeSpecialFloatingPointValues()
             .registerTypeHierarchyAdapter(java.util.Optional.class,
                     (com.google.gson.JsonSerializer<java.util.Optional<?>>) (value, type, context) -> context
                             .serialize(value.orElse(null)))

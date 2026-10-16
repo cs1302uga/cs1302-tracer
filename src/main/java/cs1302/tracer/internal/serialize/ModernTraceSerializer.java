@@ -295,7 +295,12 @@ public class ModernTraceSerializer {
     private Object serializeValue(TraceValue value) {
         return switch (value) {
         case null -> null;
-        case TraceValue.Primitive.Float f -> f.value();
+        case TraceValue.Primitive.Float f -> {
+            if (Float.isFinite(f.value())) {
+                yield f.value();
+            } // if
+            yield Float.toString(f.value());
+        } // case
         case TraceValue.Primitive.Double d -> {
             if (Double.isInfinite(d.value())) {
                 yield d.value() > 0 ? "Infinity" : "-Infinity";

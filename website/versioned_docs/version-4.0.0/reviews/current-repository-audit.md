@@ -33,3 +33,19 @@ CLI does not clamp them either. The Javadoc now requires positive settings and
 documents `IllegalArgumentException`. A public-API test checks zero and negative
 values for each numeric argument. This corrects documentation and locks in existing
 behavior; it does not change argument handling or output formats.
+
+## BR-003: valid non-finite floating-point values failed tracing
+
+**Medium; verified by execution; remediated.** A guest declaring `Float.NaN`, positive and
+negative float infinity, and `Double.NaN` completed its output but returned
+`tracer_error` in both formats. The internal snapshot byte counter used a Gson
+configuration that rejected non-finite values before output conversion. In
+addition, the modern serializer returned raw non-finite floats, unlike its
+existing string representation for non-finite doubles.
+
+The public API regression checks successful completion and the actual named local
+values in both serialized formats. The internal accounting sink accepts special
+floating-point values; it never emits consumer JSON. Modern non-finite floats use
+the existing special-double string convention, while finite floats and all Python
+Tutor encodings retain their existing representations. No fields or protocol
+structures are added or removed.

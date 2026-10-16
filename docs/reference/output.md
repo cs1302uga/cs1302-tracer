@@ -24,6 +24,15 @@ Map order does not choose the entry point. Step and frame `file` values select t
 corresponding source; line numbers are 1-based. Duplicate source paths are rejected.
 Discovered dependencies outside the submitted bundle are not included in `sources`.
 
+## Floating-point special values
+
+Non-finite Java values remain valid JSON. Modern output represents `NaN`, positive
+infinity, and negative infinity as the strings `"NaN"`, `"Infinity"`, and
+`"-Infinity"` for both `float` and `double`. Finite values remain JSON numbers.
+Python Tutor retains its existing literal conventions: floats use
+`["NUMBER-LITERAL", "value"]`, while non-finite doubles use
+`["SPECIAL_FLOAT", "value"]`, with the same special-value spellings.
+
 ## Generic method variable types
 
 Stack variable labels describe source-declared types for the active invocation.
