@@ -85,7 +85,8 @@ configuration overrides are rejected. `start` accepts `--host`, `--port`/`-p`, a
 
 The website's npm scripts invoke `python3` directly. Run them through
 `./scripts/uv run npm --prefix website ...` when you want the managed Python
-environment. Generating the local site does not publish it.
+environment. CI uses this wrapper form with `--locked` for documentation builds
+and script checks. Generating the local site does not publish it.
 
 ## Tests and development tools
 

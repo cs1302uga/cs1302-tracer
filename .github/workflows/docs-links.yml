@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  UVW_GIT_COMMIT: never
+
 jobs:
   links:
     runs-on: ubuntu-latest
@@ -17,7 +20,7 @@ jobs:
       - name: Check external documentation links
         id: links
         continue-on-error: true
-        run: python3 scripts/check_external_links.py
+        run: ./scripts/uv run --locked python scripts/check_external_links.py
       - name: Publish report
         if: always()
         run: cat external-links-report.md >> "$GITHUB_STEP_SUMMARY"

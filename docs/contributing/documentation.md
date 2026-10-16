@@ -16,9 +16,10 @@ Use Node.js 22 or later (CI uses 22) and a full JDK. Local Python commands use
 `./scripts/uv`, which selects the managed interpreter and scripts project; that
 project requires Python 3.15 or later and pins 3.15. See
 `scripts/AGENTS.md` in the repository for wrapper behavior.
-The npm scripts and CI currently invoke `python3` directly; they do not use the
-managed wrapper or enforce the scripts project's Python requirement. For local
-npm commands, `./scripts/uv run npm ...` supplies the managed Python environment.
+The npm scripts invoke `python3` from their inherited environment. CI runs Python
+checks and npm documentation builds through `./scripts/uv run --locked`, selecting
+the managed interpreter and locked tooling. Use `./scripts/uv run npm ...` locally
+too; invoking npm directly requires a compatible Python already on PATH.
 From the repository root:
 
 ```sh

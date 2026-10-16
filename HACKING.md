@@ -33,7 +33,7 @@ Node.js 22 or later is needed only for the documentation site. CI uses Node.js 2
 
 ```sh
 npm --prefix website ci
-npm --prefix website start
+./scripts/uv run npm --prefix website start
 ```
 
 Before submitting a change, build the JAR and run:
@@ -41,7 +41,7 @@ Before submitting a change, build the JAR and run:
 ```sh
 ./scripts/uv run python scripts/check_docs.py
 ./scripts/uv run python -m unittest discover -s scripts/tests -t scripts
-npm --prefix website run build
+./scripts/uv run npm --prefix website run build
 ./scripts/uv run python scripts/check_site.py
 ```
 

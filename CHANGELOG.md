@@ -59,6 +59,8 @@ The Maven version is prepared as 4.0.0; it is not a published release.
   production line/branch coverage in a dedicated release-blocking CI job.
   Document managed tooling and coverage commands; retain existing Java Git hooks,
   CLI arguments, generated help text, and tracer output formats.
+- Run documentation CI and deployment tooling through the managed Python wrapper
+  so annotation evaluation and dependencies match the declared scripts runtime.
 
 - **Internal tracing:** resolve Java, CLI, envelope, and NDJSON job policy through a
   shared typed module. Preserve supported Java signatures, CLI diagnostics and
