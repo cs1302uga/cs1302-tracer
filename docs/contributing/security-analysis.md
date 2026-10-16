@@ -6,7 +6,7 @@ untrusted users requires the controls in the [runner contract](../RUNNER_CONTRAC
 
 ## Regression coverage
 
-The September 2026 review identified three failures and added regression coverage:
+The earlier security review identified three failures and added regression coverage:
 
 - Source delimiter matching used overlapping regex quantifiers. A malformed line
   with a long tab sequence caused quadratic work. `SourceDelimiters.scan` now scans
@@ -93,16 +93,21 @@ service wrapping the tracer. Revisit them if input ownership or execution change
 
 ## Repeating the scan
 
-Use a fresh, traced compilation of production Java sources and an explicit suite
-containing official security-and-quality and security-experimental queries, plus
-available Trail of Bits and Community alert queries. Enable local input sources
+For a whole-repository scan, create fresh Java, Python, and JavaScript databases;
+trace compilation of production Java sources and extract current tooling and
+workflow sources for the interpreted languages. Use explicit suites containing
+official security-and-quality and security-experimental queries, installed GitHub
+Security Lab queries for each language, and installed Trail of Bits Java queries.
+Verify pack availability and versions for each run; the exact selections from the
+October 2026 audit are recorded in [its report](../reviews/current-repository-audit.md). Enable local input sources
 alongside the default remote sources. Retain the Picocli annotation and JDI launch
 models with the scan artifacts and validate that the models match actual source
 and sink locations.
 
-Keep generated databases, logs, reproducers, and SARIF under `target/`; Maven
-`clean` deletes that directory. Preserve artifacts elsewhere temporarily when a
-clean build is required. Verify database extraction and nonempty suite resolution
+Keep generated databases, logs, reproducers, and SARIF in an ignored analysis
+directory. The October 2026 audit used `static_analysis_codeql_2/` at the repository
+root; earlier runs used `target/`. Maven `clean` deletes `target/`, so preserve any
+needed evidence there before cleaning. Verify database extraction and nonempty suite resolution
 before interpreting results. Preserve raw SARIF, label Community debugging records
 separately, and compare findings by rule and location rather than only total count.
 

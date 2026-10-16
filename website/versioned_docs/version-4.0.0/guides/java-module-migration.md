@@ -1,7 +1,13 @@
-# Java tracing modules
+# Internal tracing modules
 
-The CLI options and serialized trace formats remain unchanged. Java callers can use the
-preparation module to keep compiled files and source evidence alive for the same scope:
+This is contributor guidance for `cs1302.tracer.internal`, not a supported library
+integration guide. These public implementation classes are annotated `INTERNAL`
+and carry no external compatibility promise. Library consumers should use
+[Java integration and 4.0 migration](../reference/java-api.md).
+
+The following describes the current internal ownership and call conventions.
+Internal tracing code uses the preparation module to keep compiled files and source
+evidence alive for the same scope:
 
 ```java
 try (SourcePreparation prepared = SourcePreparation.prepare(
@@ -11,8 +17,10 @@ try (SourcePreparation prepared = SourcePreparation.prepare(
 ```
 
 `SUBMITTED_ONLY` uses submitted sources without neighboring source discovery or a parser
-search root. `NEIGHBORS` discovers neighboring sources and uses the discovered root for
-resolution. `NEIGHBORS_OR_COMPILED` also falls back to the prepared source directory when
+search root. `SUBMITTED_OR_COMPILED` keeps submitted-only discovery while using the
+private compiled-source directory for parser resolution; one-shot `Tracer.trace`
+uses this policy under trusted inspection. `NEIGHBORS` discovers neighboring sources
+and uses the discovered root for resolution. `NEIGHBORS_OR_COMPILED` also falls back to the prepared source directory when
 no original root is available. These preserve the existing field-only, bounded CLI, and
 ordinary CLI/batch preparation policies respectively.
 
@@ -21,12 +29,12 @@ preparation failures release those files before propagating the original failure
 source evidence list is immutable; its JavaParser compilation units remain mutable.
 
 `CompilationHelper.compile`, `App.parseSource`, and `App.discoverAllCompilationUnits`
-remain available for existing Java callers. New tracing callers should use
-`SourcePreparation.prepare` so they do not have to coordinate compilation, source
-resolution, and cleanup themselves.
+exist under `cs1302.tracer.internal`; `App` here means the internal command class,
+not the supported launcher. `SourcePreparation.prepare` keeps internal callers from
+having to coordinate compilation, source resolution, and cleanup themselves.
 
-`TraceSession` now delegates admitted history and retained-byte accounting to
-`SnapshotRetention`. Existing session calls remain available. Cancellation, deadlines,
+`TraceSession` delegates admitted history and retained-byte accounting to
+`SnapshotRetention`. These session calls are internal. Cancellation, deadlines,
 extraction limits, and the first stop reason remain session responsibilities.
 
 For direct retention use, supply the effective limits, accumulation policy, and a
@@ -54,7 +62,7 @@ Batch callers continue to treat an empty chronological selection as all valid li
 
 Capture returns `FinalState`, `Chronological`, or `Breakpoints`. Renderers consume these
 results without invoking guest execution. The existing `DebugTraceHelper` and
-`PersistentGuestSession` tracing methods remain available to Java callers.
+`PersistentGuestSession` tracing methods are internal implementation entry points.
 
 `SourceAnalysis.observations(declaringClass, methodName, argumentTypes, line)` returns
 source observations for a captured location. Use `isFinal(variable)` and
@@ -70,4 +78,4 @@ and logical cursor. Construct a fresh instance per job, register reader requests
 reader exits to `record(event)`. The guest owner retains request cleanup. Read
 `consumed()` and `offset()` when capturing snapshots; offsets remain UTF-16 indices.
 Missing reader metadata is tolerated, and a missing initial input identity is looked
-up again when observing reads. The standalone `InputTracker` remains available.
+up again when observing reads. `InputTracker` implements cursor tracking inside the internal trace package.

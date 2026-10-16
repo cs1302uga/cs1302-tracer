@@ -6,26 +6,33 @@ Docusaurus. Keep examples and links useful when reading Markdown on GitHub too.
 
 ## Local checks
 
-Use Node.js 22 or later (CI uses 22), Python 3.9 or later, and a full JDK. From the repository root:
+Use Node.js 22 or later (CI uses 22) and a full JDK. Local Python commands use
+`./scripts/uv`, which selects the managed interpreter and scripts project; that
+project requires Python 3.15 or later and pins 3.15. See
+`scripts/AGENTS.md` in the repository for wrapper behavior.
+The npm scripts and CI currently invoke `python3` directly; they do not use the
+managed wrapper or enforce the scripts project's Python requirement. For local
+npm commands, `./scripts/uv run npm ...` supplies the managed Python environment.
+From the repository root:
 
 ```sh
 ./mvnw -B -ntp package -DskipTests
-npm --prefix website ci
-python3 scripts/check_docs.py
-python3 scripts/docs_release.py check
-python3 -m unittest discover -s scripts -p 'test_*.py'
-npm --prefix website run build
-python3 scripts/check_site.py
+./scripts/uv run npm --prefix website ci
+./scripts/uv run python scripts/check_docs.py
+./scripts/uv run python scripts/docs_release.py check
+./scripts/uv run python -m unittest discover -s scripts -p 'test_*.py'
+./scripts/uv run npm --prefix website run build
+./scripts/uv run python scripts/check_site.py
 ```
 
-Preview with `npm --prefix website start`, or serve the production build with
-`npm --prefix website run serve`. Open the printed URL under `/cs1302-tracer/`.
+Preview with `./scripts/uv run npm --prefix website start`, or serve the production build with
+`./scripts/uv run npm --prefix website run serve`. Open the printed URL under `/cs1302-tracer/`.
 The build wrapper owns `website/build`; custom output directories, site roots,
 and configuration overrides are rejected before generation. `start` accepts
 `--host`, `--port` (or `-p`), and `--no-open`; both `start` and `build` accept
 `--no-minify`.
 
-Both `start` and `build` generate Javadoc first; `npm --prefix website run api`
+Both `start` and `build` generate Javadoc first; `./scripts/uv run npm --prefix website run api`
 generates it separately. Fetch release tags with `git fetch --tags` before building.
 For a direct Maven invocation, run `./mvnw -B -ntp validate javadoc:javadoc`.
 The wrapper includes `validate` so the build-helper execution sets `currentYear`
@@ -47,7 +54,7 @@ A leftover `published-versions.json` never changes their behavior. To reproduce 
 published build, save the GitHub release records as a JSON array and run:
 
 ```sh
-npm --prefix website run build -- --mode published --releases /path/to/releases.json
+./scripts/uv run npm --prefix website run build -- --mode published --releases /path/to/releases.json
 ```
 
 The Python documentation release module validates selection, tag provenance, and
@@ -60,7 +67,7 @@ for inspection; that file no longer selects the build mode.
 `check_docs.py` compares CLI help to the executable, runs the marked quickstart
 blocks, checks Markdown file destinations, compares both JSON examples after
 normalizing heap identities, and runs the documented batch request. Refresh help
-using `python3 scripts/check_docs.py --update-cli`; review the resulting diff.
+using `./scripts/uv run python scripts/check_docs.py --update-cli`; review the resulting diff.
 When behavior changes, update JSON examples intentionally and review the contract.
 The site build and `check_site.py` check rendered internal links, fragments, and
 project-base-path handling. Prose accuracy still requires review.
@@ -73,28 +80,27 @@ its first deployment.
 ## Prepare a stable release
 
 Versioned documentation begins with the first release using this workflow.
-Historical software releases do not acquire snapshots retroactively. The preparation
-command rejects an already-tagged version. Do not snapshot the existing 3.1.2 release.
+The tracked snapshots start at 3.2.1; older software releases have no documentation
+snapshot. The preparation command rejects an already-tagged version.
 
 1. Fetch release tags with `git fetch --tags`. Set the intended **new**, stable `x.y.z` version in `pom.xml` and finish the docs.
 2. Build the JAR, regenerate CLI help if necessary, and run documentation checks.
-3. Run `npm --prefix website run release:prepare`. This snapshots `docs/` and the
+3. Run `./scripts/uv run npm --prefix website run release:prepare`. This snapshots `docs/` and the
    sidebar using the Maven version. Review and commit `website/versions.json`,
    `website/versioned_docs/`, and `website/versioned_sidebars/` with the release changes.
 4. Merge the release preparation into `main` before tagging. Never remove earlier
    snapshots. If preparation changes, edit the pending snapshot to match `docs/`
-   and run `python3 scripts/docs_release.py check --tag vX.Y.Z` again.
+   and run `./scripts/uv run python scripts/docs_release.py check --tag vX.Y.Z` again.
 5. Push a tag `vX.Y.Z` (or `X.Y.Z`) at that merged commit. CI requires exact agreement
    among the tag, Maven version, current docs, snapshot, and sidebar before the JAR
    release job can run. This pipeline handles stable releases only.
 
-Before the first snapshot, all pages are development documentation. Local builds
-show all prepared snapshots so reviewers can inspect them. Deployment obtains
+Local builds show all prepared snapshots so reviewers can inspect them. Deployment obtains
 published, non-prerelease GitHub releases and filters snapshots against that list.
 A prepared but unpublished snapshot therefore never becomes the public default.
 The highest published semantic version becomes the default, even if an older
 release is published later. Each release keeps its version URL; development uses
-`/next/` after the first documented release.
+`/next/`.
 
 ## Publishing and retrying
 
@@ -120,7 +126,7 @@ the next public version selection, but does not delete its source snapshot.
 
 ## Release rehearsal
 
-Run `python3 scripts/rehearse_docs_release.py` after installing site dependencies.
+Run `./scripts/uv run python scripts/rehearse_docs_release.py` after installing site dependencies.
 It creates two artificial versions in a disposable tree, builds the site before
 and after publishing the second version, checks stable routing and retained
 archives, and verifies that retry selection is deterministic. It does not create
@@ -135,7 +141,8 @@ not by the workflow YAML. Preserve other existing protection settings when
 recreating or modifying them.
 The check is defined in CI / Release and runs on every PR, including code-only PRs.
 
-Merge the workflows before expecting these checks or the manual deployment button
-to exist on `main`. After the first run, verify the landing page, version menu,
-Mermaid diagrams, and a nested page at the real GitHub Pages URL. A successful local
-build cannot confirm repository permissions or a live deployment.
+The workflow files define these checks and deployment triggers. After deployment,
+verify the landing page, version menu, Mermaid diagrams, and a nested page at the
+real GitHub Pages URL. Repository protection, Pages permissions, and live deployment
+state must be verified in GitHub; their presence cannot be inferred from tracked
+configuration or a successful local build.

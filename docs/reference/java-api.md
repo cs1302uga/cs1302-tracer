@@ -70,8 +70,9 @@ Expected compilation and execution failures become outcomes. `status`, `phase`,
 `stopReason`, and `diagnostics` explain failures or resource stops; `complete`
 indicates successful completion. `json()` returns the existing result envelope,
 while `traceJson()` returns its payload, or the JSON literal `null` when unavailable.
-Both are serialized before cleanup. Metadata collections are immutable, and an
-outcome remains valid after later jobs. `writeJson(Writer)` writes the envelope
+Both JSON strings are materialized before the operation returns. Metadata
+collections are immutable, and an outcome remains valid after guest cleanup and
+later jobs. `writeJson(Writer)` writes the envelope
 without flushing or closing the caller's writer and propagates `IOException`.
 
 The Java result deliberately exposes JSON text rather than untyped object graphs
@@ -101,7 +102,8 @@ try (BatchTracer tracer = new BatchTracer(2, 100, 16, false)) {
 ```
 
 Constructor settings are worker count, jobs before recycling, maximum in-flight
-requests, and completion-order output. Use `false` for submission order. The
+requests, and completion-order output. All three numeric settings must be positive.
+Use `false` for submission order. The
 processor owns the worker pool and guest cleanup; call `close()` or use
 try-with-resources. Stream processing flushes responses but leaves caller-owned
 streams open. Call `processStream` sequentially and never use a closed processor.

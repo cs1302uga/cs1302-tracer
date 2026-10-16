@@ -50,7 +50,7 @@ concrete reference types (including default-package classes, parameterized types
 and arrays with reference or primitive components). Method type parameters shadow
 class parameters, and recursive calls and threads have independent binding contexts.
 
-In the development version, a method with exactly one unbounded type parameter
+A method with exactly one unbounded type parameter
 and one parameter of that type, such as `<T> void helper(T item)`, also supports
 string literals, explicit object creation, and non-generic method results when
 the invocation is a standalone expression statement (no target type). For
@@ -122,10 +122,11 @@ finish or a job limit is reached. Daemon threads do not keep the guest alive.
 An uncaught worker exception produces an event and is retained as
 `guest_exception` in the result envelope while other threads continue.
 Use `--result-envelope` and explicit limits to retain partial traces and status.
-Examples 34–41 cover these behaviors. Java API callers enable the mode with
-`TraceSession.enableMultithread()` on an accumulating session and use
-`DebugTraceHelper.traceChronological` (or its breakpoint-spec variant). The legacy
-breakpoint-map API and reusable `PersistentGuestSession` reject this mode.
+Examples 34–41 cover these behaviors. Java callers set `multithread` to `true`
+and `format` to `TraceFormat.MODERN` in `TraceRequest`, then call `Tracer.trace`.
+The execution implementation selects a dedicated guest and field-only inspection;
+batch requests use the same effective policy. Internal breakpoint-map tracing and
+the reusable single-stack guest do not implement multithread capture.
 Lock ownership and deadlock diagnosis are
 not included; timeout alone does not prove deadlock.
 

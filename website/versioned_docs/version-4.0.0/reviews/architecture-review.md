@@ -1,5 +1,12 @@
 # Architecture review and remediation
 
+> Historical review: findings, source locations, interface terminology, counts, and
+> validation claims below apply to the stated revision scope, not automatically
+> to the current checkout. Artifact paths identify local evidence from that run
+> and may not exist in another checkout. For current supported behavior, see
+> [Java integration](../reference/java-api.md) and
+> [architecture](../contributing/architecture.md).
+
 Scope: all 141 paths in baseline `0e82ee0`, compared with `d559faa`, plus subsequent
 remediations. Both serialized trace formats must remain compatible with the existing
 24 regression fixtures. Review uses balanced-code-review and CodeQL. Tests use the

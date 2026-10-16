@@ -1,5 +1,12 @@
 # Source preparation, retention, and dispatch review
 
+> Historical review: findings, source locations, interface terminology, counts, and
+> validation claims below apply to the stated revision scope, not automatically
+> to the current checkout. Artifact paths identify local evidence from that run
+> and may not exist in another checkout. For current supported behavior, see
+> [Java integration](../reference/java-api.md) and
+> [architecture](../contributing/architecture.md).
+
 Scope: the changes after `dea85e9` in the eight affected production Java files,
 their callers and tests, the glossary, and the Java migration guide. Output formats
 and existing CLI/batch policy differences must remain compatible. The agreed test

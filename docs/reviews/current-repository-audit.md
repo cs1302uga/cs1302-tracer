@@ -1,6 +1,14 @@
-# Current repository audit
+# Repository audit — October 2026
 
-Scope: the complete current repository at `8dfd93f`, plus the remediations below.
+> Historical review: findings, source locations, interface terminology, counts, and
+> validation claims below apply to the stated revision scope, not automatically
+> to the current checkout. Artifact paths identify local evidence from that run
+> and may not exist in another checkout. For current supported behavior, see
+> [Java integration](../reference/java-api.md) and
+> [architecture](../contributing/architecture.md).
+
+Scope: repository baseline `8dfd93f` through the audit recorded in `7975458`,
+including the remediations below.
 The review covers the supported Java API, tracing engine, tooling, documentation,
 and build/CI integration. Output formats and committed trace fixtures must remain
 compatible. Historical generated documentation and fixtures are checked through

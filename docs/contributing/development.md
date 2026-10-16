@@ -20,6 +20,10 @@ the distribution against the published checksum. Test bootstrap with an empty
 
 ### Building the Project
 
+Before running Maven `clean`, preserve needed audit evidence under `target/`.
+Run guest-executing tests, fixture verification, and executable documentation checks
+serially; their temporary-directory checks can interfere across concurrent runs.
+
 ```bash
 # Compile and run unit tests with JaCoCo verification
 ./mvnw -B -ntp clean test
@@ -27,6 +31,11 @@ the distribution against the published checksum. Test bootstrap with an empty
 # Build fat JAR with all dependencies bundled
 ./mvnw -B -ntp package -DskipTests
 ```
+
+Compilation treats warnings as errors. Checkstyle uses a 120-character line limit,
+requires explicit local types and qualified instance access where applicable, and
+rejects star imports. The exact checks and source scope are defined in
+`src/main/resources/cs1302_checks_extended.xml` and `pom.xml`.
 
 Maven runs `picocli-codegen` as an annotation processor, using the same
 `picocli.version` as the runtime library. It checks command annotations during
@@ -44,8 +53,9 @@ The JaCoCo check enforces **100% line coverage** and **100% branch coverage** fo
 
 Prefer stable releases compatible with the Java 21 target. Keep Picocli and its
 processor aligned, and keep both JavaParser artifacts aligned. The October 2026
-audit retains the latest stable versions of the other directly selected libraries
-and plugins while upgrading ASM to 9.11 and the Checkstyle engine to 14.3.0.
+upgrade recorded in commit `9edd36a` selected ASM 9.11 and Checkstyle 14.3.0.
+`pom.xml` is authoritative for current versions. That audit's upstream availability
+assessment is historical; verify availability again before the next upgrade.
 
 The dependency-management overrides for Guava 33.7.2-jre and Javassist 3.33.0-GA
 update JavaParser's support libraries. Error Prone annotations 2.50.0 and JSpecify
@@ -54,9 +64,9 @@ update JavaParser's support libraries. Error Prone annotations 2.50.0 and JSpeci
 test-only. Reassess these overrides when upgrading their owning libraries; do not
 add them as new direct application dependencies merely to control their versions.
 
-JSONassert 2.0-rc1 remains an existing prerelease exception: its latest stable
-1.5.3 would be a downgrade, and no newer final 2.x release was available at the
-audit. Defer AssertJ 4 milestones, Maven 4 and plugin previews, and Checker
+JSONassert 2.0-rc1 remains an existing prerelease exception: the October 2026
+audit found stable 1.5.3 would be a downgrade and no final 2.x release was available
+at that time. Defer AssertJ 4 milestones, Maven 4 and plugin previews, and Checker
 Framework qualifiers 4.x until separately validated. Plugin-owned libraries
 (including JaCoCo's ASM) are a separate dependency graph; prefer upgrading the
 owning plugin to overriding its internals. A newer version number alone does not
@@ -70,7 +80,7 @@ descriptors, Picocli metadata, and third-party license notices after packaging.
 
 ### Running Example Traces
 
-The `examples/` directory contains 34 reference test cases (`example0` through `example33`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, multi-level class inheritance with dynamic dispatch, empty string and zero-length array instances, all numeric and non-numeric primitive wrapper class types, java.awt.Color objects with transparency and aliasing, guest standard input reading with java.util.Scanner, and JDK-dependent features with java.lang.IO.
+The `examples/` directory includes 34 single-stack examples (`example0` through `example33`) covering basic primitives, multi-file packages, loops, lambdas, instance methods, stdin streaming, pointer aliasing, varargs, unbuffered standard output, standard error capture, uncaught runtime exceptions, generic lists with autoboxing, active call stack frames, polymorphic generic container reification, multi-level class inheritance with dynamic dispatch, empty string and zero-length array instances, all numeric and non-numeric primitive wrapper class types, java.awt.Color objects with transparency and aliasing, guest standard input reading with java.util.Scanner, and JDK-dependent features with java.lang.IO.
 
 To regenerate all example outputs:
 
@@ -92,8 +102,8 @@ golden trace files because thread schedules vary between runs.
 ## Pre-commit lint and coverage gates
 
 
-The executable `.githooks/pre-commit` runs Checkstyle first, then coverage. It
-replaces the old formatter hook: nothing is automatically reformatted or re-staged.
+The executable `.githooks/pre-commit` runs Checkstyle first, then coverage.
+It does not automatically reformat or re-stage files.
 
 `.githooks/pre-commit-checkstyle` exports the Git index to a fresh temporary
 workspace and runs `./mvnw -B -ntp checkstyle:check`. This uses the staged Maven
@@ -110,7 +120,7 @@ Run it directly with `./mvnw -Ppre-commit-coverage clean test`.
 The executable `.githooks/pre-commit-coverage` exports the Git index into a temporary
 workspace and runs that command there. It tests staged content only, excludes stale
 coverage data, cleans up afterward, and never formats, stages, or changes files.
-Stage the updated `pom.xml` when first adding the hook. A failing build, test,
+Stage related build configuration with the change. A failing build, test,
 or coverage gate blocks the commit. After running the profile locally, open
 `target/site/jacoco/index.html` to inspect line and branch coverage.
 
@@ -135,11 +145,11 @@ use the same Maven profile in CI if this must also be a merge requirement.
 After packaging, run:
 
 ```sh
-python3 -m unittest discover -s examples -p test_verify.py
-python3 examples/verify.py
+./scripts/uv run python -m unittest discover -s examples -p test_verify.py
+./scripts/uv run python examples/verify.py
 ```
 
-Regenerate fixtures only intentionally with `python3 examples/verify.py --update`, then review the diff. The verifier normalizes object identities while preserving values, aliasing, cycles, and step order.
+Regenerate fixtures only intentionally with `./scripts/uv run python examples/verify.py --update`, then review the diff. The verifier normalizes object identities while preserving values, aliasing, cycles, and step order.
 
 See [documentation maintenance](documentation.md) for site checks and release preparation.
 

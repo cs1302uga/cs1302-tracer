@@ -1,5 +1,12 @@
 # Source and input observation review
 
+> Historical review: findings, source locations, interface terminology, counts, and
+> validation claims below apply to the stated revision scope, not automatically
+> to the current checkout. Artifact paths identify local evidence from that run
+> and may not exist in another checkout. For current supported behavior, see
+> [Java integration](../reference/java-api.md) and
+> [architecture](../contributing/architecture.md).
+
 Scope: changes after `e736d82` to source observations and per-job input observation,
 including their capture callers, tests, glossary, and Java migration guide. Java
 interface changes are allowed; serialized formats and existing inference/input

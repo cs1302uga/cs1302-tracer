@@ -66,6 +66,15 @@ Report the checks actually run and any unverified execution paths.
 
 ## Keep documentation useful
 
+For every change, verify affected present-tense documentation against the current
+implementation, configuration, and executable behavior. Update all affected guides,
+references, diagrams, commands, and pending release snapshots in the same change;
+completion requires agreement between those descriptions and the repository.
+Clearly label historical reviews, migration examples, and measurements with their
+revision or release scope. Preserve historical evidence and published-version
+semantics; distinguish proposals and unverified deployment settings from implemented
+behavior. Check prose accuracy as well as automated documentation checks.
+
 Update the existing guide when a user workflow or durable constraint changes.
 Keep local implementation explanations near the code and shared terminology in
 the glossary. Link to detailed guidance instead of duplicating it here. For

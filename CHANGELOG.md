@@ -54,6 +54,10 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Refresh current documentation for supported Java integration, internal ownership,
+  managed tooling, and release workflows; label historical review evidence and
+  require documentation accuracy as part of agent completion.
+
 - Make API overview examples conform to Checkstyle and clarify that supported
   library calls return failure outcomes/diagnostics rather than exposing internal
   nesting exceptions. Record the complete repository audit and its revalidated

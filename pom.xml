@@ -12,6 +12,26 @@
   <inceptionYear>2025</inceptionYear>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
 
+  <developers>
+    <developer>
+      <name>Michael E. Cotterell</name>
+      <email>mepcotterell@gmail.com</email>
+      <url>https://michaelcotterell.com/</url>
+      <roles>
+        <role>developer</role>
+        <role>maintainer</role>
+      </roles>
+    </developer>
+    <developer>
+      <name>Gabe Livengood</name>
+      <email>gabe@ggliv.com</email>
+      <url>https://ggliv.com/</url>
+      <roles>
+        <role>developer</role>
+      </roles>
+    </developer>
+  </developers>
+
   <licenses>
     <license>
       <name>MIT License</name>

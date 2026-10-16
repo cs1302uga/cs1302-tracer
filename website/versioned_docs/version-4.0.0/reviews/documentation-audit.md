@@ -1,5 +1,12 @@
 # Documentation release and debugger audit
 
+> Historical review: findings, source locations, interface terminology, counts, and
+> validation claims below apply to the stated revision scope, not automatically
+> to the current checkout. Artifact paths identify local evidence from that run
+> and may not exist in another checkout. For current supported behavior, see
+> [Java integration](../reference/java-api.md) and
+> [architecture](../contributing/architecture.md).
+
 Scope: `a1bac6e..53e0a6d` and the remediations recorded here. Review covers
 the major-version bump, Javadoc hosting, release selection and build manifests,
 and debugger test cleanup. Serialized trace formats remain unchanged.
