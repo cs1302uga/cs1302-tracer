@@ -33,6 +33,24 @@ exist under `cs1302.tracer.internal`; `App` here means the internal command clas
 not the supported launcher. `SourcePreparation.prepare` keeps internal callers from
 having to coordinate compilation, source resolution, and cleanup themselves.
 
+`TraceJob` resolves effective tracing choices for the `JAVA`, `CLI`, `ENVELOPE`,
+and `NDJSON` caller profiles. Typed Java requests go through `fromJava`; command
+and wire adapters supply decoded settings to `resolve`. Finite instructor budgets
+are the Java and ordinary CLI defaults; envelope and NDJSON defaults are unlimited.
+Explicit budgets win. Multithread capture forces chronological capture and
+field-only inspection, while still requiring modern output.
+
+`CaptureIntent` detaches raw selection and hides caller-specific omitted/empty
+conventions from execution. Call `selection()` at the existing validation point:
+CLI validates before reading source; Java and NDJSON validate after compilation.
+Java/NDJSON empty chronological selection means all valid lines; CLI chronological
+selection uses all valid lines only when omitted. Ordinary CLI omission without
+chronological capture selects final-state rendering; envelope and batch modes use
+main-exit breakpoint capture. Envelope dispatch accumulates selected hits, while
+session history follows the requested chronological/accumulation flags.
+`retainsHistory()` supplies that separate history policy. Resolution does not own
+guest lifecycle, cancellation, admitted snapshots, or result rendering.
+
 `TraceSession` delegates admitted history and retained-byte accounting to
 `SnapshotRetention`. These session calls are internal. Cancellation, deadlines,
 extraction limits, and the first stop reason remain session responsibilities.

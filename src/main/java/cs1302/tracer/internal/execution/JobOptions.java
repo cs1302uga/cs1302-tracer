@@ -5,7 +5,6 @@ import org.apiguardian.api.API;
 import cs1302.tracer.api.InspectionPolicy;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.trace.BreakpointSpec;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import picocli.CommandLine.Option;
@@ -85,22 +84,7 @@ public class JobOptions {
      * @return List of parsed BreakpointSpec objects, or empty list if null.
      */
     public static List<BreakpointSpec> parseBreakpoints(Collection<String> raw) {
-        if (raw == null || raw.isEmpty()) {
-            return List.of();
-        } // if
-        List<BreakpointSpec> specs = new ArrayList<>();
-        for (String item : raw) {
-            if (item == null || item.isBlank()) {
-                continue;
-            } // if
-            for (String part : item.split(",")) {
-                String trimmed = part.trim();
-                if (!trimmed.isEmpty()) {
-                    specs.add(BreakpointSpec.parse(trimmed));
-                } // if
-            } // for
-        } // for
-        return List.copyOf(specs);
+        return TraceJob.parseBreakpoints(raw);
     } // parseBreakpoints
 
     /**
@@ -118,7 +102,7 @@ public class JobOptions {
      * @return Effective limits.
      */
     public TraceLimits limits() {
-        TraceLimits defaults = envelope || unlimited ? TraceLimits.unlimited() : TraceLimits.instructorDefaults();
+        TraceLimits defaults = this.unlimited ? TraceLimits.unlimited() : profile().defaultLimits();
         return new TraceLimits(select(timeoutMillis, defaults.timeoutMillis()), select(snapshots, defaults.snapshots()),
                 select(outputBytes, defaults.outputBytes()), select(heapObjects, defaults.heapObjects()),
                 select(elements, defaults.elements()), select(traceBytes, defaults.traceBytes()),
@@ -126,6 +110,14 @@ public class JobOptions {
                 select(threads, defaults.threads()), select(frames, defaults.frames()),
                 select(snapshotBytes, defaults.snapshotBytes()));
     } // limits
+
+    /**
+     * Identifies the command's output contract.
+     * @return Command caller profile.
+     */
+    public TraceJob.Profile profile() {
+        return this.envelope ? TraceJob.Profile.ENVELOPE : TraceJob.Profile.CLI;
+    } // profile
 
     /**
      * Applies a default when an option was omitted.

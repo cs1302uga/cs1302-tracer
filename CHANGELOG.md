@@ -54,6 +54,10 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- **Internal tracing:** resolve Java, CLI, envelope, and NDJSON job policy through a
+  shared typed module. Preserve supported Java signatures, CLI diagnostics and
+  validation timing, source-discovery policies, and serialized output formats.
+
 - Refresh current documentation for supported Java integration, internal ownership,
   managed tooling, and release workflows; label historical review evidence and
   require documentation accuracy as part of agent completion.

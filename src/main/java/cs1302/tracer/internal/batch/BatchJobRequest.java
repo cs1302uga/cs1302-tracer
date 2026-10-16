@@ -100,6 +100,6 @@ public record BatchJobRequest(String id, String source, String format, String st
      * @return Resolved TraceLimits.
      */
     public TraceLimits resolveLimits() {
-        return limits != null ? limits : TraceLimits.unlimited();
+        return limits != null ? limits : cs1302.tracer.internal.execution.TraceJob.Profile.NDJSON.defaultLimits();
     } // resolveLimits
 } // BatchJobRequest

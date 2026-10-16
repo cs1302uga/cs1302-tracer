@@ -9,6 +9,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.internal.CompilationHelper.CompilationResult;
 import cs1302.tracer.api.BatchTracer;
 import cs1302.tracer.internal.execution.JobOptions;
+import cs1302.tracer.internal.execution.TraceJob;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.internal.execution.TraceResult;
@@ -254,14 +255,8 @@ public class App {
                 defaultValue = "fqn")
         TypeStyle typeStyle = TypeStyle.FQN;
 
-        /**
-         * Parses the configured breakpoint strings into BreakpointSpec targets.
-         *
-         * @return List of parsed BreakpointSpec objects.
-         */
-        List<BreakpointSpec> parsedBreakpoints() {
-            return job.breakpointSpecs();
-        } // parsedBreakpoints
+        /** Choices resolved for the current command invocation. */
+        private TraceJob resolvedJob;
 
         @Option(names = { "--stdin" }, description = "Input string provided to the traced program via standard input.")
         String stdin = null;
@@ -296,28 +291,24 @@ public class App {
             try {
                 guestStdin = resolveGuestStdin();
                 selected = job.limits();
-                if (job.multithread) {
-                    if (format != TraceFormat.MODERN) {
-                        throw new IllegalArgumentException("--multithread requires --format modern");
-                    } // if
-                    allBreakpoints = true;
-                } // if
-                job.breakpointSpecs();
+                resolvedJob = TraceJob.resolve(job.profile(), format, typeStyle, selected, job.inspection,
+                        job.breakpoints, allBreakpoints, accumulateBreakpoints, job.multithread,
+                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash);
+                resolvedJob.validateThreadFormat(true);
+                resolvedJob.capture().selection();
                 if (job.envelope) {
                     runBounded(selected, guestStdin);
                     return;
                 } // if
-                if (job.inspection != InspectionPolicy.TRUSTED) {
-                    throw new IllegalArgumentException("Inspection controls require --result-envelope");
-                } // if
+                TraceJob.validateCommandInspection(job.profile(), job.inspection);
             } catch (IllegalArgumentException invalid) {
                 System.err.println(invalid.getMessage());
                 exitHandler.accept(2);
                 return;
             } // try
-            try (TraceSession session = new TraceSession(selected, effectiveInspection(),
-                    allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
-                if (job.multithread) {
+            try (TraceSession session = new TraceSession(selected, resolvedJob.inspection(),
+                    resolvedJob.capture().retainsHistory(), resolvedJob.evalEnumHash())) {
+                if (resolvedJob.multithread()) {
                     session.enableMultithread();
                 } // if
                 try {
@@ -337,15 +328,6 @@ public class App {
         } // run
 
         /**
-         * Resolves the field-only policy required by multithread capture.
-         *
-         * @return Effective inspection policy.
-         */
-        private InspectionPolicy effectiveInspection() {
-            return job.multithread ? InspectionPolicy.FIELDS : job.inspection;
-        } // effectiveInspection
-
-        /**
          * Runs ordinary output with bounded tracing and the existing payload shape.
          *
          * @param session Active tracing session.
@@ -358,13 +340,11 @@ public class App {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), selected.sourceFiles(), "source_file_limit");
             session.phase("compile");
-            SourcePreparation.Discovery discovery = effectiveInspection() == InspectionPolicy.FIELDS
-                    ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED;
-            try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(), discovery)) {
+            try (SourcePreparation prepared = SourcePreparation.prepare(
+                    source, getInputPath(), resolvedJob.discovery())) {
                 session.phase("trace");
                 TraceDispatch.Capture captured = TraceDispatch.dedicated().capture(prepared,
-                        TraceDispatch.Selection.select(allBreakpoints, accumulateBreakpoints,
-                                job.breakpoints == null ? null : parsedBreakpoints()), guestStdin);
+                        resolvedJob.capture().selection(), guestStdin);
                 if (format == TraceFormat.MODERN) {
                     runModernTrace(source, captured, guestStdin);
                 } else {
@@ -380,9 +360,9 @@ public class App {
          * @param guestStdin Standard input string for guest process.
          */
         private void runBounded(TraceLimits limits, String guestStdin) {
-            try (TraceSession session = new TraceSession(limits, effectiveInspection(),
-                    allBreakpoints || accumulateBreakpoints, job.evalEnumHash)) {
-                if (job.multithread) {
+            try (TraceSession session = new TraceSession(limits, resolvedJob.inspection(),
+                    resolvedJob.capture().retainsHistory(), resolvedJob.evalEnumHash())) {
+                if (resolvedJob.multithread()) {
                     session.enableMultithread();
                 } // if
                 String source = "";
@@ -457,12 +437,10 @@ public class App {
                 String guestStdin) throws Exception {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
-            SourcePreparation.Discovery discovery = effectiveInspection() == InspectionPolicy.FIELDS
-                    ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS;
-            try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(), discovery)) {
+            try (SourcePreparation prepared = SourcePreparation.prepare(
+                    source, getInputPath(), resolvedJob.discovery())) {
                 session.phase("trace");
-                TraceDispatch.dedicated().capture(prepared, TraceDispatch.Selection.select(allBreakpoints, true,
-                        allBreakpoints && job.breakpoints == null ? null : parsedBreakpoints()), guestStdin);
+                TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
                 session.finishOutput();
                 return session.snapshots();
             } // try
@@ -477,11 +455,13 @@ public class App {
          * @return Serializer model.
          */
         Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-            if (format == TraceFormat.MODERN) {
-                return new ModernTraceSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
+            if (resolvedJob.format() == TraceFormat.MODERN) {
+                return new ModernTraceSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
+                        resolvedJob.removeMethodThis(), resolvedJob.typeStyle())
                         .createTrace(source, guestStdin, snapshots);
             } // if
-            return new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle).createTrace(source,
+            return new PyTutorSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
+                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle()).createTrace(source,
                     guestStdin, snapshots);
         } // boundedPayload
 
@@ -495,8 +475,9 @@ public class App {
          */
         private void runModernTrace(String source, TraceDispatch.Capture captured,
                 String guestStdin) throws Exception {
-            ModernTraceSerializer serializer = new ModernTraceSerializer(removeMainArgs, inlineStrings,
-                    removeMethodThis, typeStyle);
+            ModernTraceSerializer serializer = new ModernTraceSerializer(resolvedJob.removeMainArgs(),
+                    resolvedJob.inlineStrings(),
+                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
 
             if (captured instanceof TraceDispatch.Chronological chronological) {
                 cs1302.tracer.internal.model.modern.Trace trace = serializer.createTrace(source, guestStdin,
@@ -542,8 +523,9 @@ public class App {
          */
         private void runPyTutorTrace(String source, TraceDispatch.Capture captured,
                 String guestStdin) throws Exception {
-            PyTutorSerializer serializer = new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis,
-                    typeStyle);
+            PyTutorSerializer serializer = new PyTutorSerializer(resolvedJob.removeMainArgs(),
+                    resolvedJob.inlineStrings(),
+                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
 
             if (captured instanceof TraceDispatch.Chronological chronological) {
                 PyTutorTrace trace = serializer.createTrace(source, guestStdin,

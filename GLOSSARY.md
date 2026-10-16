@@ -4,6 +4,15 @@ The tracer describes guest Java execution as snapshots of stacks and reachable h
 
 ## Language
 
+**Trace-job resolution**:
+Interpretation of a caller's requested settings under its caller profile to determine effective budgets, inspection, capture intent, source-discovery policy, and presentation choices. Resolution preserves the caller's validation timing and failure semantics; it is distinct from executing the job or rendering its output.
+
+**Caller profile**:
+The defaults and interpretation rules belonging to a tracing entry mode: one-shot Java, ordinary CLI, envelope CLI, or NDJSON batch. Explicit settings are interpreted under that profile; equivalent-looking inputs from different profiles need not mean the same thing.
+
+**Capture intent**:
+The execution states a job requests: final state, chronological states at all or selected locations, or selected-breakpoint states with their retention policy. Intent distinguishes an omitted selection from an explicitly empty selection according to the caller profile, without requiring breakpoint specifications to be validated earlier in the job lifecycle.
+
 **Reified type metadata**:
 Type information reconstructed for a captured execution state from guest runtime types and available source evidence, including generic arguments where inference supports them. It is a conservative description, not a guarantee that erased generic arguments can be recovered at runtime.
 _Avoid_: Actual generic runtime type

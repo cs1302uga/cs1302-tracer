@@ -38,9 +38,10 @@ flowchart TD
     Render --> Result[Ordinary JSON or detached result envelope]
 ```
 
-`Tracer.trace` adapts a typed `TraceRequest` to the shared worker implementation
-and closes its worker before returning a detached `TraceOutcome`. It supplies an
-explicit submitted-source discovery policy. Single-stack requests use a persistent
+`Tracer.trace` resolves a typed `TraceRequest` into an internal `TraceJob` and passes
+it directly to the shared worker, without a wire-model conversion. It closes its
+worker before returning a detached `TraceOutcome`. The Java caller profile selects
+submitted-source discovery with compiled-source resolution. Single-stack requests use a persistent
 guest owned for that operation; multithread requests use a dedicated guest.
 
 `BatchTracer` owns the NDJSON processor. `BatchTraceService` handles admission,
@@ -57,6 +58,14 @@ one-shot payloads. `TraceOutcomes` freezes payloads and envelopes into JSON text
 tables without launching a guest. CLI `list-breakpoints` also reads line tables,
 with its file-input source-discovery behavior.
 
+`TraceJob` resolves caller-specific defaults, effective inspection, source discovery,
+capture intent, and presentation settings. Its Java, ordinary CLI, envelope CLI,
+and NDJSON profiles preserve their existing contracts. The NDJSON adapter alone
+interprets wire values and attaches request correlation. Breakpoint text stays
+unparsed until each caller's established validation point: before source access
+for CLI commands, and after compilation for Java and NDJSON jobs. Guest ownership,
+session accounting, cancellation, and rendering stay with their existing owners.
+
 ## Package responsibilities
 
 | Package | Responsibility |
@@ -65,7 +74,7 @@ with its file-input source-discovery behavior.
 | `cs1302.tracer` | Supported CLI launcher. |
 | `cs1302.tracer.internal` | CLI commands, source delimiters, preparation, compilation, and license notices. |
 | `cs1302.tracer.internal.trace` | Guest launching/execution, capture, source observations, type inference, input observation, and job output. |
-| `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job options, and internal result envelopes. |
+| `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job resolution/options, and internal result envelopes. |
 | `cs1302.tracer.internal.batch` | NDJSON request/response models, bounded scheduling, and workers. |
 | `cs1302.tracer.internal.guest` | Harness running jobs inside reusable guest JVMs. |
 | `cs1302.tracer.internal.model` | Source and breakpoint metadata; `modern` and `pytutor` subpackages hold wire models. |
