@@ -19,6 +19,7 @@ module.exports = {
   url: 'https://cs1302uga.github.io',
   baseUrl: '/cs1302-tracer/',
   trailingSlash: true,
+  staticDirectories: ['static', 'generated-api'],
   customFields: {latestDocVersion: latest || null},
   organizationName: 'cs1302uga',
   projectName: 'cs1302-tracer',
@@ -56,6 +57,7 @@ module.exports = {
       title: 'cs1302-tracer',
       items: [
         {type: 'docSidebar', sidebarId: 'docs', label: 'Documentation', position: 'left'},
+        {type: 'custom-apiReference', label: 'API Reference', position: 'left'},
         {type: 'docsVersionDropdown', position: 'right'},
         {href: 'https://github.com/cs1302uga/cs1302-tracer', label: 'GitHub', position: 'right'},
       ],

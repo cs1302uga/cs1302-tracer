@@ -21,6 +21,22 @@ python3 scripts/check_site.py
 Preview with `npm --prefix website start`, or serve the production build with
 `npm --prefix website run serve`. Open the printed URL under `/cs1302-tracer/`.
 
+Both `start` and `build` generate Javadoc first; `npm --prefix website run api`
+generates it separately. Fetch release tags with `git fetch --tags` before building.
+The **API Reference** navigation link follows the selected documentation version.
+Javadoc keeps its own navigation, search, and styling under `api/next/` for development
+and `api/<version>/` for releases, beneath the site's `/cs1302-tracer/` base path.
+
+Release API references are rebuilt from their exact Git tags on every deployment,
+including all previously published documentation versions. Missing tags, mismatched
+Maven versions, and Javadoc errors fail the build. Deployment selects the same
+published releases for guides and API references. Local builds preview all prepared
+snapshots; an untagged snapshot matching the current Maven version uses the working
+source until release. Generated HTML lives in ignored `website/generated-api/` and
+is copied into the site build, rather than committed. To preview the deployment's
+published selection locally, use `docs_release.py published` as described below;
+remove `website/published-versions.json` to return to previewing all snapshots.
+
 `check_docs.py` compares CLI help to the executable, runs the marked quickstart
 blocks, checks Markdown file destinations, compares both JSON examples after
 normalizing heap identities, and runs the documented batch request. Refresh help

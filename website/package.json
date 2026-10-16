@@ -7,9 +7,12 @@
     "node": ">=22"
   },
   "scripts": {
+    "api": "python3 ../scripts/build_javadoc.py",
+    "prestart": "npm run api",
+    "prebuild": "npm run api",
     "start": "docusaurus start",
     "build": "docusaurus build",
-    "serve": "docusaurus serve",
+    "serve": "python3 ../scripts/serve_docs.py",
     "docusaurus": "docusaurus",
     "check": "python3 ../scripts/check_docs.py",
     "release:prepare": "python3 ../scripts/docs_release.py prepare"
