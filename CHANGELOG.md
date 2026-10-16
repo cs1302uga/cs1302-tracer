@@ -27,8 +27,9 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 ## Unreleased
 
 [Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
-Prepared version: **4.1.0** (not yet published). The following working-tree changes
-await their final commit links.
+Prepared version: **4.1.0** (not yet published). Implemented in
+[`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
+— primitive binary metadata, rendering/capture ownership, and release preparation.
 
 ### Breaking changes
 
