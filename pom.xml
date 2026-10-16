@@ -25,6 +25,7 @@
     <maven.compiler.release>21</maven.compiler.release>
     <javaparser.version>3.28.2</javaparser.version>
     <picocli.version>4.7.7</picocli.version>
+    <checkstyle.version>14.3.0</checkstyle.version>
     <automatic.module.name>cs1302.tracer</automatic.module.name>
   </properties>
 
@@ -36,6 +37,39 @@
         <version>6.1.3</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <!-- Test-library transitives; keep their inherited test scope. -->
+      <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>20260814</version>
+      </dependency>
+      <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.18.15</version>
+      </dependency>
+      <!-- JavaParser support libraries, validated against trace compatibility fixtures. -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.7.2-jre</version>
+      </dependency>
+      <dependency>
+        <groupId>org.javassist</groupId>
+        <artifactId>javassist</artifactId>
+        <version>3.33.0-GA</version>
+      </dependency>
+      <!-- Align annotations shared by Guava, Gson, and the test framework. -->
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.50.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jspecify</groupId>
+        <artifactId>jspecify</artifactId>
+        <version>1.0.1</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -49,7 +83,7 @@
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
-      <version>9.10.1</version>
+      <version>9.11</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -225,7 +259,7 @@
             <dependency>
               <groupId>com.puppycrawl.tools</groupId>
               <artifactId>checkstyle</artifactId>
-              <version>14.1.0</version>
+              <version>${checkstyle.version}</version>
             </dependency>
           </dependencies>
         </plugin>
@@ -242,6 +276,31 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.3</version>
+        <executions>
+          <execution>
+            <id>build-toolchain</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.10.0,)</version>
+                  <message>Use ./mvnw (Maven 3.10.0 or later) to build this project.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>A full JDK 21 or later is required to build the tracer.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -402,7 +461,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>14.1.0</version>
+            <version>${checkstyle.version}</version>
           </dependency>
         </dependencies>
         <executions>

@@ -2,6 +2,20 @@
 
 Run commands from the repository root. Use a full JDK; CI tests Java 21 and 25 on Linux and macOS. `.java-version` selects JDK 25 locally. The tracer is compiled for Java 21; guest features depend on the active JDK.
 
+Use `./mvnw` on Unix or `mvnw.cmd` on Windows. The official Wrapper 3.3.4 scripts
+select Maven 3.10.0 and verify the distribution's SHA-256 checksum. The build
+requires Maven 3.10.0 or later and JDK 21 or later; Enforcer checks both at
+`validate`. CI and the pre-push hook use the wrapper. A separate Windows job
+bootstraps the wrapper and compiles production and test sources on Java 21 and 25;
+the full execution/fixture matrix remains Linux and macOS.
+
+To regenerate the scripts, use
+`./mvnw org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.10.0 -Dtype=only-script`.
+Review both scripts, retain the executable bit on `mvnw`, and retain or update
+`distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties` after verifying
+the distribution against the published checksum. Test bootstrap with an empty
+`MAVEN_USER_HOME` before adopting a new Maven distribution.
+
 
 
 ### Building the Project
@@ -25,6 +39,34 @@ JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchang
 ### JaCoCo Coverage Requirement
 
 The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
+
+### Dependency upgrade policy
+
+Prefer stable releases compatible with the Java 21 target. Keep Picocli and its
+processor aligned, and keep both JavaParser artifacts aligned. The October 2026
+audit retains the latest stable versions of the other directly selected libraries
+and plugins while upgrading ASM to 9.11 and the Checkstyle engine to 14.3.0.
+
+The dependency-management overrides for Guava 33.7.2-jre and Javassist 3.33.0-GA
+update JavaParser's support libraries. Error Prone annotations 2.50.0 and JSpecify
+1.0.1 align shared annotation dependencies across Guava, Gson, and JUnit. JSON-java
+20260814 and Byte Buddy 1.18.15 update JSONassert/AssertJ transitives and remain
+test-only. Reassess these overrides when upgrading their owning libraries; do not
+add them as new direct application dependencies merely to control their versions.
+
+JSONassert 2.0-rc1 remains an existing prerelease exception: its latest stable
+1.5.3 would be a downgrade, and no newer final 2.x release was available at the
+audit. Defer AssertJ 4 milestones, Maven 4 and plugin previews, and Checker
+Framework qualifiers 4.x until separately validated. Plugin-owned libraries
+(including JaCoCo's ASM) are a separate dependency graph; prefer upgrading the
+owning plugin to overriding its internals. A newer version number alone does not
+establish compatibility or a security defect in the currently selected version.
+
+For each upgrade, compare resolved dependencies, run the appropriate focused
+checks and full coverage gate, verify committed trace fixtures on Java 21 and 25,
+and rebuild the docs/site. Do not refresh expected JSON to accommodate an
+unexplained behavior change. Check the automatic module name, bundled dependency
+descriptors, Picocli metadata, and third-party license notices after packaging.
 
 ### Running Example Traces
 

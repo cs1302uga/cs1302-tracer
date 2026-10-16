@@ -74,16 +74,38 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Build and test with Maven
-        run: mvn clean package
+        run: ./mvnw -B -ntp clean package
       - name: Verify trace compatibility
         run: |
           python3 -m unittest discover -s examples -p test_verify.py
           python3 examples/verify.py
 
+  windows-wrapper:
+    name: Windows wrapper (Java ${{ matrix.java }})
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        java: [ '21', '25' ]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+      - name: Bootstrap wrapper and compile
+        shell: cmd
+        env:
+          MAVEN_USER_HOME: ${{ runner.temp }}/tracer-wrapper-smoke
+        run: |
+          call mvnw.cmd -B -ntp --version
+          if errorlevel 1 exit /b 1
+          call mvnw.cmd -B -ntp -DskipTests -Djacoco.skip=true test-compile
+
   release:
     permissions:
       contents: write
-    needs: [test, documentation]
+    needs: [test, documentation, windows-wrapper]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -97,7 +119,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Build with Maven
-        run: mvn clean package -DskipTests
+        run: ./mvnw -B -ntp clean package -DskipTests
       - run: |
           mv target/code-tracer*.jar target/code-tracer.jar
       - name: Create release

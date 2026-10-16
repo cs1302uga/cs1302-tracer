@@ -1,2 +1,2 @@
 #!/bin/sh
-mvn verify
+exec "$(git rev-parse --show-toplevel)/mvnw" -B -ntp verify

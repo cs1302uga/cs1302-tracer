@@ -32,6 +32,8 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Breaking changes
 
+- **Build tooling:** require Maven 3.10.0 or later; use the regenerated `mvnw`
+  and `mvnw.cmd` wrappers. The Java runtime baseline remains 21.
 - **Java API:** support `cs1302.tracer.api` and the stable `cs1302.tracer.App`
   launcher. Move parser/debugger/serializer machinery and wire models under
   `cs1302.tracer.internal`; replace exposed AST/Gson/JDI helpers with source-based
@@ -52,6 +54,18 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Update JavaParser's Guava and Javassist support libraries to 33.7.2-jre and
+  3.33.0-GA, and align shared Error Prone/JSpecify annotations at 2.50.0/1.0.1.
+  Keep the parser, serializers, CLI library, and output contracts unchanged.
+- Update test-only JSON-java to 20260814 and Byte Buddy to 1.18.15 through
+  dependency management, retaining JSONassert and AssertJ's current versions.
+- Regenerate both official Maven Wrapper 3.3.4 scripts for Maven 3.10.0, pin
+  the distribution checksum, and use the wrapper in CI and the pre-push hook.
+  Enforce Maven/JDK prerequisites and add Windows wrapper compilation checks.
+- Upgrade the Checkstyle engine to 14.3.0 and share its version across plugin
+  configuration, retaining the existing style rules.
+- Upgrade ASM to 9.11 for bytecode reading and validation fixes, preserving
+  breakpoint discovery and serialized trace formats.
 - Declare API stability with API Guardian: supported types and the launcher are
   `STABLE`, and public implementation types are `INTERNAL`, since 4.0.0. Add API
   Guardian as a transitive compile dependency and permit only its annotation
