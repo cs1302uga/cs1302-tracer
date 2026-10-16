@@ -1,8 +1,6 @@
 package cs1302.tracer.batch;
 
-import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.SourcePreparation;
-import cs1302.tracer.CompilationHelper.CompilationResult;
 import cs1302.tracer.SourceDelimiters;
 import cs1302.tracer.execution.InspectionPolicy;
 import cs1302.tracer.execution.JobOptions;
@@ -14,7 +12,7 @@ import cs1302.tracer.model.TypeStyle;
 import cs1302.tracer.serialize.ModernTraceSerializer;
 import cs1302.tracer.serialize.PyTutorSerializer;
 import cs1302.tracer.trace.BreakpointSpec;
-import cs1302.tracer.trace.DebugTraceHelper;
+import cs1302.tracer.trace.TraceDispatch;
 import cs1302.tracer.trace.ExecutionSnapshot;
 import cs1302.tracer.trace.PersistentGuestSession;
 import java.nio.charset.StandardCharsets;
@@ -232,30 +230,26 @@ public final class BatchTraceWorker implements AutoCloseable {
                 ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED;
         Object payload;
         try (SourcePreparation prepared = SourcePreparation.prepare(req.source(), Optional.empty(), discovery)) {
-            CompilationResult compiled = prepared.compilation();
-            List<CompilationUnit> units = prepared.units();
-
             traceSession.phase("trace");
             if (session != null) {
                 traceSession.attach(session.process(), false);
             } // if
             String stdin = req.stdin() != null ? req.stdin() : "";
+            List<BreakpointSpec> specs = req.breakpoints() == null ? List.of()
+                    : JobOptions.parseBreakpoints(req.breakpoints());
+            TraceDispatch dispatcher = Boolean.TRUE.equals(req.multithread()) ? TraceDispatch.dedicated()
+                    : TraceDispatch.persistent(legacyGuest());
+            TraceDispatch.Capture captured = dispatcher.capture(prepared,
+                    TraceDispatch.Selection.select(allBps, accBps, allBps && specs.isEmpty() ? null : specs), stdin);
             if (allBps) {
-                List<BreakpointSpec> specs = resolveChronologicalSpecs(req, compiled);
-                List<ExecutionSnapshot> snapshots;
+                List<ExecutionSnapshot> snapshots = ((TraceDispatch.Chronological) captured).snapshots();
                 if (Boolean.TRUE.equals(req.multithread())) {
-                    snapshots = DebugTraceHelper.traceChronologicalWithSpecs(compiled, specs, units, true, stdin);
                     traceSession.finishOutput();
                     snapshots = traceSession.snapshots();
-                } else {
-                    snapshots = legacyGuest().traceChronologicalWithSpecs(compiled, specs, units, true, stdin);
                 } // if
                 traceSession.phase("serialize");
                 payload = serializeChronologicalPayload(req, format, typeStyle, snapshots);
             } else {
-                List<BreakpointSpec> specs = req.breakpoints() == null ? List.of()
-                        : JobOptions.parseBreakpoints(req.breakpoints());
-                legacyGuest().traceWithSpecs(compiled, specs, units, stdin, accBps);
                 traceSession.phase("serialize");
                 payload = serializeChronologicalPayload(req, format, typeStyle, retainedSnapshots(req, traceSession));
             } // if
@@ -298,24 +292,6 @@ public final class BatchTraceWorker implements AutoCloseable {
         return new PyTutorSerializer(removeMainArgs, inlineStrings, removeMethodThis, typeStyle)
                 .createTrace(req.source(), stdin, snapshots);
     } // serializeChronologicalPayload
-
-    /**
-     * Resolves effective breakpoint specifications for chronological tracing.
-     *
-     * @param req Batch job request.
-     * @param compiled Compilation result.
-     * @return Effective breakpoint specifications.
-     * @throws Exception If breakpoint lines cannot be determined.
-     */
-    static List<BreakpointSpec> resolveChronologicalSpecs(BatchJobRequest req, CompilationResult compiled)
-            throws Exception {
-        List<BreakpointSpec> specs = req.breakpoints() != null ? JobOptions.parseBreakpoints(req.breakpoints())
-                : List.of();
-        if (specs.isEmpty()) {
-            return DebugTraceHelper.getValidBreakpointLines(compiled).stream().map(BreakpointSpec::of).toList();
-        } // if
-        return specs;
-    } // resolveChronologicalSpecs
 
     /**
      * Restores interrupted status on current thread if caught throwable is an interruption.

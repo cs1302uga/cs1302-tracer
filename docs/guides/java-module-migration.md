@@ -40,3 +40,18 @@ legacy final-output presentation for selected locations without changing that hi
 or its accounting. Session callers use `TraceSession.targetedSnapshots()`, which keeps
 canonical output prefixes after a `trace_limit` stop. `JobOutput` continues to own the
 finished output bytes.
+
+`TraceDispatch` captures execution before rendering. `dedicated()` launches and cleans
+up a fresh guest per capture. `persistent(guest)` borrows a `PersistentGuestSession`;
+its caller still closes or recycles that guest. Both adapters retain their existing
+event loops.
+
+`Selection.select(chronological, accumulate, breakpoints)` preserves the distinction
+between a null breakpoint selection and an explicitly empty list. Null means all
+valid lines for chronological capture, or final-state capture otherwise. An explicit
+list selects breakpoint capture, including the existing empty-list main-exit behavior.
+Batch callers continue to treat an empty chronological selection as all valid lines.
+
+Capture returns `FinalState`, `Chronological`, or `Breakpoints`. Renderers consume these
+results without invoking guest execution. The existing `DebugTraceHelper` and
+`PersistentGuestSession` tracing methods remain available to Java callers.
