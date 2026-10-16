@@ -17,6 +17,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "coverage>=7.16.2",
     "ruff",
     "ty",
 ]
@@ -50,3 +51,22 @@ order-by-type = true
 
 [tool.ruff.lint.flake8-type-checking]
 strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["scripts"]
+source_pkgs = [
+    "build_javadoc", "check_docs", "check_external_links", "check_site",
+    "docs_release", "docs_site", "rehearse_docs_release", "serve_docs",
+]
+omit = ["*/scripts/tests/*", "*/scripts/.venv/*", "*/scripts/.uv/*"]
+patch = ["subprocess"]
+parallel = true
+
+[tool.coverage.paths]
+scripts = ["scripts", "*/scripts"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+precision = 2

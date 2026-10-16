@@ -18,7 +18,7 @@ From the repository root:
 ./scripts/uv python pin 3.15 --directory scripts
 ./scripts/uv sync
 ./scripts/uv run python scripts/docs_release.py check
-./scripts/uv run python -m unittest discover -s scripts -p 'test_*.py'
+./scripts/uv run python -m unittest discover -s scripts/tests -t scripts
 ./scripts/uv run ruff check scripts
 ./scripts/uv run ruff format --check scripts
 ./scripts/uv run ty check scripts
@@ -48,9 +48,36 @@ their declared dependencies.
 | `build_javadoc.py` | Library for staged API generation from working sources and pinned release archives. Invoke through `docs_site.py api`. |
 | `serve_docs.py` | Serves an existing build with project-base paths and unchanged Javadoc URLs. Supports `--host` and `--port`. |
 | `rehearse_docs_release.py` | Exercises preparation, publishing, archive retention, retries, and missing tags using real builds in a disposable project. |
-| `test_docs_release.py` | Tests snapshot validation, release agreement, selection, and retention. |
-| `test_release_selection.py` | Tests release plans and tag provenance using real temporary files and Git repositories. |
-| `test_docs_site.py` | Tests CLI argument handling, pinned sources, manifest ownership, and failures; only external Maven/npm commands use stand-ins. |
+| `tests/` | Behavioral tests for release selection and preparation, build CLI, executable documentation, rendered links, HTTP checks, preview serving, and rehearsal. |
+
+## Required Python checks
+
+Tests live in `scripts/tests/`. Use the script CLI or callable interfaces used by
+other scripts. Prefer real temporary files, Git repositories, and local HTTP
+servers; substitute only external process, network, time, or shutdown boundaries.
+Do not mock internal collaborators or weaken checks to satisfy a percentage.
+
+From the repository root, run lint, formatting, and type checking with the commands
+above, then run the full coverage sequence:
+
+```sh
+export COVERAGE_RCFILE="$PWD/scripts/pyproject.toml"
+export COVERAGE_FILE="$PWD/.coverage"
+./scripts/uv run --locked coverage erase
+./scripts/uv run --locked coverage run -m unittest discover -s scripts/tests -t scripts
+./scripts/uv run --locked coverage combine
+./scripts/uv run --locked coverage report
+```
+
+Completion requires all checks to pass and every production Python script to have
+100% line and branch coverage. Coverage includes child processes and combines
+identical script copies from temporary projects; tests and local tool environments
+are outside the production measurement. Keep `source_pkgs` in `pyproject.toml`
+current when adding scripts so copied CLI execution remains measured. Always
+erase stale data and combine child-process data before reporting coverage.
+The Scripts quality CI job uses these checks and blocks release creation on
+failure. Existing Git hooks continue to run Java checks.
+
 
 ## Documentation workflow
 

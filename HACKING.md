@@ -1,6 +1,7 @@
 # Contributing to cs1302-tracer
 
-Use a full JDK 21 or 25, Git, and Python 3.9 or later. `.java-version` selects JDK 25.
+Use a full JDK 21 or 25 and Git. The scripts wrapper provisions managed Python
+3.15 and the locked development tools. `.java-version` selects JDK 25.
 The Maven wrapper supplies Maven. Run these commands from the repository root:
 
 ```sh
@@ -18,6 +19,14 @@ across all production classes. It is stricter than the normal CI gate.
 - [Architecture](docs/contributing/architecture.md): compilation, tracing, serialization, and lifecycle.
 - [Documentation maintenance](docs/contributing/documentation.md): checks, release snapshots, deployment, and retries.
 
+## Python tooling
+
+Run `./scripts/uv sync --locked`, then follow the
+[scripts quality commands](scripts/README.md#tests-and-development-tools).
+CI enforces Ruff lint/format checks, ty, and 100% production Python line/branch
+coverage. Tests live under `scripts/tests/`; subprocess coverage is combined before
+reporting. The scripts CI job is required for releases; Git hooks remain Java-only.
+
 ## Documentation changes
 
 Node.js 22 or later is needed only for the documentation site. CI uses Node.js 22.
@@ -30,13 +39,13 @@ npm --prefix website start
 Before submitting a change, build the JAR and run:
 
 ```sh
-python3 scripts/check_docs.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
+./scripts/uv run python scripts/check_docs.py
+./scripts/uv run python -m unittest discover -s scripts/tests -t scripts
 npm --prefix website run build
-python3 scripts/check_site.py
+./scripts/uv run python scripts/check_site.py
 ```
 
-For CLI changes, regenerate help with `python3 scripts/check_docs.py --update-cli`
+For CLI changes, regenerate help with `./scripts/uv run python scripts/check_docs.py --update-cli`
 and review the diff. Keep README and HACKING concise; detailed guides belong in
 `docs/`, which the site renders directly. Review prose when behavior changes even
 if automated checks pass.

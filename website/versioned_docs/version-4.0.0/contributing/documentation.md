@@ -4,6 +4,12 @@ README is the project introduction and quickstart; HACKING is the contributor
 entry point. Detailed content lives in `docs/` and is rendered directly by
 Docusaurus. Keep examples and links useful when reading Markdown on GitHub too.
 
+The Scripts quality CI job separately enforces Python lint, formatting, types,
+and 100% production line/branch coverage, including child processes. See the
+[development guide](development.md#python-script-quality) for the complete local
+gate. The documentation job still checks real tracer output and builds the site;
+external-tool stand-ins in the Python suite do not replace that integration check.
+
 ## Local checks
 
 Use Node.js 22 or later (CI uses 22) and a full JDK. Local Python commands use
@@ -20,7 +26,7 @@ From the repository root:
 ./scripts/uv run npm --prefix website ci
 ./scripts/uv run python scripts/check_docs.py
 ./scripts/uv run python scripts/docs_release.py check
-./scripts/uv run python -m unittest discover -s scripts -p 'test_*.py'
+./scripts/uv run python -m unittest discover -s scripts/tests -t scripts
 ./scripts/uv run npm --prefix website run build
 ./scripts/uv run python scripts/check_site.py
 ```

@@ -49,6 +49,34 @@ JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchang
 
 The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
 
+### Python script quality
+
+The dedicated Scripts quality CI job uses the checked-in uv wrapper, managed
+Python 3.15, and locked dependencies. It requires Ruff lint/format checks, ty, and
+100% line and branch coverage for every production Python script under `scripts/`.
+Tests live under `scripts/tests/` and exercise callable interfaces and CLIs with
+real temporary files, Git repositories, and local HTTP servers. External process,
+network, and shutdown failures use controlled boundary substitutes.
+
+Run from the repository root:
+
+```sh
+./scripts/uv sync --locked
+./scripts/uv run --locked ruff check scripts
+./scripts/uv run --locked ruff format --check scripts
+./scripts/uv run --locked ty check scripts
+export COVERAGE_RCFILE="$PWD/scripts/pyproject.toml"
+export COVERAGE_FILE="$PWD/.coverage"
+./scripts/uv run --locked coverage erase
+./scripts/uv run --locked coverage run -m unittest discover -s scripts/tests -t scripts
+./scripts/uv run --locked coverage combine
+./scripts/uv run --locked coverage report
+```
+
+Child-process coverage and temporary script copies contribute to the same report;
+test files and local tool environments are excluded from production measurement.
+Release creation depends on this job. Java hooks retain their existing behavior.
+
 ### Dependency upgrade policy
 
 Prefer stable releases compatible with the Java 21 target. Keep Picocli and its

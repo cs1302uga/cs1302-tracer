@@ -54,6 +54,12 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- **Python tooling:** migrate script tests to `scripts/tests/`, add typed release
+  models and clearer invalid-input diagnostics, and enforce Ruff, ty, and 100%
+  production line/branch coverage in a dedicated release-blocking CI job.
+  Document managed tooling and coverage commands; retain existing Java Git hooks,
+  CLI arguments, generated help text, and tracer output formats.
+
 - **Internal tracing:** resolve Java, CLI, envelope, and NDJSON job policy through a
   shared typed module. Preserve supported Java signatures, CLI diagnostics and
   validation timing, source-discovery policies, and serialized output formats.

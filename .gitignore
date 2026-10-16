@@ -41,3 +41,6 @@ website/published-versions.json
 website/release-manifest.json
 __pycache__/
 external-links-report.md
+
+# Python coverage artifacts
+.coverage*

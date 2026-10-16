@@ -64,6 +64,11 @@ stricter than the normal build's model/serializer coverage gate. Keep these gate
 intact; a successful working-tree test does not validate different staged content.
 Report the checks actually run and any unverified execution paths.
 
+For Python script changes, follow `scripts/AGENTS.md`: tests belong under
+`scripts/tests/`, and completion requires Ruff lint/format, ty, and 100% production
+line/branch coverage including subprocesses. Preserve the Scripts quality CI gate
+and release dependency; keep existing Java Git hooks unchanged unless requested.
+
 ## Keep documentation useful
 
 For every change, verify affected present-tense documentation against the current
@@ -74,6 +79,14 @@ Clearly label historical reviews, migration examples, and measurements with thei
 revision or release scope. Preserve historical evidence and published-version
 semantics; distinguish proposals and unverified deployment settings from implemented
 behavior. Check prose accuracy as well as automated documentation checks.
+
+Keep `src/main/javadoc/overview.html` and every `package-info.java` accurate for the
+current project. For every change, check whether it affects their descriptions of
+supported usage, package responsibilities, ownership, dependencies, or stability
+contracts; update affected Javadoc in the same change. Completion requires these
+descriptions to agree with the implementation. Validate changed Javadoc with
+`./mvnw -B -ntp validate javadoc:javadoc` and review the generated documentation;
+a successful build alone does not establish prose accuracy.
 
 Update the existing guide when a user workflow or durable constraint changes.
 Keep local implementation explanations near the code and shared terminology in
