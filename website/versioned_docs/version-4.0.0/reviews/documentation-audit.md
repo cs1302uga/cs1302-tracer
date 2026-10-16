@@ -37,3 +37,13 @@ prior API output after partial generation failure, and no new completed-build
 manifest when npm fails before changing output. They do not assert that Docusaurus
 itself atomically preserves old output during a failed rebuild. A deliberate
 working-source-for-release mutation was detected by the pinned-source test.
+
+## DA-CQ-004 — Pin the release action
+
+The JavaScript Community pack also scans Actions YAML and reported the existing
+mutable `softprops/action-gh-release@v3` reference. Pinned it to the peeled commit
+`efb35369e0ad2afab669f228072c1b0d510eae64`, verified directly with upstream
+`git ls-remote` for `refs/tags/v3` and `refs/tags/v3^{}`. This preserves the action
+implementation currently selected by v3 while preventing later tag movement from
+changing release execution. A fresh JavaScript database and scan confirm the
+unpinned-action warning is gone. No hosted release was executed.
