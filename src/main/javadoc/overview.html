@@ -43,6 +43,11 @@ TraceRequest constructor} selects Python Tutor output, main-exit capture, finite
 instructor budgets, and trusted inspection. Use the full constructor to supply
 stdin, choose a format and capture settings, or configure
 {@link cs1302.tracer.api.TraceLimits} and {@link cs1302.tracer.api.InspectionPolicy}.
+The overload {@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest, boolean)
+Tracer.trace(request, true)} opts into binary metadata alongside existing literals;
+the original trace method defaults it to false. The request record shape is unchanged.
+Binary metadata describes captured values, not physical guest storage. It expands
+serialized output without changing retained snapshot accounting.
 Input is source text, including the documented delimited multi-file syntax;
 neighboring source files are not discovered automatically.</p>
 

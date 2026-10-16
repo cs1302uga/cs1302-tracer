@@ -59,6 +59,23 @@ the breakpoint list. Required reference values must be non-null; use an empty
 string for absent stdin and an empty list for main-exit selection. With chronological
 capture, an empty breakpoint list selects all executable lines.
 
+Use the overload `Tracer.trace(request, true)` to include
+[primitive binary metadata](output.md#optional-primitive-binary-metadata) in either
+output format. For example:
+
+```java
+TraceRequest request = new TraceRequest(source, "", TraceFormat.MODERN,
+    java.util.List.of(), true, false, false, false, false, false,
+    TypeStyle.FQN, TraceLimits.instructorDefaults(), InspectionPolicy.FIELDS);
+TraceOutcome outcome = Tracer.trace(request, true);
+```
+
+Here `source` is submitted Java text and the named types are in `cs1302.tracer.api`.
+`Tracer.trace(request)` delegates with false, preserving existing output.
+The published `TraceRequest` record components and constructors are unchanged;
+existing record patterns, reflective consumers, and compiled callers remain valid.
+The additional option affects rendering only, not capture or inspection policy.
+
 Source input is self-contained text, including the existing delimited multi-file
 syntax. Read filesystem input before constructing the request, or use the CLI
 when its neighboring-source discovery behavior is needed. The one-shot operation
@@ -113,7 +130,8 @@ formats are unchanged. The CLI `batch-trace` command uses this same public opera
 ## Migrate Java integrations from 3.x
 
 This is a breaking Java interface change for 4.0.0. CLI syntax and serialized
-Python Tutor, modern, envelope, and NDJSON contracts remain unchanged.
+Python Tutor, modern, envelope, and NDJSON defaults remain unchanged; primitive
+binary metadata is an opt-in additive extension.
 
 | Previous integration | Replacement |
 | --- | --- |

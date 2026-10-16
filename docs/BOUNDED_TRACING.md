@@ -65,6 +65,12 @@ built. This bounds retained data under the selected accounting model. It does
 not cover all compiler, parser, JDI, serializer, JVM, or source-text allocations.
 Only the runner can enforce an actual process/container memory ceiling.
 
+Opt-in primitive binary metadata is derived during serialization, after snapshot
+admission. It expands response JSON and serialization allocations without changing
+retained snapshot accounting. Neither `traceBytes`/`snapshotBytes` nor guest
+`outputBytes` is a final serialized-response byte limit. See the
+[binary metadata contract](reference/output.md#optional-primitive-binary-metadata).
+
 ## Inspection policies
 
 `TRUSTED` retains existing specialized collection, map, wrapper, and stream

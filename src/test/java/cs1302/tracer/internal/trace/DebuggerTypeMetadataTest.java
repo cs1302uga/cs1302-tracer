@@ -1,7 +1,8 @@
 package cs1302.tracer.internal.trace;
 
+import static cs1302.tracer.internal.trace.DebuggerEventTest.captureCall;
+
 import static org.assertj.core.api.Assertions.*;
-import static cs1302.tracer.internal.trace.DebuggerEventTest.call;
 import static cs1302.tracer.internal.trace.JdiValueContractTest.mirror;
 import com.sun.jdi.*;
 import com.github.javaparser.*;
@@ -66,8 +67,8 @@ class DebuggerTypeMetadataTest {
 
     private static StackFrame frame(String methodName, ObjectReference self) {
         var method = mirror(com.sun.jdi.Method.class,
-                Map.of("name", methodName, "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
-        var location = mirror(Location.class, Map.of("method", method, "lineNumber", 1));
+                Map.of("name", methodName, "argumentTypes", List.of(), "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
+        var location = mirror(Location.class, Map.of("method", method, "lineNumber", 1, "sourcePath", "C.java"));
         var values = new HashMap<String, Object>(Map.of("location", location, "visibleVariables", List.of()));
         if (self != null)
             values.put("thisObject", self);
@@ -75,48 +76,74 @@ class DebuggerTypeMetadataTest {
     }
 
     @Test
-    void constructorTypePrepassHandlesMissingReceiverOrCaller() throws Exception {
-        var resolver = new AstTypeResolver(StaticJavaParser.parse("class C { void m() { C obj = new C(); } }"));
+    void completeCaptureHandlesConstructorWithoutReceiverOrCaller() throws Exception {
+        var source = SourceAnalysis.from(List.of(StaticJavaParser.parse("class C { void m() { C obj = new C(); } }")));
         for (var frames : List.of(List.of(frame("<init>", null)), List.of(frame("<init>", null), frame("m", null)))) {
-            var types = new ReifiedTypeMetadata(resolver);
-            DebugTraceHelper.prepassObjectTypes(mirror(ThreadReference.class, Map.of("frames", frames)), resolver,
-                    types, null);
-            assertThat(types.typeOf(1L)).isNull();
+            var snapshot = capture(source, frames);
+            assertThat(snapshot.heap()).isEmpty();
+            assertThat(snapshot.stack()).hasSize(frames.size());
         }
     }
 
     @Test
-    void allocationTypesRefineUnknownLocalsWithoutOverwritingMoreSpecificTypes() throws Exception {
-        var resolver = new AstTypeResolver(List.of());
-        var object = mirror(ObjectReference.class, Map.of("referenceType",
-                mirror(ReferenceType.class, Map.of("name", "java.util.ArrayList")), "uniqueID", 1L));
-        var variable = mirror(LocalVariable.class, Map.of("name", "unknown"));
-        var signature = new Class<?>[] { StackFrame.class, LocalVariable.class, ObjectReference.class, Optional.class,
-            AstTypeResolver.class, ReifiedTypeMetadata.class, Map.class };
-        var types = metadata(resolver, Map.of(1L, "java.util.ArrayList"));
-        call("prepassVariableReference", signature, frame("m", null), variable, object, Optional.of("List<String>"),
-                resolver, types, Map.of());
-        assertThat(types.typeOf(1L)).isEqualTo("java.util.ArrayList<String>");
-        call("prepassVariableReference", signature, frame("m", null), variable, object, Optional.of("List<?>"),
-                resolver, types, Map.of());
-        assertThat(types.typeOf(1L)).isEqualTo("java.util.ArrayList<String>");
+    void completeCaptureRefinesUnknownLocalsAndKeepsMoreSpecificSharedEvidence() throws Exception {
+        var source = SourceAnalysis.from(List.of(StaticJavaParser.parse("""
+            class C {
+                void concrete() { java.util.List<String> allocated = new java.util.List<String>() {}; }
+                void wildcard() { java.util.List<?> allocated = new java.util.List<Object>() {}; }
+            }
+            """)));
+        var object = object(1L, "java.util.ArrayList");
+        var first = localFrame("concrete", 2, "unknown", object, null);
+        var second = localFrame("wildcard", 3, "unknown", object, null);
+        var snapshot = capture(source, List.of(first, second));
+        assertThat(snapshot.heap()).hasSize(1);
+        assertThat(((TraceValue.Object) snapshot.heap().get(1L)).classFqn()).isEqualTo("java.util.ArrayList<String>");
+        assertThat(snapshot.stack()).allSatisfy(stack ->
+            assertThat(stack.visibleVariables().getFirst().value()).isEqualTo(new TraceValue.Reference(1L)));
     }
 
     @Test
-    void declaredLocalTypeSurvivesAnUnresolvedReceiverType() throws Exception {
-        var resolver = new AstTypeResolver(
-                StaticJavaParser.parse("class C { void m() { java.util.List<String> local; } }"));
-        var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
-        var local = mirror(ObjectReference.class, Map.of("referenceType",
-                mirror(ReferenceType.class, Map.of("name", "java.util.ArrayList")), "uniqueID", 1L));
-        var variable = mirror(LocalVariable.class, Map.of("name", "local"));
-        var types = new ReifiedTypeMetadata(resolver);
-        call("prepassVariableReference",
-                new Class<?>[] { StackFrame.class, LocalVariable.class, ObjectReference.class, Optional.class,
-                    AstTypeResolver.class, ReifiedTypeMetadata.class, Map.class },
-                frame("m", self), variable, local, Optional.empty(), resolver, types, Map.of());
-        assertThat(types.typeOf(1L)).isEqualTo("java.util.ArrayList<String>");
-        assertThat(types.typeOf(2L)).isNull();
+    void completeCapturePreservesDeclaredLocalWithUnresolvedReceiver() throws Exception {
+        var source = SourceAnalysis.from(List.of(StaticJavaParser.parse(
+            "class C<T> { void m() { java.util.List<String> local; } }")));
+        var snapshot = capture(source, List.of(localFrame("m", 1, "local",
+            object(1L, "java.util.ArrayList"), object(2L, "C"))));
+        assertThat(((TraceValue.Object) snapshot.heap().get(1L)).classFqn()).isEqualTo("java.util.ArrayList<String>");
+        assertThat(snapshot.heap()).containsKey(2L);
+    }
+
+    private static ObjectReference object(long id, String name) {
+        var type = mirror(ReferenceType.class, Map.of("name", name, "allFields", List.of()));
+        return mirror(ObjectReference.class, Map.of("referenceType", type, "type", type, "uniqueID", id));
+    }
+
+    private static StackFrame localFrame(String methodName, int line, String variableName, ObjectReference value,
+            ObjectReference self) {
+        var method = mirror(com.sun.jdi.Method.class, Map.of("name", methodName, "argumentTypes", List.of(),
+            "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
+        var location = mirror(Location.class, Map.of("method", method, "lineNumber", line,
+            "sourcePath", "C.java"));
+        var variable = mirror(LocalVariable.class, Map.of("name", variableName, "typeName", "java.lang.Object"));
+        var values = new HashMap<String, Object>(Map.of("location", location,
+            "visibleVariables", List.of(variable), "getValue", value));
+        if (self != null) values.put("thisObject", self);
+        return mirror(StackFrame.class, values);
+    }
+
+    private static ExecutionSnapshot capture(SourceAnalysis source, List<StackFrame> frames) throws Exception {
+        try (var session = new cs1302.tracer.internal.execution.TraceSession(
+                cs1302.tracer.api.TraceLimits.unlimited(), cs1302.tracer.api.InspectionPolicy.FIELDS, true);
+                var out = new StreamDrainer(java.io.InputStream.nullInputStream());
+                var err = new StreamDrainer(java.io.InputStream.nullInputStream())) {
+            out.waitForEof(1000);
+            err.waitForEof(1000);
+            var thread = mirror(ThreadReference.class, Map.of("frames", frames, "frame", frames.getFirst()));
+            var snapshot = SnapshotCapture.capture(thread, List.of(), source, new InputObservation(""),
+                JobOutput.fromStart(out, err), null);
+            assertThat(session.snapshots()).containsExactly(snapshot);
+            return snapshot;
+        }
     }
 
     @Test
@@ -124,7 +151,7 @@ class DebuggerTypeMetadataTest {
         var resolver = new AstTypeResolver(StaticJavaParser.parse("class C<T> { void m() { T local; } }"));
         var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
         var variable = mirror(LocalVariable.class, Map.of("name", "local", "typeName", "java.lang.Object"));
-        assertThat(call("resolveLocalVariableType",
+        assertThat(captureCall("resolveLocalVariableType",
                 new Class<?>[] { StackFrame.class, LocalVariable.class, AstTypeResolver.class, Map.class },
                 frame("m", self), variable, resolver, Map.of())).isEqualTo("T");
         var child = mirror(ObjectReference.class,
@@ -134,10 +161,10 @@ class DebuggerTypeMetadataTest {
         var types = metadata(resolver, Map.of(1L, "Box"));
         var signature = new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
             Optional.class, ReifiedTypeMetadata.class, List.class, Map.class, List.class };
-        call("appendStackField", signature, stackFrame, variable, false, null, Optional.empty(), types,
+        captureCall("appendStackField", signature, stackFrame, variable, false, null, Optional.empty(), types,
                 new ArrayList<>(), new HashMap<>(), fields);
         assertThat(fields.getFirst().typeName()).isNull();
-        call("appendStackField", signature, stackFrame, variable, false, "Box<String>", Optional.empty(), types,
+        captureCall("appendStackField", signature, stackFrame, variable, false, "Box<String>", Optional.empty(), types,
                 new ArrayList<>(), new HashMap<>(), fields);
         assertThat(types.typeOf(1L)).isEqualTo("Box<String>");
     }

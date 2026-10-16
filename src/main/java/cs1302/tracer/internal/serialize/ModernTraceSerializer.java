@@ -32,13 +32,16 @@ import java.util.Map.Entry;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public class ModernTraceSerializer {
 
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Gson COMPACT_GSON = new GsonBuilder().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new BinaryMetadataAdapterFactory()).setPrettyPrinting().create();
+    private static final Gson COMPACT_GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new BinaryMetadataAdapterFactory()).create();
 
     private final boolean removeMainArgs;
     private final boolean inlineStrings;
     private final boolean removeMethodThis;
     private final TypeStyle typeStyle;
+    private final boolean includePrimitiveBits;
 
     /**
      * Constructs a ModernTraceSerializer with the specified formatting options and TypeStyle.
@@ -47,13 +50,27 @@ public class ModernTraceSerializer {
      * @param inlineStrings Whether strings should be inlined.
      * @param removeMethodThis Whether this references should be omitted from method frames.
      * @param typeStyle The type qualification style (FQN or SIMPLE).
+     * @param includePrimitiveBits Whether to include primitive binary metadata.
      */
     public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
-            TypeStyle typeStyle) {
+            TypeStyle typeStyle, boolean includePrimitiveBits) {
+        this.includePrimitiveBits = includePrimitiveBits;
         this.removeMainArgs = removeMainArgs;
         this.inlineStrings = inlineStrings;
         this.removeMethodThis = removeMethodThis;
         this.typeStyle = typeStyle;
+    } // ModernTraceSerializer
+
+    /**
+     * Constructs a serializer without primitive binary metadata.
+     * @param removeMainArgs Omit main arguments.
+     * @param inlineStrings Inline strings.
+     * @param removeMethodThis Omit receiver references.
+     * @param typeStyle Type-label style.
+     */
+    public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
+            TypeStyle typeStyle) {
+        this(removeMainArgs, inlineStrings, removeMethodThis, typeStyle, false);
     } // ModernTraceSerializer
 
     /**
@@ -191,7 +208,7 @@ public class ModernTraceSerializer {
         List<Variable> statics = new ArrayList<>();
         for (Field f : snapshot.statics()) {
             statics.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
-                    f.isFinal()));
+                    f.isFinal(), PrimitiveBits.of(f.value(), includePrimitiveBits)));
         } // for
 
         List<StackFrame> callStack = new ArrayList<>();
@@ -278,7 +295,8 @@ public class ModernTraceSerializer {
                 continue;
             } // if
             locals.add(new Variable(field.identifier(), typeStyle.format(field.typeName()),
-                    serializeValue(field.value()), field.isFinal()));
+                    serializeValue(field.value()), field.isFinal(),
+                    PrimitiveBits.of(field.value(), includePrimitiveBits)));
         } // for
 
         String frameFile = isMultiFile ? frame.sourcePath().orElse(null) : null;
@@ -334,7 +352,7 @@ public class ModernTraceSerializer {
             List<Variable> fields = new ArrayList<>();
             for (Field f : obj.fields()) {
                 fields.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
-                        f.isFinal()));
+                        f.isFinal(), PrimitiveBits.of(f.value(), includePrimitiveBits)));
             } // for
             String typeLabel = typeStyle.format(obj.classFqn());
             if (obj.enumConstant().isPresent()) {
@@ -346,23 +364,27 @@ public class ModernTraceSerializer {
         case TraceValue.Lambda lambda -> HeapObject.ofLambda(id, "lambda", lambda.implementation());
         case TraceValue.List list -> {
             List<Object> elements = list.value().stream().map(this::serializeValue).toList();
-            yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements);
+            yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements)
+                    .withBinary(null, PrimitiveBits.elements(list.value(), includePrimitiveBits));
         } // case
         case TraceValue.Collection col -> {
             List<Object> elements = col.value().stream().map(this::serializeValue).toList();
-            yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements);
+            yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements)
+                    .withBinary(null, PrimitiveBits.elements(col.value(), includePrimitiveBits));
         } // case
         case TraceValue.Map map -> {
             List<Variable> entries = new ArrayList<>();
             for (Entry<? extends TraceValue, ? extends TraceValue> entry : map.value().entrySet()) {
                 Object k = serializeValue(entry.getKey());
                 Object v = serializeValue(entry.getValue());
-                entries.add(new Variable(String.valueOf(k), "entry", v, false));
+                entries.add(new Variable(String.valueOf(k), "entry", v, false,
+                        PrimitiveBits.of(entry.getValue(), includePrimitiveBits)));
             } // for
             yield HeapObject.ofObject(id, typeStyle.format(map.typeName()), entries);
         } // case
         case TraceValue.Primitive prim ->
-            HeapObject.ofBox(id, typeStyle.format(prim.toWrapperObject().getClass().getName()), serializeValue(prim));
+            HeapObject.ofBox(id, typeStyle.format(prim.toWrapperObject().getClass().getName()), serializeValue(prim))
+                .withBinary(PrimitiveBits.of(prim, includePrimitiveBits), null);
         case TraceValue.Color col -> HeapObject.ofColor(id, typeStyle.format(col.classFqn()), col.hex());
         default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch

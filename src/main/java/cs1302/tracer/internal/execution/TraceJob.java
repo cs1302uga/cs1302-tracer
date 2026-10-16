@@ -27,12 +27,13 @@ import java.util.List;
  * @param removeMainArgs Whether main arguments are omitted.
  * @param inlineStrings Whether strings are inlined.
  * @param removeMethodThis Whether receivers are omitted.
+ * @param includePrimitiveBits Whether to render primitive binary metadata.
  * @param evalEnumHash Whether enum hash evaluation is requested.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limits, InspectionPolicy inspection,
         SourcePreparation.Discovery discovery, CaptureIntent capture, boolean multithread, boolean removeMainArgs,
-        boolean inlineStrings, boolean removeMethodThis, boolean evalEnumHash) {
+        boolean inlineStrings, boolean removeMethodThis, boolean evalEnumHash, boolean includePrimitiveBits) {
 
     /** Caller contracts whose defaults and selection conventions differ. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
@@ -56,14 +57,16 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
     } // Profile
 
     /**
-     * Resolves typed Java settings without converting through the wire protocol.
+     * Resolves typed Java settings with an explicit primitive presentation option.
      * @param request Typed request.
+     * @param includePrimitiveBits Include binary metadata.
      * @return Effective job choices.
      */
-    public static TraceJob fromJava(TraceRequest request) {
+    public static TraceJob fromJava(TraceRequest request, boolean includePrimitiveBits) {
         return resolve(Profile.JAVA, request.format(), request.typeStyle(), request.limits(), request.inspection(),
                 request.breakpoints(), request.chronological(), request.accumulate(), request.multithread(),
-                request.removeMainArgs(), request.inlineStrings(), request.removeMethodThis(), true);
+                request.removeMainArgs(), request.inlineStrings(), request.removeMethodThis(), true,
+                includePrimitiveBits);
     } // fromJava
 
     /**
@@ -87,6 +90,32 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
             InspectionPolicy inspection, List<String> breakpoints, boolean chronological, boolean accumulate,
             boolean multithread, boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
             boolean evalEnumHash) {
+        return resolve(profile, format, typeStyle, limits, inspection, breakpoints, chronological, accumulate,
+                multithread, removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash, false);
+    } // resolve
+
+    /**
+     * Resolves caller policy without moving breakpoint validation ahead of source preparation.
+     * @param profile Caller contract.
+     * @param format Output format.
+     * @param typeStyle Type presentation.
+     * @param limits Supplied budgets, or null for caller defaults.
+     * @param inspection Requested inspection, or null for trusted inspection.
+     * @param breakpoints Raw selection; null preserves omission.
+     * @param chronological Requested chronological capture.
+     * @param accumulate Requested repeated hits.
+     * @param multithread Requested application threads.
+     * @param removeMainArgs Main argument presentation.
+     * @param inlineStrings String presentation.
+     * @param removeMethodThis Receiver presentation.
+     * @param evalEnumHash Enum hash evaluation.
+     * @param includePrimitiveBits Include binary metadata.
+     * @return Effective job choices.
+     */
+    public static TraceJob resolve(Profile profile, TraceFormat format, TypeStyle typeStyle, TraceLimits limits,
+            InspectionPolicy inspection, List<String> breakpoints, boolean chronological, boolean accumulate,
+            boolean multithread, boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
+            boolean evalEnumHash, boolean includePrimitiveBits) {
         InspectionPolicy effective = multithread ? InspectionPolicy.FIELDS
                 : inspection == null ? InspectionPolicy.TRUSTED : inspection;
         SourcePreparation.Discovery discovery = effective == InspectionPolicy.FIELDS
@@ -97,7 +126,7 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
         }; // switch
         return new TraceJob(format, typeStyle, limits == null ? profile.defaultLimits() : limits, effective, discovery,
                 new CaptureIntent(profile, breakpoints, chronological || multithread, accumulate), multithread,
-                removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash);
+                removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash, includePrimitiveBits);
     } // resolve
 
     /**

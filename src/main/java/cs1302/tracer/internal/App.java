@@ -15,13 +15,10 @@ import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.api.InspectionPolicy;
 import cs1302.tracer.internal.model.BreakpointEntry;
-import cs1302.tracer.internal.model.SourceMetadata;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TypeStyle;
-import cs1302.tracer.internal.model.pytutor.PyTutorTrace;
-import cs1302.tracer.internal.serialize.ModernTraceSerializer;
 import cs1302.tracer.internal.serialize.PyTutorSerializer;
-import cs1302.tracer.internal.serialize.TraceOutcomes;
+import cs1302.tracer.internal.serialize.TraceRendering;
 import cs1302.tracer.internal.trace.BreakpointSpec;
 import cs1302.tracer.internal.trace.DebugTraceHelper;
 import cs1302.tracer.internal.trace.TraceDispatch;
@@ -36,7 +33,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +40,6 @@ import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
@@ -233,6 +228,12 @@ public class App {
         @Option(names = { "--inline-strings", "-s" }, description = "If provided, strings are inlined into fields.")
         boolean inlineStrings = false;
 
+        @Option(names = "--include-primitive-bits",
+                description = "Include fixed-width primitive binary metadata alongside values (default: false). "
+                        + "Optional flag; no value required. Works with both formats and all capture modes; "
+                        + "does not require an envelope. Increases serialized payload size.")
+        boolean includePrimitiveBits = false;
+
         @Option(names = { "--remove-method-this" },
                 description = "Don't include the value of this for methods in the output.")
         boolean removeMethodThis = false;
@@ -293,7 +294,7 @@ public class App {
                 selected = job.limits();
                 resolvedJob = TraceJob.resolve(job.profile(), format, typeStyle, selected, job.inspection,
                         job.breakpoints, allBreakpoints, accumulateBreakpoints, job.multithread,
-                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash);
+                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash, includePrimitiveBits);
                 resolvedJob.validateThreadFormat(true);
                 resolvedJob.capture().selection();
                 if (job.envelope) {
@@ -345,11 +346,7 @@ public class App {
                 session.phase("trace");
                 TraceDispatch.Capture captured = TraceDispatch.dedicated().capture(prepared,
                         resolvedJob.capture().selection(), guestStdin);
-                if (format == TraceFormat.MODERN) {
-                    runModernTrace(source, captured, guestStdin);
-                } else {
-                    runPyTutorTrace(source, captured, guestStdin);
-                } // if
+                emitTrace(TraceRendering.ordinary(source, guestStdin, resolvedJob, captured, pretty));
             } // try
         } // runOrdinary
 
@@ -390,7 +387,7 @@ public class App {
                     session.phase("serialize");
                 } // try
                 TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT), payload, failure);
-                System.out.println(TraceOutcomes.freeze(result, pretty).json());
+                System.out.println(TraceRendering.freeze(result, pretty).json());
                 if (!result.complete()) {
                     exitHandler.accept(result.status().equals("stopped") ? 3 : 1);
                 } // if
@@ -455,111 +452,8 @@ public class App {
          * @return Serializer model.
          */
         Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-            if (resolvedJob.format() == TraceFormat.MODERN) {
-                return new ModernTraceSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
-                        resolvedJob.removeMethodThis(), resolvedJob.typeStyle())
-                        .createTrace(source, guestStdin, snapshots);
-            } // if
-            return new PyTutorSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle()).createTrace(source,
-                    guestStdin, snapshots);
+            return TraceRendering.sequence(source, guestStdin, resolvedJob, snapshots);
         } // boundedPayload
-
-        /**
-         * Runs and outputs modern JSON trace.
-         *
-         * @param source Source string.
-         * @param captured Captured execution states.
-         * @param guestStdin Standard input string for guest process.
-         * @throws Exception On tracing error.
-         */
-        private void runModernTrace(String source, TraceDispatch.Capture captured,
-                String guestStdin) throws Exception {
-            ModernTraceSerializer serializer = new ModernTraceSerializer(resolvedJob.removeMainArgs(),
-                    resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
-
-            if (captured instanceof TraceDispatch.Chronological chronological) {
-                cs1302.tracer.internal.model.modern.Trace trace = serializer.createTrace(source, guestStdin,
-                        chronological.snapshots());
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else if (captured instanceof TraceDispatch.FinalState finalState) {
-                ExecutionSnapshot snapshot = finalState.snapshot();
-                cs1302.tracer.internal.model.modern.Trace trace = serializer.createTrace(source, guestStdin, snapshot);
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else {
-                TraceDispatch.Breakpoints selected = (TraceDispatch.Breakpoints) captured;
-                Map<Integer, List<ExecutionSnapshot>> snapshots = selected.snapshots();
-                if (selected.accumulated()) {
-                    cs1302.tracer.internal.model.modern.Trace trace = serializer.createBreakpointsTrace(
-                            source, guestStdin,
-                            snapshots);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-                } else {
-                    Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
-                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
-                        List<ExecutionSnapshot> list = e.getValue();
-                        if (list.size() == 1) {
-                            latestSnapshots.put(e.getKey(), list.get(0));
-                        } else {
-                            latestSnapshots.put(e.getKey(), list);
-                        } // if
-                    } // for
-                    cs1302.tracer.internal.model.modern.Trace trace = serializer.createBreakpointsTrace(
-                            source, guestStdin,
-                            latestSnapshots);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-                } // if
-            } // if
-        } // runModernTrace
-
-        /**
-         * Runs and outputs PyTutor JSON trace.
-         *
-         * @param source Source string.
-         * @param captured Captured execution states.
-         * @param guestStdin Standard input string for guest process.
-         * @throws Exception On tracing error.
-         */
-        private void runPyTutorTrace(String source, TraceDispatch.Capture captured,
-                String guestStdin) throws Exception {
-            PyTutorSerializer serializer = new PyTutorSerializer(resolvedJob.removeMainArgs(),
-                    resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
-
-            if (captured instanceof TraceDispatch.Chronological chronological) {
-                PyTutorTrace trace = serializer.createTrace(source, guestStdin,
-                        chronological.snapshots());
-                emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
-            } else if (captured instanceof TraceDispatch.FinalState finalState) {
-                ExecutionSnapshot snapshot = finalState.snapshot();
-                String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
-                emitTrace(pyTutorSnapshot);
-            } else {
-                SourceMetadata metadata = SourceMetadata.from(source);
-                TraceDispatch.Breakpoints selected = (TraceDispatch.Breakpoints) captured;
-                Map<Integer, List<ExecutionSnapshot>> snapshots = selected.snapshots();
-                if (selected.accumulated()) {
-                    Map<Integer, List<PyTutorTrace>> pyTutorSnapshots = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().stream()
-                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList()));
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
-                } else {
-                    Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
-                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
-                        List<ExecutionSnapshot> list = e.getValue();
-                        if (list.size() == 1) {
-                            pyTutorSnapshots.put(e.getKey(),
-                                    serializer.createTrace(source, guestStdin, list.get(0), metadata));
-                        } else {
-                            pyTutorSnapshots.put(e.getKey(), list.stream()
-                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList());
-                        } // if
-                    } // for
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
-                } // if
-            } // if
-        } // runPyTutorTrace
 
         /**
          * Publishes ordinary JSON only after confirming that no limit stopped the job.

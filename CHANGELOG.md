@@ -16,7 +16,7 @@ from changes to structure. Consumers should tolerate unknown additive fields.
 Every commit reachable in each consecutive release range is linked, including
 merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
-The checkout is not shallow, all 42 published release tags match origin, and no
+The checkout is not shallow, all 43 published release tags match origin, and no
 published release tag is missing. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
@@ -26,9 +26,40 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...1d7408f0a08fa698e113dbfc534bad8ba9505181) · History reviewed through [`1d7408f`](https://github.com/cs1302uga/cs1302-tracer/commit/1d7408f0a08fa698e113dbfc534bad8ba9505181).
+[Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
+Prepared version: **4.1.0** (not yet published). The following working-tree changes
+await their final commit links.
 
-The Maven version is prepared as 4.0.0; it is not a published release.
+### Breaking changes
+
+No breaking changes. Supported Java signatures and the `TraceRequest` record shape,
+CLI defaults, JSON/protocol defaults, and tooling requirements are preserved.
+
+### Non-breaking changes
+
+- **CLI and JSON/protocol:** add opt-in `--include-primitive-bits` and batch
+  `includePrimitiveBits`. Both serializers retain existing literals and add typed,
+  fixed-width binary descriptors for primitives in locals, fields, arrays, and
+  boxed payloads. Defaults, capture accounting, and envelope version are unchanged;
+  enabled output is larger. Floating-point bits describe values received through
+  JDI; boolean bits are a logical encoding, not a JVM storage-size claim.
+- **Java API:** add `Tracer.trace(TraceRequest, boolean includePrimitiveBits)`.
+  The original overload defaults the option to false. Request records, constructors,
+  and record patterns remain compatible. See the
+  [Java integration guide](docs/reference/java-api.md).
+- **Internal architecture:** centralize ordinary, envelope, and batch JSON rendering;
+  isolate complete snapshot capture from guest event loops. Preserve supported Java,
+  CLI, JSON/protocol, session budgets, and guest reuse behavior. Test rendering through
+  final JSON and type prepasses through completed captures.
+- Add a runnable binary-metadata example and document placement, encodings,
+  per-job settings, and serialization costs. Keep published documentation snapshots
+  unchanged; development docs and the pending 4.1.0 snapshot describe the extension.
+- **Contributor documentation:** correct invalid parameter tags on the internal
+  lambda heap-object factory so its Javadoc can be generated directly.
+
+## 4.0.0 — 2026-10-16
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.0.0) · [Compare v3.2.5...v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...v4.0.0)
 
 ### Breaking changes
 
@@ -140,6 +171,15 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - Bootstrap this changelog from published release and Git history.
 
 ### Commits
+
+- [`586522a`](https://github.com/cs1302uga/cs1302-tracer/commit/586522a00e347ca44a333f0470a1e4f127e9a4cc) — Prepare 4.0.0: supported Java API, trace-job ownership, and verified tooling (#17).
+
+### Development history
+
+The published `v3.2.5..v4.0.0` range contains only the squash commit `586522a`.
+The following original development commits informed the curated summaries and
+are retained as historical evidence; they are not separate commits in that
+published range.
 
 - [`0e82ee0`](https://github.com/cs1302uga/cs1302-tracer/commit/0e82ee0f2f95c8a7f62e70c75bbcaf12d2c1155e) Baseline type metadata and job output ownership refactors
 - [`923d40d`](https://github.com/cs1302uga/cs1302-tracer/commit/923d40dea4eb033c54c2d7952ae5fae8e527d373) Cover frozen stderr through the public job output interface

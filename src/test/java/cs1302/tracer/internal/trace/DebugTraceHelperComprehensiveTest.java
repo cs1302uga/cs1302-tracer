@@ -1,5 +1,6 @@
 package cs1302.tracer.internal.trace;
 
+
 import static org.assertj.core.api.Assertions.assertThat;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -615,36 +616,25 @@ public class DebugTraceHelperComprehensiveTest {
 
     @Test
     @DisplayName("isGuestHarnessOrReflect correctly identifies harness and reflection classes")
-    void testIsGuestHarnessOrReflect() {
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.internal.guest.GuestHarness")).isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.internal.guest.GuestHarness$Inner")).isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("jdk.internal.reflect.NativeMethodAccessorImpl")).isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("java.lang.reflect.Method")).isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("java.lang.Thread")).isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("cs1302.tracer.internal.guest.OtherClass")).isFalse();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect("Student")).isFalse();
+    void testIsGuestHarnessOrReflect() throws Exception {
 
         // ReferenceType overload tests
-        assertThat(DebugTraceHelper
-                .isGuestHarnessOrReflect(mockRefType("jdk.internal.reflect.NativeMethodAccessorImpl", null), null))
+        assertThat(captureFilter(mockRefType("jdk.internal.reflect.NativeMethodAccessorImpl", null), null))
                 .isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect(mockRefType("java.lang.reflect.Method", null), null))
+        assertThat(captureFilter(mockRefType("java.lang.reflect.Method", null), null))
                 .isTrue();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect(mockRefType("java.lang.Thread", null), null)).isTrue();
+        assertThat(captureFilter(mockRefType("java.lang.Thread", null), null)).isTrue();
         var harnessLoader = mockClassLoader("jdk.internal.loader.ClassLoaders$AppClassLoader");
         var studentLoader = mockClassLoader("java.net.URLClassLoader");
-        assertThat(DebugTraceHelper
-                .isGuestHarnessOrReflect(mockRefType("cs1302.tracer.internal.guest.GuestHarness", harnessLoader), null))
+        assertThat(captureFilter(mockRefType("cs1302.tracer.internal.guest.GuestHarness", harnessLoader), null))
                 .isFalse();
-        assertThat(DebugTraceHelper
-                .isGuestHarnessOrReflect(mockRefType("cs1302.tracer.internal.guest.GuestHarness", harnessLoader), harnessLoader))
+        assertThat(captureFilter(mockRefType("cs1302.tracer.internal.guest.GuestHarness", harnessLoader), harnessLoader))
                 .isTrue();
-        assertThat(DebugTraceHelper
-                .isGuestHarnessOrReflect(mockRefType("cs1302.tracer.internal.guest.GuestHarness", studentLoader), harnessLoader))
+        assertThat(captureFilter(mockRefType("cs1302.tracer.internal.guest.GuestHarness", studentLoader), harnessLoader))
                 .isFalse();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect(mockRefType("cs1302.tracer.internal.guest.OtherClass", null),
+        assertThat(captureFilter(mockRefType("cs1302.tracer.internal.guest.OtherClass", null),
                 harnessLoader)).isFalse();
-        assertThat(DebugTraceHelper.isGuestHarnessOrReflect(mockRefType("Student", null), harnessLoader)).isFalse();
+        assertThat(captureFilter(mockRefType("Student", null), harnessLoader)).isFalse();
     }
 
     private static com.sun.jdi.ReferenceType mockRefType(String name, com.sun.jdi.ClassLoaderReference classLoader) {
@@ -674,4 +664,10 @@ public class DebugTraceHelperComprehensiveTest {
                 default -> null;
                 });
     }
+    private static boolean captureFilter(Object... arguments) throws Exception {
+        Class<?>[] types = new Class<?>[] { com.sun.jdi.ReferenceType.class,
+            com.sun.jdi.ClassLoaderReference.class };
+        return (boolean) DebuggerEventTest.captureCall("isGuestHarnessOrReflect", types, arguments);
+    }
+
 }

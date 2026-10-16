@@ -10,7 +10,7 @@ import java.util.Optional;
 import cs1302.tracer.internal.execution.TraceJob;
 import cs1302.tracer.internal.batch.BatchTraceWorker;
 import cs1302.tracer.internal.execution.TraceResult;
-import cs1302.tracer.internal.serialize.TraceOutcomes;
+import cs1302.tracer.internal.serialize.TraceRendering;
 
 /** Executes self-contained trace jobs while owning compilation and guest cleanup. */
 @API(status = API.Status.STABLE, since = "4.0.0")
@@ -27,9 +27,24 @@ public final class Tracer {
      * @return Completed, stopped, or failed job outcome.
      */
     public static TraceOutcome trace(TraceRequest request) {
+        return trace(request, false);
+    } // trace
+
+    /**
+     * Traces a program with optional binary metadata alongside primitive literal values.
+     * Existing values and capture budgets are unchanged; enabled output is larger.
+     * Binary encodings describe the values received through JDI, not physical guest storage.
+     *
+     * @param request Source, capture selection, and resource policy.
+     * @param includePrimitiveBits Whether to include primitive binary metadata in either format.
+     * @return Completed, stopped, or failed job outcome.
+     * @since 4.1.0
+     */
+    public static TraceOutcome trace(TraceRequest request, boolean includePrimitiveBits) {
         try (BatchTraceWorker worker = new BatchTraceWorker(1)) {
-            TraceResult result = worker.execute(request.source(), request.stdin(), TraceJob.fromJava(request));
-            return TraceOutcomes.freeze(result, false);
+            TraceResult result = worker.execute(request.source(), request.stdin(),
+                    TraceJob.fromJava(request, includePrimitiveBits));
+            return TraceRendering.freeze(result, false);
         } // try
     } // trace
 

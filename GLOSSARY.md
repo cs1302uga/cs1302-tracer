@@ -4,6 +4,17 @@ The tracer describes guest Java execution as snapshots of stacks and reachable h
 
 ## Language
 
+**Trace rendering**:
+Conversion of completed snapshots into ordinary trace JSON, result envelopes, or batch responses.
+It owns format-specific root shapes, presentation choices, and JSON encoding rules. Execution owns
+status and diagnostics; batch processing owns correlation, response ordering, and writing.
+
+**Snapshot capture**:
+Assembly of one complete execution state from selected thread stacks, static fields, reachable heap
+objects, source observations, reified type metadata, and input/output observations. It owns the
+ordering of those observations and shared heap identity within the state. Session budgets and
+snapshot retention govern admission; guest execution owns suspension, event loops, and cleanup.
+
 **Trace-job resolution**:
 Interpretation of a caller's requested settings under its caller profile to determine effective budgets, inspection, capture intent, source-discovery policy, and presentation choices. Resolution preserves the caller's validation timing and failure semantics; it is distinct from executing the job or rendering its output.
 

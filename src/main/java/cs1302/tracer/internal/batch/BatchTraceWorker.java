@@ -10,8 +10,7 @@ import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TypeStyle;
-import cs1302.tracer.internal.serialize.ModernTraceSerializer;
-import cs1302.tracer.internal.serialize.PyTutorSerializer;
+import cs1302.tracer.internal.serialize.TraceRendering;
 import cs1302.tracer.internal.trace.TraceDispatch;
 import cs1302.tracer.internal.trace.ExecutionSnapshot;
 import cs1302.tracer.internal.trace.PersistentGuestSession;
@@ -94,7 +93,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                     req.breakpoints(), Boolean.TRUE.equals(req.allBreakpoints()),
                     Boolean.TRUE.equals(req.accumulateBreakpoints()), Boolean.TRUE.equals(req.multithread()),
                     Boolean.TRUE.equals(req.removeMainArgs()), Boolean.TRUE.equals(req.inlineStrings()),
-                    Boolean.TRUE.equals(req.removeMethodThis()), true);
+                    Boolean.TRUE.equals(req.removeMethodThis()), true, Boolean.TRUE.equals(req.includePrimitiveBits()));
             return new BatchJobResponse(req.id(), execute(req.source(), req.stdin(), job));
         } catch (IllegalArgumentException invalid) {
             return new BatchJobResponse(req.id(), TraceResult.failed(format.toString(), "validation",
@@ -178,7 +177,7 @@ public final class BatchTraceWorker implements AutoCloseable {
             return null;
         } // if
         try {
-            return serializeChronologicalPayload(source, stdin, job, retainedSnapshots(job, traceSession));
+            return TraceRendering.sequence(source, stdin, job, retainedSnapshots(job, traceSession));
         } catch (RuntimeException serializationFailure) {
             failure.addSuppressed(serializationFailure);
             return null;
@@ -234,10 +233,10 @@ public final class BatchTraceWorker implements AutoCloseable {
                     snapshots = traceSession.snapshots();
                 } // if
                 traceSession.phase("serialize");
-                payload = serializeChronologicalPayload(source, stdin, job, snapshots);
+                payload = TraceRendering.sequence(source, stdin, job, snapshots);
             } else {
                 traceSession.phase("serialize");
-                payload = serializeChronologicalPayload(source, stdin, job, retainedSnapshots(job, traceSession));
+                payload = TraceRendering.sequence(source, stdin, job, retainedSnapshots(job, traceSession));
             } // if
         } // try
         return payload;
@@ -254,26 +253,6 @@ public final class BatchTraceWorker implements AutoCloseable {
         return job.capture().chronological()
                 ? traceSession.snapshots() : traceSession.targetedSnapshots();
     } // retainedSnapshots
-
-    /**
-     * Serializes chronological execution snapshots into the selected output format.
-     *
-     * @param source Submitted source.
-     * @param stdin Guest input.
-     * @param job Effective job choices.
-     * @param snapshots Captured snapshots.
-     * @return Formatted trace model.
-     */
-    private Object serializeChronologicalPayload(String source, String stdin, TraceJob job,
-            List<ExecutionSnapshot> snapshots) {
-        if (job.format() == TraceFormat.MODERN) {
-            return new ModernTraceSerializer(job.removeMainArgs(), job.inlineStrings(), job.removeMethodThis(),
-                    job.typeStyle())
-                    .createTrace(source, stdin, snapshots);
-        } // if
-        return new PyTutorSerializer(job.removeMainArgs(), job.inlineStrings(), job.removeMethodThis(), job.typeStyle())
-                .createTrace(source, stdin, snapshots);
-    } // serializeChronologicalPayload
 
     /**
      * Restores interrupted status on current thread if caught throwable is an interruption.

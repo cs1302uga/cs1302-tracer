@@ -780,7 +780,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             return false;
         } // if
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
-            ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(bpe.thread(), ctx.loadedClasses(), vmOut, vmErr,
+            ExecutionSnapshot snap = SnapshotCapture.capture(bpe.thread(), ctx.loadedClasses(),
                     ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                     harnessType.classLoader());
             ctx.sink().accept(loc.lineNumber(), snap);
@@ -806,8 +806,8 @@ public final class PersistentGuestSession implements AutoCloseable {
         if (DebugTraceHelper.isMainMethodExit(mee.method())
                 && ctx.cr().mainClass().equals(mee.method().declaringType().name())) {
             if (ctx.snapMainEnd()) {
-                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(mee.thread(), ctx.loadedClasses(), vmOut,
-                        vmErr, ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
+                ExecutionSnapshot snap = SnapshotCapture.capture(mee.thread(), ctx.loadedClasses(),
+                        ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(-1, snap);
                 recorded[0] = true;
@@ -840,8 +840,8 @@ public final class PersistentGuestSession implements AutoCloseable {
                 if (currentSession != null) {
                     currentSession.guestException(ee.exception().referenceType().name());
                 } // if
-                ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(ee.thread(), ctx.loadedClasses(), vmOut,
-                        vmErr, ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
+                ExecutionSnapshot snap = SnapshotCapture.capture(ee.thread(), ctx.loadedClasses(),
+                        ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(loc.lineNumber(), snap);
                 if (!ctx.isChronological()) {

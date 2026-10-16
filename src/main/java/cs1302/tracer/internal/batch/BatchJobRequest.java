@@ -25,12 +25,38 @@ import java.util.List;
  * @param limits Optional resource limits.
  * @param inspection Optional inspection policy.
  * @param multithread Enable chronological platform-thread capture in modern format.
+ * @param includePrimitiveBits Whether to include primitive binary metadata; false by default.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record BatchJobRequest(String id, String source, String format, String stdin, List<String> breakpoints,
         Boolean allBreakpoints, Boolean accumulateBreakpoints, Boolean removeMainArgs, Boolean inlineStrings,
         Boolean removeMethodThis, String typeStyle, TraceLimits limits, InspectionPolicy inspection,
-        Boolean multithread) {
+        Boolean multithread, Boolean includePrimitiveBits) {
+
+    /**
+     * Creates a request with binary metadata disabled.
+     * @param id Unique job correlation identifier.
+     * @param source Java source code (single or multi-file delimited).
+     * @param format Output format (pytutor or modern).
+     * @param stdin Optional guest standard input string.
+     * @param breakpoints Optional list of breakpoint strings.
+     * @param allBreakpoints True to trace all breakpoints chronologically.
+     * @param accumulateBreakpoints True to retain all hits per breakpoint.
+     * @param removeMainArgs True to omit main method args.
+     * @param inlineStrings True to inline String fields.
+     * @param removeMethodThis True to omit this reference in methods.
+     * @param typeStyle Type styling (fqn or compact).
+     * @param limits Optional resource limits.
+     * @param inspection Optional inspection policy.
+     * @param multithread Enable chronological platform-thread capture in modern format.
+     */
+    public BatchJobRequest(String id, String source, String format, String stdin, List<String> breakpoints,
+            Boolean allBreakpoints, Boolean accumulateBreakpoints, Boolean removeMainArgs, Boolean inlineStrings,
+            Boolean removeMethodThis, String typeStyle, TraceLimits limits, InspectionPolicy inspection,
+            Boolean multithread) {
+        this(id, source, format, stdin, breakpoints, allBreakpoints, accumulateBreakpoints, removeMainArgs,
+                inlineStrings, removeMethodThis, typeStyle, limits, inspection, multithread, false);
+    } // BatchJobRequest
 
     /**
      * Constructs a request using the original single-stack contract.

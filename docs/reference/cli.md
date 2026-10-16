@@ -20,17 +20,18 @@ Commands:
 ## trace
 
 ```text
-Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--eval-enum-hash] [--multithread]
-                         [--no-eval-enum-hash] [--remove-main-args] [--remove-method-this]
-                         [--result-envelope] [--unlimited] [-f=<format>] [-i=<input>]
-                         [--inspection=<inspection>] [--max-elements=<elements>]
-                         [--max-frames=<frames>] [--max-heap-objects=<heapObjects>]
-                         [--max-output-bytes=<outputBytes>] [--max-snapshot-bytes=<snapshotBytes>]
-                         [--max-snapshots=<snapshots>] [--max-source-bytes=<sourceBytes>]
-                         [--max-source-files=<sourceFiles>] [--max-threads=<threads>]
-                         [--max-trace-bytes=<traceBytes>] [--stdin=<stdin>]
-                         [--stdin-file=<stdinFile>] [--timeout-ms=<timeoutMillis>]
-                         [--type-style=<typeStyle>] [-b=<spec>[,<spec>...]]...
+Usage: code-tracer trace [-ahpsvV] [--accumulate-breakpoints] [--eval-enum-hash]
+                         [--include-primitive-bits] [--multithread] [--no-eval-enum-hash]
+                         [--remove-main-args] [--remove-method-this] [--result-envelope]
+                         [--unlimited] [-f=<format>] [-i=<input>] [--inspection=<inspection>]
+                         [--max-elements=<elements>] [--max-frames=<frames>]
+                         [--max-heap-objects=<heapObjects>] [--max-output-bytes=<outputBytes>]
+                         [--max-snapshot-bytes=<snapshotBytes>] [--max-snapshots=<snapshots>]
+                         [--max-source-bytes=<sourceBytes>] [--max-source-files=<sourceFiles>]
+                         [--max-threads=<threads>] [--max-trace-bytes=<traceBytes>]
+                         [--stdin=<stdin>] [--stdin-file=<stdinFile>]
+                         [--timeout-ms=<timeoutMillis>] [--type-style=<typeStyle>] [-b=<spec>[,
+                         <spec>...]]...
 Generate an execution trace for a Java program.
   -a, --all-breakpoints      Include all encountered breakpoint instances in chronological order.
       --accumulate-breakpoints
@@ -42,6 +43,11 @@ Generate an execution trace for a Java program.
   -f, --format=<format>      Output trace format: pytutor, modern (default: pytutor).
   -h, --help                 Show this help message and exit.
   -i, --input=<input>        Input path to Java source file (defaults to stdin if omitted).
+      --include-primitive-bits
+                             Include fixed-width primitive binary metadata alongside values
+                               (default: false). Optional flag; no value required. Works with both
+                               formats and all capture modes; does not require an envelope.
+                               Increases serialized payload size.
       --inspection=<inspection>
                              Inspection policy: TRUSTED, FIELDS; FIELDS invokes no methods.
       --max-elements=<elements>

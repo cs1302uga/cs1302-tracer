@@ -1,8 +1,11 @@
 /**
  * Debugger execution, source analysis, value extraction, and job-scoped observation.
  *
- * <p>{@link cs1302.tracer.internal.trace.DebugTraceHelper} coordinates JDI event handling and captures
- * {@link cs1302.tracer.internal.trace.ExecutionSnapshot} values. Source analysis supplies evidence for runtime type
+ * <p>{@link cs1302.tracer.internal.trace.DebugTraceHelper} coordinates dedicated JDI event handling.
+ * The package-private snapshot capture module assembles complete
+ * {@link cs1302.tracer.internal.trace.ExecutionSnapshot} values for both guest paths, hiding type prepass ordering
+ * and shared heap traversal. Sessions retain budget and admission ownership.
+ * Source analysis supplies evidence for runtime type
  * recovery and
  * lambda reconstruction. {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
  * while

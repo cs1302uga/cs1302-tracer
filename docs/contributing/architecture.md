@@ -31,10 +31,10 @@ flowchart TD
     Worker --> Dispatch
     Dispatch --> Dedicated[DebugTraceHelper: dedicated guest]
     Dispatch --> Persistent[PersistentGuestSession: reusable guest]
-    Dedicated --> Capture[Snapshots: stacks, statics, reachable heap]
+    Dedicated --> Capture[SnapshotCapture: stacks, statics, reachable heap]
     Persistent --> Capture
     Capture --> Retention[SnapshotRetention through TraceSession]
-    Retention --> Render[Modern or Python Tutor rendering]
+    Retention --> Render[TraceRendering: ordinary, envelope, batch JSON]
     Render --> Result[Ordinary JSON or detached result envelope]
 ```
 
@@ -51,8 +51,9 @@ any reusable guest and use a fresh guest. The CLI batch command uses `BatchTrace
 
 Ordinary and envelope CLI tracing use dedicated guests. Ordinary output preserves
 mode-specific roots, while envelopes contain a sequence root and status metadata.
-The CLI still owns ordinary rendering selection; the worker renders batch and
-one-shot payloads. `TraceOutcomes` freezes payloads and envelopes into JSON text.
+`TraceRendering` owns ordinary root selection, sequence payload conversion, and final
+JSON encoding for detached outcomes and batch responses. Execution supplies status and
+diagnostics; batch processing supplies correlation, orders responses, and writes records.
 
 `Tracer.discoverBreakpoints` prepares submitted sources and reads class-file line
 tables without launching a guest. CLI `list-breakpoints` also reads line tables,
@@ -78,7 +79,7 @@ session accounting, cancellation, and rendering stay with their existing owners.
 | `cs1302.tracer.internal.batch` | NDJSON request/response models, bounded scheduling, and workers. |
 | `cs1302.tracer.internal.guest` | Harness running jobs inside reusable guest JVMs. |
 | `cs1302.tracer.internal.model` | Source and breakpoint metadata; `modern` and `pytutor` subpackages hold wire models. |
-| `cs1302.tracer.internal.serialize` | Format conversion and detached outcome construction. |
+| `cs1302.tracer.internal.serialize` | Trace rendering: root selection, format conversion, JSON policy, and detached outcomes. |
 
 Supported types declare API Guardian `STABLE`, and public implementation types
 (including nested types) declare `INTERNAL`, since 4.0.0. API Guardian annotations
@@ -124,9 +125,14 @@ launch, event-loop, cleanup, and reuse rules. Multithread capture uses dedicated
 execution and `ThreadCapture`; it observes application threads and invokes no guest
 methods during inspection.
 
-Capture constructs `ExecutionSnapshot` values from stacks, static fields, and a
-reachable heap. `TraceValue` converts JDI values; object identities preserve sharing
-and cycles. Trusted inspection has specialized collection, map, wrapper, and lambda
+`SnapshotCapture` constructs complete `ExecutionSnapshot` values from stacks, static
+fields, and a reachable heap. Dedicated and persistent execution call the same capture
+operation with suspended threads, source/input observations, and the job output owner.
+Capture owns output synchronization, all-thread type prepasses, stack/static extraction,
+and shared heap traversal; its extraction helpers are private. Thread-local `TraceSession`
+access remains in place for budgets and completed-snapshot admission. Guest launch,
+event handling, suspension, and cleanup remain with execution. `TraceValue` converts
+JDI values; object identities preserve sharing and cycles. Trusted inspection has specialized collection, map, wrapper, and lambda
 representations. Field-only inspection avoids those guest method calls and uses
 raw fields for ordinary objects. Arrays and strings retain dedicated handling.
 
@@ -183,14 +189,26 @@ allocations or replace an external memory ceiling.
 
 ## Rendering and consumer formats
 
+`TraceRendering` is the caller-facing rendering module. It selects ordinary roots,
+constructs opaque sequence payloads for execution results, freezes detached outcomes,
+and encodes correlated batch responses. Callers do not choose format adapters or
+JSON configuration. Ordinary modern output remains indented; Python Tutor ordinary
+output and result envelopes honor the requested indentation. Legacy null policies
+remain distinct between ordinary modern output and envelopes.
+
 `PyTutorSerializer` emits tagged tuple arrays, reference tuples, and auxiliary type
 metadata. `ModernTraceSerializer` emits explicit stack/heap records and reference
-objects. Both consume completed snapshots and source metadata. Non-finite numbers
+objects. Both consume completed snapshots and source metadata. Their per-job presentation
+options can request primitive binary metadata. `PrimitiveBits` derives shared
+`PrimitiveBinary` descriptors from typed snapshot values without guest calls or
+retained snapshot mutation; each serializer owns metadata placement. The extension
+is omitted by default and does not alter existing literal values or capture budgets.
+Binary strings are allocated during rendering rather than snapshot retention. Non-finite numbers
 use each format's documented valid-JSON representation.
 
 Ordinary CLI rendering branches on capture shape; selected-breakpoint output can be
 a mapping rather than a sequence root. Envelope and batch payloads use sequence
-roots and may retain completed partial snapshots. `TraceOutcomes` serializes the
+roots and may retain completed partial snapshots. `TraceRendering` serializes the
 internal result into a dependency-free, detached `TraceOutcome`. Neither supported
 outcomes nor their JSON require guest or compilation resources to remain alive.
 See [JSON output](../reference/output.md) and [batch protocol](../reference/batch.md)

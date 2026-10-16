@@ -1,5 +1,7 @@
 package cs1302.tracer.internal.trace;
 
+import static cs1302.tracer.internal.trace.DebuggerEventTest.captureCall;
+
 import static org.assertj.core.api.Assertions.*;
 import static cs1302.tracer.internal.trace.JdiValueContractTest.mirror;
 import com.sun.jdi.*;
@@ -28,14 +30,14 @@ class DebuggerFailureTest {
                     filenameAvailable ? "Main.java" : new AbsentInformationException()));
             var frame = mirror(StackFrame.class, Map.of("location", location));
             var thread = mirror(ThreadReference.class, Map.of("frames", List.of(frame), "frame", frame));
-            assertThat(call("resolveFrameSourcePath", new Class<?>[] { StackFrame.class }, frame))
+            assertThat(captureCall("resolveFrameSourcePath", new Class<?>[] { StackFrame.class }, frame))
                     .isEqualTo(filenameAvailable ? "Main.java" : null);
-            assertThat(call("resolveStepSourcePath", new Class<?>[] { ThreadReference.class }, thread))
+            assertThat(captureCall("resolveStepSourcePath", new Class<?>[] { ThreadReference.class }, thread))
                     .isEqualTo(filenameAvailable ? "Main.java" : null);
         }
         for (Object frames : List.of(List.of(), new IncompatibleThreadStateException())) {
             var thread = mirror(ThreadReference.class, Map.of("frames", frames));
-            assertThat(call("resolveStepSourcePath", new Class<?>[] { ThreadReference.class }, thread)).isNull();
+            assertThat(captureCall("resolveStepSourcePath", new Class<?>[] { ThreadReference.class }, thread)).isNull();
         }
     }
 
@@ -45,11 +47,11 @@ class DebuggerFailureTest {
         var running = mirror(ThreadReference.class, Map.of("isSuspended", false));
         var vm = mirror(VirtualMachine.class, Map.of("classesByName", List.of()));
         var signature = new Class<?>[] { VirtualMachine.class, ThreadReference.class };
-        call("flushTargetStreams", signature, null, suspended);
-        call("flushTargetStreams", signature, vm, null);
-        call("flushTargetStreams", signature, vm, running);
-        call("flushTargetStreams", signature, vm, suspended);
-        call("flushTargetStreams", signature,
+        captureCall("flushTargetStreams", signature, null, suspended);
+        captureCall("flushTargetStreams", signature, vm, null);
+        captureCall("flushTargetStreams", signature, vm, running);
+        captureCall("flushTargetStreams", signature, vm, suspended);
+        captureCall("flushTargetStreams", signature,
                 mirror(VirtualMachine.class, Map.of("classesByName", new VMDisconnectedException())), suspended);
         var missingField = mirror(ReferenceType.class, Map.of());
         var field = mirror(Field.class, Map.of());
@@ -59,7 +61,7 @@ class DebuggerFailureTest {
         var stream = mirror(ObjectReference.class, Map.of("referenceType", missingMethod));
         var noFlush = mirror(ReferenceType.class, Map.of("fieldByName", field, "getValue", stream));
         for (var system : List.of(missingField, primitive, noFlush)) {
-            call("flushPrintStreamField", new Class<?>[] { ReferenceType.class, String.class, ThreadReference.class },
+            captureCall("flushPrintStreamField", new Class<?>[] { ReferenceType.class, String.class, ThreadReference.class },
                     system, "out", suspended);
         }
     }
@@ -244,7 +246,7 @@ class DebuggerFailureTest {
         var frame = mirror(StackFrame.class, Map.of("getValue", unsupported));
         var variable = mirror(LocalVariable.class, Map.of("name", "x"));
         var fields = new java.util.ArrayList<ExecutionSnapshot.Field>();
-        call("appendStackField",
+        captureCall("appendStackField",
                 new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
                     java.util.Optional.class, ReifiedTypeMetadata.class, List.class, Map.class,
                     List.class },
@@ -256,7 +258,8 @@ class DebuggerFailureTest {
                 Map.of("name", "C", "allFields", List.of(field), "getValue", unsupported));
         SourceAnalysis source = SourceAnalysis.from(
                 java.util.Arrays.asList((com.github.javaparser.ast.CompilationUnit) null));
-        assertThat(DebugTraceHelper.collectStatics(List.of(type), source,
+        assertThat((List<?>) captureCall("collectStatics", new Class<?>[] { Iterable.class, SourceAnalysis.class,
+                List.class, Map.class }, List.of(type), source,
                 new java.util.ArrayList<>(), new java.util.HashMap<>())).isEmpty();
     }
 

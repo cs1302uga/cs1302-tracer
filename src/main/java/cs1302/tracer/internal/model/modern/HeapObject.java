@@ -2,6 +2,7 @@ package cs1302.tracer.internal.model.modern;
 
 import org.apiguardian.api.API;
 
+import cs1302.tracer.internal.model.PrimitiveBinary;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
@@ -14,13 +15,41 @@ import java.util.List;
  * @param fields The list of instance fields for objects.
  * @param elements The list of element values for arrays.
  * @param value The scalar string or boxed value.
+ * @param binary Optional boxed primitive metadata.
+ * @param elementBinary Optional metadata aligned with elements.
  * @param sam The single abstract method implementation for lambdas.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record HeapObject(@SerializedName("id") long id, @SerializedName("type") String type,
         @SerializedName("kind") String kind, @SerializedName("fields") List<Variable> fields,
         @SerializedName("elements") List<Object> elements, @SerializedName("value") Object value,
-        @SerializedName("sam") String sam) {
+        @SerializedName("sam") String sam, @SerializedName("binary") PrimitiveBinary binary,
+        @SerializedName("elementBinary") List<PrimitiveBinary> elementBinary) {
+
+    /**
+     * Creates a heap object without binary metadata.
+     * @param id Identity.
+     * @param type Type label.
+     * @param kind Object category.
+     * @param fields Object fields.
+     * @param elements Array elements.
+     * @param value Scalar payload.
+     * @param sam Lambda implementation.
+     */
+    public HeapObject(long id, String type, String kind, List<Variable> fields, List<Object> elements,
+            Object value, String sam) {
+        this(id, type, kind, fields, elements, value, sam, null, null);
+    } // HeapObject
+
+    /**
+     * Adds binary metadata while preserving the existing representation.
+     * @param binary Boxed payload descriptor.
+     * @param elementBinary Descriptors aligned with elements.
+     * @return Updated heap object.
+     */
+    public HeapObject withBinary(PrimitiveBinary binary, List<PrimitiveBinary> elementBinary) {
+        return new HeapObject(id, type, kind, fields, elements, value, sam, binary, elementBinary);
+    } // withBinary
 
     /**
      * Factory method for general instance objects.

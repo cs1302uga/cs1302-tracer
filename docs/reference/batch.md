@@ -29,10 +29,18 @@ stream processing does not mean every job completed successfully.
 | `breakpoints` | Array of breakpoint strings. |
 | `allBreakpoints`, `accumulateBreakpoints` | Boolean capture options. |
 | `inlineStrings`, `removeMainArgs`, `removeMethodThis` | Boolean presentation options. |
+| `includePrimitiveBits` | Optional boolean, false when omitted or null; adds primitive binary metadata alongside existing values. |
 | `typeStyle` | `fqn` (default) or `simple`. |
 | `limits` | Envelope limits using camelCase names; omitted limits are unlimited. |
 | `inspection` | `TRUSTED` (default) or `FIELDS`. |
 | `multithread` | Opt-in platform-thread capture; requires `modern`, implies chronological capture and field-only inspection. |
+
+`includePrimitiveBits` applies independently to each job, including consecutive
+jobs in a reused guest. It works with both formats and all capture selections;
+multithread jobs still require modern output. See
+[primitive metadata](output.md#optional-primitive-binary-metadata) for encodings,
+placement, and serialization cost. Existing values and envelope version remain
+unchanged; clients requesting this extension must accept its additional fields.
 
 `--max-in-flight` bounds admitted jobs, including running jobs and completed results
 waiting for earlier responses. Its default is 16; all worker and queue settings

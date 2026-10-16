@@ -46,6 +46,21 @@ include every required source in this bundle; neighboring file discovery is disa
 `--inline-strings`, `--remove-main-args`, `--remove-method-this`, and
 `--type-style simple` adjust the presentation.
 
+Add the optional `--include-primitive-bits` flag (no value required) to include
+binary encodings alongside primitive literals. It defaults to false, supports
+both formats and every capture mode, and does not require `--result-envelope`.
+Use `--include-primitive-bits=true` or `--include-primitive-bits=false` to set it
+explicitly; other explicit values are usage errors (exit 2). For example:
+
+```sh
+java -jar target/code-tracer-jar-with-dependencies.jar trace -i examples/primitive-bits/Main.java -a -f modern --include-primitive-bits
+```
+
+The option does not change inspection policy, capture selection, or exit statuses.
+`--multithread` still requires `--format modern`; invalid arguments still produce
+CLI usage errors (exit 2). See the [output reference](../reference/output.md#optional-primitive-binary-metadata)
+for exact encodings, array/field placement, and payload-size implications.
+
 Ordinary tracing uses finite defaults. Envelope mode uses unlimited omitted limits,
 so integrations should supply every intended budget explicitly. Read
 [bounded tracing](../BOUNDED_TRACING.md) before choosing limits or inspection policy.

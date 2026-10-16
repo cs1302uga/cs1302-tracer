@@ -19,6 +19,16 @@ class DebuggerEventTest {
         }
     }
 
+    static Object captureCall(String name, Class<?>[] signature, Object... args) throws Exception {
+        var method = SnapshotCapture.class.getDeclaredMethod(name, signature);
+        method.setAccessible(true);
+        try {
+            return method.invoke(null, args);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            throw (Exception) e.getCause();
+        }
+    }
+
     private static com.sun.jdi.Method mainMethod(String signature) {
         return mirror(com.sun.jdi.Method.class, Map.of("name", "main", "signature", signature, "isPrivate", false,
                 "argumentTypes", List.of(), "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
@@ -158,7 +168,7 @@ class DebuggerEventTest {
 
     @Test
     void referenceQueueIgnoresNullReferences() throws Exception {
-        var constructor = Class.forName("cs1302.tracer.internal.trace.DebugTraceHelper$ReferenceQueue").getDeclaredConstructor();
+        var constructor = Class.forName("cs1302.tracer.internal.trace.SnapshotCapture$ReferenceQueue").getDeclaredConstructor();
         constructor.setAccessible(true);
         @SuppressWarnings("unchecked")
         var queue = (List<ObjectReference>) constructor.newInstance();

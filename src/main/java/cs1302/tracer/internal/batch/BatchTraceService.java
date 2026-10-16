@@ -7,7 +7,7 @@ import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.NestingException;
 import cs1302.tracer.api.TraceFormat;
-import cs1302.tracer.internal.serialize.PyTutorSerializer;
+import cs1302.tracer.internal.serialize.TraceRendering;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -90,7 +90,7 @@ public final class BatchTraceService implements AutoCloseable {
         this.executor = Executors.newFixedThreadPool(this.workerCount);
         this.workerPool = new LinkedBlockingQueue<>();
         this.allWorkers = new ArrayList<>();
-        this.gson = PyTutorSerializer.getGson(false);
+        this.gson = new Gson();
         this.runner = runner == null ? this::executeJob : runner;
 
         for (int i = 0; i < this.workerCount; i++) {
@@ -270,7 +270,7 @@ public final class BatchTraceService implements AutoCloseable {
      * @param writer Output writer.
      */
     private synchronized void writeResponse(BatchJobResponse response, PrintWriter writer) {
-        String json = gson.toJson(response);
+        String json = TraceRendering.batch(response);
         writer.println(json);
         writer.flush();
     } // writeResponse

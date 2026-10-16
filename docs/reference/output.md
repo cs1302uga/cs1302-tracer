@@ -456,6 +456,103 @@ metadata such as `locals_attrs` and `heap_attrs` preserves Java type information
 ```
 <!-- pytutor:end -->
 
+## Optional primitive binary metadata
+
+Use `trace --include-primitive-bits`, batch request `"includePrimitiveBits": true`,
+or the Java overload `Tracer.trace(request, true)`.
+The default is false. When disabled, all binary metadata properties are omitted
+and the existing literal values and output shapes are unchanged. The option works
+with both formats, final-state, selected-breakpoint, and chronological capture,
+ordinary output and envelopes. Multithread capture still requires modern output.
+
+A runnable demonstration is in `examples/primitive-bits/Main.java`.
+
+Each descriptor contains `type`, `encoding`, and `bits`. Bits are a string of
+binary digits, most-significant first, with leading zeros, no separators, and no
+`0b` prefix. Width and interpretation are:
+
+| Java type | Width | `encoding` |
+| --- | --- | --- |
+| `byte`, `short`, `int`, `long` | 8, 16, 32, 64 respectively | `twos-complement` |
+| `char` | 16 | `utf16-code-unit` |
+| `float` | 32 | `ieee754-binary32` |
+| `double` | 64 | `ieee754-binary64` |
+| `boolean` | 1 logical digit | `logical` |
+
+Boolean false is `"0"`; true is `"1"`. This logical encoding does not specify JVM
+storage size. Character bits describe one UTF-16 code unit, including isolated
+surrogates. Binary metadata describes the value captured through JDI, not its
+original source spelling, address, or physical memory layout; it has no machine
+byte order. Integer literals `42`, `0x2a`, and `0b101010` yield the same int bits.
+
+Floating-point encodings distinguish positive and negative zero and represent
+subnormal values, infinities, and NaNs. The encoder uses raw-bit conversions on
+the received Java value; it does not deliberately canonicalize NaNs. Guest/JDI
+transport and signaling-NaN behavior can affect NaN payloads, so this is not a
+promise to recover every original guest NaN bit pattern. Existing human-readable
+non-finite-value conventions remain unchanged.
+
+### Modern placement
+
+Locals, static variables, and instance fields have an optional sibling `binary`
+property. For example, a captured byte value of -1 is represented as:
+
+```json
+{
+  "name": "delta",
+  "type": "byte",
+  "value": -1,
+  "final": false,
+  "binary": {"type": "byte", "encoding": "twos-complement", "bits": "11111111"}
+}
+```
+
+A `kind: "box"` heap object has `binary` alongside its existing `value`.
+A heap object rendered with `elements` has an `elementBinary` array of equal
+length, including an empty array for no elements. A position containing a direct
+primitive has its descriptor; other positions contain JSON null. References
+still refer to heap objects, where boxed payload metadata appears. Ordinary
+objects carry primitive descriptors on their fields. Under field-only inspection,
+wrappers remain ordinary objects and their captured primitive fields carry the
+metadata; the option does not change inspection policy or invoke guest methods.
+
+### Python Tutor placement
+
+Existing scalar values and tagged tuples are preserved. Primitive locals and
+statics add `binary` inside their `locals_attrs` or `globals_attrs` entry.
+For example, `locals_attrs.delta` can be:
+
+```json
+{
+  "type": "byte",
+  "final": false,
+  "binary": {"type": "byte", "encoding": "twos-complement", "bits": "11111111"}
+}
+```
+
+`heap_attrs[id].binary` describes a specialized boxed primitive payload.
+`heap_attrs[id].elementBinary` aligns with list/collection payload elements,
+excluding the leading tuple tag. `heap_attrs[id].fieldBinary` aligns with ordinary
+object field pairs, excluding the `INSTANCE` tag and type label. Both arrays use
+null for nonprimitive positions; positional field metadata preserves duplicate
+field names. Empty payloads have empty metadata arrays. Reference values themselves
+never receive primitive metadata. Map keys and values captured as wrapper references
+are described on their referenced heap objects.
+
+Binary strings preserve all integer bits even in consumers whose JSON-number
+handling cannot represent a 64-bit long exactly. Consumers can derive hexadecimal
+formatting, digit groups, or sign/exponent/fraction highlighting from the descriptor.
+
+### Cost and limits
+
+Metadata is derived from owned typed snapshots during serialization. It is not
+stored in retained snapshots, so it does not change `traceBytes` or `snapshotBytes`
+accounting or capture-limit admission. It increases serialized payload size and
+serialization allocations. Those counters do not measure final response bytes;
+`outputBytes` limits guest stdout/stderr, not trace JSON. See
+[bounded tracing](../BOUNDED_TRACING.md) for the accounting boundary.
+Completed partial snapshots receive metadata just like complete traces.
+
 ## Selected breakpoints and envelopes
 
 Non-envelope selected-breakpoint output may be a dictionary of breakpoint results;
