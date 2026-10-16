@@ -41,14 +41,18 @@ class JobOutputTest {
                 StreamDrainer out = new StreamDrainer(outInput);
                 StreamDrainer err = new StreamDrainer(errInput)) {
             outWriter.write("previous".getBytes(StandardCharsets.UTF_8));
+            outWriter.flush();
             out.syncUntil(8, 1000);
             JobOutput job = JobOutput.begin(out, err);
             outWriter.write("first".getBytes(StandardCharsets.UTF_8));
+            outWriter.flush();
             errWriter.write("Picked up JAVA_TOOL_OPTIONS: test\nwarning".getBytes(StandardCharsets.UTF_8));
+            errWriter.flush();
             job.drain(5, 41);
             ExecutionSnapshot prefix = new ExecutionSnapshot(List.of(), List.of(), Map.of(),
                     job.stdout(), job.stderr(), Optional.empty(), "", 0);
             outWriter.write(" trailing".getBytes(StandardCharsets.UTF_8));
+            outWriter.flush();
             job.drain(14, 41);
             JobOutput.Finished finished = job.finish();
             ExecutionSnapshot detached = finished.detach(prefix);
@@ -59,6 +63,7 @@ class JobOutputTest {
             err.reset();
             JobOutput next = JobOutput.begin(out, err);
             outWriter.write("second".getBytes(StandardCharsets.UTF_8));
+            outWriter.flush();
             next.drain(6, 0);
             assertThat(next.finish().stdout().asUtf8String()).isEqualTo("second");
             assertThat(next.finish().stderr().isEmpty()).isTrue();
