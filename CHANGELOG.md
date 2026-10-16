@@ -26,7 +26,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...9edd36a332b65dde03035096cd979e8430d9a199) · History reviewed through [`9edd36a`](https://github.com/cs1302uga/cs1302-tracer/commit/9edd36a332b65dde03035096cd979e8430d9a199).
+[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...830555da6fc84b11f327d02348f523d2ec7f40a9) · History reviewed through [`830555d`](https://github.com/cs1302uga/cs1302-tracer/commit/830555da6fc84b11f327d02348f523d2ec7f40a9).
 
 The Maven version is prepared as 4.0.0; it is not a published release.
 
@@ -53,6 +53,11 @@ The Maven version is prepared as 4.0.0; it is not a published release.
   preview/published modes and standard output directory.
 
 ### Non-breaking changes
+
+- Make API overview examples conform to Checkstyle and clarify that supported
+  library calls return failure outcomes/diagnostics rather than exposing internal
+  nesting exceptions. Record the complete repository audit and its revalidated
+  CodeQL dispositions.
 
 - Keep lambda-rendering parser state independent across concurrent batch jobs,
   preventing parser assertions and missing lambda metadata without changing output
@@ -145,7 +150,12 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - [`702e419`](https://github.com/cs1302uga/cs1302-tracer/commit/702e419c95c46a3f27020fb72bda105f4f57af78) Document repository workflows and changelog requirements
 - [`d948fc0`](https://github.com/cs1302uga/cs1302-tracer/commit/d948fc0b4016601e35dff60e3d878399e94292bb) Establish supported Java API and library documentation
 - [`9edd36a`](https://github.com/cs1302uga/cs1302-tracer/commit/9edd36a332b65dde03035096cd979e8430d9a199) Upgrade Maven toolchain and validated dependencies
-
+- [`97eee09`](https://github.com/cs1302uga/cs1302-tracer/commit/97eee0931d5bbe9a2002b93b7bd2ed61ad72b173) Link completed API and dependency upgrades in changelog
+- [`8dfd93f`](https://github.com/cs1302uga/cs1302-tracer/commit/8dfd93f67f22eb657c2e456e1b59a8949f44c7f1) Make API overview examples conform to Checkstyle
+- [`b7dfad2`](https://github.com/cs1302uga/cs1302-tracer/commit/b7dfad251a2d5c6415e33bd7d9d08ceec0bf0169) Keep one-shot tracing limited to submitted sources
+- [`b5edc57`](https://github.com/cs1302uga/cs1302-tracer/commit/b5edc57910731626e145614bab729c3cd289d91d) Document positive BatchTracer settings and test API validation
+- [`2e47b1a`](https://github.com/cs1302uga/cs1302-tracer/commit/2e47b1a826362309c505ba9fe71f9ea65f0d0c6b) Trace non-finite floating-point values without invalid JSON
+- [`830555d`](https://github.com/cs1302uga/cs1302-tracer/commit/830555da6fc84b11f327d02348f523d2ec7f40a9) Isolate lambda parsers across concurrent batch jobs
 
 ## 3.2.5 — 2026-10-15
 
