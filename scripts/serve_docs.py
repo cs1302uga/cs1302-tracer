@@ -30,6 +30,8 @@ def main():
             try:
                 server.serve_forever()
             except KeyboardInterrupt:
+                # Ctrl-C is a normal preview shutdown; the context managers close
+                # the server and remove its temporary mount without a traceback.
                 pass
 
 
