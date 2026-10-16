@@ -26,7 +26,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...fc0b82c6e52f239e00a719c603265a10ce4e234a) · History reviewed through [`fc0b82c`](https://github.com/cs1302uga/cs1302-tracer/commit/fc0b82c6e52f239e00a719c603265a10ce4e234a).
+[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...1d7408f0a08fa698e113dbfc534bad8ba9505181) · History reviewed through [`1d7408f`](https://github.com/cs1302uga/cs1302-tracer/commit/1d7408f0a08fa698e113dbfc534bad8ba9505181).
 
 The Maven version is prepared as 4.0.0; it is not a published release.
 
@@ -180,6 +180,10 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - [`7975458`](https://github.com/cs1302uga/cs1302-tracer/commit/7975458ca503af5e76b59ff983ff7ccef3fc105e) Clarify API failure contracts and record completed repository audit
 - [`3d43db0`](https://github.com/cs1302uga/cs1302-tracer/commit/3d43db02c4e69a7484f77f87b7f4c3ebb3ee32f8) Refresh current documentation and project developer metadata
 - [`fc0b82c`](https://github.com/cs1302uga/cs1302-tracer/commit/fc0b82c6e52f239e00a719c603265a10ce4e234a) Resolve trace job policy across Java and command callers
+- [`5ed0d82`](https://github.com/cs1302uga/cs1302-tracer/commit/5ed0d8248ac9921a960d7c5aacee38211005e033) Record trace job resolution review and scan dispositions
+- [`c8d3c21`](https://github.com/cs1302uga/cs1302-tracer/commit/c8d3c218a8c0170e761643ae4c6610ccdf1e24af) Enforce typed Python tooling and complete behavioral coverage
+- [`5f317eb`](https://github.com/cs1302uga/cs1302-tracer/commit/5f317eb7639f4203950bdb86169737f1c99bd1e8) Use managed Python throughout documentation CI
+- [`1d7408f`](https://github.com/cs1302uga/cs1302-tracer/commit/1d7408f0a08fa698e113dbfc534bad8ba9505181) Reject rendered links escaping the documentation build
 
 ## 3.2.5 — 2026-10-15
 
