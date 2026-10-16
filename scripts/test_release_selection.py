@@ -56,6 +56,11 @@ class ReleaseSelectionTests(unittest.TestCase):
         self.assertIsNone(plan['versions'][1]['sourceCommit'])
         self.assertEqual(plan['versions'][2]['sourceCommit'], self.git('rev-parse', 'v1.0.0^{commit}'))
 
+    def test_preview_requires_tagged_sources_for_older_snapshots(self):
+        self.git('tag', '-d', 'v1.0.0')
+        with self.assertRaisesRegex(ValueError, 'Missing release tag for 1.0.0'):
+            docs_release.Project(self.root).plan('preview')
+
     def test_published_selection_excludes_pending_and_uses_release_tags(self):
         plan = docs_release.Project(self.root).plan('published', releases=[
             {'tag_name': 'v2.0.0', 'draft': True}, {'tag_name': 'v1.0.0'},
