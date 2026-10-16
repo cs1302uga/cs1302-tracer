@@ -20,20 +20,22 @@ output, followed by the JSON result envelope:</p>
 import cs1302.tracer.api.TraceRequest;
 import cs1302.tracer.api.Tracer;
 
+/** Demonstrates tracing a Java program through the library API. */
 public class TraceExample {
     public static void main(String[] args) {
         String source = """
+            /** Prints a greeting from the traced program. */
             public class Main {
                 public static void main(String[] args) {
                     System.out.println("hello");
-                }
-            }
+                } // main
+            } // Main
             """;
         TraceOutcome outcome = Tracer.trace(new TraceRequest(source));
         System.out.print(outcome.stdout());
         System.out.println(outcome.json());
-    }
-}
+    } // main
+} // TraceExample
 </code></pre>
 
 <p>The convenience {@link cs1302.tracer.api.TraceRequest#TraceRequest(String)
