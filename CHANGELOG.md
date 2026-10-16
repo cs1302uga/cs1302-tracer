@@ -26,7 +26,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...702e419c95c46a3f27020fb72bda105f4f57af78) · History reviewed through [`702e419`](https://github.com/cs1302uga/cs1302-tracer/commit/702e419c95c46a3f27020fb72bda105f4f57af78).
+[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...9edd36a332b65dde03035096cd979e8430d9a199) · History reviewed through [`9edd36a`](https://github.com/cs1302uga/cs1302-tracer/commit/9edd36a332b65dde03035096cd979e8430d9a199).
 
 The Maven version is prepared as 4.0.0; it is not a published release.
 
@@ -97,7 +97,7 @@ The Maven version is prepared as 4.0.0; it is not a published release.
   evidence; pin the release action to a verified commit.
 - Add pinned uv/uvx wrappers, inline PEP 723 dependency guidance, and repository
   instructions requiring complete CLI documentation and maintained release notes.
-- Bootstrap this changelog from published release and Git history (pending commit).
+- Bootstrap this changelog from published release and Git history.
 
 ### Commits
 
@@ -129,6 +129,9 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - [`c25f156`](https://github.com/cs1302uga/cs1302-tracer/commit/c25f156f5ea05611bef29ac1261a21f19ad46d00) Set up managed Python tooling and pinned uv wrappers for scripts
 - [`3ecddf5`](https://github.com/cs1302uga/cs1302-tracer/commit/3ecddf5cac8086cb32c80ee29e9a4be41989db3e) Update scripts to Python 3.15 and document inline dependencies
 - [`702e419`](https://github.com/cs1302uga/cs1302-tracer/commit/702e419c95c46a3f27020fb72bda105f4f57af78) Document repository workflows and changelog requirements
+- [`d948fc0`](https://github.com/cs1302uga/cs1302-tracer/commit/d948fc0b4016601e35dff60e3d878399e94292bb) Establish supported Java API and library documentation
+- [`9edd36a`](https://github.com/cs1302uga/cs1302-tracer/commit/9edd36a332b65dde03035096cd979e8430d9a199) Upgrade Maven toolchain and validated dependencies
+
 
 ## 3.2.5 — 2026-10-15
 
