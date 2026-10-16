@@ -50,25 +50,39 @@ class DebuggerEventTest {
                     mirror(ExceptionEvent.class, Map.of()),
                     mirror(ExceptionEvent.class, Map.of("location", location("Foreign"))),
                     mirror(VMStartEvent.class, Map.of()), mirror(VMDisconnectEvent.class, Map.of()));
-            Object snapshots = chronological ? new ArrayList<ExecutionSnapshot>()
-                    : new HashMap<Integer, List<ExecutionSnapshot>>();
-            runLoop(chronological, vm(events), snapshots, false, null);
-            assertThat(snapshots).isEqualTo(chronological ? List.of() : Map.of());
+            if (chronological) {
+                List<ExecutionSnapshot> snapshots = new ArrayList<>();
+                runLoop(vm(events), snapshots, false, null);
+                assertThat(snapshots).isEmpty();
+            } else {
+                Map<Integer, List<ExecutionSnapshot>> snapshots = new HashMap<>();
+                runLoop(vm(events), snapshots, false, null);
+                assertThat(snapshots).isEmpty();
+            }
         }
     }
 
-    private static void runLoop(boolean chronological, VirtualMachine vm, Object snapshots, boolean mainExit,
+    private static void runLoop(VirtualMachine vm, List<ExecutionSnapshot> snapshots, boolean mainExit,
             InputObservation input) throws Exception {
-        try (var out = new StreamDrainer(java.io.InputStream.nullInputStream());
-                var err = new StreamDrainer(java.io.InputStream.nullInputStream())) {
+        try (StreamDrainer out = new StreamDrainer(java.io.InputStream.nullInputStream());
+                StreamDrainer err = new StreamDrainer(java.io.InputStream.nullInputStream())) {
             out.waitForEof(1000);
             err.waitForEof(1000);
-            call(chronological ? "processChronologicalEventLoop" : "processBreakpointsEventLoop",
-                    new Class<?>[] { VirtualMachine.class, CompilationResult.class, Collection.class, List.class,
-                        chronological ? List.class : Map.class, HashSet.class, StreamDrainer.class, StreamDrainer.class,
-                        boolean.class, InputObservation.class },
-                    vm, new CompilationResult(null, Set.of("C"), "C"), List.of(), List.of(), snapshots, new HashSet<>(),
-                    out, err, mainExit, input == null ? new InputObservation("") : input);
+            DebugTraceHelper.processChronologicalEventLoop(vm, new CompilationResult(null, Set.of("C"), "C"),
+                    List.of(), SourceAnalysis.from(List.of()), snapshots, new HashSet<>(), out, err, mainExit,
+                    input == null ? new InputObservation("") : input);
+        }
+    }
+
+    private static void runLoop(VirtualMachine vm, Map<Integer, List<ExecutionSnapshot>> snapshots, boolean mainExit,
+            InputObservation input) throws Exception {
+        try (StreamDrainer out = new StreamDrainer(java.io.InputStream.nullInputStream());
+                StreamDrainer err = new StreamDrainer(java.io.InputStream.nullInputStream())) {
+            out.waitForEof(1000);
+            err.waitForEof(1000);
+            DebugTraceHelper.processBreakpointsEventLoop(vm, new CompilationResult(null, Set.of("C"), "C"),
+                    List.of(), SourceAnalysis.from(List.of()), snapshots, new HashSet<>(), out, err, mainExit,
+                    input == null ? new InputObservation("") : input);
         }
     }
 
@@ -79,19 +93,19 @@ class DebuggerEventTest {
         var exception = mirror(ExceptionEvent.class, Map.of("location", location("C"), "thread", thread));
         var stop = mirror(VMDisconnectEvent.class, Map.of());
         var chronological = new ArrayList<ExecutionSnapshot>();
-        runLoop(true, vm(List.of(main, main, exception, stop)), chronological, true, null);
+        runLoop(vm(List.of(main, main, exception, stop)), chronological, true, null);
         assertThat(chronological).hasSize(1);
         assertThat(chronological.getFirst().stdinConsumed()).isEmpty();
         assertThat(chronological.getFirst().stdinOffset()).isZero();
         var mapped = new HashMap<Integer, List<ExecutionSnapshot>>();
-        runLoop(false, vm(List.of(main, exception, stop)), mapped, false, null);
+        runLoop(vm(List.of(main, exception, stop)), mapped, false, null);
         assertThat(mapped.keySet()).containsExactlyInAnyOrder(-1, 1);
         var priorFinal = mapped.get(-1).getFirst();
         // Main exits without requested capture must not replace previously selected states.
-        runLoop(false, vm(List.of(main, stop)), mapped, false, null);
+        runLoop(vm(List.of(main, stop)), mapped, false, null);
         assertThat(mapped.get(-1).getFirst()).isSameAs(priorFinal);
         var excluded = new ArrayList<ExecutionSnapshot>();
-        runLoop(true, vm(List.of(main, stop)), excluded, false, null);
+        runLoop(vm(List.of(main, stop)), excluded, false, null);
         assertThat(excluded).isEmpty();
     }
 
@@ -169,7 +183,7 @@ class DebuggerEventTest {
                 Map.of(), new byte[0], new byte[0]);
         var snapshots = new ArrayList<>(List.of(previous));
         var exception = mirror(ExceptionEvent.class, Map.of("location", location("C"), "thread", thread()));
-        runLoop(true, vm(List.of(exception, mirror(VMDisconnectEvent.class, Map.of()))), snapshots, false, null);
+        runLoop(vm(List.of(exception, mirror(VMDisconnectEvent.class, Map.of()))), snapshots, false, null);
         assertThat(snapshots).hasSize(2);
         assertThat(snapshots.getLast().stack().getLast().methodLine()).isEqualTo(1);
     }

@@ -77,11 +77,10 @@ class DebuggerTypeMetadataTest {
     @Test
     void constructorTypePrepassHandlesMissingReceiverOrCaller() throws Exception {
         var resolver = new AstTypeResolver(StaticJavaParser.parse("class C { void m() { C obj = new C(); } }"));
-        var signature = new Class<?>[] { ThreadReference.class, AstTypeResolver.class, ReifiedTypeMetadata.class };
         for (var frames : List.of(List.of(frame("<init>", null)), List.of(frame("<init>", null), frame("m", null)))) {
             var types = new ReifiedTypeMetadata(resolver);
-            call("prepassObjectTypes", signature, mirror(ThreadReference.class, Map.of("frames", frames)), resolver,
-                    types);
+            DebugTraceHelper.prepassObjectTypes(mirror(ThreadReference.class, Map.of("frames", frames)), resolver,
+                    types, null);
             assertThat(types.typeOf(1L)).isNull();
         }
     }

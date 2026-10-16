@@ -314,7 +314,7 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException If debug info is missing.
      * @throws ClassNotLoadedException If class is not loaded.
      */
-    private static void processBreakpointsEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+    static void processBreakpointsEventLoop(VirtualMachine vm, CompilationResult compilationResult,
             Collection<BreakpointSpec> breakPoints, SourceAnalysis sourceAnalysis,
             Map<Integer, List<ExecutionSnapshot>> snapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
             StreamDrainer vmErr, boolean snapMainEnd, InputObservation inputObservation) throws InterruptedException,
@@ -364,33 +364,6 @@ public class DebugTraceHelper {
                 set.resume();
             } // if
         } // while
-    } // processBreakpointsEventLoop
-
-    /**
-     * Runs the event loop for the breakpoint trace with raw parsed sources.
-     *
-     * @param vm The JDI VirtualMachine.
-     * @param compilationResult The compilation result.
-     * @param breakPoints Collection of breakpoint lines.
-     * @param parsedSources List of compilation units.
-     * @param snapshots Target map to accumulate snapshots.
-     * @param loadedClasses Set of loaded reference types.
-     * @param vmOut Drainer for stdout.
-     * @param vmErr Drainer for stderr.
-     * @param snapMainEnd True if main exit should be captured.
-     * @param inputObservation Input observation.
-     * @throws InterruptedException On interrupt.
-     * @throws IncompatibleThreadStateException On thread state error.
-     * @throws AbsentInformationException If debug info is missing.
-     * @throws ClassNotLoadedException If class is not loaded.
-     */
-    private static void processBreakpointsEventLoop(VirtualMachine vm, CompilationResult compilationResult,
-            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources,
-            Map<Integer, List<ExecutionSnapshot>> snapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
-            StreamDrainer vmErr, boolean snapMainEnd, InputObservation inputObservation) throws InterruptedException,
-            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
-        processBreakpointsEventLoop(vm, compilationResult, toSpecs(breakPoints), SourceAnalysis.from(parsedSources),
-                snapshots, loadedClasses, vmOut, vmErr, snapMainEnd, inputObservation);
     } // processBreakpointsEventLoop
 
     /**
@@ -954,7 +927,7 @@ public class DebugTraceHelper {
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException If class not loaded.
      */
-    private static void processChronologicalEventLoop(VirtualMachine vm, CompilationResult compilationResult,
+    static void processChronologicalEventLoop(VirtualMachine vm, CompilationResult compilationResult,
             Collection<BreakpointSpec> breakPoints, SourceAnalysis sourceAnalysis,
             List<ExecutionSnapshot> chronologicalSnapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
             StreamDrainer vmErr, boolean includeMainExit,
@@ -1037,34 +1010,6 @@ public class DebugTraceHelper {
             } // if
         } // if
     } // captureLifecycle
-
-    /**
-     * Processes the chronological event loop with raw parsed sources.
-     *
-     * @param vm Target VM.
-     * @param compilationResult Compilation result.
-     * @param breakPoints Breakpoint lines.
-     * @param parsedSources Compilation units.
-     * @param chronologicalSnapshots List to accumulate snapshots.
-     * @param loadedClasses Set of loaded classes.
-     * @param vmOut Drainer for stdout.
-     * @param vmErr Drainer for stderr.
-     * @param includeMainExit True to include main exit.
-     * @param inputObservation Input observation.
-     * @throws InterruptedException On interrupt.
-     * @throws IncompatibleThreadStateException On thread error.
-     * @throws AbsentInformationException On absent debug info.
-     * @throws ClassNotLoadedException If class not loaded.
-     */
-    private static void processChronologicalEventLoop(VirtualMachine vm, CompilationResult compilationResult,
-            Collection<Integer> breakPoints, List<CompilationUnit> parsedSources,
-            List<ExecutionSnapshot> chronologicalSnapshots, HashSet<ReferenceType> loadedClasses, StreamDrainer vmOut,
-            StreamDrainer vmErr, boolean includeMainExit,
-            InputObservation inputObservation) throws InterruptedException,
-            IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
-        processChronologicalEventLoop(vm, compilationResult, toSpecs(breakPoints), SourceAnalysis.from(parsedSources),
-                chronologicalSnapshots, loadedClasses, vmOut, vmErr, includeMainExit, inputObservation);
-    } // processChronologicalEventLoop
 
     /**
      * Handles an ExceptionEvent during the chronological event loop.
@@ -1493,28 +1438,12 @@ public class DebugTraceHelper {
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
      * @param metadata Snapshot-owned reified type evidence.
-     * @throws IncompatibleThreadStateException On thread state error.
-     * @throws AbsentInformationException On absent debug info.
-     * @throws ClassNotLoadedException On unloaded class.
-     */
-    private static void prepassObjectTypes(ThreadReference mainThread, AstTypeResolver astTypeResolver,
-            ReifiedTypeMetadata metadata)
-            throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
-        prepassObjectTypes(mainThread, astTypeResolver, metadata, null);
-    } // prepassObjectTypes
-
-    /**
-     * Pre-pass over frames to propagate types from AST allocations into metadata.
-     *
-     * @param mainThread Suspended thread.
-     * @param astTypeResolver AstTypeResolver instance.
-     * @param metadata Snapshot-owned reified type evidence.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @throws IncompatibleThreadStateException On thread state error.
      * @throws AbsentInformationException On absent debug info.
      * @throws ClassNotLoadedException On unloaded class.
      */
-    private static void prepassObjectTypes(ThreadReference mainThread, AstTypeResolver astTypeResolver,
+    static void prepassObjectTypes(ThreadReference mainThread, AstTypeResolver astTypeResolver,
             ReifiedTypeMetadata metadata, ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
 
@@ -1823,7 +1752,7 @@ public class DebugTraceHelper {
      * @param heap Heap map.
      * @return List of static Field snapshots.
      */
-    private static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
+    static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
             SourceAnalysis sourceAnalysis, List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap) {
         List<ExecutionSnapshot.Field> statics = new ArrayList<>();
         for (ReferenceType loadedClass : loadedClasses) {
@@ -1859,21 +1788,6 @@ public class DebugTraceHelper {
             } // for
         } // for
         return statics;
-    } // collectStatics
-
-    /**
-     * Collects static fields from all loaded classes with raw parsed sources.
-     *
-     * @param loadedClasses Loaded reference types.
-     * @param parsedSources Compilation units.
-     * @param heapReferencesToWalk Heap references list.
-     * @param heap Heap map.
-     * @return List of static Field snapshots.
-     */
-    private static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
-            List<CompilationUnit> parsedSources, List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap) {
-        return collectStatics(loadedClasses, SourceAnalysis.from(parsedSources), heapReferencesToWalk, heap);
     } // collectStatics
 
     /**

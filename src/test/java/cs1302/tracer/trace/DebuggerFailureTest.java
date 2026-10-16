@@ -255,9 +255,10 @@ class DebuggerFailureTest {
         var field = mirror(Field.class, Map.of("isStatic", true, "name", "x"));
         var type = mirror(ReferenceType.class,
                 Map.of("name", "C", "allFields", List.of(field), "getValue", unsupported));
-        assertThat(call("collectStatics", new Class<?>[] { Iterable.class, List.class, List.class, Map.class },
-                List.of(type), java.util.Arrays.asList((com.github.javaparser.ast.CompilationUnit) null),
-                new java.util.ArrayList<>(), new java.util.HashMap<>())).isEqualTo(List.of());
+        SourceAnalysis source = SourceAnalysis.from(
+                java.util.Arrays.asList((com.github.javaparser.ast.CompilationUnit) null));
+        assertThat(DebugTraceHelper.collectStatics(List.of(type), source,
+                new java.util.ArrayList<>(), new java.util.HashMap<>())).isEmpty();
     }
 
     @Test
