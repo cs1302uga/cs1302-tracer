@@ -54,6 +54,9 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Reject encoded links that resolve outside the documentation build instead of
+  accepting undeployable assets from neighboring directories.
+
 - **Python tooling:** migrate script tests to `scripts/tests/`, add typed release
   models and clearer invalid-input diagnostics, and enforce Ruff, ty, and 100%
   production line/branch coverage in a dedicated release-blocking CI job.

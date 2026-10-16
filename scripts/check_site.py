@@ -65,7 +65,10 @@ def main() -> None:
             if not target.path.startswith(plan["baseUrl"]):
                 errors.append(f"{relative}: escapes project base path: {link}")
                 continue
-            dest = ROOT / unquote(target.path.removeprefix(plan["baseUrl"]))
+            dest = (ROOT / unquote(target.path.removeprefix(plan["baseUrl"]))).resolve()
+            if not dest.is_relative_to(ROOT):
+                errors.append(f"{relative}: escapes project base path: {link}")
+                continue
             if dest.is_dir():
                 dest /= "index.html"
             if not dest.is_file():

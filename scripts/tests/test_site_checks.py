@@ -94,3 +94,12 @@ class SiteChecksTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         (self.build / "index.html").unlink()
         self.assertIn("Build the site first", invoke(self.root, "check_site.py").stderr)
+
+    def test_encoded_paths_cannot_validate_files_outside_the_build(self) -> None:
+        """Reject encoded traversal even when the destination exists on the developer machine."""
+        (self.build.parent / "outside.txt").write_text("not a deployed asset")
+        page = self.build / "next/index.html"
+        page.write_text(page.read_text() + '<a href="/project/%2e%2e/outside.txt">Outside</a>')
+        result = invoke(self.root, "check_site.py")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("escapes project base path", result.stderr)
