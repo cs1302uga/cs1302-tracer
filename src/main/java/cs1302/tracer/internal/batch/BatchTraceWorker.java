@@ -89,6 +89,17 @@ public final class BatchTraceWorker implements AutoCloseable {
             throw new IllegalArgumentException("BatchJobRequest cannot be null");
         } // if
 
+        return execute(req, SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED);
+    } // execute
+
+    /**
+     * Executes a validated request with an explicit source-discovery policy.
+     *
+     * @param req Non-null job request.
+     * @param discovery Permitted source discovery and resolution fallbacks.
+     * @return Correlated job response.
+     */
+    public synchronized BatchJobResponse execute(BatchJobRequest req, SourcePreparation.Discovery discovery) {
         TraceLimits limits = req.resolveLimits();
         TraceFormat format = TraceFormat.PYTUTOR;
         TypeStyle typeStyle;
@@ -120,7 +131,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                 traceSession.enableMultithread();
             } // if
             try {
-                Object payload = performTrace(req, traceSession, allBps, accBps, format, typeStyle);
+                Object payload = performTrace(req, traceSession, allBps, accBps, format, typeStyle, discovery);
                 if (session != null && !session.isAlive() && traceSession.stopReason() == null) {
                     traceSession.stop("guest_exit");
                 } // if
@@ -213,11 +224,12 @@ public final class BatchTraceWorker implements AutoCloseable {
      * @param accBps Accumulate flag.
      * @param format Output format.
      * @param typeStyle Type styling.
+     * @param discovery Permitted source discovery and resolution fallbacks.
      * @return Serialized payload.
      * @throws Exception On compilation or execution error.
      */
     private Object performTrace(BatchJobRequest req, TraceSession traceSession, boolean allBps, boolean accBps,
-            TraceFormat format, TypeStyle typeStyle) throws Exception {
+            TraceFormat format, TypeStyle typeStyle, SourcePreparation.Discovery discovery) throws Exception {
         if (req.source() == null || req.source().isBlank()) {
             throw new IllegalArgumentException("Source code cannot be empty");
         } // if
@@ -229,10 +241,11 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
 
         traceSession.phase("compile");
-        SourcePreparation.Discovery discovery = effectiveInspection(req) == InspectionPolicy.FIELDS
-                ? SourcePreparation.Discovery.SUBMITTED_ONLY : SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED;
+        SourcePreparation.Discovery effectiveDiscovery = effectiveInspection(req) == InspectionPolicy.FIELDS
+                ? SourcePreparation.Discovery.SUBMITTED_ONLY : discovery;
         Object payload;
-        try (SourcePreparation prepared = SourcePreparation.prepare(req.source(), Optional.empty(), discovery)) {
+        try (SourcePreparation prepared = SourcePreparation.prepare(
+                req.source(), Optional.empty(), effectiveDiscovery)) {
             traceSession.phase("trace");
             if (session != null) {
                 traceSession.attach(session.process(), false);

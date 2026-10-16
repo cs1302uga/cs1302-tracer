@@ -34,6 +34,8 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
     public enum Discovery {
         /** Only submitted sources contribute evidence. */
         SUBMITTED_ONLY,
+        /** Only submitted sources contribute evidence, resolved against their compiled source directory. */
+        SUBMITTED_OR_COMPILED,
         /** Include neighboring source evidence. */
         NEIGHBORS,
         /** Include neighbors, using compiled source files when no original root exists. */
@@ -57,11 +59,13 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
     public static SourcePreparation prepare(String source, Optional<Path> inputPath, Discovery discovery)
             throws IOException {
         List<CompilationHelper.SourceFile> sources = CompilationHelper.parseMultiFileStream(source);
-        Optional<Path> root = discovery == Discovery.SUBMITTED_ONLY ? Optional.empty()
-                : CompilationHelper.findSourceRoot(CompilationHelper.findEntryPoint(sources).ast(), inputPath);
+        Optional<Path> root = discovery == Discovery.NEIGHBORS || discovery == Discovery.NEIGHBORS_OR_COMPILED
+                ? CompilationHelper.findSourceRoot(CompilationHelper.findEntryPoint(sources).ast(), inputPath)
+                : Optional.empty();
         return CompilationHelper.compile(sources, root, compiled -> new SourcePreparation(compiled,
                 discoverAllCompilationUnits(sources, root,
-                        discovery == Discovery.NEIGHBORS_OR_COMPILED && root.isEmpty()
+                        (discovery == Discovery.SUBMITTED_OR_COMPILED
+                                || discovery == Discovery.NEIGHBORS_OR_COMPILED) && root.isEmpty()
                                 ? Optional.of(compiled.classPath()) : root)));
     } // prepare
 

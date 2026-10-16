@@ -32,7 +32,7 @@ public final class Tracer {
                 request.inlineStrings(), request.removeMethodThis(), request.typeStyle().toString(), request.limits(),
                 request.inspection(), request.multithread());
         try (BatchTraceWorker worker = new BatchTraceWorker(1)) {
-            TraceResult result = worker.execute(job).result();
+            TraceResult result = worker.execute(job, SourcePreparation.Discovery.SUBMITTED_OR_COMPILED).result();
             return TraceOutcomes.freeze(result, false);
         } // try
     } // trace

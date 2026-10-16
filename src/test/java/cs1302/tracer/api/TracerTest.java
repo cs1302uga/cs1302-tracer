@@ -5,6 +5,70 @@ import org.junit.jupiter.api.Test;
 
 class TracerTest {
     @Test
+    void oneShotTraceDoesNotDiscoverUnsubmittedNeighbors(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root)
+            throws Exception {
+        java.nio.file.Path neighbor = java.nio.file.Files.createDirectories(root.resolve("ambient"))
+                .resolve("Neighbor.java");
+        java.nio.file.Files.writeString(neighbor,
+                "package ambient; public class Neighbor { public static int value() { return 42; } }");
+        java.nio.file.Path consumer = root.resolve("Consumer.java");
+        java.nio.file.Files.writeString(consumer, """
+                import cs1302.tracer.api.TraceRequest;
+                import cs1302.tracer.api.Tracer;
+                class Consumer {
+                    public static void main(String[] args) {
+                        System.out.print(Tracer.trace(new TraceRequest(
+                            "package ambient; public class Main { public static void main(String[] args) {"
+                            + "System.out.print(Neighbor.value()); } }"
+                        )).json());
+                    }
+                }
+                """);
+        String classpath = System.getProperty("java.class.path");
+        assertThat(javax.tools.ToolProvider.getSystemJavaCompiler().run(null, null, null,
+                "-classpath", classpath, "-d", root.toString(), consumer.toString())).isZero();
+        java.nio.file.Path output = root.resolve("out.json");
+        java.nio.file.Path errors = root.resolve("errors.txt");
+        Process process = new ProcessBuilder(java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                .toString(), "-cp", root + java.io.File.pathSeparator + classpath, "Consumer")
+                .directory(root.toFile()).redirectOutput(output.toFile()).redirectError(errors.toFile()).start();
+        try {
+            assertThat(process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(process.exitValue()).as(java.nio.file.Files.readString(errors)).isZero();
+            com.google.gson.JsonObject result = com.google.gson.JsonParser.parseString(
+                    java.nio.file.Files.readString(output)).getAsJsonObject();
+            assertThat(result.get("status").getAsString()).isEqualTo("failed");
+            assertThat(result.get("phase").getAsString()).isEqualTo("compile");
+            assertThat(result.get("stdout").getAsString()).isEmpty();
+        } finally {
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            process.destroyForcibly();
+            process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void oneShotTraceResolvesOtherSubmittedSources() {
+        TraceOutcome outcome = Tracer.trace(new TraceRequest("""
+                // --- submitted/Main.java ---
+                package submitted;
+                public class Main {
+                    public static void main(String[] args) {
+                        System.out.print(new Parent<Integer>(42).value);
+                    }
+                }
+                // --- submitted/Parent.java ---
+                package submitted;
+                public class Parent<T> {
+                    public T value;
+                    public Parent(T value) { this.value = value; }
+                }
+                """));
+        assertThat(outcome.complete()).isTrue();
+        assertThat(outcome.stdout()).isEqualTo("42");
+    }
+
+    @Test
     void callerCanTraceWithoutParserOrSerializerObjects() {
         TraceOutcome outcome = Tracer.trace(new TraceRequest(
                 "public class Main { public static void main(String[] args) { System.out.print(42); } }"));

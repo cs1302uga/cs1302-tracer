@@ -54,6 +54,10 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 
 ### Non-breaking changes
 
+- Correct one-shot `Tracer.trace` source discovery to use only submitted sources,
+  as documented, rather than discovering neighboring files in the caller's working
+  directory. CLI/batch discovery and serialized output formats are unchanged.
+
 - Update JavaParser's Guava and Javassist support libraries to 33.7.2-jre and
   3.33.0-GA, and align shared Error Prone/JSpecify annotations at 2.50.0/1.0.1.
   Keep the parser, serializers, CLI library, and output contracts unchanged.
