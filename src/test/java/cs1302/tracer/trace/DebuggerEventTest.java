@@ -58,7 +58,7 @@ class DebuggerEventTest {
     }
 
     private static void runLoop(boolean chronological, VirtualMachine vm, Object snapshots, boolean mainExit,
-            InputTracker input) throws Exception {
+            InputObservation input) throws Exception {
         try (var out = new StreamDrainer(java.io.InputStream.nullInputStream());
                 var err = new StreamDrainer(java.io.InputStream.nullInputStream())) {
             out.waitForEof(1000);
@@ -66,9 +66,9 @@ class DebuggerEventTest {
             call(chronological ? "processChronologicalEventLoop" : "processBreakpointsEventLoop",
                     new Class<?>[] { VirtualMachine.class, CompilationResult.class, Collection.class, List.class,
                         chronological ? List.class : Map.class, HashSet.class, StreamDrainer.class, StreamDrainer.class,
-                        boolean.class, InputTracker.class },
+                        boolean.class, InputObservation.class },
                     vm, new CompilationResult(null, Set.of("C"), "C"), List.of(), List.of(), snapshots, new HashSet<>(),
-                    out, err, mainExit, input);
+                    out, err, mainExit, input == null ? new InputObservation("") : input);
         }
     }
 

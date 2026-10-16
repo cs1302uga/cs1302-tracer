@@ -65,6 +65,16 @@ class DebuggerFailureTest {
         }
     }
 
+    private static com.sun.jdi.event.MethodExitEvent rawRead(VirtualMachine vm) {
+        var input = mirror(ObjectReference.class, Map.of());
+        var method = mirror(com.sun.jdi.Method.class, Map.of("name", "read", "declaringType",
+                mirror(ReferenceType.class, Map.of("name", "java.io.InputStream")), "argumentTypeNames", List.of()));
+        return mirror(com.sun.jdi.event.MethodExitEvent.class, Map.of("method", method, "virtualMachine", vm,
+                "thread", mirror(ThreadReference.class, Map.of("frames",
+                        List.of(mirror(StackFrame.class, Map.of("thisObject", input))))),
+                "returnValue", mirror(IntegerValue.class, Map.of("value", 97))));
+    }
+
     @Test
     void systemInputLookupToleratesMissingOrDisconnectedVmMetadata() throws Exception {
         var field = mirror(Field.class, Map.of());
@@ -75,9 +85,11 @@ class DebuggerFailureTest {
                 Map.<String, Object>of("classesByName", List.of(noField)),
                 Map.<String, Object>of("classesByName", List.of(nonObject)),
                 Map.<String, Object>of("classesByName", new VMDisconnectedException()))) {
-            assertThat(
-                    call("getSystemIn", new Class<?>[] { VirtualMachine.class }, mirror(VirtualMachine.class, values)))
-                    .isNull();
+            var observation = new InputObservation("abc");
+            var vm = mirror(VirtualMachine.class, values);
+            observation.start(vm);
+            observation.record(rawRead(vm));
+            assertThat(observation.consumed()).isEmpty();
         }
     }
 
@@ -221,13 +233,10 @@ class DebuggerFailureTest {
 
     @Test
     void readerMetadataFailureDoesNotAbortTheTrace() throws Exception {
-        var signature = new Class<?>[] { com.sun.jdi.event.MethodExitEvent.class, InputTracker.class,
-            ObjectReference.class };
-        var event = mirror(com.sun.jdi.event.MethodExitEvent.class, Map.of("method", new VMDisconnectedException()));
-        call("handleReaderMethodExit", signature, event, null, null);
-        var tracker = new InputTracker("abc");
-        call("handleReaderMethodExit", signature, event, tracker, mirror(ObjectReference.class, Map.of()));
-        assertThat(tracker.offset()).isZero();
+        var event = mirror(com.sun.jdi.event.MethodExitEvent.class, Map.of("thread", new VMDisconnectedException()));
+        var observation = new InputObservation("abc");
+        observation.record(event);
+        assertThat(observation.offset()).isZero();
     }
 
     @Test
@@ -254,12 +263,9 @@ class DebuggerFailureTest {
     @Test
     void readerExitLooksUpSystemInputWhenCacheIsMissing() throws Exception {
         var vm = mirror(VirtualMachine.class, Map.of("classesByName", List.of()));
-        var event = mirror(com.sun.jdi.event.MethodExitEvent.class,
-                Map.of("virtualMachine", vm, "method", new VMDisconnectedException()));
-        var tracker = new InputTracker("abc");
-        call("handleReaderMethodExit",
-                new Class<?>[] { com.sun.jdi.event.MethodExitEvent.class, InputTracker.class, ObjectReference.class },
-                event, tracker, null);
-        assertThat(tracker.offset()).isZero();
+        var event = rawRead(vm);
+        var observation = new InputObservation("abc");
+        observation.record(event);
+        assertThat(observation.offset()).isZero();
     }
 }

@@ -18,6 +18,36 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 class BatchTraceWorkerTest {
 
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void inputObservationIsIsolatedAcrossJobsAndCountsOnlyLogicalStandardInput(boolean multithread) {
+        String source = """
+                public class InputJob {
+                    public static void main(String[] args) throws Exception {
+                        String unrelated = new java.util.Scanner("decoy").nextLine();
+                        var reader = new java.io.BufferedReader(new java.io.InputStreamReader(System.in));
+                        String line = reader.readLine();
+                        System.out.println(line);
+                    }
+                }
+                """;
+        try (var worker = new BatchTraceWorker(10)) {
+            for (String prefix : List.of("éx\n", "猫\n")) {
+                var request = new BatchJobRequest("input", source, "modern", prefix + "remaining", null,
+                        true, false, false, false, false, "fqn", TraceLimits.unlimited(), null, multithread);
+                var result = worker.execute(request).result();
+                assertThat(result.status()).isEqualTo("completed");
+                var trace = (cs1302.tracer.model.modern.Trace) result.trace();
+                assertThat(trace.steps()).isNotEmpty();
+                assertThat(trace.steps().getFirst().stdinOffset()).isZero();
+                assertThat(trace.steps().getLast().stdinConsumed()).isEqualTo(prefix);
+                assertThat(trace.steps().getLast().stdinOffset()).isEqualTo(prefix.length());
+                assertThat(trace.steps().stream().filter(step -> step.line() >= 3 && step.line() <= 5))
+                        .isNotEmpty().allSatisfy(step -> assertThat(step.stdinOffset()).isZero());
+            }
+        }
+    }
+
     private static final String MULTI_FILE_SOURCE = """
             // --- A.java ---
             public class A {

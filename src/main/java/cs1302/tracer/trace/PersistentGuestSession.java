@@ -399,7 +399,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param cr Compilation result.
      * @param safeSpecs Breakpoint specifications.
      * @param sourceAnalysis Precomputed AST analysis.
-     * @param inputTracker Guest input tracker.
+     * @param inputObservation Guest input observation.
      * @param sink Snapshot consumer.
      * @param jobRequests List collecting active event requests.
      * @param loadedClasses Loaded reference types.
@@ -409,7 +409,7 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param isChronological True if running chronological trace.
      */
     record JobContext(CompilationResult cr, Collection<BreakpointSpec> safeSpecs, SourceAnalysis sourceAnalysis,
-            InputTracker inputTracker, SnapshotSink sink, List<EventRequest> jobRequests,
+            InputObservation inputObservation, SnapshotSink sink, List<EventRequest> jobRequests,
             HashSet<ReferenceType> loadedClasses, AtomicReference<ClassLoaderReference> jobLoader, JobOutput output,
             boolean snapMainEnd, boolean isChronological) {} // JobContext
 
@@ -472,7 +472,8 @@ public final class PersistentGuestSession implements AutoCloseable {
             Collection<BreakpointSpec> safeSpecs = specs != null ? specs : Collections.emptyList();
             setupJobRequests(cr, jobRequests);
 
-            JobContext ctx = new JobContext(cr, safeSpecs, SourceAnalysis.from(parsedSources), new InputTracker(stdin),
+            JobContext ctx = new JobContext(cr, safeSpecs, SourceAnalysis.from(parsedSources),
+                    new InputObservation(stdin),
                     sink, jobRequests, new HashSet<>(), new AtomicReference<>(), output,
                     includeMainExit || safeSpecs.isEmpty() || safeSpecs.stream().anyMatch(s -> s.lineNumber() == -1),
                     isChronological);
@@ -671,14 +672,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         mainExitReq.enable();
         jobRequests.add(mainExitReq);
 
-        String[] readerClasses = { "java.util.Scanner", "java.io.BufferedReader", "java.lang.IO", "java.io.InputStream",
-            "java.io.BufferedInputStream" };
-        for (String rc : readerClasses) {
-            MethodExitRequest mer = vm.eventRequestManager().createMethodExitRequest();
-            mer.addClassFilter(rc);
-            mer.enable();
-            jobRequests.add(mer);
-        } // for
+        InputObservation.registerRequests(vm, jobRequests);
 
         ExceptionRequest er = vm.eventRequestManager().createExceptionRequest(null, false, true);
         er.enable();
@@ -700,11 +694,11 @@ public final class PersistentGuestSession implements AutoCloseable {
     void executeJobEventLoop(JobContext ctx) throws Exception {
         boolean[] recorded = new boolean[] { false };
         boolean jobComplete = false;
-        ObjectReference systemIn = DebugTraceHelper.getSystemIn(vm);
+        ctx.inputObservation().start(vm);
 
         while (!jobComplete) {
             for (Event event : DebugTraceHelper.nextEvents(vm)) {
-                jobComplete = dispatchJobEvent(event, ctx, recorded, systemIn);
+                jobComplete = dispatchJobEvent(event, ctx, recorded);
                 if (jobComplete) {
                     break;
                 } // if
@@ -719,11 +713,10 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param event JDI event.
      * @param ctx Job execution context.
      * @param recorded Flag array tracking whether any snapshot was recorded.
-     * @param systemIn Cached System.in reference.
      * @return True if the job has completed and the event loop should terminate.
      * @throws Exception On snapshot capture failure.
      */
-    boolean dispatchJobEvent(Event event, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
+    boolean dispatchJobEvent(Event event, JobContext ctx, boolean[] recorded)
             throws Exception {
         switch (event) {
         case ClassPrepareEvent cpe -> {
@@ -744,7 +737,7 @@ public final class PersistentGuestSession implements AutoCloseable {
             } // if
         } // case
         case MethodExitEvent mee -> {
-            handleMethodExit(mee, ctx, recorded, systemIn);
+            handleMethodExit(mee, ctx, recorded);
         } // case
         case ExceptionEvent ee -> {
             handleExceptionEvent(ee, ctx, recorded);
@@ -784,7 +777,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         } // if
         if (ctx.cr().compiledClassNames().contains(loc.declaringType().name())) {
             ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(bpe.thread(), ctx.loadedClasses(), vmOut, vmErr,
-                    ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
+                    ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                     harnessType.classLoader());
             ctx.sink().accept(loc.lineNumber(), snap);
             recorded[0] = true;
@@ -798,10 +791,9 @@ public final class PersistentGuestSession implements AutoCloseable {
      * @param mee MethodExitEvent instance.
      * @param ctx Job execution context.
      * @param recorded Flag tracking snapshot recording.
-     * @param systemIn System.in reference.
      * @throws Exception On snapshot capture failure.
      */
-    void handleMethodExit(MethodExitEvent mee, JobContext ctx, boolean[] recorded, ObjectReference systemIn)
+    void handleMethodExit(MethodExitEvent mee, JobContext ctx, boolean[] recorded)
             throws Exception {
         ClassLoaderReference cl = mee.method().declaringType().classLoader();
         if (ctx.jobLoader().get() != null && cl != null && !Objects.equals(ctx.jobLoader().get(), cl)) {
@@ -811,14 +803,13 @@ public final class PersistentGuestSession implements AutoCloseable {
                 && ctx.cr().mainClass().equals(mee.method().declaringType().name())) {
             if (ctx.snapMainEnd()) {
                 ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(mee.thread(), ctx.loadedClasses(), vmOut,
-                        vmErr, ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
+                        vmErr, ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(-1, snap);
                 recorded[0] = true;
             } // if
         } else {
-            DebugTraceHelper.handleReaderMethodExit(mee, ctx.inputTracker(),
-                    systemIn != null ? systemIn : DebugTraceHelper.getSystemIn(vm));
+            ctx.inputObservation().record(mee);
         } // if
     } // handleMethodExit
 
@@ -846,7 +837,7 @@ public final class PersistentGuestSession implements AutoCloseable {
                     currentSession.guestException(ee.exception().referenceType().name());
                 } // if
                 ExecutionSnapshot snap = DebugTraceHelper.snapshotTheWorld(ee.thread(), ctx.loadedClasses(), vmOut,
-                        vmErr, ctx.sourceAnalysis(), ctx.inputTracker(), ctx.output(),
+                        vmErr, ctx.sourceAnalysis(), ctx.inputObservation(), ctx.output(),
                         harnessType.classLoader());
                 ctx.sink().accept(loc.lineNumber(), snap);
                 if (!ctx.isChronological()) {

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-class ReaderTrackingFailureTest {
+class InputObservationFailureTest {
     private static final AtomicLong IDS = new AtomicLong();
 
     private static ObjectReference object(Map<String, Value> fields) {
@@ -33,6 +33,15 @@ class ReaderTrackingFailureTest {
                 case "getValue" -> fields.get(((Field) args[0]).name());
                 default -> null;
                 });
+    }
+
+    private static void observe(MethodExitEvent event, InputObservation observation, ObjectReference input) {
+        var values = new HashMap<String, Object>();
+        values.put("fieldByName", mirror(Field.class, Map.of()));
+        if (input != null) values.put("getValue", input);
+        observation.start(mirror(VirtualMachine.class, Map.of("classesByName",
+                List.of(mirror(ReferenceType.class, values)))));
+        observation.record(event);
     }
 
     private static IntegerValue number(int n) {
@@ -63,8 +72,8 @@ class ReaderTrackingFailureTest {
         var fields = new HashMap<String, Value>(
                 Map.of("source", input, "matcher", object(match), "buf", object(buffer)));
         fields.remove(missing);
-        var tracker = new InputTracker("1");
-        ReaderTracking.record(event("java.util.Scanner", "nextInt", object(fields), number(1), List.of()), tracker,
+        var tracker = new InputObservation("1");
+        observe(event("java.util.Scanner", "nextInt", object(fields), number(1), List.of()), tracker,
                 input);
         assertThat(tracker.offset()).isZero();
     }
@@ -76,8 +85,8 @@ class ReaderTrackingFailureTest {
         var buffer = object(Map.of("offset", number(0), "hb", mirror(ArrayReference.class, Map.of("length", 1))));
         var scanner = object(Map.of("source", input, "buf", buffer, "matcher",
                 object(Map.of("first", number(first), "last", number(first == 2 ? 1 : first + 1)))));
-        var tracker = new InputTracker("1");
-        ReaderTracking.record(event("java.util.Scanner", "nextInt", scanner, number(1), List.of()), tracker, input);
+        var tracker = new InputObservation("1");
+        observe(event("java.util.Scanner", "nextInt", scanner, number(1), List.of()), tracker, input);
         assertThat(tracker.offset()).isZero();
     }
 
@@ -91,8 +100,8 @@ class ReaderTrackingFailureTest {
         for (int i = 0; i < 40; i++)
             deep = object(Map.of("source", deep));
         for (var reader : List.of(cycle, deep)) {
-            var tracker = new InputTracker("1");
-            ReaderTracking.record(event("java.util.Scanner", "next", reader,
+            var tracker = new InputObservation("1");
+            observe(event("java.util.Scanner", "next", reader,
                     mirror(StringReference.class, Map.of("value", "1")), List.of()), tracker, input);
             assertThat(tracker.offset()).isZero();
         }
@@ -101,14 +110,14 @@ class ReaderTrackingFailureTest {
     @Test
     void eofAndUnavailableInputDoNotAdvanceCursor() throws Exception {
         var input = object(Map.of());
-        var tracker = new InputTracker("abc");
-        ReaderTracking.record(event("java.io.InputStream", "read", input, number(-1), List.of()), tracker, input);
-        ReaderTracking.record(event("java.io.BufferedReader", "readLine", input, null, List.of()), tracker, input);
-        ReaderTracking.record(event("java.util.Scanner", "nextInt", input, null, List.of()), tracker, input);
-        ReaderTracking.record(event("java.util.Scanner", "next", input, number(1), List.of()), tracker, null);
-        ReaderTracking.record(event("java.util.Scanner", "next", null, number(1), List.of()), tracker, input);
+        var tracker = new InputObservation("abc");
+        observe(event("java.io.InputStream", "read", input, number(-1), List.of()), tracker, input);
+        observe(event("java.io.BufferedReader", "readLine", input, null, List.of()), tracker, input);
+        observe(event("java.util.Scanner", "nextInt", input, null, List.of()), tracker, input);
+        observe(event("java.util.Scanner", "next", input, number(1), List.of()), tracker, null);
+        observe(event("java.util.Scanner", "next", null, number(1), List.of()), tracker, input);
         assertThat(tracker.offset()).isZero();
-        ReaderTracking.record(event("java.io.InputStream", "read", input, number(2), List.of("byte[]")), tracker,
+        observe(event("java.io.InputStream", "read", input, number(2), List.of("byte[]")), tracker,
                 input);
         assertThat(tracker.consumed()).isEqualTo("ab");
     }
@@ -118,21 +127,21 @@ class ReaderTrackingFailureTest {
         var input = object(Map.of());
         var wrapper = object(Map.of("in", input));
         var text = mirror(StringReference.class, Map.of("value", "abc"));
-        var tracker = new InputTracker("abc");
-        ReaderTracking.record(event("java.lang.IO", "println", null, text, List.of()), tracker, input);
-        ReaderTracking.record(event("java.util.Scanner", "hasNext", wrapper, number(1), List.of()), tracker, input);
-        ReaderTracking.record(event("java.io.InputStream", "read", wrapper, number(1), List.of()), tracker, input);
-        ReaderTracking.record(event("java.lang.IO", "read", null, text, List.of()), tracker, input);
-        ReaderTracking.record(event("java.io.InputStream", "read", input, text, List.of()), tracker, input);
+        var tracker = new InputObservation("abc");
+        observe(event("java.lang.IO", "println", null, text, List.of()), tracker, input);
+        observe(event("java.util.Scanner", "hasNext", wrapper, number(1), List.of()), tracker, input);
+        observe(event("java.io.InputStream", "read", wrapper, number(1), List.of()), tracker, input);
+        observe(event("java.lang.IO", "read", null, text, List.of()), tracker, input);
+        observe(event("java.io.InputStream", "read", input, text, List.of()), tracker, input);
         assertThat(tracker.offset()).isZero();
-        ReaderTracking.record(event("java.util.Scanner", "findInLine", wrapper, text, List.of()), tracker, input);
+        observe(event("java.util.Scanner", "findInLine", wrapper, text, List.of()), tracker, input);
         assertThat(tracker.consumed()).isEqualTo("abc");
     }
 
     @Test
     void ioLineReadConsumesTheLineTerminatorWithoutAReceiver() throws Exception {
-        var tracker = new InputTracker("abc\nrest");
-        ReaderTracking.record(
+        var tracker = new InputObservation("abc\nrest");
+        observe(
                 event("java.lang.IO", "readln", null, mirror(StringReference.class, Map.of("value", "abc")), List.of()),
                 tracker, null);
         assertThat(tracker.consumed()).isEqualTo("abc\n");
@@ -141,8 +150,8 @@ class ReaderTrackingFailureTest {
     @Test
     void scannerLineReadConsumesTheLineTerminator() throws Exception {
         var input = object(Map.of());
-        var tracker = new InputTracker("abc\nrest");
-        ReaderTracking.record(event("java.util.Scanner", "nextLine", object(Map.of("source", input)),
+        var tracker = new InputObservation("abc\nrest");
+        observe(event("java.util.Scanner", "nextLine", object(Map.of("source", input)),
                 mirror(StringReference.class, Map.of("value", "abc")), List.of()), tracker, input);
         assertThat(tracker.consumed()).isEqualTo("abc\n");
     }

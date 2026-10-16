@@ -25,3 +25,6 @@ Selection of the requested tracing mode and its execution through a dedicated or
 
 **Job output**:
 The stdout and sanitized stderr belonging to one guest execution. Live prefixes may refer to reusable drainers; finished output is immutable, and retained snapshot prefixes must be detached before those drainers are reset.
+
+**Input observation**:
+The per-job interpretation of supported reader activity as consumption of standard input. It owns standard-input identity and fallback, logical read recognition, and the consumed-input cursor. Nested reads count once, unrelated streams do not count, and each job starts with a fresh cursor. Existing cursor-offset semantics are preserved; guest execution retains ownership of event loops and request cleanup.

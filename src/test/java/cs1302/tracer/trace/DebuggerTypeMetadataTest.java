@@ -145,8 +145,8 @@ class DebuggerTypeMetadataTest {
 
     @Test
     void lambdaConstraintParametersUseTheirBoundForTheReconstructedSignature() throws Exception {
-        var declaration = (com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration) java.lang.reflect.Proxy
-                .newProxyInstance(getClass().getClassLoader(),
+        var declaration = (com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration)
+                java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
                         new Class<?>[] {
                             com.github.javaparser.resolution.declarations.ResolvedParameterDeclaration.class },
                         (self, method, args) -> com.github.javaparser.resolution.types.ResolvedLambdaConstraintType

@@ -63,3 +63,11 @@ source observations for a captured location. Use `isFinal(variable)` and
 and argument type names. Source analysis owns method matching and lambda selection,
 including the existing first-assignment fallback before any recorded assignment.
 Unmatched methods return empty evidence. Static lambda lookup remains available.
+
+`InputObservation` owns one execution's reader recognition, standard-input identity,
+and logical cursor. Construct a fresh instance per job, register reader requests with
+`registerRequests(vm, requests)`, call `start(vm)` before processing events, and pass
+reader exits to `record(event)`. The guest owner retains request cleanup. Read
+`consumed()` and `offset()` when capturing snapshots; offsets remain UTF-16 indices.
+Missing reader metadata is tolerated, and a missing initial input identity is looked
+up again when observing reads. The standalone `InputTracker` remains available.

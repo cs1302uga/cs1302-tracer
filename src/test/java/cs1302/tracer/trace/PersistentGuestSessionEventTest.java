@@ -155,35 +155,35 @@ class PersistentGuestSessionEventTest {
         PersistentGuestSession.SnapshotSink sink = (line, snap) -> captured.add(snap);
 
         var ctx = new PersistentGuestSession.JobContext(cr, List.of(BreakpointSpec.of(10)), SourceAnalysis.empty(),
-                new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(), jobOutput(session), true,
-                false);
+                new InputObservation(""), sink, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(),
+                jobOutput(session), true, false);
 
         boolean[] recorded = new boolean[] { false };
 
         // 1. ClassPrepareEvent for foreign class
         var foreignRef = mirror(ReferenceType.class, Map.of("name", "ForeignClass", "allFields", List.of()));
         var cpeForeign = mirror(ClassPrepareEvent.class, Map.of("referenceType", foreignRef));
-        assertThat(session.dispatchJobEvent(cpeForeign, ctx, recorded, null)).isFalse();
+        assertThat(session.dispatchJobEvent(cpeForeign, ctx, recorded)).isFalse();
 
         // 2. ClassPrepareEvent for student class
         var studentRef = mirror(ReferenceType.class,
                 Map.of("name", "Student", "allFields", List.of(), "locationsOfLine", List.of(location("Student", 10))));
         var cpeStudent = mirror(ClassPrepareEvent.class, Map.of("referenceType", studentRef));
-        assertThat(session.dispatchJobEvent(cpeStudent, ctx, recorded, null)).isFalse();
+        assertThat(session.dispatchJobEvent(cpeStudent, ctx, recorded)).isFalse();
         assertThat(ctx.loadedClasses()).contains(studentRef);
 
         // 3. BreakpointEvent at onJobCompleted
         var bpeCompleted = mirror(BreakpointEvent.class, Map.of("location", completedLoc));
-        assertThat(session.dispatchJobEvent(bpeCompleted, ctx, recorded, null)).isTrue();
+        assertThat(session.dispatchJobEvent(bpeCompleted, ctx, recorded)).isTrue();
 
         // 4. BreakpointEvent at foreign class
         var bpeForeign = mirror(BreakpointEvent.class, Map.of("location", location("ForeignClass", 5)));
-        assertThat(session.dispatchJobEvent(bpeForeign, ctx, recorded, null)).isFalse();
+        assertThat(session.dispatchJobEvent(bpeForeign, ctx, recorded)).isFalse();
 
         // 5. BreakpointEvent at student class
         Location studentLoc = location("Student", 10);
         var bpeStudent = mirror(BreakpointEvent.class, Map.of("location", studentLoc, "thread", thread(studentLoc)));
-        assertThat(session.dispatchJobEvent(bpeStudent, ctx, recorded, null)).isFalse();
+        assertThat(session.dispatchJobEvent(bpeStudent, ctx, recorded)).isFalse();
         assertThat(recorded[0]).isTrue();
         assertThat(captured).hasSize(1);
 
@@ -191,40 +191,40 @@ class PersistentGuestSessionEventTest {
         var helperMethod = method("Student", "helper", "()I");
         var meeHelper = mirror(MethodExitEvent.class,
                 Map.of("method", helperMethod, "thread", thread(location("Student", 20))));
-        session.dispatchJobEvent(meeHelper, ctx, recorded, null);
+        session.dispatchJobEvent(meeHelper, ctx, recorded);
 
         // 7. MethodExitEvent main with snapMainEnd = false and recorded = true
         var ctxNoMain = new PersistentGuestSession.JobContext(cr, List.of(BreakpointSpec.of(10)),
-                SourceAnalysis.empty(), new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(),
+                SourceAnalysis.empty(), new InputObservation(""), sink, new ArrayList<>(), new HashSet<>(),
                 new AtomicReference<>(), jobOutput(session), false, false);
         var mainMethod = method("Student", "main", "([Ljava/lang/String;)V");
         var meeMain = mirror(MethodExitEvent.class,
                 Map.of("method", mainMethod, "thread", thread(location("Student", 20))));
-        session.dispatchJobEvent(meeMain, ctxNoMain, recorded, null);
+        session.dispatchJobEvent(meeMain, ctxNoMain, recorded);
 
         // 7b. MethodExitEvent main with snapMainEnd = false and recorded = false
         boolean[] notRecorded = new boolean[] { false };
-        session.dispatchJobEvent(meeMain, ctxNoMain, notRecorded, null);
+        session.dispatchJobEvent(meeMain, ctxNoMain, notRecorded);
         assertThat(notRecorded[0]).isFalse();
 
         // 8. MethodExitEvent main with snapMainEnd = true
-        session.dispatchJobEvent(meeMain, ctx, recorded, null);
+        session.dispatchJobEvent(meeMain, ctx, recorded);
         assertThat(captured).hasSize(2);
 
         // 8b. MethodExitEvent main but in a different declaring class
         var otherMainMethod = method("OtherClass", "main", "([Ljava/lang/String;)V");
         var meeOtherMain = mirror(MethodExitEvent.class,
                 Map.of("method", otherMainMethod, "thread", thread(location("OtherClass", 20))));
-        session.dispatchJobEvent(meeOtherMain, ctx, recorded, null);
+        session.dispatchJobEvent(meeOtherMain, ctx, recorded);
 
         // 9. ExceptionEvent with null location
         var eeNullLoc = mirror(ExceptionEvent.class, Map.of("catchLocation", location("Student", 30)));
-        session.dispatchJobEvent(eeNullLoc, ctx, recorded, null);
+        session.dispatchJobEvent(eeNullLoc, ctx, recorded);
 
         // 10. ExceptionEvent caught in student
         var eeCaught = mirror(ExceptionEvent.class,
                 Map.of("location", location("Student", 15), "catchLocation", location("Student", 25)));
-        session.dispatchJobEvent(eeCaught, ctx, recorded, null);
+        session.dispatchJobEvent(eeCaught, ctx, recorded);
 
         // 11. ExceptionEvent uncaught in student with active TraceSession
         recorded[0] = false;
@@ -235,17 +235,17 @@ class PersistentGuestSessionEventTest {
         try (var ts = new cs1302.tracer.execution.TraceSession(cs1302.tracer.execution.TraceLimits.unlimited(),
                 cs1302.tracer.execution.InspectionPolicy.TRUSTED, true)) {
             assertThat(ts).isNotNull();
-            session.dispatchJobEvent(eeUncaught, ctx, recorded, null);
+            session.dispatchJobEvent(eeUncaught, ctx, recorded);
             assertThat(recorded[0]).isTrue();
 
             var ctxChron = new PersistentGuestSession.JobContext(cr, List.of(BreakpointSpec.of(10)),
-                    SourceAnalysis.empty(), new InputTracker(""), sink, new ArrayList<>(), new HashSet<>(),
+                    SourceAnalysis.empty(), new InputObservation(""), sink, new ArrayList<>(), new HashSet<>(),
                     new AtomicReference<>(), jobOutput(session), true, true);
-            session.dispatchJobEvent(eeUncaught, ctxChron, recorded, null);
+            session.dispatchJobEvent(eeUncaught, ctxChron, recorded);
 
             var eeUncaughtNullCatch = mirror(ExceptionEvent.class, Map.of("location", location("Student", 15),
                     "exception", exRef, "thread", thread(location("Student", 15))));
-            session.dispatchJobEvent(eeUncaughtNullCatch, ctx, recorded, null);
+            session.dispatchJobEvent(eeUncaughtNullCatch, ctx, recorded);
         } // try
 
         // 11b. ClassLoader mismatch tests for event filtering
@@ -255,31 +255,31 @@ class PersistentGuestSessionEventTest {
 
         var studentDiffRef = mirror(ReferenceType.class, Map.of("name", "Student", "classLoader", otherLoader));
         var cpeStudentDiff = mirror(ClassPrepareEvent.class, Map.of("referenceType", studentDiffRef));
-        session.dispatchJobEvent(cpeStudentDiff, ctx, recorded, null);
+        session.dispatchJobEvent(cpeStudentDiff, ctx, recorded);
 
         var diffLoc = mirror(Location.class, Map.of("declaringType", studentDiffRef));
         var bpeDiff = mirror(BreakpointEvent.class, Map.of("location", diffLoc));
-        session.dispatchJobEvent(bpeDiff, ctx, recorded, null);
+        session.dispatchJobEvent(bpeDiff, ctx, recorded);
 
         var meeDiff = mirror(MethodExitEvent.class,
                 Map.of("method", mirror(Method.class, Map.of("declaringType", studentDiffRef))));
-        session.dispatchJobEvent(meeDiff, ctx, recorded, null);
+        session.dispatchJobEvent(meeDiff, ctx, recorded);
 
         var eeDiff = mirror(ExceptionEvent.class, Map.of("location", diffLoc));
-        session.dispatchJobEvent(eeDiff, ctx, recorded, null);
+        session.dispatchJobEvent(eeDiff, ctx, recorded);
 
         // 12. VMDeathEvent
         var vmDeath = mirror(VMDeathEvent.class, Map.of());
-        assertThat(session.dispatchJobEvent(vmDeath, ctx, recorded, null)).isTrue();
+        assertThat(session.dispatchJobEvent(vmDeath, ctx, recorded)).isTrue();
         assertThat(session.isAlive()).isFalse();
 
         // 13. VMDisconnectEvent
         var vmDisconnect = mirror(VMDisconnectEvent.class, Map.of());
-        assertThat(session.dispatchJobEvent(vmDisconnect, ctx, recorded, null)).isTrue();
+        assertThat(session.dispatchJobEvent(vmDisconnect, ctx, recorded)).isTrue();
 
         // 14. Default event (VMStartEvent)
         var vmStart = mirror(VMStartEvent.class, Map.of());
-        assertThat(session.dispatchJobEvent(vmStart, ctx, recorded, null)).isFalse();
+        assertThat(session.dispatchJobEvent(vmStart, ctx, recorded)).isFalse();
     } // testDispatchJobEvents
 
     @Test
@@ -375,8 +375,8 @@ class PersistentGuestSessionEventTest {
         PersistentGuestSession session = createMockSession(vm, readyLoc, completedLoc, proc);
         CompilationResult cr = new CompilationResult(java.nio.file.Path.of("."), Set.of("Student"), "Student");
         var ctx = new PersistentGuestSession.JobContext(cr, List.of(BreakpointSpec.of(10)), SourceAnalysis.empty(),
-                new InputTracker(""), (line, snap) -> {}, new ArrayList<>(), new HashSet<>(), new AtomicReference<>(),
-                jobOutput(session), true, false);
+                new InputObservation(""), (line, snap) -> {}, new ArrayList<>(), new HashSet<>(),
+                new AtomicReference<>(), jobOutput(session), true, false);
 
         session.executeJobEventLoop(ctx);
 
@@ -743,8 +743,9 @@ class PersistentGuestSessionEventTest {
             var captured = new ArrayList<ExecutionSnapshot>();
             var ctx = new PersistentGuestSession.JobContext(
                     new CompilationResult(java.nio.file.Path.of("."), Set.of("Student"), "Student"), List.of(),
-                    SourceAnalysis.empty(), new InputTracker(""), (line, snap) -> captured.add(snap), new ArrayList<>(),
-                    new HashSet<>(), new AtomicReference<>(mirror(com.sun.jdi.ClassLoaderReference.class, Map.of())),
+                    SourceAnalysis.empty(), new InputObservation(""), (line, snap) -> captured.add(snap),
+                    new ArrayList<>(), new HashSet<>(),
+                    new AtomicReference<>(mirror(com.sun.jdi.ClassLoaderReference.class, Map.of())),
                     jobOutput(session), true, false);
             var bootstrapLocation = mirror(Location.class,
                     Map.of("declaringType", mirror(ReferenceType.class, Map.of("name", "java.lang.Object"))));

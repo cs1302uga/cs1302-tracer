@@ -1,6 +1,10 @@
 package cs1302.tracer.trace;
 
 import java.util.List;
+import com.sun.jdi.VirtualMachine;
+import com.sun.jdi.ReferenceType;
+import com.sun.jdi.request.EventRequest;
+import com.sun.jdi.request.MethodExitRequest;
 import com.sun.jdi.StackFrame;
 import com.sun.jdi.ArrayReference;
 import com.sun.jdi.CharValue;
@@ -15,12 +19,107 @@ import java.util.HashSet;
 import java.util.Set;
 
 /** Observes logical reads without invoking methods in the guest. */
-final class ReaderTracking {
+public final class InputObservation {
 
     private static final Set<String> READERS = Set.of("java.util.Scanner", "java.io.BufferedReader", "java.lang.IO");
 
-    /** Prevents construction. */
-    private ReaderTracking() {} // ReaderTracking
+    private final InputTracker tracker;
+    private ObjectReference systemIn;
+
+    /**
+     * Starts a fresh logical input cursor for one guest execution.
+     *
+     * @param stdin Supplied guest input.
+     */
+    public InputObservation(String stdin) {
+        this.tracker = new InputTracker(stdin);
+    } // InputObservation
+
+    /**
+     * Captures the initial standard-input identity before event processing.
+     *
+     * @param vm Guest virtual machine.
+     */
+    public void start(VirtualMachine vm) {
+        this.systemIn = getSystemIn(vm);
+    } // start
+
+    /**
+     * Registers supported reader events, leaving request cleanup with the guest owner.
+     *
+     * @param vm Guest virtual machine.
+     * @param requests Owner's request list, updated after each successful registration.
+     */
+    public static void registerRequests(VirtualMachine vm, List<EventRequest> requests) {
+        String[] readers = { "java.util.Scanner", "java.io.BufferedReader", "java.lang.IO", "java.io.InputStream",
+            "java.io.BufferedInputStream" };
+        for (String reader : readers) {
+            MethodExitRequest request = vm.eventRequestManager().createMethodExitRequest();
+            request.addClassFilter(reader);
+            request.enable();
+            requests.add(request);
+        } // for
+    } // registerRequests
+
+    /**
+     * Observes a completed read, tolerating missing debugger metadata.
+     *
+     * @param event Completed guest method.
+     */
+    public void record(MethodExitEvent event) {
+        if (this.tracker.isExhausted()) {
+            return;
+        } // if
+        try {
+            recordReader(event, this.tracker,
+                    this.systemIn != null ? this.systemIn : getSystemIn(event.virtualMachine()));
+        } catch (Exception ignored) {
+            // Missing reader metadata must not abort tracing.
+        } // try
+    } // record
+
+    /**
+     * Returns the logically consumed input prefix.
+     *
+     * @return Consumed text.
+     */
+    public String consumed() {
+        return this.tracker.consumed();
+    } // consumed
+
+    /**
+     * Returns the existing UTF-16 cursor offset.
+     *
+     * @return Consumed character offset.
+     */
+    public int offset() {
+        return this.tracker.offset();
+    } // offset
+
+    /**
+     * Finds the System.in object reference in the target VM.
+     *
+     * @param vm The JDI VirtualMachine.
+     * @return The ObjectReference for System.in, or null if not found.
+     */
+    private static ObjectReference getSystemIn(VirtualMachine vm) {
+        try {
+            List<ReferenceType> systemClasses = vm.classesByName("java.lang.System");
+            if (systemClasses != null && !systemClasses.isEmpty()) {
+                ReferenceType systemClass = systemClasses.getFirst();
+                Field inField = systemClass.fieldByName("in");
+                if (inField != null) {
+                    Value val = systemClass.getValue(inField);
+                    if (val instanceof ObjectReference objRef) {
+                        return objRef;
+                    } // if
+                } // if
+            } // if
+        } catch (Exception ignored) {
+            // Target VM might not have loaded System yet
+        } // try
+        return null;
+    } // getSystemIn
 
     /**
      * Records one outermost read from the supplied standard input stream.
@@ -30,7 +129,7 @@ final class ReaderTracking {
      * @param systemIn Guest standard input identity.
      * @throws com.sun.jdi.IncompatibleThreadStateException If the guest is not suspended.
      */
-    static void record(MethodExitEvent event, InputTracker tracker, ObjectReference systemIn)
+    private static void recordReader(MethodExitEvent event, InputTracker tracker, ObjectReference systemIn)
             throws com.sun.jdi.IncompatibleThreadStateException {
         List<StackFrame> frames = event.thread().frames();
         for (int i = 1; i < frames.size(); i++) {
@@ -73,7 +172,7 @@ final class ReaderTracking {
             tracker.consumeBytes(
                     event.method().argumentTypeNames().isEmpty() ? (count.value() < 0 ? 0 : 1) : count.value());
         } // if
-    } // record
+    } // recordReader
 
     /**
      * Follows known reader delegate fields, with a bounded traversal and no guest calls.
@@ -143,4 +242,4 @@ final class ReaderTracking {
         Field field = object.referenceType().fieldByName(name);
         return field == null ? null : object.getValue(field);
     } // field
-} // ReaderTracking
+} // InputObservation
