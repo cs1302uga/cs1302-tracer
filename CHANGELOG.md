@@ -26,7 +26,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...830555da6fc84b11f327d02348f523d2ec7f40a9) · History reviewed through [`830555d`](https://github.com/cs1302uga/cs1302-tracer/commit/830555da6fc84b11f327d02348f523d2ec7f40a9).
+[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...fc0b82c6e52f239e00a719c603265a10ce4e234a) · History reviewed through [`fc0b82c`](https://github.com/cs1302uga/cs1302-tracer/commit/fc0b82c6e52f239e00a719c603265a10ce4e234a).
 
 The Maven version is prepared as 4.0.0; it is not a published release.
 
@@ -57,6 +57,8 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - **Internal tracing:** resolve Java, CLI, envelope, and NDJSON job policy through a
   shared typed module. Preserve supported Java signatures, CLI diagnostics and
   validation timing, source-discovery policies, and serialized output formats.
+  Revalidate compatibility, strict coverage, and the existing CodeQL resolutions;
+  see the [refactor review](docs/reviews/trace-job-resolution.md).
 
 - Refresh current documentation for supported Java integration, internal ownership,
   managed tooling, and release workflows; label historical review evidence and
@@ -164,6 +166,9 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - [`b5edc57`](https://github.com/cs1302uga/cs1302-tracer/commit/b5edc57910731626e145614bab729c3cd289d91d) Document positive BatchTracer settings and test API validation
 - [`2e47b1a`](https://github.com/cs1302uga/cs1302-tracer/commit/2e47b1a826362309c505ba9fe71f9ea65f0d0c6b) Trace non-finite floating-point values without invalid JSON
 - [`830555d`](https://github.com/cs1302uga/cs1302-tracer/commit/830555da6fc84b11f327d02348f523d2ec7f40a9) Isolate lambda parsers across concurrent batch jobs
+- [`7975458`](https://github.com/cs1302uga/cs1302-tracer/commit/7975458ca503af5e76b59ff983ff7ccef3fc105e) Clarify API failure contracts and record completed repository audit
+- [`3d43db0`](https://github.com/cs1302uga/cs1302-tracer/commit/3d43db02c4e69a7484f77f87b7f4c3ebb3ee32f8) Refresh current documentation and project developer metadata
+- [`fc0b82c`](https://github.com/cs1302uga/cs1302-tracer/commit/fc0b82c6e52f239e00a719c603265a10ce4e234a) Resolve trace job policy across Java and command callers
 
 ## 3.2.5 — 2026-10-15
 
