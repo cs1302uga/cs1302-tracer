@@ -5,7 +5,7 @@ This example demonstrates repeated loop iteration and accumulating breakpoint sn
 ## Concepts Illustrated
 
 - **Loop Control**: Tracing index variable increments and condition checks.
-- **Breakpoint Accumulation**: Using `--accumulate-breakpoints` to capture multiple iterations into chronological step arrays.
+- **Breakpoint Accumulation**: Combining `--breakpoints` with `--accumulate-breakpoints` retains repeated hits at the selected loop lines. Use `--all-breakpoints` to capture all executable lines chronologically; accumulation alone does not select loop lines.
 
 ## Files
 

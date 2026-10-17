@@ -24,6 +24,7 @@ import java.util.Set;
 /** Per-job thread discovery and event metadata for a dedicated guest JVM. */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class ThreadCapture {
+
     private final Set<String> classes = new HashSet<>();
     private final Set<Long> observed = new HashSet<>();
     private ThreadGroupReference applicationGroup;
@@ -173,4 +174,5 @@ public final class ThreadCapture {
         default -> "UNKNOWN";
         }; // switch
     } // state
+
 } // ThreadCapture

@@ -7,14 +7,21 @@ import org.apiguardian.api.API;
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
 public enum TraceFormat {
-    /** Standard Online Python Tutor JSON trace format. */
+
+    /** Python Tutor-compatible trace JSON with the tracer's documented metadata extensions. */
     PYTUTOR,
 
-    /** Modern clean JSON trace format with typed objects and reference modeling. */
+    /** Modern trace JSON with explicit stack, heap, type, and reference records; supports multithread capture. */
     MODERN;
 
+    /**
+     * Returns the lowercase format identifier used in result metadata.
+     *
+     * @return {@code pytutor} or {@code modern}.
+     */
     @Override
     public String toString() {
         return name().toLowerCase();
     } // toString
+
 } // TraceFormat

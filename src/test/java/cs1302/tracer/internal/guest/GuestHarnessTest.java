@@ -144,6 +144,22 @@ public class GuestHarnessTest {
     } // testRunJobExecution
 
     @Test
+    void preparedClassPathIsUsedAndClearedAfterExecution() throws Exception {
+        java.nio.file.Path output = java.nio.file.Path.of("target/test-classes").toAbsolutePath();
+        java.nio.file.Path descriptor = GuestClassPath.write(output, java.util.List.of());
+        try {
+            GuestHarness.nextClassPath = output.toString();
+            GuestHarness.nextDependencies = descriptor.toString();
+            GuestHarness.nextMainClass = DummyTarget.class.getName();
+            GuestHarness.runJob();
+            assertThat(DummyTarget.MARKER.exists()).isTrue();
+            assertThat(GuestHarness.nextDependencies).isNull();
+        } finally {
+            java.nio.file.Files.deleteIfExists(descriptor);
+        }
+    }
+
+    @Test
     void testRunJobInterrupted() {
         File targetDir = new File("target/test-classes");
         GuestHarness.nextClassPath = targetDir.getAbsolutePath();

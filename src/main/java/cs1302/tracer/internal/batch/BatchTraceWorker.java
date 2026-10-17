@@ -5,23 +5,22 @@ import org.apiguardian.api.API;
 import cs1302.tracer.internal.SourcePreparation;
 import cs1302.tracer.internal.SourceDelimiters;
 import cs1302.tracer.internal.execution.TraceJob;
+import cs1302.tracer.internal.execution.TraceCompletion;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TypeStyle;
-import cs1302.tracer.internal.serialize.TraceRendering;
 import cs1302.tracer.internal.trace.TraceDispatch;
-import cs1302.tracer.internal.trace.ExecutionSnapshot;
 import cs1302.tracer.internal.trace.PersistentGuestSession;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
 /**
- * Worker managing a persistent guest JVM session and executing batch trace jobs sequentially.
+ * Executes batch trace jobs sequentially, reusing a persistent guest for single-stack jobs and creating
+ * a dedicated guest for multithread jobs.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class BatchTraceWorker implements AutoCloseable {
@@ -93,7 +92,8 @@ public final class BatchTraceWorker implements AutoCloseable {
                     req.breakpoints(), Boolean.TRUE.equals(req.allBreakpoints()),
                     Boolean.TRUE.equals(req.accumulateBreakpoints()), Boolean.TRUE.equals(req.multithread()),
                     Boolean.TRUE.equals(req.removeMainArgs()), Boolean.TRUE.equals(req.inlineStrings()),
-                    Boolean.TRUE.equals(req.removeMethodThis()), true, Boolean.TRUE.equals(req.includePrimitiveBits()));
+                    Boolean.TRUE.equals(req.removeMethodThis()), true, Boolean.TRUE.equals(req.includePrimitiveBits()),
+                    req.resolveClassPath());
             return new BatchJobResponse(req.id(), execute(req.source(), req.stdin(), job));
         } catch (IllegalArgumentException invalid) {
             return new BatchJobResponse(req.id(), TraceResult.failed(format.toString(), "validation",
@@ -140,7 +140,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                 return result;
             } catch (Throwable caught) {
                 restoreInterruptIfInterrupted(caught);
-                Object payload = serializePartialPayload(source, input, job, traceSession, caught);
+                Object payload = TraceCompletion.workerRecovery(source, input, job, traceSession, caught);
                 TraceResult result = traceSession.result(format.name().toLowerCase(Locale.ROOT), payload, caught);
                 return result;
             } // try
@@ -162,29 +162,6 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // prepareGuest
 
     /**
-     * Serializes completed snapshots retained after a recoverable tracing failure.
-     *
-     * @param source Submitted source.
-     * @param stdin Guest input.
-     * @param job Effective job choices.
-     * @param traceSession Active tracing session.
-     * @param failure Original tracing failure.
-     * @return Partial trace payload, or null when no snapshot was completed.
-     */
-    private Object serializePartialPayload(String source, String stdin, TraceJob job, TraceSession traceSession,
-            Throwable failure) {
-        if (!traceSession.traceAvailable() || traceSession.snapshots().isEmpty()) {
-            return null;
-        } // if
-        try {
-            return TraceRendering.sequence(source, stdin, job, retainedSnapshots(job, traceSession));
-        } catch (RuntimeException serializationFailure) {
-            failure.addSuppressed(serializationFailure);
-            return null;
-        } // try
-    } // serializePartialPayload
-
-    /**
      * Requires the reusable guest established before dispatching a legacy job.
      *
      * @return Initialized guest session.
@@ -194,7 +171,7 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // legacyGuest
 
     /**
-     * Performs compilation and dispatches tracing to the persistent guest session.
+     * Performs compilation and dispatches tracing to the guest lifecycle selected by the job.
      *
      * @param source Submitted source.
      * @param stdin Guest input.
@@ -217,7 +194,7 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.phase("compile");
         Object payload;
         try (SourcePreparation prepared = SourcePreparation.prepare(
-                source, Optional.empty(), job.discovery())) {
+                source, Optional.empty(), job.discovery(), job.dependencies())) {
             traceSession.phase("trace");
             if (session != null) {
                 traceSession.attach(session.process(), false);
@@ -226,33 +203,10 @@ public final class BatchTraceWorker implements AutoCloseable {
                     : TraceDispatch.persistent(legacyGuest());
             TraceDispatch.Capture captured = dispatcher.capture(prepared,
                     job.capture().selection(), stdin);
-            if (job.capture().chronological()) {
-                List<ExecutionSnapshot> snapshots = ((TraceDispatch.Chronological) captured).snapshots();
-                if (job.multithread()) {
-                    traceSession.finishOutput();
-                    snapshots = traceSession.snapshots();
-                } // if
-                traceSession.phase("serialize");
-                payload = TraceRendering.sequence(source, stdin, job, snapshots);
-            } else {
-                traceSession.phase("serialize");
-                payload = TraceRendering.sequence(source, stdin, job, retainedSnapshots(job, traceSession));
-            } // if
+            payload = TraceCompletion.workerSuccess(source, stdin, job, traceSession, captured);
         } // try
         return payload;
     } // performTrace
-
-    /**
-     * Returns retained states in capture order, refreshing final output per targeted location.
-     *
-     * @param job Effective job choices.
-     * @param traceSession Active tracing session.
-     * @return Completed states with the session's latest-per-line or accumulation policy.
-     */
-    private List<ExecutionSnapshot> retainedSnapshots(TraceJob job, TraceSession traceSession) {
-        return job.capture().chronological()
-                ? traceSession.snapshots() : traceSession.targetedSnapshots();
-    } // retainedSnapshots
 
     /**
      * Restores interrupted status on current thread if caught throwable is an interruption.

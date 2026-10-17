@@ -5,6 +5,7 @@ import cs1302.tracer.api.InspectionPolicy;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.api.TraceRequest;
+import cs1302.tracer.api.TraceClassPath;
 import cs1302.tracer.api.TypeStyle;
 import cs1302.tracer.internal.SourcePreparation;
 import cs1302.tracer.internal.trace.BreakpointSpec;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Effective tracing choices, independent of input transport and guest ownership.
@@ -29,15 +31,18 @@ import java.util.List;
  * @param removeMethodThis Whether receivers are omitted.
  * @param includePrimitiveBits Whether to render primitive binary metadata.
  * @param evalEnumHash Whether enum hash evaluation is requested.
+ * @param dependencies Binary dependency selections and ownership policy.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limits, InspectionPolicy inspection,
         SourcePreparation.Discovery discovery, CaptureIntent capture, boolean multithread, boolean removeMainArgs,
-        boolean inlineStrings, boolean removeMethodThis, boolean evalEnumHash, boolean includePrimitiveBits) {
+        boolean inlineStrings, boolean removeMethodThis, boolean evalEnumHash, boolean includePrimitiveBits,
+        TraceClassPath dependencies) {
 
     /** Caller contracts whose defaults and selection conventions differ. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public enum Profile {
+
         /** Self-contained typed Java requests. */
         JAVA,
         /** Ordinary command output. */
@@ -54,6 +59,7 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
         public TraceLimits defaultLimits() {
             return this == JAVA || this == CLI ? TraceLimits.instructorDefaults() : TraceLimits.unlimited();
         } // defaultLimits
+
     } // Profile
 
     /**
@@ -63,10 +69,21 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
      * @return Effective job choices.
      */
     public static TraceJob fromJava(TraceRequest request, boolean includePrimitiveBits) {
+        return fromJava(request, TraceClassPath.empty(), includePrimitiveBits);
+    } // fromJava
+
+    /**
+     * Resolves typed Java settings with per-job dependencies and primitive presentation.
+     * @param request Typed request.
+     * @param dependencies Binary dependency selections and ownership policy.
+     * @param includePrimitiveBits Include binary metadata.
+     * @return Effective job choices.
+     */
+    public static TraceJob fromJava(TraceRequest request, TraceClassPath dependencies, boolean includePrimitiveBits) {
         return resolve(Profile.JAVA, request.format(), request.typeStyle(), request.limits(), request.inspection(),
                 request.breakpoints(), request.chronological(), request.accumulate(), request.multithread(),
                 request.removeMainArgs(), request.inlineStrings(), request.removeMethodThis(), true,
-                includePrimitiveBits);
+                includePrimitiveBits, dependencies);
     } // fromJava
 
     /**
@@ -116,6 +133,34 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
             InspectionPolicy inspection, List<String> breakpoints, boolean chronological, boolean accumulate,
             boolean multithread, boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
             boolean evalEnumHash, boolean includePrimitiveBits) {
+        return resolve(profile, format, typeStyle, limits, inspection, breakpoints, chronological, accumulate,
+                multithread, removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash, includePrimitiveBits,
+                TraceClassPath.empty());
+    } // resolve
+
+    /**
+     * Resolves caller policy and dependencies without performing filesystem preparation.
+     * @param profile Caller contract.
+     * @param format Output format.
+     * @param typeStyle Type presentation.
+     * @param limits Supplied budgets, or null for caller defaults.
+     * @param inspection Requested inspection, or null for trusted inspection.
+     * @param breakpoints Raw selection; null preserves omission.
+     * @param chronological Requested chronological capture.
+     * @param accumulate Requested repeated hits.
+     * @param multithread Requested application threads.
+     * @param removeMainArgs Main argument presentation.
+     * @param inlineStrings String presentation.
+     * @param removeMethodThis Receiver presentation.
+     * @param evalEnumHash Enum hash evaluation.
+     * @param includePrimitiveBits Include binary metadata.
+     * @param dependencies Binary dependency selections and ownership policy.
+     * @return Effective job choices.
+     */
+    public static TraceJob resolve(Profile profile, TraceFormat format, TypeStyle typeStyle, TraceLimits limits,
+            InspectionPolicy inspection, List<String> breakpoints, boolean chronological, boolean accumulate,
+            boolean multithread, boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
+            boolean evalEnumHash, boolean includePrimitiveBits, TraceClassPath dependencies) {
         InspectionPolicy effective = multithread ? InspectionPolicy.FIELDS
                 : inspection == null ? InspectionPolicy.TRUSTED : inspection;
         SourcePreparation.Discovery discovery = effective == InspectionPolicy.FIELDS
@@ -126,7 +171,8 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
         }; // switch
         return new TraceJob(format, typeStyle, limits == null ? profile.defaultLimits() : limits, effective, discovery,
                 new CaptureIntent(profile, breakpoints, chronological || multithread, accumulate), multithread,
-                removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash, includePrimitiveBits);
+                removeMainArgs, inlineStrings, removeMethodThis, evalEnumHash, includePrimitiveBits,
+                Objects.requireNonNull(dependencies, "dependencies"));
     } // resolve
 
     /**
@@ -178,6 +224,7 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
     /** Deferred capture selection; raw caller conventions never reach execution. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public static final class CaptureIntent {
+
         private final Profile profile;
         private final List<String> raw;
         private final boolean chronological;
@@ -226,5 +273,7 @@ public record TraceJob(TraceFormat format, TypeStyle typeStyle, TraceLimits limi
                     this.profile == Profile.ENVELOPE || this.accumulate,
                     all || finalState ? null : specs);
         } // selection
+
     } // CaptureIntent
+
 } // TraceJob

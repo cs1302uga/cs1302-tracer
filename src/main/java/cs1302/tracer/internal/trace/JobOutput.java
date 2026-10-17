@@ -167,6 +167,7 @@ public final class JobOutput {
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record Finished(OutputSlice stdout, OutputSlice stderr) {
+
         /**
          * Freezes supplied slices so this result never refers to reusable drainers.
          *
@@ -188,5 +189,7 @@ public final class JobOutput {
             return snapshot.withOutput(this.stdout.subSlice(0, snapshot.stdoutLength()),
                     this.stderr.subSlice(0, snapshot.stderrLength()));
         } // detach
+
     } // Finished
+
 } // JobOutput

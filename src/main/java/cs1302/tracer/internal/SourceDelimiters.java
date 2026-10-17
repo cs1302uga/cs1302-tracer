@@ -49,7 +49,7 @@ public final class SourceDelimiters {
      * @param c Character.
      * @return Whether the character ends a line.
      */
-    private static boolean isLineEnd(char c) {
+    public static boolean isLineEnd(char c) {
         return switch (c) {
         case '\n', '\r', '\u0085', '\u2028', '\u2029' -> true;
         default -> false;
@@ -141,4 +141,5 @@ public final class SourceDelimiters {
     private static boolean isMarker(char c) {
         return c == '-' || c == '=';
     } // isMarker
+
 } // SourceDelimiters

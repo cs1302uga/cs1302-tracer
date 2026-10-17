@@ -50,6 +50,7 @@ public final class TraceDispatch {
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record Selection(boolean chronological, boolean accumulate, List<BreakpointSpec> breakpoints) {
+
         /**
          * Selects the ordinary tracing behavior.
          *
@@ -61,6 +62,7 @@ public final class TraceDispatch {
         public static Selection select(boolean chronological, boolean accumulate, List<BreakpointSpec> breakpoints) {
             return new Selection(chronological, accumulate, breakpoints);
         } // select
+
     } // Selection
 
     /** A captured result awaiting presentation. */
@@ -120,6 +122,7 @@ public final class TraceDispatch {
 
     /** Executes captures using one guest lifecycle. */
     private interface Guest {
+
         /**
          * Captures selected locations.
          *
@@ -144,10 +147,12 @@ public final class TraceDispatch {
          */
         List<ExecutionSnapshot> chronological(SourcePreparation prepared, List<BreakpointSpec> specs, String stdin)
                 throws Exception;
+
     } // Guest
 
     /** Uses the dedicated guest's existing launch, event loop, and cleanup. */
     private static final class DedicatedGuest implements Guest {
+
         @Override
         public Map<Integer, List<ExecutionSnapshot>> selected(SourcePreparation prepared, List<BreakpointSpec> specs,
                 String stdin, boolean accumulate) throws Exception {
@@ -162,6 +167,7 @@ public final class TraceDispatch {
             return DebugTraceHelper.traceChronologicalWithSpecs(prepared.compilation(), specs, prepared.units(), true,
                     stdin);
         } // chronological
+
     } // DedicatedGuest
 
     /**
@@ -170,6 +176,7 @@ public final class TraceDispatch {
      * @param session Borrowed guest session.
      */
     private record PersistentGuest(PersistentGuestSession session) implements Guest {
+
         @Override
         public Map<Integer, List<ExecutionSnapshot>> selected(SourcePreparation prepared, List<BreakpointSpec> specs,
                 String stdin, boolean accumulate) throws Exception {
@@ -183,5 +190,7 @@ public final class TraceDispatch {
             return this.session.traceChronologicalWithSpecs(prepared.compilation(), specs, prepared.units(), true,
                     stdin);
         } // chronological
+
     } // PersistentGuest
+
 } // TraceDispatch

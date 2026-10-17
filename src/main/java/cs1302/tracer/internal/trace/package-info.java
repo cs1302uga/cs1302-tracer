@@ -13,5 +13,18 @@
  *
  * <p>Dedicated and persistent guest execution share capture and observation policies. Retained snapshots must remain
  * valid after guest completion or reuse, without depending on mutable buffers from later jobs.</p>
+ *
+ * <p>Guest launchers pass the prepared binary dependency order from
+ * {@link cs1302.tracer.internal.CompilationHelper.CompilationResult} through a job-owned descriptor.
+ * Dedicated and persistent guests use the explicit loaders in {@code internal.guest};
+ * archive views and optional dependency copies remain owned by
+ * {@link cs1302.tracer.internal.classpath.PreparedClassPath}, held by
+ * {@link cs1302.tracer.internal.SourcePreparation} until guest execution and source analysis finish.
+ * Precompiled dependency classes supply runtime behavior and type evidence, but do not add source-line
+ * breakpoints to submitted or discovered Java source.</p>
+ *
+ * <p>Primitive trace values are immutable. Boolean conversion reuses
+ * {@link cs1302.tracer.internal.trace.TraceValue.Primitive.Boolean#TRUE} and
+ * {@link cs1302.tracer.internal.trace.TraceValue.Primitive.Boolean#FALSE}; these constants contain no job state.</p>
  */
 package cs1302.tracer.internal.trace;

@@ -25,12 +25,14 @@ public class TraceValueTest {
 
         @Test
         void testBoolean() {
-            TraceValue.Primitive.Boolean valTrue = new TraceValue.Primitive.Boolean(true);
-            TraceValue.Primitive.Boolean valFalse = new TraceValue.Primitive.Boolean(false);
+            TraceValue.Primitive.Boolean valTrue = TraceValue.Primitive.Boolean.TRUE;
+            TraceValue.Primitive.Boolean valFalse = TraceValue.Primitive.Boolean.FALSE;
             assertThat(valTrue.value()).isTrue();
             assertThat(valTrue.toWrapperObject()).isEqualTo(Boolean.TRUE);
             assertThat(valFalse.value()).isFalse();
             assertThat(valFalse.toWrapperObject()).isEqualTo(Boolean.FALSE);
+            assertThat(valTrue).isEqualTo(new TraceValue.Primitive.Boolean(true));
+            assertThat(valFalse).isEqualTo(new TraceValue.Primitive.Boolean(false));
         }
 
         @Test

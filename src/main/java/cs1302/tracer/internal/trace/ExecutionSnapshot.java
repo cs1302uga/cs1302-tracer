@@ -16,7 +16,7 @@ import java.util.Optional;
  * @param stderrSlice Captured standard error slice.
  * @param sourcePath Optional relative source file path for the currently executing line.
  * @param stdinConsumed Cumulative standard input consumed up to this snapshot point.
- * @param stdinOffset Character index reached in standard input up to this snapshot point.
+ * @param stdinOffset UTF-16 code-unit index reached in standard input up to this snapshot point.
  * @param threads Application thread states, or null for legacy capture.
  * @param triggeringThreadId Thread producing the event, or null for legacy capture.
  * @param event Captured event kind, or null for legacy capture.
@@ -223,6 +223,7 @@ public record ExecutionSnapshot(List<StackSnapshot> stack, List<Field> statics, 
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         public record ThisObject(String typeName, TraceValue.Reference value) {} // ThisObject
+
     } // StackSnapshot
 
     /**
@@ -236,4 +237,5 @@ public record ExecutionSnapshot(List<StackSnapshot> stack, List<Field> statics, 
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record Field(boolean isFinal, String typeName, String identifier, TraceValue value) {} // Field
+
 } // ExecutionSnapshot

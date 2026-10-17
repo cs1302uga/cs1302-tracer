@@ -2,6 +2,10 @@
 
 This example demonstrates polymorphic generic references, concrete subclass reification, wildcard normalization, and nested generic container structures.
 
+Reified labels combine runtime class identity with available source evidence.
+They are conservative descriptions, not recovery of all erased type arguments;
+an argument with insufficient evidence can remain `Object` or unresolved.
+
 ## Concepts Illustrated
 
 - **Generic Interface to Subclass Reification**: Reference variable declared as `Container<String>` pointing to concrete `PairContainer<String, Object>` (or `PairContainer<String, Integer>`) on the heap.

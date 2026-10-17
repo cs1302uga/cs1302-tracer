@@ -5,7 +5,20 @@ import cs1302.tracer.internal.trace.TraceValue;
 import java.util.List;
 import java.util.Collection;
 
-/** Converts owned primitive values without parsing literals or invoking guest methods. */
+/**
+ * Converts owned primitive values without parsing literals or invoking guest methods.
+ *
+ * <p>See {@link PrimitiveBinary} and the
+ * <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md#encoding-definitions-and-references">
+ * encoding definitions and references</a> for the format contract and its normative and informative sources.
+ * Floating-point metadata uses the raw conversion contracts below on the received Java value;
+ * it does not guarantee recovery of every original guest NaN payload.</p>
+ *
+ * @see Float#floatToRawIntBits(float)
+ * @see Double#doubleToRawLongBits(double)
+ * @see Float#intBitsToFloat(int)
+ * @see Double#longBitsToDouble(long)
+ */
 final class PrimitiveBits {
 
     /** Utility class. */
@@ -60,4 +73,5 @@ final class PrimitiveBits {
         } // for
         return new PrimitiveBinary(type, encoding, bits.toString());
     } // encode
+
 } // PrimitiveBits

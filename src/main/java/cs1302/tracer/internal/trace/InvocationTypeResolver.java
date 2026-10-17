@@ -34,6 +34,7 @@ import java.util.Optional;
  * frames; no bindings survive a snapshot or job.
  */
 final class InvocationTypeResolver {
+
     private final Map<String, Optional<CallableDeclaration<?>>> methods = new HashMap<>();
 
     /**
@@ -432,4 +433,5 @@ final class InvocationTypeResolver {
         return Optional.of(
                 reference.getQualifiedName() + (arguments.isEmpty() ? "" : "<" + String.join(", ", arguments) + ">"));
     } // concreteType
+
 } // InvocationTypeResolver

@@ -596,6 +596,7 @@ public final class TraceSession implements AutoCloseable {
     /** Controlled non-success exit from extraction or event handling. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public static final class Stopped extends RuntimeException {
+
         private static final long serialVersionUID = 1L;
 
         /**
@@ -606,6 +607,7 @@ public final class TraceSession implements AutoCloseable {
         public Stopped(String reason) {
             super(reason, null, false, false);
         } // Stopped
+
     } // Stopped
 
 } // TraceSession

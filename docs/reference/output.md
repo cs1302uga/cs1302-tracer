@@ -24,6 +24,21 @@ Map order does not choose the entry point. Step and frame `file` values select t
 corresponding source; line numbers are 1-based. Duplicate source paths are rejected.
 Discovered dependencies outside the submitted bundle are not included in `sources`.
 
+## Input and output observations
+
+Root `stdin` is the input supplied to the guest, separate from source text read
+through the tracer's stdin. Snapshot `stdinConsumed` is the observed consumed
+prefix of that string, and `stdinOffset` is its zero-based UTF-16 code-unit length,
+not a byte offset. Input observation recognizes supported standard-input readers
+and avoids counting nested reads twice; it is not a record of every operating-system
+read or every custom reader's buffering. Each job starts with a fresh cursor.
+
+Snapshot `stdout` and `stderr` contain cumulative captured output. Chronological
+snapshots record progress; after execution, the final snapshot receives trailing
+output when budgets permit. Selected-breakpoint presentation also refreshes the
+latest retained hit at each location with final output. A result envelope carries
+the available guest streams even when no usable snapshot payload exists.
+
 ## Floating-point special values
 
 Non-finite Java values remain valid JSON. Modern output represents `NaN`, positive
@@ -112,8 +127,9 @@ snapshots in envelope output.
 All threads pause during capture using
 [JDI event-set suspension](https://docs.oracle.com/en/java/javase/21/docs/api/jdk.jdi/com/sun/jdi/event/EventSet.html),
 and the tracer invokes no guest methods while inspecting them. JDK thread bookkeeping fields are omitted from heap objects;
-fields declared by submitted `Thread` subclasses remain visible. Other objects
-use field-only inspection. These observations are one debugger-influenced run,
+fields declared by submitted `Thread` subclasses remain visible. Other ordinary objects
+use field-only inspection; arrays, strings, and colors keep their dedicated
+representations without guest method calls. These observations are one debugger-influenced run,
 not deterministic scheduling or a record of every memory operation. Stream
 output is process-wide and is not attributed to individual threads.
 
@@ -491,6 +507,73 @@ the received Java value; it does not deliberately canonicalize NaNs. Guest/JDI
 transport and signaling-NaN behavior can affect NaN payloads, so this is not a
 promise to recover every original guest NaN bit pattern. Existing human-readable
 non-finite-value conventions remain unchanged.
+
+### Encoding definitions and references
+
+**Normative references** below define the Java values, standard encoding formats,
+and conversion contracts used by this metadata. This output reference defines
+the tracer-specific contract: property names, `encoding` identifiers, fixed-width
+MSB-first strings, leading zeros, and the boolean mapping. **Informative references**
+provide explanations and examples; they do not add requirements to that contract.
+Java specification and API links use Java SE 21, the project's minimum supported
+JDK. IEEE and Unicode references identify explicit editions.
+
+#### Signed integers: `twos-complement`
+
+**Normative:** [JLS §4.2, Primitive Types and Values](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.2)
+defines the signed two's-complement representations of `byte`, `short`, `int`,
+and `long`; [§4.2.1, Integral Types and Values](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.2.1)
+gives their ranges. The descriptor retains the type's own width from the table
+above, including for negative `byte` and `short` values.
+
+**Informative:** Oracle's [Primitive Data Types tutorial](https://docs.oracle.com/javase/tutorial/java/nutsandbolts/datatypes.html)
+introduces these integer types and ranges. It is a JDK 8-era tutorial; the Java
+SE 21 specification above supplies the normative definitions here.
+
+#### Characters: `utf16-code-unit`
+
+**Normative:** [JLS §4.2](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.2)
+defines `char` as an unsigned 16-bit value representing a UTF-16 code unit;
+[§3.1, Unicode](https://docs.oracle.com/javase/specs/jls/se21/html/jls-3.html#jls-3.1)
+distinguishes code units from code points. [The Unicode Standard, Version 15.0,
+§3.9, Unicode Encoding Forms](https://www.unicode.org/versions/Unicode15.0.0/ch03.pdf)
+defines code units (D77) and UTF-16 (D91). A descriptor records one code unit,
+so an isolated surrogate is representable; it does not assert that this unit
+alone is a Unicode scalar value or a well-formed UTF-16 sequence.
+
+**Informative:** The Unicode Consortium's [UTF-8, UTF-16, UTF-32 & BOM FAQ](https://www.unicode.org/faq/utf_bom.html)
+explains code units, surrogate pairs, and byte-order conventions. The descriptor
+contains textual binary digits, not a UTF-16 byte stream.
+
+#### Floating point: `ieee754-binary32` and `ieee754-binary64`
+
+**Normative:** [JLS §4.2.3, Floating-Point Types and Values](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.2.3)
+maps `float` and `double` to binary32 and binary64 and identifies
+[IEEE Std 754-2019, Standard for Floating-Point Arithmetic](https://standards.ieee.org/ieee/754/6210/)
+as the applicable edition. The Java API contracts for
+[`Float.floatToRawIntBits`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Float.html#floatToRawIntBits(float))
+and [`Double.doubleToRawLongBits`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Double.html#doubleToRawLongBits(double))
+specify the bit layouts and raw conversions used by the encoder. Their inverse
+methods, [`Float.intBitsToFloat`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Float.html#intBitsToFloat(int))
+and [`Double.longBitsToDouble`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Double.html#longBitsToDouble(long)),
+document signaling-NaN limitations. These contracts apply to the received Java
+value; the guest/JDI NaN-payload limitation above still applies.
+
+**Informative:** Oracle's [Numerical Computation Guide, Chapter 2: IEEE Arithmetic](https://docs.oracle.com/cd/E19059-01/stud.10/819-0499/ncg_math.html),
+especially §§2.2.2–2.2.3, illustrates the sign, exponent, and fraction fields and
+special values. This historical guide uses the older names *single* and *double*
+and discusses machine storage; use the normative references above for the Java
+contract. Its machine byte-order examples do not describe this textual metadata.
+
+#### Booleans: `logical`
+
+**Normative:** [JLS §4.2.5, The `boolean` Type and boolean Values](https://docs.oracle.com/javase/specs/jls/se21/html/jls-4.html#jls-4.2.5)
+defines the two Java values, `false` and `true`. The tracer defines their respective
+`bits` strings as `"0"` and `"1"`; that mapping is a protocol convention of this
+project, not an externally standardized JVM storage format.
+
+**Informative:** The boolean discussion in Oracle's [Primitive Data Types tutorial](https://docs.oracle.com/javase/tutorial/java/nutsandbolts/datatypes.html)
+distinguishes two-valued logical information from a specified storage size.
 
 ### Modern placement
 

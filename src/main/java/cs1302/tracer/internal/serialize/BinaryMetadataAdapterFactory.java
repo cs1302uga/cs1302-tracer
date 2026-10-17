@@ -48,4 +48,5 @@ final class BinaryMetadataAdapterFactory implements TypeAdapterFactory {
             object.remove(name);
         } // if
     } // omitNull
+
 } // BinaryMetadataAdapterFactory

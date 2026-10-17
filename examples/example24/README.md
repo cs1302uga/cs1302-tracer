@@ -5,10 +5,10 @@ This example demonstrates standard library generic lists (`List<Integer>` and `A
 ## Concepts Illustrated
 
 - **Interface vs. Implementation References**: Declaring variables with the interface type (`List<Integer> primes = new ArrayList<>();`) versus concrete class type (`ArrayList<Integer> scores = new ArrayList<>();`).
-- **Autoboxing and Boxed Heap Primitives**: Adding primitive `int` values (`add(2)`, `add(10)`) causing the runtime to allocate boxed `java.lang.Integer` heap instances.
+- **Autoboxing and Boxed Heap Primitives**: Adding primitive `int` values (`add(2)`, `add(10)`) converts them to `java.lang.Integer` references. Boxing can reuse cached wrapper instances; it does not guarantee a new object for each conversion.
 - **In-Place Element Mutation**: Mutating existing list slots via `set(i, newValue)`.
 - **Subtype Polymorphism via Method Parameters**: Passing an `ArrayList<Integer>` object into a helper method expecting interface type `List<Integer>`.
-- **Recovered Generic Type Annotations**: Accurately resolving generic type arguments (`java.util.List<java.lang.Integer>` and `java.util.ArrayList<java.lang.Integer>`) in heap attributes.
+- **Generic Type Labels**: Source-declared variable and parameter types retain `Integer` arguments, while heap labels describe the runtime `ArrayList` implementation using available generic evidence.
 
 ## Files
 

@@ -133,6 +133,7 @@ public final class SnapshotRetention {
     /** Admission failure that leaves retained history and accounting unchanged. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public static final class LimitExceeded extends RuntimeException {
+
         private static final long serialVersionUID = 1L;
 
         /**
@@ -143,6 +144,7 @@ public final class SnapshotRetention {
         public LimitExceeded(String reason) {
             super(reason, null, false, false);
         } // LimitExceeded
+
     } // LimitExceeded
 
     /**
@@ -337,6 +339,7 @@ public final class SnapshotRetention {
 
     /** Counts an upper bound of UTF-8 snapshot bytes without building a JSON string. */
     private final class SnapshotCounter extends Writer {
+
         private long bytes;
 
         /** Constructs a snapshot size counter. */
@@ -353,10 +356,12 @@ public final class SnapshotRetention {
 
         @Override
         public void close() {} // close
+
     } // SnapshotCounter
 
     /** Streams OutputSlice byte elements without materializing a byte array. */
     private static final class OutputSliceTypeAdapter extends TypeAdapter<OutputSlice> {
+
         @Override
         public void write(JsonWriter out, OutputSlice slice) throws IOException {
             if (slice == null) {
@@ -382,8 +387,10 @@ public final class SnapshotRetention {
             in.endArray();
             return OutputSlice.from(baos.toByteArray());
         } // read
+
     } // OutputSliceTypeAdapter
 
     /** Key for tracking latest snapshot per line and source file. */
     private record SnapshotLineKey(int line, Optional<String> sourcePath) {}
+
 } // SnapshotRetention

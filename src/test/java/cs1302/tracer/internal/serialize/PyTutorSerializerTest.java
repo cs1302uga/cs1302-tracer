@@ -74,7 +74,7 @@ public class PyTutorSerializerTest {
             Field fByte = new Field(false, "byte", "b", new TraceValue.Primitive.Byte((byte) 8));
             Field fShort = new Field(false, "short", "s", new TraceValue.Primitive.Short((short) 16));
             Field fLong = new Field(false, "long", "l", new TraceValue.Primitive.Long(64L));
-            Field fBool = new Field(false, "boolean", "bool", new TraceValue.Primitive.Boolean(true));
+            Field fBool = new Field(false, "boolean", "bool", TraceValue.Primitive.Boolean.TRUE);
             Field fNull = new Field(false, "Object", "n", new TraceValue.Null());
 
             StackSnapshot frame = new StackSnapshot("main", 10, List.of(fFloat, fDouble, fDoubleInf, fDoubleNegInf,
@@ -246,7 +246,7 @@ public class PyTutorSerializerTest {
             TraceValue.Collection setVal = new TraceValue.Collection("java.util.HashSet",
                     List.of(new TraceValue.Reference(20L)));
             TraceValue.Primitive.Double doubleVal = new TraceValue.Primitive.Double(3.14);
-            TraceValue.Primitive.Boolean boolVal = new TraceValue.Primitive.Boolean(true);
+            TraceValue.Primitive.Boolean boolVal = TraceValue.Primitive.Boolean.TRUE;
             TraceValue.Primitive.Long longVal = new TraceValue.Primitive.Long(999L);
             TraceValue.Primitive.Float floatVal = new TraceValue.Primitive.Float(1.5f);
             TraceValue.Primitive.Character charVal = new TraceValue.Primitive.Character('x');
@@ -354,7 +354,7 @@ public class PyTutorSerializerTest {
 
             // Sampling all supported element types directly
             TraceValue.Collection doubleCol = new TraceValue.Collection(List.of(new TraceValue.Primitive.Double(1.0)));
-            TraceValue.Collection boolCol = new TraceValue.Collection(List.of(new TraceValue.Primitive.Boolean(false)));
+            TraceValue.Collection boolCol = new TraceValue.Collection(List.of(TraceValue.Primitive.Boolean.FALSE));
             TraceValue.Collection longCol = new TraceValue.Collection(List.of(new TraceValue.Primitive.Long(10L)));
             TraceValue.Collection floatCol = new TraceValue.Collection(List.of(new TraceValue.Primitive.Float(1.0f)));
             TraceValue.Collection charCol = new TraceValue.Collection(List.of(new TraceValue.Primitive.Character('c')));

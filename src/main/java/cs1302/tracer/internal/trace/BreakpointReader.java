@@ -89,6 +89,7 @@ public final class BreakpointReader {
 
     /** Accumulates line table entries under each class's SourceFile attribute. */
     private static final class LineVisitor extends ClassVisitor {
+
         private final Map<String, Set<Integer>> lines;
         private String packagePath;
         private String sourcePath;
@@ -127,5 +128,7 @@ public final class BreakpointReader {
                 } // visitLineNumber
             };
         } // visitMethod
+
     } // LineVisitor
+
 } // BreakpointReader

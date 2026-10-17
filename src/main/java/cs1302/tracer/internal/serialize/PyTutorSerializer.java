@@ -206,9 +206,22 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         String stderr = decodeOutput(snapshot.stderr());
         String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
 
-        return new TraceStep(stdout, stderr, "step_line", currentMethod, currentLine, serializedStack,
-                serializedStatics, globalsAttrs, orderedStatics, serializedHeap, heapAttrs, stepFile,
-                snapshot.stdinConsumed(), snapshot.stdinOffset());
+        return TraceStep.builder()
+                .stdout(stdout)
+                .stderr(stderr)
+                .event("step_line")
+                .funcName(currentMethod)
+                .line(currentLine)
+                .stackToRender(serializedStack)
+                .globals(serializedStatics)
+                .globalsAttrs(globalsAttrs)
+                .orderedGlobals(orderedStatics)
+                .heap(serializedHeap)
+                .heapAttrs(heapAttrs)
+                .file(stepFile)
+                .stdinConsumed(snapshot.stdinConsumed())
+                .stdinOffset(snapshot.stdinOffset())
+                .build();
     } // createTraceStep
 
     /**
@@ -781,4 +794,5 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         default -> null;
         }; // switch
     } // getSimpleTypeName
+
 } // PyTutorSerializer

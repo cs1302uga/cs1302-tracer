@@ -258,4 +258,5 @@ public class LicenseHelper {
         return "This program includes and uses several open source projects:\n\n" + getThirdPartyNotices() + "\n\n"
                 + APACHE_2_0;
     } // getLicenseText
+
 } // LicenseHelper

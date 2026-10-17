@@ -81,13 +81,30 @@
 
     <module name="NeedBraces"/>
 
-    <module name="LeftCurly"/>
+    <module name="LeftCurly">
+      <property name="ignoreEnums" value="false"/>
+    </module>
 
     <module name="RightCurly">
       <property name="option" value="same"/>
     </module>
 
+    <!-- Keep type members off closing-brace lines; empty inline bodies remain valid. -->
+    <module name="RightCurly">
+      <property name="tokens" value="CLASS_DEF,INTERFACE_DEF,ENUM_DEF,RECORD_DEF,ANNOTATION_DEF"/>
+      <property name="option" value="same"/>
+    </module>
+
     <!-- Whitespace -->
+    <module name="TypeBodyPadding">
+      <property name="tokens" value="CLASS_DEF,INTERFACE_DEF,ENUM_DEF,RECORD_DEF,ANNOTATION_DEF"/>
+      <property name="atStartOfBody" value="true"/>
+      <property name="atEndOfBody" value="true"/>
+      <property name="allowEmpty" value="true"/>
+      <property name="skipInner" value="false"/>
+      <property name="skipLocal" value="false"/>
+    </module>
+
     <module name="WhitespaceAround">
       <property name="allowEmptyConstructors" value="true"/>
       <property name="allowEmptyLambdas" value="true"/>

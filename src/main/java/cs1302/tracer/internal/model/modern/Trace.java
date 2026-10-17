@@ -93,4 +93,5 @@ public record Trace(@SerializedName("code") String code, @SerializedName("format
     public Trace(String code, Map<Integer, Object> breakpoints) {
         this(code, "", breakpoints);
     } // Trace
+
 } // Trace

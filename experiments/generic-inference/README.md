@@ -2,7 +2,10 @@
 
 This report records the initial assessment before production integration. See
 [Simple expression inference integration](INTEGRATION.md) for the subsequent
-implementation, current validation, and remaining limits.
+implementation and its 3.2.3 validation. The saved measurements and test counts
+below belong to the stated historical revisions, not the current development
+checkout. The current supported inference contract is in the
+[output reference](../../docs/reference/output.md#generic-method-variable-types).
 
 The test-only prototype recovers nine additional bindings in a 26-program corpus,
 with no incorrect specializations in that corpus. All four proposed extensions
@@ -29,7 +32,9 @@ This assessment adds three files under `src/test/java/cs1302/tracer/trace/`:
   characterization, real traces, serializer checks, timing samples, and additional
   conservative-boundary and isolation checks.
 
-These are experimental test sources. They are not included in the executable JAR.
+These are experimental test sources. In the current tree they live under
+`src/test/java/cs1302/tracer/internal/trace/` following the 4.0 package migration.
+They are not included in the executable JAR.
 The prototype deliberately handles only one unbounded method type parameter. It
 is an extension experiment, not a replacement resolver; in particular, explicit
 arguments remain the responsibility of the existing implementation.

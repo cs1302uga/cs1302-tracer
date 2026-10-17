@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import cs1302.tracer.api.TraceFormat;
+import cs1302.tracer.api.TraceOutcome;
 import cs1302.tracer.api.TypeStyle;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.batch.BatchJobResponse;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceRenderingTest {
     private static final String SOURCE = "public class Main { public static void main(String[] args) {} }";
@@ -76,6 +78,42 @@ class TraceRenderingTest {
         JsonObject failed = parse(TraceRendering.freeze(TraceResult.failed("modern", "compile", "bad source"),
             false).json());
         assertThat(failed.get("trace").isJsonNull()).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void frozenMetadataAndJsonComeFromTheSameExecutionResult(boolean pretty) {
+        TraceResult result = new TraceResult(1, "modern", "stopped", "snapshot_limit", "trace", false,
+                Map.of("steps", List.of()), TraceLimits.instructorDefaults(), Map.of("snapshots", 3L),
+                List.of("first diagnostic", "second diagnostic"), "out\n\"quoted\"", "err\n");
+        TraceOutcome detached = TraceRendering.freeze(result, pretty);
+        JsonObject envelope = parse(detached.json());
+
+        assertThat(detached.format()).isEqualTo(result.format());
+        assertThat(detached.status()).isEqualTo(result.status());
+        assertThat(detached.stopReason()).isEqualTo(result.stopReason());
+        assertThat(detached.phase()).isEqualTo(result.phase());
+        assertThat(detached.complete()).isEqualTo(result.complete());
+        assertThat(detached.counters()).isEqualTo(result.counters());
+        assertThat(detached.diagnostics()).isEqualTo(result.diagnostics());
+        assertThat(detached.stdout()).isEqualTo(result.stdout());
+        assertThat(detached.stderr()).isEqualTo(result.stderr());
+        assertThat(envelope.get("format").getAsString()).isEqualTo(detached.format());
+        assertThat(envelope.get("status").getAsString()).isEqualTo(detached.status());
+        assertThat(envelope.get("stopReason").getAsString()).isEqualTo(detached.stopReason());
+        assertThat(envelope.get("phase").getAsString()).isEqualTo(detached.phase());
+        assertThat(envelope.get("complete").getAsBoolean()).isEqualTo(detached.complete());
+        assertThat(envelope.getAsJsonObject("counters").get("snapshots").getAsLong())
+                .isEqualTo(detached.counters().get("snapshots"));
+        assertThat(envelope.getAsJsonArray("diagnostics").asList().stream()
+                .map(com.google.gson.JsonElement::getAsString).toList()).isEqualTo(detached.diagnostics());
+        assertThat(envelope.get("stdout").getAsString()).isEqualTo(detached.stdout());
+        assertThat(envelope.get("stderr").getAsString()).isEqualTo(detached.stderr());
+        assertThat(envelope.get("trace")).isEqualTo(JsonParser.parseString(detached.traceJson()));
+        assertThat(envelope.getAsJsonObject("trace").getAsJsonArray("steps")).isEmpty();
+        assertThat(envelope.get("schemaVersion").getAsInt()).isEqualTo(result.schemaVersion());
+        assertThat(envelope.getAsJsonObject("limits").get("snapshots").getAsLong())
+                .isEqualTo(result.limits().snapshots());
     }
 
     private static TraceJob job(TraceFormat format, boolean bits) {

@@ -51,4 +51,5 @@ public record RenderStackFrame(@SerializedName("func_name") String funcName,
         this(funcName, encodedLocals, localsAttrs, orderedVarnames, parentFrameIdList, isHighlighted, isZombie,
                 isParent, uniqueHash, frameId, null);
     } // RenderStackFrame
+
 } // RenderStackFrame

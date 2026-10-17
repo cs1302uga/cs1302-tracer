@@ -540,11 +540,12 @@ public sealed interface TraceValue {
          * Convert a mirrored JDI primitive into a primitive TraceValue.
          *
          * @param primitiveValue The mirrored JDI value to convert.
-         * @return The converted primitive TraceValue.
+         * @return The converted primitive TraceValue, reusing {@link Boolean#TRUE} or {@link Boolean#FALSE}
+         *         for booleans.
          */
         static Primitive fromJdiPrimitive(PrimitiveValue primitiveValue) {
             return switch (primitiveValue) {
-            case BooleanValue bv -> new Boolean(bv.value());
+            case BooleanValue bv -> bv.value() ? Boolean.TRUE : Boolean.FALSE;
             case ByteValue bv -> new Byte(bv.value());
             case CharValue cv -> new Character(cv.value());
             case DoubleValue dv -> new Double(dv.value());
@@ -561,7 +562,9 @@ public sealed interface TraceValue {
          *
          * @param mainThread The thread associated with the value you want to convert.
          * @param value The mirrored JDI value to convert.
-         * @return The converted primitive TraceValue, or empty if conversion failed.
+         * @return The converted primitive TraceValue, or empty if the value is not a recognized primitive or wrapper.
+         * @throws IllegalStateException If a recognized wrapper's getter is unavailable or its invocation fails.
+         * @throws IllegalArgumentException If the thread is not suspended for wrapper invocation.
          */
         static Optional<Primitive> tryFromJdiValue(ThreadReference mainThread, Value value) {
             if (value instanceof PrimitiveValue pv) {
@@ -633,16 +636,31 @@ public sealed interface TraceValue {
         java.lang.Object toWrapperObject();
 
         /**
-         * A {@code boolean} primitive.
+         * A {@code boolean} primitive. Reuse {@link #TRUE} and {@link #FALSE} when convenient;
+         * direct construction remains available and record equality compares the primitive value.
          *
          * @param value Primitive value.
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Boolean(boolean value) implements Primitive {
+
+            /**
+             * Shared immutable value representing {@code true}.
+             * @since 4.1.0
+             */
+            public static final Boolean TRUE = new Boolean(true);
+
+            /**
+             * Shared immutable value representing {@code false}.
+             * @since 4.1.0
+             */
+            public static final Boolean FALSE = new Boolean(false);
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Boolean
 
         /**
@@ -652,10 +670,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Byte(byte value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Byte
 
         /**
@@ -665,10 +685,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Character(char value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Character
 
         /**
@@ -678,10 +700,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Short(short value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Short
 
         /**
@@ -691,10 +715,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Integer(int value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Integer
 
         /**
@@ -704,10 +730,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Long(long value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Long
 
         /**
@@ -717,10 +745,12 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Float(float value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Float
 
         /**
@@ -730,11 +760,14 @@ public sealed interface TraceValue {
          */
         @API(status = API.Status.INTERNAL, since = "4.0.0")
         record Double(double value) implements Primitive {
+
             @Override
             public java.lang.Object toWrapperObject() {
                 return value;
             } // toWrapperObject
+
         } // Double
+
     } // Primitive
 
     /**
@@ -856,7 +889,7 @@ public sealed interface TraceValue {
          *
          * @param value Nullable entry value.
          * @param references Encountered references.
-         * @return Null or pointer value.
+         * @return A null value or non-null reference.
          */
         private static TraceValue mapReference(ObjectReference value,
                 Optional<java.util.List<ObjectReference>> references) {
@@ -887,6 +920,7 @@ public sealed interface TraceValue {
         public Collection(java.util.Collection<? extends TraceValue> value) {
             this("java.util.Collection", value);
         } // Collection
+
     } // Collection
 
     /**
@@ -914,4 +948,5 @@ public sealed interface TraceValue {
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     record Color(java.lang.String classFqn, java.lang.String hex) implements TraceValue {} // Color
+
 } // TraceValue

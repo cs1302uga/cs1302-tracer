@@ -37,6 +37,12 @@ requires explicit local types and qualified instance access where applicable, an
 rejects star imports. The exact checks and source scope are defined in
 `src/main/resources/cs1302_checks_extended.xml` and `pom.xml`.
 
+Every nonempty named class or interface body requires a blank line immediately
+after its opening brace and immediately before its closing brace. This includes
+enum classes, record classes, annotation interfaces, and nested or local
+declarations. Empty bodies, including bodies containing only comments, may omit
+this padding. The existing restriction on consecutive blank lines still applies.
+
 Maven runs `picocli-codegen` as an annotation processor, using the same
 `picocli.version` as the runtime library. It checks command annotations during
 compilation and writes Picocli reflection, resource, and proxy configuration under

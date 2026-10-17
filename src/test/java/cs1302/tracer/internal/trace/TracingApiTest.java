@@ -2,9 +2,15 @@ package cs1302.tracer.internal.trace;
 
 import static org.assertj.core.api.Assertions.*;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.internal.CompilationHelper;
+import cs1302.tracer.internal.SourcePreparation;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 class TracingApiTest {
     private static final String SOURCE = """
@@ -85,6 +91,52 @@ class TracingApiTest {
                 assertThat(new String(snapshots.get(-1).getFirst().stdout(), java.nio.charset.StandardCharsets.UTF_8))
                         .isEqualTo("3\n");
             }
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    void multipleParsedSourcesDefaultToEmptyInputAndRetainSourceEvidence() throws Exception {
+        String main = """
+                public class Main {
+                    public static void main(String[] args) throws java.io.IOException {
+                        int observed = Helper.readInput();
+                        System.out.print(observed);
+                    }
+                }
+                """;
+        String helper = """
+                public class Helper {
+                    public static int readInput() throws java.io.IOException {
+                        final int input = System.in.read();
+                        return input;
+                    }
+                }
+                """;
+        String combined = "// --- Main.java ---\n" + main + "\n// --- Helper.java ---\n" + helper;
+        try (CompilationHelper.CompilationResult compiled = CompilationHelper.compile(combined)) {
+            List<CompilationUnit> units = List.of(
+                    SourcePreparation.parseSource(main, Optional.of(compiled.classPath())),
+                    SourcePreparation.parseSource(helper, Optional.of(compiled.classPath())));
+            Map<Integer, List<ExecutionSnapshot>> snapshots = DebugTraceHelper.trace(compiled, List.of(4, -1), units);
+            assertThat(snapshots.get(4)).hasSize(2);
+            assertThat(snapshots.get(4)).extracting(snapshot -> snapshot.sourcePath().orElseThrow())
+                    .containsExactly("Helper.java", "Main.java");
+            ExecutionSnapshot helperSnapshot = snapshots.get(4).getFirst();
+            assertThat(helperSnapshot.stack().getLast().visibleVariables())
+                    .filteredOn(field -> field.identifier().equals("input"))
+                    .singleElement().satisfies(field -> {
+                        assertThat(field.isFinal()).isTrue();
+                        assertThat(field.value()).isEqualTo(new TraceValue.Primitive.Integer(-1));
+                    });
+            assertThat(snapshots.get(-1)).hasSize(1);
+            ExecutionSnapshot finished = snapshots.get(-1).getFirst();
+            assertThat(new String(finished.stdout(), StandardCharsets.UTF_8)).isEqualTo("-1");
+            assertThat(finished.stderr()).isEmpty();
+            assertThat(snapshots.values()).allSatisfy(states -> assertThat(states).allSatisfy(snapshot -> {
+                assertThat(snapshot.stdinConsumed()).isEmpty();
+                assertThat(snapshot.stdinOffset()).isZero();
+            }));
         }
     }
 

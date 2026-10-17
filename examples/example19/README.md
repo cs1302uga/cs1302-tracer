@@ -6,7 +6,7 @@ This example demonstrates custom generic classes with parameterized types and Tr
 
 - **Custom Generic Classes**: Parameterized generic class `Pair<K, V>`.
 - **Type Arguments**: Instantiating `Pair<String, Integer>` and `Pair<Integer, Boolean>`.
-- **Reified Metadata**: Static AST type extraction mapping generic arguments into heap metadata.
+- **Reified Metadata**: Available source declarations and runtime type evidence inform generic labels in heap metadata. These labels do not make erased generic arguments available through Java reflection.
 
 ## Files
 

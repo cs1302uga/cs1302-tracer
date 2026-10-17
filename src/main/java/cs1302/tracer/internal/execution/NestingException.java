@@ -5,6 +5,7 @@ import org.apiguardian.api.API;
 /** Controlled rejection of a representation that cannot be processed safely. */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class NestingException extends IllegalArgumentException {
+
     private static final long serialVersionUID = 1L;
 
     /**
@@ -15,4 +16,5 @@ public final class NestingException extends IllegalArgumentException {
     public NestingException(String reason) {
         super(reason);
     } // NestingException
+
 } // NestingException

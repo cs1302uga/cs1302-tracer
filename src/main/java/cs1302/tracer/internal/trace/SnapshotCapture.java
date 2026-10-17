@@ -33,6 +33,7 @@ import java.util.Set;
  * Execution supplies suspended threads and job observations; the active session retains budget and admission ownership.
  */
 final class SnapshotCapture {
+
     /** Prevents utility construction. */
     private SnapshotCapture() {} // SnapshotCapture
 
@@ -398,7 +399,7 @@ final class SnapshotCapture {
     } // processStackFrameVariables
 
     /**
-     * Collects stack frame snapshots for all visible frames on the main thread.
+     * Collects visible stack frames from a suspended thread, applying harness and capture-policy filtering.
      *
      * @param mainThread Suspended thread.
      * @param astTypeResolver AstTypeResolver instance.
@@ -558,7 +559,7 @@ final class SnapshotCapture {
     } // resolveThisObject
 
     /**
-     * Collects static fields from all loaded classes.
+     * Collects static fields from the supplied loaded classes, applying capture-policy filtering.
      *
      * @param loadedClasses Loaded reference types.
      * @param sourceAnalysis Precomputed source analysis.
@@ -656,6 +657,7 @@ final class SnapshotCapture {
 
     /** Deduplicates and budgets references before retaining them for heap traversal. */
     private static final class ReferenceQueue extends java.util.AbstractList<ObjectReference> {
+
         private final LinkedList<ObjectReference> references = new LinkedList<>();
         private final Set<Long> queued = new HashSet<>();
 
@@ -692,5 +694,7 @@ final class SnapshotCapture {
         public ObjectReference remove(int index) {
             return references.remove(index);
         } // remove
+
     } // ReferenceQueue
+
 } // SnapshotCapture

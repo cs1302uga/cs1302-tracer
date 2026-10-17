@@ -27,17 +27,73 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 ## Unreleased
 
 [Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
-Prepared version: **4.1.0** (not yet published). Implemented in
+Development version: **4.1.0-SNAPSHOT**; the **4.1.0** documentation snapshot remains
+prepared but unpublished. Earlier 4.1.0 work was implemented in
 [`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
 — primitive binary metadata, rendering/capture ownership, and release preparation.
 
 ### Breaking changes
 
-No breaking changes. Supported Java signatures and the `TraceRequest` record shape,
-CLI defaults, JSON/protocol defaults, and tooling requirements are preserved.
+- **Guest compilation (Java API, CLI, and batch):** disable annotation processing
+  explicitly. Programs that relied on automatically discovered processors must now
+  supply generated declarations as source files. Annotation types remain usable.
+  Supported existing Java signatures, the `TraceRequest` record shape, trace JSON
+  schemas, and result-envelope versions remain unchanged.
+- **Source-path discovery:** neighboring source directories are no longer also
+  treated as implicit binary dependency roots. Java source discovery still works;
+  configure the directory explicitly as a class-path entry when relying on
+  precompiled neighboring classes.
 
 ### Non-breaking changes
 
+- **Java API, CLI, and batch:** add per-job binary directory/JAR dependencies through
+  immutable `TraceClassPath` configuration and tracing/discovery overloads, repeatable
+  `--class-path`/`-classpath`/`-cp` options, and optional batch request fields. Support
+  native path lists, immediate JAR wildcards, recursive globs, deterministic ordering,
+  and local manifest dependencies. Optional copying captures the available transitive
+  dependency set before compilation while preserving JAR contents and signatures.
+  Dependencies are shared by compilation, type analysis, and execution without adding
+  library source-line breakpoints or changing serialized output formats.
+- **Java API:** add immutable `SourceBundle` with a reusable builder and copy builder
+  for ordered, delimited source input. Accept explicitly named text or infer names
+  from source declarations, and capture strictly decoded UTF-8 files when added.
+  Expose source text, independent UTF-8 input streams, and output that leaves caller
+  streams open. Reject duplicate paths and delimiter collisions; preserve source
+  text except for a necessary newline before a following file delimiter. This adds
+  no tracing overload, compilation guarantee, CLI syntax, or JSON/protocol change.
+- **Java API:** add atomic glob-based `SourceBundle.Builder.addFiles` and
+  `addInferredFiles` overloads with immediate UTF-8 capture and deterministic
+  root-relative ordering. Portable patterns include `demo/**/*.java`, matching
+  immediate and nested files. Discovered symbolic links are skipped by default;
+  an explicit option follows them, including targets outside the root, and fails
+  on encountered broken links or cycles. Aliases remain separate matches, and
+  invalid matches or duplicate logical paths reject the entire addition.
+- **Development tooling:** use Maven version `4.1.0-SNAPSHOT`. Documentation preview
+  accepts the matching prepared 4.1.0 snapshot with working Javadoc and an unreleased
+  banner. Published documentation still requires exact stable release tags.
+- **Contributor style:** require a blank line immediately inside each brace of
+  nonempty class and interface bodies, including enums, records, annotation
+  interfaces, and nested or local declarations. Empty bodies remain exempt.
+- **Documentation:** clarify capture selection, resource accounting, builder and
+  snapshot ownership, batch failures, and nullable manually constructed outcomes.
+  Correct stale examples and Javadoc, use the managed Python wrapper in contributor
+  commands and generated CLI guidance, and document validation of internal Javadoc.
+- **Documentation tooling:** preserve authored CLI behavior notes when regenerating
+  executable help, while checking the generated prefix for exact agreement.
+- **Java API:** add nested builders for `TraceRequest`, `TraceLimits`, `TraceOutcome`,
+  and `BatchTracer`, with copy builders for the three value records. Existing
+  constructors and record shapes remain available. Request and limit defaults stay
+  unchanged; batch construction requires explicit resource settings. Each batch
+  build owns a separate closeable processor. Outcome builders preserve supplied JSON
+  verbatim and do not synchronize it with manually edited metadata.
+- **Internal construction:** add builders for modern `Step`, Python Tutor `TraceStep`,
+  and `BatchJobRequest`. Builders detach immediate collections while preserving each
+  model's null and ordering semantics; nested values may remain shared. Existing
+  constructors, caller-profile interpretation, rendering policy, and wire output
+  remain unchanged.
+- **Internal values:** add shared `TraceValue.Primitive.Boolean.TRUE` and `FALSE`
+  constants and reuse them when capturing JDI booleans. Direct construction and
+  serialized boolean values remain unchanged.
 - **CLI and JSON/protocol:** add opt-in `--include-primitive-bits` and batch
   `includePrimitiveBits`. Both serializers retain existing literals and add typed,
   fixed-width binary descriptors for primitives in locals, fields, arrays, and
@@ -52,9 +108,18 @@ CLI defaults, JSON/protocol defaults, and tooling requirements are preserved.
   isolate complete snapshot capture from guest event loops. Preserve supported Java,
   CLI, JSON/protocol, session budgets, and guest reuse behavior. Test rendering through
   final JSON and type prepasses through completed captures.
+- **Internal architecture:** give prepared class paths sole ownership of dependency
+  files and archive views, share source/dependency file traversal, and centralize
+  envelope CLI and Java/NDJSON completion rules. Preserve path identity, capture
+  timing, cleanup order, caller-specific failure reporting, and supported Java,
+  CLI, and JSON/protocol behavior.
 - Add a runnable binary-metadata example and document placement, encodings,
   per-job settings, and serialization costs. Keep published documentation snapshots
   unchanged; development docs and the pending 4.1.0 snapshot describe the extension.
+- **Documentation:** distinguish normative encoding specifications from informative
+  explanations in a central primitive-binary reference, linked from guides, examples,
+  and Javadoc. Clarify tracer-defined conventions alongside Java SE 21, IEEE 754-2019,
+  and Unicode 15.0 references; Java API, CLI, and JSON/protocol behavior is unchanged.
 - **Contributor documentation:** correct invalid parameter tags on the internal
   lambda heap-object factory so its Javadoc can be generated directly.
 

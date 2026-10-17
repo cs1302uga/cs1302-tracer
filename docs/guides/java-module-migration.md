@@ -6,8 +6,46 @@ and carry no external compatibility promise. Library consumers should use
 [Java integration and 4.0 migration](../reference/java-api.md).
 
 The following describes the current internal ownership and call conventions.
-Internal tracing code uses the preparation module to keep compiled files and source
-evidence alive for the same scope:
+
+## Building internal values
+
+Since 4.1.0, modern `Step`, Python Tutor `TraceStep`, and `BatchJobRequest` expose
+nested builders and `toBuilder()`. These remain internal interfaces. An unchanged
+copy preserves every field. Builders are mutable and reusable, and are not thread-safe.
+Their collection setters and copy initialization detach immediate lists and maps,
+preserving null containers, null entries, and iteration order. Nested frames, maps,
+and arbitrary payload objects may remain shared. Existing constructors retain their
+original collection ownership behavior; these records are not deeply immutable.
+
+Step builders default input tracking to an empty consumed string and offset zero;
+other numeric values start at zero and references at null. Explicit setters can
+replace those values, including with null references. Serializers still supply
+the actual event and source location, related global attributes and ordering, and
+optional thread metadata. Builders do not interpret snapshots or infer rendering
+fields. Python Tutor null globals and ordered maps remain valid; blanket
+`Map.copyOf` is inappropriate for these payloads.
+
+The batch-wire builder starts with all fields omitted, including nullable booleans,
+limits, and breakpoints. It preserves omitted versus explicit empty selections and
+does not apply Java request defaults. Null/blank breakpoint entries remain accepted
+for the existing deferred parser to ignore. Gson decoding remains independent of
+the builder, and caller-profile resolution retains its existing responsibility.
+
+The supported `TraceOutcome` builder also accepts explicit data. Production
+outcomes are assembled by `TraceRendering.freeze` from a single execution result;
+it owns agreement between structured metadata, trace JSON, and envelope JSON.
+Neither step builders nor outcome builders introduce another rendering policy.
+
+Primitive trace values are immutable and can be shared. Since 4.1.0,
+`TraceValue.Primitive.Boolean.TRUE` and `.FALSE` provide reusable Boolean values;
+JDI primitive conversion also returns these constants. `new TraceValue.Primitive.Boolean(value)`
+remains available, with the same value-based record equality. The constants contain
+no guest or job state and do not change either JSON format.
+
+## Preparation and execution ownership
+
+Internal tracing code uses the preparation module to keep compiled files, source
+evidence, prepared binary dependencies, and archive views alive for the same scope:
 
 ```java
 try (SourcePreparation prepared = SourcePreparation.prepare(
@@ -24,9 +62,35 @@ and uses the discovered root for resolution. `NEIGHBORS_OR_COMPILED` also falls 
 no original root is available. These preserve the existing field-only, bounded CLI, and
 ordinary CLI/batch preparation policies respectively.
 
-Closing the preparation releases its compiled files. Compilation or source-evidence
-preparation failures release those files before propagating the original failure. The
-source evidence list is immutable; its JavaParser compilation units remain mutable.
+The four-argument `prepare` overload accepts a `TraceClassPath`. It resolves the
+ordered dependency closure once per job and optionally captures copies before
+compilation. `PreparedClassPath` owns the effective locations and their correlated
+version-selected archive views; archive acquisition occurs after selection and
+copying, before source parsing and compilation. Compiler and bytecode type analysis
+share those views; both guest modes use the same prepared dependency order. The existing
+overload uses an empty class path. See [binary dependencies](../reference/java-api.md#binary-dependencies)
+for the supported Java interface.
+
+Closing the preparation releases its compiled files, then closes the prepared
+class path, which closes archive readers before removing owned dependency copies.
+Caller-owned dependencies remain untouched.
+Preparation failures release acquired resources before propagating the original
+failure. The source evidence list is immutable; its JavaParser compilation units
+remain mutable. Lazy type resolution must finish before the preparation closes.
+
+The dependency-aware `CompilationHelper.compile` overload accepts a `PreparedClassPath`
+instead of separate dependency-location and host binary-root lists. Internal callers
+use this owner to keep both views of the ordered closure consistent; they do not
+open or close `BinaryClassPath` themselves.
+
+`FileSelection.sources(root, glob, followLinks)` and
+`FileSelection.dependencies(root, glob, followLinks)` share one regular-file walk
+with distinct path projection. Source matches retain a portable relative name and
+a read path below the resolved root. Dependency matches use the original normalized
+root alias, preserving manifest origins and lexical dependency identity. Matching
+does not read file contents: `SourceBundle.Builder` captures source text atomically
+when added, while `PreparedClassPath` selects dependency files when a job is prepared.
+Dependency copying and owned-tree deletion remain with `ClassPathFiles`.
 
 `CompilationHelper.compile`, `App.parseSource`, and `App.discoverAllCompilationUnits`
 exist under `cs1302.tracer.internal`; `App` here means the internal command class,
@@ -81,6 +145,35 @@ Batch callers continue to treat an empty chronological selection as all valid li
 Capture returns `FinalState`, `Chronological`, or `Breakpoints`. Renderers consume these
 results without invoking guest execution. The existing `DebugTraceHelper` and
 `PersistentGuestSession` tracing methods are internal implementation entry points.
+
+`TraceCompletion` coordinates sequence payloads for envelope CLI and the Java/NDJSON
+worker using three named operations:
+
+- `envelope` accepts supplied snapshots or uses raw retained history when a guest
+  was launched. Available empty history is renderable. Its `Envelope` result pairs
+  payload and failure; a rendering `RuntimeException` replaces an earlier failure
+  and changes the phase to `serialize`.
+- `workerSuccess` chooses chronological capture, finalized multithread retained
+  history, or targeted retained presentation, sets phase `serialize`, and renders.
+  It propagates failure to the worker's existing recovery branch.
+- `workerRecovery` renders only when raw retained history is available and nonempty,
+  choosing chronological or targeted presentation. A rendering `RuntimeException`
+  is suppressed onto the original failure without replacing its phase.
+
+Call these operations at the existing adapter scopes: envelope completion follows
+source-preparation cleanup, worker success runs inside preparation, and worker
+recovery remains in its outer catch. Recovery may retry rendering after a success
+render or cleanup failure. Keep final `TraceSession.result` construction after
+cleanup and worker guest-health checks. Ordinary CLI continues to pass its capture
+directly to `TraceRendering.ordinary`.
+
+For multithread worker success, completion requests the session's existing final-output
+refresh before selecting retained states. Guest execution drains and detaches output
+before reusable drainers reset; `SnapshotRetention` owns output projection and
+accounting, and `TraceRendering` owns format conversion. Adapters retain guest
+cleanup. Envelope uses raw
+retained history for targeted jobs; worker completion uses targeted presentation.
+The adapters retain their distinct exception scopes and interrupt handling.
 
 `SourceAnalysis.observations(declaringClass, methodName, argumentTypes, line)` returns
 source observations for a captured location. Use `isFinal(variable)` and

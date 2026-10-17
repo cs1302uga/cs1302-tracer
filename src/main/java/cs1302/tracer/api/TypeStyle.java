@@ -49,10 +49,11 @@ public enum TypeStyle {
     } // format
 
     /**
-     * Simplifies a fully qualified or parameterized type string by stripping package prefixes.
+     * Simplifies a fully qualified or parameterized type string by stripping dotted identifier prefixes.
+     * This is a textual presentation operation, not Java type parsing or name resolution.
      *
-     * @param typeName The type string to simplify.
-     * @return The simplified type string.
+     * @param typeName The type string to simplify, or null.
+     * @return The simplified type string, or null if the input is null.
      */
     public static String simplify(String typeName) {
         if (typeName == null) {
@@ -70,4 +71,5 @@ public enum TypeStyle {
     public String toString() {
         return this.value;
     } // toString
+
 } // TypeStyle

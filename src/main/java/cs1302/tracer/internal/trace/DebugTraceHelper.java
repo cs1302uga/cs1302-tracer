@@ -423,7 +423,7 @@ public class DebugTraceHelper {
      *
      * @param vm The JDI VirtualMachine.
      * @param refType The loaded reference type.
-     * @param breakPoints The collection of line numbers.
+     * @param breakPoints Source-qualified or unqualified breakpoint specifications.
      * @return List of created and enabled breakpoint requests.
      * @throws AbsentInformationException If line info is absent.
      */
@@ -464,7 +464,8 @@ public class DebugTraceHelper {
     } // toSpecs
 
     /**
-     * Checks if a JDI method matches the main method signature.
+     * Recognizes exits from non-private {@code void main(String[])} or {@code void main()} methods,
+     * whether static or instance methods.
      *
      * @param method The JDI method.
      * @return True if method is main.
@@ -1068,7 +1069,7 @@ public class DebugTraceHelper {
             throws IOException, IllegalConnectorArgumentsException, VMStartException {
 
         VirtualMachine vm = GuestLauncher.launch(compilationResult.mainClass(), compilationResult.classPath(),
-                compilationResult.previewEnabled());
+                compilationResult.dependencies(), compilationResult.previewEnabled());
         if (TraceSession.current() != null) {
             TraceSession.current().attach(vm);
         } // if

@@ -34,7 +34,7 @@ import java.util.function.Function;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class BatchTraceService implements AutoCloseable {
 
-    /** Maximum allowed characters in a single NDJSON input record (16 MB). */
+    /** Maximum allowed UTF-16 code units in a single NDJSON input record (16 * 1024 * 1024). */
     public static final int MAX_RECORD_CHARS = 16 * 1024 * 1024;
 
     private final int workerCount;
@@ -189,7 +189,7 @@ public final class BatchTraceService implements AutoCloseable {
     } // processStream
 
     /**
-     * Submits a single raw JSON line for execution and writes its response when done.
+     * Submits a single raw JSON line for execution; the stream-processing caller writes the response.
      *
      * @param jsonLine Raw JSON request line.
      * @return Future completing when the response is ready.
@@ -298,4 +298,5 @@ public final class BatchTraceService implements AutoCloseable {
             } // for
         } // try
     } // close
+
 }

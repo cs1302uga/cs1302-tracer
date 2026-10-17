@@ -102,7 +102,7 @@ class Project:
                 actual = maven_version(pom)
                 if actual != version:
                     raise ValueError(f"Release tag for {version} contains Maven version {actual}")
-            elif mode == "published" or version != self.project_version():
+            elif mode == "published" or version != self.project_version().removesuffix("-SNAPSHOT"):
                 raise ValueError(f"Missing release tag for {version}")
             entries.append(
                 {
@@ -113,7 +113,7 @@ class Project:
                     "javadocPath": "api/" + version,
                     "javadocUrl": base + "api/" + version + "/index.html",
                     "sourceCommit": commit,
-                    "banner": "none",
+                    "banner": "unreleased" if commit is None else "none",
                 }
             )
         return {

@@ -9,7 +9,9 @@ import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.internal.CompilationHelper.CompilationResult;
 import cs1302.tracer.api.BatchTracer;
 import cs1302.tracer.internal.execution.JobOptions;
+import cs1302.tracer.internal.execution.ClassPathOptions;
 import cs1302.tracer.internal.execution.TraceJob;
+import cs1302.tracer.internal.execution.TraceCompletion;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.internal.execution.TraceResult;
@@ -59,12 +61,7 @@ import picocli.CommandLine.Option;
         mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
 public class App {
 
-    /**
-     * Constructs a new {@code App} command-line application instance.
-     *
-     * <p>Normative Reference: The Picocli command-line parsing specification requires a public zero-argument
-     * constructor for command dispatch and instantiation.</p>
-     */
+    /** Constructs a new {@code App} command-line application instance. */
     public App() {} // App
 
     /** Provides version string resolved from Maven resource filtering at build time. */
@@ -88,6 +85,7 @@ public class App {
             } // try
             return new String[] { version };
         } // getVersion
+
     } // PropertiesVersionProvider
 
     static Consumer<Integer> systemExitHandler = System::exit;
@@ -142,6 +140,9 @@ public class App {
     /** Base class that holds common CLI parameters. */
     @Command
     abstract static class CommandBase implements Runnable {
+
+        @picocli.CommandLine.Mixin
+        ClassPathOptions dependencies = new ClassPathOptions();
 
         @Option(names = { "--verbose", "-v" }, description = "Output messages about what the tracer is doing.")
         boolean verbose = false;
@@ -206,11 +207,12 @@ public class App {
          * @param source The Java source code to parse.
          * @param sourceRoot The root directory where source files for the program are located.
          * @return The parsed Java source code.
-         * @throws ParseProblemException If parsing failed.
+         * @throws IllegalArgumentException If parsing failed.
          */
         protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
             return App.parseSource(source, sourceRoot);
         } // parseSource
+
     } // CommandBase
 
     /** Run a trace. */
@@ -294,7 +296,8 @@ public class App {
                 selected = job.limits();
                 resolvedJob = TraceJob.resolve(job.profile(), format, typeStyle, selected, job.inspection,
                         job.breakpoints, allBreakpoints, accumulateBreakpoints, job.multithread,
-                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash, includePrimitiveBits);
+                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash, includePrimitiveBits,
+                        dependencies.resolve());
                 resolvedJob.validateThreadFormat(true);
                 resolvedJob.capture().selection();
                 if (job.envelope) {
@@ -319,7 +322,7 @@ public class App {
                     boolean stopped = result.status().equals("stopped");
                     System.err.println(stopped ? "Trace stopped: " + result.stopReason()
                             + ". Increase the limit or use --unlimited; use --result-envelope" + " for partial traces."
-                            : "Unable to generate trace!");
+                            : "Unable to generate trace! " + cause.getMessage());
                     if (verbose) {
                         cause.printStackTrace();
                     } // if
@@ -342,7 +345,7 @@ public class App {
             session.enforce(Math.max(1, files), selected.sourceFiles(), "source_file_limit");
             session.phase("compile");
             try (SourcePreparation prepared = SourcePreparation.prepare(
-                    source, getInputPath(), resolvedJob.discovery())) {
+                    source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
                 session.phase("trace");
                 TraceDispatch.Capture captured = TraceDispatch.dedicated().capture(prepared,
                         resolvedJob.capture().selection(), guestStdin);
@@ -376,17 +379,10 @@ public class App {
                         Thread.currentThread().interrupt();
                     } // if
                 } // try
-                if (snapshots == null && session.traceAvailable()) {
-                    snapshots = session.snapshots();
-                } // if
-                Object payload = null;
-                try {
-                    payload = snapshots == null ? null : boundedPayload(source, snapshots, guestStdin);
-                } catch (RuntimeException serializationFailure) {
-                    failure = serializationFailure;
-                    session.phase("serialize");
-                } // try
-                TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT), payload, failure);
+                TraceCompletion.Envelope completed = TraceCompletion.envelope(
+                        source, guestStdin, resolvedJob, session, snapshots, failure);
+                TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT),
+                        completed.payload(), completed.failure());
                 System.out.println(TraceRendering.freeze(result, pretty).json());
                 if (!result.complete()) {
                     exitHandler.accept(result.status().equals("stopped") ? 3 : 1);
@@ -435,25 +431,13 @@ public class App {
             long files = SourceDelimiters.scan(source).size();
             session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
             try (SourcePreparation prepared = SourcePreparation.prepare(
-                    source, getInputPath(), resolvedJob.discovery())) {
+                    source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
                 session.phase("trace");
                 TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
                 session.finishOutput();
                 return session.snapshots();
             } // try
         } // executeBoundedSource
-
-        /**
-         * Creates an unchanged trace-format root inside the result envelope.
-         *
-         * @param source Source text.
-         * @param snapshots Completed states in capture order.
-         * @param guestStdin Standard input string for guest process.
-         * @return Serializer model.
-         */
-        Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-            return TraceRendering.sequence(source, guestStdin, resolvedJob, snapshots);
-        } // boundedPayload
 
         /**
          * Publishes ordinary JSON only after confirming that no limit stopped the job.
@@ -464,6 +448,7 @@ public class App {
             TraceSession.current().check();
             System.out.println(json);
         } // emitTrace
+
     } // Trace
 
     /** Run batch traces over NDJSON. */
@@ -515,6 +500,7 @@ public class App {
                 exitHandler.accept(1);
             } // try
         } // run
+
     } // BatchTrace
 
     /** List the breakpoint lines available for a compiled Java program. */
@@ -531,11 +517,9 @@ public class App {
 
             try {
                 List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
-                CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-                CompilationUnit preCu = entryFile.ast();
-                Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(preCu, getInputPath());
-
-                try (CompilationResult compilationResult = CompilationHelper.compile(source, sourceRoot)) {
+                try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(),
+                        SourcePreparation.Discovery.NEIGHBORS, dependencies.resolve())) {
+                    CompilationResult compilationResult = prepared.compilation();
                     if (sourceFiles.size() > 1) {
                         Map<String, Set<Integer>> breakpointsByFile = DebugTraceHelper
                                 .getValidBreakpointLinesByFile(compilationResult);
@@ -547,7 +531,7 @@ public class App {
                     } // if
                 } // try
             } catch (Throwable cause) {
-                System.err.println("Unable to list breakpoints!");
+                System.err.println("Unable to list breakpoints! " + cause.getMessage());
                 if (verbose) {
                     cause.printStackTrace();
                 } // if
@@ -658,6 +642,7 @@ public class App {
                 System.out.println(sb.toString());
             } // if
         } // listSingleFileBreakpoints
+
     } // ListBreakpoints
 
     /** Print dependency licenses to console. */
@@ -669,5 +654,7 @@ public class App {
         public void run() {
             System.out.println(LicenseHelper.getLicenseText());
         } // run
+
     } // ShowLicenses
+
 } // App

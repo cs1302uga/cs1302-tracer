@@ -11,6 +11,9 @@ Use `-f pytutor` for the same metadata in Python Tutor attributes, or add `-a` t
 observe changes chronologically. Omit `--include-primitive-bits` to retain the
 existing output without metadata. The flag works with ordinary and envelope output.
 
+The [encoding definitions and references](../../docs/reference/output.md#encoding-definitions-and-references)
+provide normative specifications and informative explanations for the representations below.
+
 Look for:
 
 - `delta`: byte -1 is eight ones, not a sign-extended 32-bit int.

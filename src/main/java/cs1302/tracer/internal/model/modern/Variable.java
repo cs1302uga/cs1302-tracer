@@ -29,4 +29,5 @@ public record Variable(@SerializedName("name") String name, @SerializedName("typ
     public Variable(String name, String type, Object value, boolean isFinal) {
         this(name, type, value, isFinal, null);
     } // Variable
+
 } // Variable

@@ -18,8 +18,9 @@ For contributions, see [development](contributing/development.md) and
 [architecture](contributing/architecture.md).
 
 The version menu distinguishes development documentation from released versions.
-Release history begins with the first release prepared using this documentation
-workflow; earlier releases are not backfilled.
+Documentation snapshots start at 3.2.1; earlier releases are not backfilled.
+Development documentation follows the working source. A prepared release snapshot
+can appear as unreleased in a local preview before that release is published.
 
 First-party code and documentation use the MIT license. Dependency notices retain
 their original licenses; the CLI's `show-licenses` command displays bundled notices.

@@ -46,4 +46,5 @@ public record PyTutorTrace(@SerializedName("code") String code, @SerializedName(
     public PyTutorTrace(String code, String stdin, List<TraceStep> trace, String userlog, SourceMetadata metadata) {
         this(code, stdin, trace, userlog, metadata.sources(), metadata.entryFile());
     } // PyTutorTrace
+
 } // PyTutorTrace

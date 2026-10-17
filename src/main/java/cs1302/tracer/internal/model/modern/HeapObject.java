@@ -133,4 +133,5 @@ public record HeapObject(@SerializedName("id") long id, @SerializedName("type") 
     public static HeapObject ofColor(long id, String type, String value) {
         return new HeapObject(id, type, "color", null, null, value, null);
     } // ofColor
+
 } // HeapObject

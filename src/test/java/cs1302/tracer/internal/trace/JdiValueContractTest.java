@@ -46,6 +46,25 @@ class JdiValueContractTest {
                 .isEqualTo(value);
     }
 
+    static Stream<Arguments> booleanValues() {
+        return Stream.of(Arguments.of(true, TraceValue.Primitive.Boolean.TRUE),
+                Arguments.of(false, TraceValue.Primitive.Boolean.FALSE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("booleanValues")
+    void booleanMirrorsReuseSharedValues(boolean value, TraceValue.Primitive.Boolean expected) {
+        var primitive = mirror(BooleanValue.class, Map.of("value", value));
+        assertThat(TraceValue.Primitive.fromJdiPrimitive(primitive)).isSameAs(expected);
+        assertThat(TraceValue.fromJdiValue(null, primitive, Optional.empty())).isSameAs(expected);
+        assertThat(TraceValue.Primitive.tryFromJdiValue(null, primitive)).containsSame(expected);
+
+        var type = mirror(ClassType.class, Map.of("signature", "Ljava/lang/Boolean;", "concreteMethodByName",
+                mirror(com.sun.jdi.Method.class, Map.of())));
+        var boxed = mirror(ObjectReference.class, Map.of("type", type, "invokeMethod", primitive));
+        assertThat(TraceValue.Primitive.tryFromJdiValue(null, boxed)).containsSame(expected);
+    }
+
     @Test
     void unknownMirrorsFailExplicitlyRatherThanBecomingNull() {
         assertThatThrownBy(() -> TraceValue.fromJdiValue(null, mirror(Value.class, Map.of()), Optional.empty()))

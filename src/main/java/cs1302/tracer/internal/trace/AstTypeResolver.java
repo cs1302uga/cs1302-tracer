@@ -61,7 +61,7 @@ public class AstTypeResolver {
     } // invocationTypes
 
     /**
-     * Metadata for a class's generic type parameters, fields, and constructors.
+     * Metadata for a class's generic type parameters, fields, and declared supertypes.
      *
      * @param classFqn Fully qualified class name.
      * @param typeParameters List of generic type parameter names.
@@ -86,6 +86,7 @@ public class AstTypeResolver {
                 Map<String, Boolean> fieldIsFinal) {
             this(classFqn, typeParameters, fieldTypes, fieldIsFinal, Collections.emptyList(), Optional.empty());
         } // ClassGenericInfo
+
     } // ClassGenericInfo
 
     /**
@@ -910,4 +911,5 @@ public class AstTypeResolver {
         } // if
         return type.clone();
     } // substituteType
+
 } // AstTypeResolver

@@ -230,9 +230,22 @@ public class ModernTraceSerializer {
         String stderr = decodeOutput(snapshot.stderr());
 
         List<Step.ThreadState> threads = serializeThreads(snapshot, isMultiFile);
-        return new Step(stepNumber, currentLine, stepFile, snapshot.event() == null ? "step_line" : snapshot.event(),
-                currentMethod, callStack, statics, heap, stdout, stderr, snapshot.stdinConsumed(),
-                snapshot.stdinOffset(), threads, snapshot.triggeringThreadId());
+        return Step.builder()
+                .step(stepNumber)
+                .line(currentLine)
+                .file(stepFile)
+                .event(snapshot.event() == null ? "step_line" : snapshot.event())
+                .method(currentMethod)
+                .callStack(callStack)
+                .statics(statics)
+                .heap(heap)
+                .stdout(stdout)
+                .stderr(stderr)
+                .stdinConsumed(snapshot.stdinConsumed())
+                .stdinOffset(snapshot.stdinOffset())
+                .threads(threads)
+                .triggeringThreadId(snapshot.triggeringThreadId())
+                .build();
     } // createStep
 
     /**
@@ -389,4 +402,5 @@ public class ModernTraceSerializer {
         default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch
     } // serializeHeapObject
+
 } // ModernTraceSerializer

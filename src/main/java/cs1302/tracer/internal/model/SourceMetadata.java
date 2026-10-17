@@ -49,4 +49,5 @@ public record SourceMetadata(Map<String, String> sources, String entryFile) {
         return file.ast().getPackageDeclaration().map(pkg -> pkg.getNameAsString().replace('.', '/') + "/").orElse("")
                 + name;
     } // sourcePath
+
 } // SourceMetadata

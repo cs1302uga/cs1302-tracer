@@ -129,4 +129,5 @@ public class JobOptions {
     private static long select(Long override, long fallback) {
         return override != null ? override : fallback;
     } // select
+
 } // JobOptions

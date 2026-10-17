@@ -27,6 +27,7 @@ import com.sun.jdi.request.MethodExitRequest;
 import cs1302.tracer.internal.CompilationHelper.CompilationResult;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.internal.guest.GuestHarness;
+import cs1302.tracer.internal.guest.GuestClassPath;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -56,6 +57,7 @@ public final class PersistentGuestSession implements AutoCloseable {
     private final StreamDrainer vmErr;
     private final ClassType harnessType;
     private final Field nextClassPathField;
+    private final Field nextDependenciesField;
     private final Field nextMainClassField;
     private final Field nextStdinField;
     private final Field lastHarnessFailureField;
@@ -90,6 +92,7 @@ public final class PersistentGuestSession implements AutoCloseable {
         this.readyLocation = readyLocation;
         this.completedLocation = completedLocation;
         this.nextClassPathField = harnessType.fieldByName("nextClassPath");
+        this.nextDependenciesField = harnessType.fieldByName("nextDependencies");
         this.nextMainClassField = harnessType.fieldByName("nextMainClass");
         this.nextStdinField = harnessType.fieldByName("nextStdin");
         this.lastHarnessFailureField = harnessType.fieldByName("lastHarnessFailure");
@@ -234,7 +237,8 @@ public final class PersistentGuestSession implements AutoCloseable {
     } // process
 
     /**
-     * Returns whether the persistent guest JVM is alive and ready to process jobs.
+     * Returns whether this session has not been invalidated and its guest process is still alive.
+     * This check does not establish that the guest is currently idle.
      *
      * @return True if session is alive.
      */
@@ -381,6 +385,7 @@ public final class PersistentGuestSession implements AutoCloseable {
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     @FunctionalInterface
     public interface SnapshotSink {
+
         /**
          * Consumes an execution snapshot recorded at a given line number.
          *
@@ -395,6 +400,7 @@ public final class PersistentGuestSession implements AutoCloseable {
          * @param output Immutable final job output.
          */
         default void materialize(JobOutput.Finished output) {} // materialize
+
     } // SnapshotSink
 
     /**
@@ -470,6 +476,8 @@ public final class PersistentGuestSession implements AutoCloseable {
         Throwable tracingFailure = null;
         try {
             harnessType.setValue(nextClassPathField, vm.mirrorOf(cr.classPath().toString()));
+            harnessType.setValue(nextDependenciesField, cr.dependencies().isEmpty() ? null
+                : vm.mirrorOf(GuestClassPath.write(cr.classPath(), cr.dependencies()).toString()));
             harnessType.setValue(nextMainClassField, vm.mirrorOf(cr.mainClass()));
             harnessType.setValue(nextStdinField, vm.mirrorOf(stdin != null ? stdin : ""));
 
@@ -950,4 +958,5 @@ public final class PersistentGuestSession implements AutoCloseable {
         vmOut.close();
         vmErr.close();
     } // close
+
 } // PersistentGuestSession

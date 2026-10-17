@@ -6,7 +6,7 @@
 </head>
 <body>
 <p>Embed Java execution tracing in your application with cs1302-tracer.
-Submit self-contained Java source, discover executable breakpoints, or process
+Submit Java source with optional binary dependencies, discover executable breakpoints, or process
 batch jobs, and receive Python Tutor or modern JSON output.</p>
 
 <h1>Using the Java API</h1>
@@ -22,25 +22,29 @@ import cs1302.tracer.api.Tracer;
 
 /** Demonstrates tracing a Java program through the library API. */
 public class TraceExample {
+
     public static void main(String[] args) {
         String source = """
             /** Prints a greeting from the traced program. */
             public class Main {
+
                 public static void main(String[] args) {
                     System.out.println("hello");
                 } // main
+
             } // Main
             """;
         TraceOutcome outcome = Tracer.trace(new TraceRequest(source));
         System.out.print(outcome.stdout());
         System.out.println(outcome.json());
     } // main
+
 } // TraceExample
 </code></pre>
 
 <p>The convenience {@link cs1302.tracer.api.TraceRequest#TraceRequest(String)
 TraceRequest constructor} selects Python Tutor output, main-exit capture, finite
-instructor budgets, and trusted inspection. Use the full constructor to supply
+instructor budgets, and trusted inspection. Use {@code TraceRequest.builder(source)} or the full constructor to supply
 stdin, choose a format and capture settings, or configure
 {@link cs1302.tracer.api.TraceLimits} and {@link cs1302.tracer.api.InspectionPolicy}.
 The overload {@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest, boolean)
@@ -48,10 +52,109 @@ Tracer.trace(request, true)} opts into binary metadata alongside existing litera
 the original trace method defaults it to false. The request record shape is unchanged.
 Binary metadata describes captured values, not physical guest storage. It expands
 serialized output without changing retained snapshot accounting.
+See the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md#encoding-definitions-and-references">encoding definitions and references</a>
+for normative specifications, informative explanations, and tracer-defined conventions.
 Input is source text, including the documented delimited multi-file syntax;
 neighboring source files are not discovered automatically.</p>
 
+<h2>Configure binary dependencies</h2>
+<p>{@link cs1302.tracer.api.TraceClassPath} describes ordered binary directories,
+JARs, and explicit glob selections. Its builder does not read files. Each tracing
+or discovery operation resolves paths against the process working directory,
+expands patterns, and follows available local manifest dependencies:</p>
+<pre><code>TraceClassPath dependencies = TraceClassPath.builder()
+    .addPath(java.nio.file.Path.of("build/classes"))
+    .addGlob(java.nio.file.Path.of("lib"), "**/*.jar")
+    .copy(true)
+    .build();
+TraceOutcome outcome = Tracer.trace(request, dependencies);
+</code></pre>
+<p>Dependencies are borrowed by default and must remain available and unchanged
+until the operation finishes. Optional copying captures the available transitive
+dependency set before compilation, preserving JAR contents and signatures; all
+owned readers and copies are released afterward. Glob discovery skips symbolic
+links by default, while directory copying rejects encountered links. The optional
+following setting permits outside targets and rejects broken links or cycles.
+Copying is not an atomic filesystem snapshot or an isolation boundary.</p>
+<p>The same selected binary dependencies support compilation, type analysis, and
+guest execution. Library source-line breakpoints are not added. Source discovery
+and source-byte/file limits remain separate; those limits do not bound binary
+dependencies. Guest compilation disables annotation processing, so required
+generated declarations must be supplied as sources. Existing trace overloads and
+the {@code TraceRequest} record shape remain available.</p>
+
+<h2>Bundle source files</h2>
+<p>Since 4.1.0, {@link cs1302.tracer.api.SourceBundle} captures an ordered set of named
+source texts and emits the existing delimiter format. Explicit paths support empty
+or invalid Java text; inferred names require exactly one public top-level type,
+or a sole top-level type when none is public. Pass the resulting text to the existing
+request builder:</p>
+<pre><code>SourceBundle bundle = SourceBundle.builder()
+    .addSource("demo/Helper.java", """
+        package demo;
+        class Helper {
+
+            static int answer() { return 42; }
+
+        }
+        """)
+    .addInferredSource("""
+        package demo;
+        public class Main {
+
+            public static void main(String[] args) {
+                System.out.println(Helper.answer());
+            }
+
+        }
+        """)
+    .build();
+TraceOutcome result = Tracer.trace(TraceRequest.builder(bundle.source()).build());
+</code></pre>
+<p>The named types above are in {@code cs1302.tracer.api}.
+{@code addFile(logicalPath, path)} and {@code addInferredFile(path)} strictly decode
+UTF-8 files when added and close their file handles. Later changes to those files
+do not affect captured text. Built bundles are immutable; {@code toBuilder()} copies
+their ordered entries without rereading files. At least one entry is required.</p>
+<p>{@code addFiles(root, glob)} selects regular files with root-relative logical paths;
+{@code addInferredFiles(root, glob)} infers logical paths from each selected file's
+Java declarations. Both append matches in case-sensitive lexical order of the
+encountered relative paths. Portable patterns use {@code /} separators and support
+component wildcards, character classes, non-nested brace alternatives, and
+whole-component {@code **}. For example, {@code demo/**/*.java} matches both
+{@code demo/Main.java} and deeper files. No implicit extension or hidden-file filter
+is applied, but selected files must pass the chosen naming and content validation.
+Zero matches is an error.</p>
+<p>The two-argument bulk methods skip discovered symbolic links. Their overloads
+with {@code followLinks=true} follow links, including targets outside the root,
+and abort on encountered broken links or directory cycles. The caller-selected
+root is resolved once and may itself be a symbolic link in either mode. Aliases
+retain their encountered relative paths rather than being deduplicated by physical
+identity. Each call captures all selected UTF-8 text and validates all entries
+before changing the builder; failures preserve previous entries. This does not
+guarantee a simultaneous snapshot of the filesystem.</p>
+<p>Every entry receives a delimiter. Source text, including line endings and BOMs,
+is preserved except for an LF inserted when needed before a following delimiter;
+the final source is unchanged. Duplicate logical paths and delimiter collisions
+are rejected, including collisions inside text blocks or comments. Bundling does
+not compile Java, establish dependency completeness, or change entry-point selection.</p>
+<p>{@code source()} returns the framed text. Each {@code openStream()} returns a
+fresh independent UTF-8 input stream. {@code writeUtf8(OutputStream)} writes the
+same representation without flushing or closing the caller's stream.</p>
+
 <h2>Choose an entry point</h2>
+<p>Since 4.1.0, requests and limits have reusable builders and {@code toBuilder()}
+copy methods. {@code TraceLimits.builder()} starts with instructor defaults;
+{@code TraceLimits.unlimited().toBuilder()} starts with unlimited budgets.
+Builders preserve requested settings; tracing still owns policy resolution and
+execution validation. Existing constructors remain available.</p>
+<pre><code>TraceLimits limits = TraceLimits.builder().timeoutMillis(5_000).snapshots(500).build();
+TraceRequest request = TraceRequest.builder(source).limits(limits).build();
+TraceRequest modern = request.toBuilder().format(TraceFormat.MODERN).build();
+</code></pre>
+<p>The named types above are in {@code cs1302.tracer.api}. All builders are mutable
+and not thread-safe. Immediate collections are detached; arbitrary nested values
+are not recursively copied, and existing constructors retain their ownership rules.</p>
 <ul>
   <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest)
   Tracer.trace}: execute one self-contained tracing request.</li>
@@ -63,6 +166,12 @@ neighboring source files are not discovered automatically.</p>
   {@code processStream} sequentially. Input and output streams remain caller-owned.</li>
 </ul>
 
+<p>{@code BatchTracer.builder()} requires explicit positive {@code workers},
+{@code maxJobsPerWorker}, and {@code maxInFlight} settings. Completion-order output
+defaults to false. Missing settings fail at build time; numeric ranges are validated
+before resource allocation. Each successful build owns a fresh processor, which
+must be closed independently. There is no copy builder for a live processor.</p>
+
 <h2>Read the outcome</h2>
 <p>Expected compilation and execution failures are represented in the outcome.
 Inspect {@code status()}, {@code complete()}, {@code stopReason()}, and
@@ -71,12 +180,19 @@ the result envelope; {@code traceJson()} returns its trace payload, or the JSON
 literal {@code null} when no payload is available. The payload follows batch
 result-envelope conventions, rather than ordinary CLI selected-breakpoint map
 presentation. Outcomes remain usable after cleanup and after subsequent jobs.</p>
+<p>{@code TraceOutcome.builder()} supports explicitly supplied outcomes for adapters
+and fixtures. It defaults collections to empty, completion to false, and strings to
+null. {@code toBuilder()} preserves metadata and JSON verbatim. Neither builder
+parses, generates, nor synchronizes JSON: changing metadata requires corresponding
+JSON if agreement is needed. Production tracing performs coherent rendering before
+returning. {@code writeJson} requires a supplied envelope string.</p>
 
 <h2>Runtime and compatibility</h2>
-<p>Run with a full JDK 21 or later and the tracer's runtime dependencies. The
+<p>Run with a full JDK 21 or later and the tracer's runtime dependencies. CI exercises
+Java 21 and 25; the local development JDK is selected by {@code .java-version}. The
 regular JAR is intended for library integration; the dependency-bundled JAR is
 the executable CLI distribution. Both use the automatic module name
-{@code cs1302.tracer}. Features of submitted programs depend on the active JDK.</p>
+{@code cs1302.tracer}. Features of submitted programs depend on the active JDK and parser support.</p>
 <p>API Guardian is a transitive compile dependency. Maven resolves it automatically;
 manual compilation against the regular JAR also requires the API Guardian JAR
 to avoid missing annotation warnings. It supplies stability metadata, while
@@ -86,8 +202,9 @@ supported method and field types remain project-owned or ordinary Java types.</p
 are implementation details outside that contract. Java API compatibility and
 serialized JSON compatibility are separate concerns. Guest execution is not a
 sandbox: resource budgets do not replace process or host isolation.</p>
-<p>Supported types declare {@code @API(status = STABLE, since = "4.0.0")}, promising
-compatibility throughout the 4.x series. Public implementation types declare
+<p>Supported types declare {@code STABLE}, promising compatibility throughout the
+4.x series. Existing types date that status to 4.0.0; {@code SourceBundle},
+{@code TraceClassPath}, their nested types, and new builders date it to 4.1.0. Public implementation types declare
 {@code INTERNAL}. A type's status applies to its public members unless explicitly
 overridden. The {@code since} value dates the stability status, rather than the
 original introduction of the code.</p>

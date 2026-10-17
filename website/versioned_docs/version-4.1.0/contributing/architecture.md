@@ -17,24 +17,40 @@ The supported interface is `cs1302.tracer.api`, plus the CLI launcher
 `cs1302.tracer.internal.App`. The command class, parser ASTs, debugger objects,
 wire models, and serializer configuration are internal implementation details.
 
+`SourceBundle` assembles explicitly supplied source text before tracing. Its builder
+captures individual files or caller-selected glob matches when added, owns ordered
+logical paths and delimiter framing, and produces an immutable value with text and
+UTF-8 exports. It does not prepare
+classes, discover dependencies, or execute guests. Callers pass its `source()` to
+the existing `TraceRequest` interface.
+
 ```mermaid
 flowchart TD
-    CLI[CLI launcher and internal commands] --> Ordinary[Ordinary or envelope trace]
+    CLI[CLI launcher and internal commands] --> Ordinary[Ordinary CLI trace]
+    CLI --> Envelope[Envelope CLI trace]
     CLI --> Batch[BatchTracer]
+    Bundle[SourceBundle: immutable source text] --> Java
     Java[Tracer.trace] --> Worker[BatchTraceWorker]
     Batch --> Pool[BatchTraceService: admission and ordering]
     Pool --> Worker
     Ordinary --> Preparation[SourcePreparation]
+    Envelope --> Preparation
     Worker --> Preparation
+    Dependencies[TraceClassPath: deferred binary dependencies] --> Preparation
     Preparation --> Compiler[CompilationHelper: javac and temporary files]
     Ordinary --> Dispatch[TraceDispatch]
+    Envelope --> Dispatch
     Worker --> Dispatch
     Dispatch --> Dedicated[DebugTraceHelper: dedicated guest]
     Dispatch --> Persistent[PersistentGuestSession: reusable guest]
     Dedicated --> Capture[SnapshotCapture: stacks, statics, reachable heap]
     Persistent --> Capture
     Capture --> Retention[SnapshotRetention through TraceSession]
-    Retention --> Render[TraceRendering: ordinary, envelope, batch JSON]
+    Ordinary --> Render[TraceRendering: ordinary, envelope, batch JSON]
+    Envelope --> Completion[TraceCompletion: result payload and failure rules]
+    Worker --> Completion
+    Retention --> Completion
+    Completion --> Render
     Render --> Result[Ordinary JSON or detached result envelope]
 ```
 
@@ -54,6 +70,10 @@ mode-specific roots, while envelopes contain a sequence root and status metadata
 `TraceRendering` owns ordinary root selection, sequence payload conversion, and final
 JSON encoding for detached outcomes and batch responses. Execution supplies status and
 diagnostics; batch processing supplies correlation, orders responses, and writes records.
+`TraceCompletion` selects sequence-payload snapshots and rendering-failure precedence
+for envelope CLI and Java/NDJSON worker results. Ordinary CLI renders its completed
+capture directly. Completion coordinates rendering without taking over execution,
+source preparation, output detachment, or result classification.
 
 `Tracer.discoverBreakpoints` prepares submitted sources and reads class-file line
 tables without launching a guest. CLI `list-breakpoints` also reads line tables,
@@ -71,31 +91,120 @@ session accounting, cancellation, and rendering stay with their existing owners.
 
 | Package | Responsibility |
 | --- | --- |
-| `cs1302.tracer.api` | Supported requests, detached outcomes, limits, presentation choices, discovery, and batch processing. |
+| `cs1302.tracer.api` | Source bundles, binary dependency configuration, supported requests, detached outcomes, limits, presentation choices, discovery, and batch processing. |
 | `cs1302.tracer` | Supported CLI launcher. |
-| `cs1302.tracer.internal` | CLI commands, source delimiters, preparation, compilation, and license notices. |
+| `cs1302.tracer.internal` | CLI commands, source delimiters and naming, portable glob matching and file selection, preparation, compilation, and license notices. |
+| `cs1302.tracer.internal.classpath` | Deferred binary dependency preparation, manifest closure, correlated dependency/archive-view ownership, copying, and bytecode type resolution. |
 | `cs1302.tracer.internal.trace` | Guest launching/execution, capture, source observations, type inference, input observation, and job output. |
-| `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job resolution/options, and internal result envelopes. |
+| `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job resolution/options, caller-specific trace completion, and internal result envelopes. |
 | `cs1302.tracer.internal.batch` | NDJSON request/response models, bounded scheduling, and workers. |
-| `cs1302.tracer.internal.guest` | Harness running jobs inside reusable guest JVMs. |
-| `cs1302.tracer.internal.model` | Source and breakpoint metadata; `modern` and `pytutor` subpackages hold wire models. |
+| `cs1302.tracer.internal.guest` | Persistent harness and prepared-dependency loaders for persistent and dedicated guest JVMs. |
+| `cs1302.tracer.internal.model` | Source, breakpoint, and primitive binary metadata; `modern` and `pytutor` subpackages hold wire models. |
 | `cs1302.tracer.internal.serialize` | Trace rendering: root selection, format conversion, JSON policy, and detached outcomes. |
 
 Supported types declare API Guardian `STABLE`, and public implementation types
-(including nested types) declare `INTERNAL`, since 4.0.0. API Guardian annotations
+(including nested types) declare `INTERNAL`. Existing types date their status to
+4.0.0; new types and builders introduced in 4.1.0 date it to 4.1.0. API Guardian annotations
 are the sole permitted external metadata in supported declarations. Exposure tests
 reject other third-party/internal types, including in generics and annotations.
 Public internal classes remain accessible on the classpath and through the automatic
 module, but are outside the supported compatibility contract and public Javadoc.
 
+Builders stay with their owning values: requests preserve caller settings, limits
+reuse the existing presets and validation, and wire values preserve nullability and
+ordering. They detach immediate collections without recursively copying payloads or
+changing existing constructor ownership. Trace-job resolution still interprets raw
+settings; serializers still assemble correlated step fields; trace rendering still
+freezes coherent outcomes. `BatchTracer.Builder` records explicit resource settings,
+while existing batch construction validates ranges and allocates independently owned
+processors. See [Java integration](../reference/java-api.md#build-and-customize-values)
+and [internal value construction](../guides/java-module-migration.md#building-internal-values).
+
 ## Source preparation and observations
 
-`SourcePreparation` owns compiled classes and parsed source evidence until tracing
-finishes. It closes temporary files on completion and on preparation failure.
+`SourceBundle` validates transport structure without requiring explicitly named
+source text to be valid Java. `SourceDelimiters` remains the authority for the
+existing delimiter grammar, including collision detection. `SourceNames` shares
+source-name inference with `CompilationHelper`: bundle inference can use a sole
+non-public top-level type, while legacy undelimited input still requires exactly
+one public top-level type. Inference does not select an entry point. Logical path
+validation and immutable bundle construction belong to `SourceBundle`; compilation
+continues to validate actual output destinations independently. See
+[source bundle construction](../reference/java-api.md#bundle-source-files) for
+framing, UTF-8, and file ownership contracts.
+
+Bulk file additions keep matching, filesystem selection, and captured state with
+separate owners. `SourceGlob` parses the portable root-relative grammar before any
+traversal and matches paths using bounded states rather than host-specific glob
+semantics or expanded combinations of brace alternatives. `FileSelection` owns the
+resolved traversal root, regular-file selection, symbolic-link policy, encountered
+relative paths, and lexical ordering. It detects cycles along active ancestry,
+so separate aliases to one physical file remain separate candidates. Following
+links may visit targets outside the root, and traversal errors abort selection
+even when the failing path would not match. `SourceBundle.Builder` stages captures
+through the existing naming, UTF-8, delimiter, and duplicate checks, then commits
+the entire group only after success. Atomicity applies to builder state; selection
+and reads do not provide a simultaneous filesystem snapshot. Source preparation's
+dependency-discovery policy and compilation lifecycle remain independent of this
+explicit file collection. Its named `sources` and `dependencies` operations share
+one traversal implementation. Source matches pair portable logical names with
+paths beneath the resolved traversal root for immediate reading. Dependency matches
+project the same encountered relative paths onto the caller's original normalized
+root, preserving root aliases for dependency identity and manifest references.
+Native relative path components are retained when constructing filesystem paths.
+
+`SourcePreparation` owns compiled classes, parsed source evidence, and one
+`PreparedClassPath` until tracing finishes. The prepared class path owns both
+effective dependency locations and their host archive views. Closing source
+preparation releases compiled output before closing the dependency owner, which
+closes readers before removing owned copies. Preparation failures keep the original
+failure primary and retain cleanup failures as secondary evidence.
 `CompilationHelper` splits delimited bundles, identifies the entry point, validates
 source destinations, and invokes javac with debug information. It returns a
 closeable compiled-program description; source evidence is reparsed with symbol
 resolution under the selected discovery policy.
+
+`TraceClassPath` records ordered literal paths and explicit glob selections without
+reading files. Each operation resolves them during preparation. `PreparedClassPath`
+selects and sorts pattern groups, follows local manifest dependencies in search
+order, and optionally captures their available transitive closure. Original locations
+remain the base for manifest references and diagnostics; effective locations
+identify borrowed inputs or owned copies. Duplicate normalized absolute paths keep
+their first position; distinct physical aliases are not collapsed. JAR contents
+and signatures remain intact, including when manifests use absolute local URLs.
+`FileSelection.dependencies` supplies dependency glob matches during preparation;
+`ClassPathFiles` owns directory copying and owned-tree deletion. Source capture
+remains immediate, while dependency selection remains deferred until each job.
+
+The prepared owner opens archive views only after selection, manifest expansion,
+and optional copying finish, before parsing or compiling submitted sources.
+Its internal `BinaryClassPath` implementation exposes JARs as runtime-version
+ZipFS directory views, preventing javac from expanding their manifests again.
+The internal compilation interface accepts the prepared owner instead of unrelated
+guest-location and host-root lists, so callers cannot pair different selections.
+Readers remain available through lazy type analysis and guest execution.
+The compiler uses an empty processor
+path and `-proc:none`; generated sources must be supplied explicitly. A job-local
+`BinaryTypeSolver` reads those same selected class files through Javassist without
+loading dependency classes into the host tracer. Compiled output takes application
+precedence over dependencies. The output root remains separate from the effective
+dependency list and owns only compilation artifacts.
+
+Dependency-aware dedicated guests install `GuestSystemClassLoader` while retaining
+native JVM main invocation. Persistent jobs create a new `GuestClassLoader` for
+each request. Both use the prepared paths without re-expanding manifests, delegate
+to platform classes first, and retain signature verification, package sealing,
+multi-release selection, resources, and services. Defining/context-loader lookup
+is supported; `getSystemClassLoader()` and `java.class.path` need not describe the
+job identically in persistent and dedicated modes. Existing no-dependency launch
+paths are retained. Libraries do not gain source-line breakpoints; dependency
+objects and stack frames remain subject to existing capture rules.
+
+Borrowed locations must stay available and unchanged. Copying captures files before
+compilation, but is not an atomic snapshot of a concurrently changing filesystem.
+Source-byte/file budgets do not bound binary dependencies or copied resource trees.
+See [binary dependencies](../reference/java-api.md#binary-dependencies) for caller
+configuration and ownership rules.
 
 Discovery is caller-specific. Trusted ordinary CLI and batch tracing permit
 neighbor discovery with compiled-source fallback; bounded CLI uses neighbor
@@ -134,7 +243,9 @@ access remains in place for budgets and completed-snapshot admission. Guest laun
 event handling, suspension, and cleanup remain with execution. `TraceValue` converts
 JDI values; object identities preserve sharing and cycles. Trusted inspection has specialized collection, map, wrapper, and lambda
 representations. Field-only inspection avoids those guest method calls and uses
-raw fields for ordinary objects. Arrays and strings retain dedicated handling.
+raw fields for ordinary objects. Arrays, strings, and `java.awt.Color` retain
+dedicated handling; field-only color inspection reads the stored color value
+without invoking a guest method.
 
 `ReifiedTypeMetadata` owns inferred object types and dependent frame bindings for
 one snapshot. All captured threads share it. Callers submit fallback or refined
@@ -187,6 +298,31 @@ allocating an intermediate string. Its special-floating-point support is interna
 accounting, not consumer JSON. Retained-byte accounting does not measure all host
 allocations or replace an external memory ceiling.
 
+## Trace completion
+
+`TraceCompletion` has named envelope, worker-success, and worker-recovery operations.
+Envelope completion prefers supplied snapshots and otherwise uses raw retained
+history when a guest was launched; available empty history can still be rendered.
+A rendering `RuntimeException` replaces an earlier envelope failure and changes the
+phase to `serialize`. Worker success selects chronological capture, finalized
+multithread history, or targeted retained presentation and sets `serialize` before
+rendering. Worker recovery requires available, nonempty raw retained history and
+preserves the original failure and phase, suppressing a rendering failure onto it.
+
+These operations preserve their callers' resource scopes. Envelope CLI finishes
+output inside source preparation and renders after preparation closes; worker
+success renders inside preparation. The worker's existing recovery path can retry
+rendering after success rendering or preparation cleanup fails. Adapters retain
+their exception scopes, interrupt handling, guest-health decisions, and final
+`TraceSession.result` call after cleanup. Session result construction owns status,
+diagnostics, counters, and stop-reason precedence.
+
+Completion delegates retained presentation and accounting to `SnapshotRetention`
+through the session and format conversion to `TraceRendering`. Guest execution
+continues to detach output before persistent drainers reset. Envelope recovery uses
+raw history even for targeted jobs; worker completion uses targeted presentation
+for nonchronological jobs. These differences follow the existing caller profiles.
+
 ## Rendering and consumer formats
 
 `TraceRendering` is the caller-facing rendering module. It selects ordinary roots,
@@ -205,6 +341,8 @@ retained snapshot mutation; each serializer owns metadata placement. The extensi
 is omitted by default and does not alter existing literal values or capture budgets.
 Binary strings are allocated during rendering rather than snapshot retention. Non-finite numbers
 use each format's documented valid-JSON representation.
+See [encoding definitions and references](../reference/output.md#encoding-definitions-and-references)
+for the descriptor formats' normative specifications and informative explanations.
 
 Ordinary CLI rendering branches on capture shape; selected-breakpoint output can be
 a mapping rather than a sequence root. Envelope and batch payloads use sequence

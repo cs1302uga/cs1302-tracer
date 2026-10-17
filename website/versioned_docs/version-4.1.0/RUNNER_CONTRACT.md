@@ -16,7 +16,7 @@ Both a disposable container/VM backend and direct Linux execution must provide:
 1. A private, disposable workspace with no concurrent writers during source
    preparation. Validate file destinations and avoid shared writable mounts.
 2. A nonprivileged execution identity, a minimal environment without secrets, and
-   access only to required runtime files and submitted sources. Do not expose
+   access only to required runtime files, submitted sources, and approved binary dependencies. Do not expose
    host credentials, application state, container-management sockets, or other jobs.
 3. Enforced CPU, memory, process/thread, disk, and output/artifact limits for the
    entire job and its descendants, including the tracer and compiler.
@@ -40,13 +40,18 @@ correct configuration; its name alone is not evidence of isolation.
 ## Job interface
 
 - Accept a bounded UTF-8 source bundle and an allowlisted configuration. Students
-  must not select arbitrary CLI flags, host source roots, executables, environment
+  must not select arbitrary CLI flags, host source roots or binary dependency paths, executables, environment
   variables, mounts, or output locations.
 - Run one disposable Tracer process per job. Prefer `--result-envelope`, `FIELDS`,
   and explicit finite values for all limits described in
   [bounded tracing](BOUNDED_TRACING.md).
-- Mount/provide only submitted source dependencies. The runner should stage input
-  fully before launching Tracer; do not leave unbounded source streams open.
+- Mount/provide submitted sources and only service-approved binary directories/JARs.
+  Class-path paths and globs are interpreted on the tracer's filesystem; manifests
+  and opt-in link following can reference other locations. The runner must bound
+  their filesystem access and staged/captured sizes through its containment policy.
+  Source-byte/file limits do not account for binary dependencies or copied resource
+  trees. Stage input fully before launching Tracer; do not leave unbounded source
+  streams open. Dependency copying is a lifecycle option, not an isolation boundary.
 - Keep runner status and artifacts outside the writable guest containment unit.
   Since Tracer and guest execute within the same job boundary, treat the entire
   job's stdout and result JSON as untrusted data, not an attestation of success.

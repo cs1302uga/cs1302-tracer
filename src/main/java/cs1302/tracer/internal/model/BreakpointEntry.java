@@ -27,4 +27,5 @@ public record BreakpointEntry(@SerializedName("lineNumber") int lineNumber,
     public BreakpointEntry(int lineNumber, boolean validBreakpoint, String lineContent) {
         this(lineNumber, validBreakpoint, lineContent, null);
     } // BreakpointEntry
+
 } // BreakpointEntry

@@ -4,6 +4,8 @@ import org.apiguardian.api.API;
 
 /**
  * An executable line in a submitted source file.
+ * Locations returned by {@link Tracer#discoverBreakpoints(String)} follow the documented path and line
+ * conventions. Direct construction stores the supplied values without validating the path or line number.
  *
  * @param sourcePath Package-relative source path using forward slashes.
  * @param line One-based executable source line.

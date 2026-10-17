@@ -35,8 +35,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Precomputes and caches immutable source-derived AST indexes, type resolution hierarchies, and lambda analysis for the
- * lifetime of a tracing session to avoid per-snapshot re-indexing.
+ * Precomputes source-derived indexes, type resolution hierarchies, and lambda analysis for one tracing job
+ * to avoid per-snapshot re-indexing. Compilation units and declaration nodes remain shared with source preparation;
+ * callers must not mutate them while the analysis is in use. Runtime type evidence belongs to
+ * {@link ReifiedTypeMetadata}, not this source index.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class SourceAnalysis {
@@ -87,12 +89,7 @@ public final class SourceAnalysis {
         this.staticLambdaImplementations = Collections.unmodifiableMap(new HashMap<>(staticLambdaImplementations));
     } // SourceAnalysis
 
-    /**
-     * Builds and indexes source information from a list of compilation units.
-     *
-     * @param parsedSources List of parsed CompilationUnits.
-     * @return SourceAnalysis instance containing pre-indexed AST metadata.
-     */
+    /** Shared analysis containing no source evidence. */
     private static final SourceAnalysis EMPTY = new SourceAnalysis(List.of(), new AstTypeResolver(List.of()), Map.of(),
             Map.of(), Map.of(), Map.of());
 
@@ -164,7 +161,7 @@ public final class SourceAnalysis {
     /**
      * Returns the underlying parsed compilation units.
      *
-     * @return List of compilation units.
+     * @return Unmodifiable list of shared, mutable compilation units.
      */
     public List<CompilationUnit> parsedSources() {
         return parsedSources;
@@ -197,6 +194,7 @@ public final class SourceAnalysis {
     /** Source observations selected for one captured method and line. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public static final class Observations {
+
         private final Set<String> finals;
         private final List<LambdaAssignment> lambdas;
         private final int line;
@@ -233,6 +231,7 @@ public final class SourceAnalysis {
         public Optional<String> lambdaImplementation(String variable) {
             return findLambdaImplementation(this.lambdas, variable, this.line);
         } // lambdaImplementation
+
     } // Observations
 
     /**

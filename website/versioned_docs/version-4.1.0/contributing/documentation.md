@@ -44,6 +44,24 @@ generates it separately. Fetch release tags with `git fetch --tags` before build
 For a direct Maven invocation, run `./mvnw -B -ntp validate javadoc:javadoc`.
 The wrapper includes `validate` so the build-helper execution sets `currentYear`
 before Javadoc resolves the copyright footer.
+The published API reference intentionally excludes `cs1302.tracer.internal` and
+its subpackages. When internal Javadoc changes, also generate a local reference
+that includes private declarations, then review the affected generated pages:
+
+```sh
+./mvnw -B -ntp package -DskipTests
+javadoc -quiet -private --release 21 -Xdoclint:all,-missing \
+  -classpath target/code-tracer-jar-with-dependencies.jar \
+  -sourcepath src/main/java -subpackages cs1302.tracer \
+  -overview src/main/javadoc/overview.html \
+  -d target/internal-apidocs
+```
+
+This local reference is for contributor review; internal declarations remain
+outside the supported Java API. Both generation commands check Javadoc syntax
+and links, but claims about defaults, ownership, and behavior still need to be
+checked against the implementation and tests.
+
 The **API Reference** navigation link follows the selected documentation version.
 Javadoc keeps its own navigation, search, and styling under `api/next/` for development
 and `api/<version>/` for releases, beneath the site's `/cs1302-tracer/` base path.
@@ -52,8 +70,12 @@ Release API references are rebuilt from their exact Git tags on every deployment
 including all previously published documentation versions. Missing tags, mismatched
 Maven versions, and Javadoc errors fail the build. Deployment selects the same
 published releases for guides and API references. Local builds preview all prepared
-snapshots; an untagged snapshot matching the current Maven version uses the working
-source until release. Generated HTML lives in ignored `website/generated-api/` and
+snapshots; an untagged snapshot matching the current Maven version, or its target
+version after removing a trailing `-SNAPSHOT`, uses working source until release.
+Such a snapshot has an unreleased banner in preview mode. Published mode still
+requires a release tag whose Maven version exactly matches the stable snapshot;
+a `-SNAPSHOT` build cannot substitute for a published release.
+Generated HTML lives in ignored `website/generated-api/` and
 is copied into the site build, rather than committed.
 
 Build mode is explicit: `start`, `build`, and `api` default to `--mode preview`.
@@ -75,6 +97,11 @@ for inspection; that file no longer selects the build mode.
 blocks, checks Markdown file destinations, compares both JSON examples after
 normalizing heap identities, and runs the documented batch request. Refresh help
 using `./scripts/uv run python scripts/check_docs.py --update-cli`; review the resulting diff.
+The CLI reference keeps generated help and budget links above
+`<!-- cli-reference:manual -->`. Maintain behavioral notes below that marker;
+help regeneration preserves those notes, and normal checks still require an exact
+match for the generated prefix. Link checks cover the entire document. Review
+authored notes against executable behavior whenever arguments change.
 When behavior changes, update JSON examples intentionally and review the contract.
 The site build and `check_site.py` check rendered internal links, fragments, and
 project-base-path handling. Prose accuracy still requires review.
@@ -110,6 +137,11 @@ release is published later. Each release keeps its version URL; development uses
 `/next/`.
 
 ## Publishing and retrying
+
+A development `-SNAPSHOT` build may retain a prepared stable documentation snapshot.
+Keep it synchronized with current docs, and run the ordinary metadata check while
+developing. The tag check intentionally rejects the Maven suffix. Restore the
+stable Maven version and rerun the exact tag/snapshot agreement check before tagging.
 
 The Deploy documentation workflow runs after successful push runs of CI / Release,
 including tag releases, or through **Run workflow** on `main`. It checks out the

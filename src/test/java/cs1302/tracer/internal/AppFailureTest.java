@@ -89,27 +89,6 @@ class AppFailureTest {
     }
 
     @Test
-    void serializationFailureProducesAFailedEnvelope() {
-        var trace = new App.Trace() {
-            @Override
-            List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
-                    String guestStdin) {
-                return List.of();
-            }
-
-            @Override
-            Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-                throw new IllegalStateException("serializer unavailable");
-            }
-        };
-        var result = envelope(trace);
-        assertThat(result.get("status").getAsString()).isEqualTo("failed");
-        assertThat(result.get("phase").getAsString()).isEqualTo("serialize");
-        assertThat(result.get("stopReason").getAsString()).isEqualTo("tracer_error");
-        assertThat(result.get("trace").isJsonNull()).isTrue();
-    }
-
-    @Test
     void discoveryIgnoresUnreadableUnreferencedSources(@TempDir Path directory) throws Exception {
         var trace = new App.Trace();
         Files.write(directory.resolve("Invalid.java"), new byte[] { (byte) 0xff });

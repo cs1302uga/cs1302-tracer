@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 /** Owns trace root selection, presentation, and final JSON encoding for every caller. */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class TraceRendering {
+
     /** Prevents utility construction. */
     private TraceRendering() {} // TraceRendering
 
@@ -60,10 +61,19 @@ public final class TraceRendering {
      * @return Detached outcome.
      */
     public static TraceOutcome freeze(TraceResult result, boolean pretty) {
-        return new TraceOutcome(result.format(), result.status(), result.stopReason(), result.phase(),
-                result.complete(), result.counters(), result.diagnostics(), result.stdout(), result.stderr(),
-                PyTutorSerializer.getGson(pretty).toJson(result.trace()),
-                PyTutorSerializer.getGson(pretty).toJson(result));
+        return TraceOutcome.builder()
+                .format(result.format())
+                .status(result.status())
+                .stopReason(result.stopReason())
+                .phase(result.phase())
+                .complete(result.complete())
+                .counters(result.counters())
+                .diagnostics(result.diagnostics())
+                .stdout(result.stdout())
+                .stderr(result.stderr())
+                .traceJson(PyTutorSerializer.getGson(pretty).toJson(result.trace()))
+                .json(PyTutorSerializer.getGson(pretty).toJson(result))
+                .build();
     } // freeze
 
     /**
