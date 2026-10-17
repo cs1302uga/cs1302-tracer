@@ -243,16 +243,19 @@ tag to conceal different bytes is outside this workflow.
 
 ### Roll out archived guides
 
-Deployment explicitly remains in `all` mode. The
+The Pages deployment workflow explicitly selects `active` mode. Local Maven builds
+and ordinary documentation CI still default to `all`. The
 [initial documentation publication](https://github.com/cs1302uga/cs1302-tracer/releases/tag/docs-e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
 on 2026-10-17 archived all seven retained stable versions, from 3.2.1 through 4.1.0,
 using reviewed builder commit `e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038`.
 `website/guide-archives.json` pins those verified publications, including the two
-guides that remain active. Adding catalog entries does not activate archived guides;
-the published active-mode validation and separate deployment cutover below remain required.
+guides that remain active. The initial published active-mode build verified all
+eight guide/API versions and 143 guide routes before this deployment configuration
+was enabled. Catalog updates and deployment mode are separate reviewed changes.
 
-1. Use the workflow and builder from reviewed `main`, retaining `all` mode until
-   the initial cutover has passed review. Local
+For later archive additions or corrections:
+
+1. Use the workflow and builder from reviewed `main`. Local
    layout/metadata checks cannot create a genuine GitHub workflow attestation.
 2. Dispatch **Publish documentation archives** on that main SHA. For the initial
    backfill, include all seven retained stable guide versions, including the two
@@ -267,10 +270,11 @@ the published active-mode validation and separate deployment cutover below remai
 4. Validate a published build with `-Ddocsite.guides=active` and actual release records.
    Check direct historical routes, assets, API links, version switching, the all-versions
    listing, and the merged sitemap.
-5. Change `DOCSITE_GUIDE_MODE` in `.github/workflows/docs-deploy.yml` to `active` through
-   review. Before each later release leaves the two-release active window, publish its
+5. Keep `DOCSITE_GUIDE_MODE` in `.github/workflows/docs-deploy.yml` set to `active`.
+   Before each later release leaves the two-release active window, publish its
    archive and review its catalog entry. Failure remains a failure; an explicit reviewed
-   switch to `all` is the source-rendering recovery option.
+   switch to `all` is the source-rendering recovery option. That switch still validates
+   software release identities and retains every version pinned in the catalog.
 
 Correct historical guides through a reviewed snapshot change, a new builder's archive
 publication, and a reviewed replacement catalog entry. This preserves URLs while
@@ -463,9 +467,13 @@ version, generates development Javadoc, and runs the existing executable, releas
 and rendered-link checks.
 The generated-output cache applies only when Javadoc is built from validated
 release source, after release-artifact selection. Current source and
-untagged pending-release Javadoc are regenerated on each invocation. Docusaurus
-still builds all selected guides together; this optimization does not remove old
-versions, change routes, or introduce a separate archive site.
+untagged pending-release Javadoc are regenerated on each invocation. Guide compilation
+is controlled separately by `docsite.guides`: `all` compiles every selected guide
+together, while `active` compiles the bounded selection and composes verified
+[archived guide applications](#archived-guide-applications). Both modes retain
+historical versions and routes. Active mode bounds guide compilation; archive
+downloads and verification, complete rendered-link checks, and deployment uploads
+still process retained content, so total deployment cost is not constant.
 
 The ignored cache lives at `website/.cache/javadoc/`, outside Maven's `target/`,
 so `mvnw clean` leaves it available. Cache mode defaults to `use`:

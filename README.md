@@ -64,8 +64,9 @@ library JAR and traces a program using a recursive class-path pattern.
 Historical guide versions retain their existing URLs. The
 [documentation archive runbook](docs/contributing/documentation.md#archived-guide-applications)
 describes verified standalone guide archives and their staged rollout. The catalog
-pins all seven retained stable versions; deployment continues to compile all guide
-versions until the separate active-mode validation and reviewed cutover are complete.
+pins all seven retained stable versions. Published deployment compiles development
+and the two newest stable guides; it restores older guides from those verified
+archives. Local Maven builds still default to all-version mode.
 
 ## License
 

@@ -15,8 +15,8 @@ concurrency:
 
 env:
   UVW_GIT_COMMIT: never
-  # Switch to active only after backfill publications and their pinned catalog have passed review.
-  DOCSITE_GUIDE_MODE: all
+  # Compile the active window and compose older guides from the reviewed, verified archive catalog.
+  DOCSITE_GUIDE_MODE: active
 
 jobs:
   build:

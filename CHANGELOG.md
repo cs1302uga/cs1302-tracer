@@ -51,6 +51,9 @@ complete version navigation, and a staged archive publication and backfill workf
 Implementation: [e6b1d44](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
 — Managed Python command guidance and version-specific historical tooling notices.
 
+Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e810c99fd6e4f26ab852f6f5e687ff6046386)
+— Reviewed initial archive catalog, independently verified against published bytes.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -75,12 +78,14 @@ Implementation: [e6b1d44](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1
 
 - **Historical guide archives:** add independently rendered, verified guide ZIPs,
   a separate attested documentation publisher, and a reviewed archive catalog.
-  Optional active mode compiles development, the two newest stable guides, and one
-  pending release while preserving historical URLs through verified archives.
+  Published deployment uses active mode to compile development and the two newest
+  stable guides while preserving historical URLs through verified archives.
   The [initial backfill](https://github.com/cs1302uga/cs1302-tracer/releases/tag/docs-e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
   publishes all seven retained stable guides with verified checksums and attestations;
-  the catalog pins their source identities and exact remote bytes. Deployment remains
-  in all-version mode pending the separate active-mode validation and reviewed cutover.
+  the catalog pins their source identities and exact remote bytes. Older guides are
+  restored from that catalog, and missing or invalid artifacts fail deployment.
+  Local Maven builds retain their all-version default; a reviewed deployment switch
+  to all-version mode remains the explicit source-rendering recovery option.
   Documentation publications use a distinct `docs-*` prerelease namespace and
   preserve archive bytes on retries; software signing and Java, CLI, and JSON
   contracts are unchanged.
