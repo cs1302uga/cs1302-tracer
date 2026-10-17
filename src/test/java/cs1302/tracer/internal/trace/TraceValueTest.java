@@ -12,13 +12,6 @@ import org.junit.jupiter.api.Test;
 @DisplayName("TraceValue Unit Tests")
 public class TraceValueTest {
 
-    @Test
-    @DisplayName("fromJdiValue with null value returns TraceValue.Null")
-    void shouldReturnNullOnNullValue() {
-        TraceValue tv = TraceValue.fromJdiValue(null, null, Optional.empty());
-        assertThat(tv).isInstanceOf(TraceValue.Null.class);
-    }
-
     @Nested
     @DisplayName("Primitive & Reference Records")
     class PrimitiveAndReferenceTests {

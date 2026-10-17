@@ -38,6 +38,7 @@ flowchart TD
     Worker --> Preparation
     Dependencies[TraceClassPath: deferred binary dependencies] --> Preparation
     Preparation --> Compiler[CompilationHelper: javac and temporary files]
+    Preparation --> Submitted[SubmittedSources: detached text and source identities]
     Ordinary --> Dispatch[TraceDispatch]
     Envelope --> Dispatch
     Worker --> Dispatch
@@ -45,12 +46,15 @@ flowchart TD
     Dispatch --> Persistent[PersistentGuestSession: reusable guest]
     Dedicated --> Capture[SnapshotCapture: stacks, statics, reachable heap]
     Persistent --> Capture
+    Capture --> Heap[HeapInspection: reachable objects and JDI conversion]
     Capture --> Retention[SnapshotRetention through TraceSession]
     Ordinary --> Render[TraceRendering: ordinary, envelope, batch JSON]
     Envelope --> Completion[TraceCompletion: result payload and failure rules]
     Worker --> Completion
     Retention --> Completion
     Completion --> Render
+    Submitted --> Completion
+    Submitted --> Render
     Render --> Result[Ordinary JSON or detached result envelope]
 ```
 
@@ -93,9 +97,9 @@ session accounting, cancellation, and rendering stay with their existing owners.
 | --- | --- |
 | `cs1302.tracer.api` | Source bundles, binary dependency configuration, supported requests, detached outcomes, limits, presentation choices, discovery, and batch processing. |
 | `cs1302.tracer` | Supported CLI launcher. |
-| `cs1302.tracer.internal` | CLI commands, source delimiters and naming, portable glob matching and file selection, preparation, compilation, and license notices. |
+| `cs1302.tracer.internal` | CLI commands, submitted source identity, source delimiters and naming, portable glob matching and file selection, preparation, compilation, and license notices. |
 | `cs1302.tracer.internal.classpath` | Deferred binary dependency preparation, manifest closure, correlated dependency/archive-view ownership, copying, and bytecode type resolution. |
-| `cs1302.tracer.internal.trace` | Guest launching/execution, capture, source observations, type inference, input observation, and job output. |
+| `cs1302.tracer.internal.trace` | Guest launching/execution, snapshot assembly, reachable-heap inspection, captured values, source observations, type inference, input observation, and job output. |
 | `cs1302.tracer.internal.execution` | Session lifecycle, budgets, cancellation, snapshot retention, job resolution/options, caller-specific trace completion, and internal result envelopes. |
 | `cs1302.tracer.internal.batch` | NDJSON request/response models, bounded scheduling, and workers. |
 | `cs1302.tracer.internal.guest` | Persistent harness and prepared-dependency loaders for persistent and dedicated guest JVMs. |
@@ -153,7 +157,11 @@ project the same encountered relative paths onto the caller's original normalize
 root, preserving root aliases for dependency identity and manifest references.
 Native relative path components are retained when constructing filesystem paths.
 
-`SourcePreparation` owns compiled classes, parsed source evidence, and one
+`CompilationHelper.parseSources` returns one `ParsedSources` containing the parsed
+submitted files and their correlated `SubmittedSources` description. The description
+retains exact original input and per-file text, ordered logical and debug paths,
+and entry selection without retaining ASTs or resources. `SourcePreparation`
+retains it alongside compiled classes, parsed source evidence, and one
 `PreparedClassPath` until tracing finishes. The prepared class path owns both
 effective dependency locations and their host archive views. Closing source
 preparation releases compiled output before closing the dependency owner, which
@@ -162,7 +170,20 @@ failure primary and retain cleanup failures as secondary evidence.
 `CompilationHelper` splits delimited bundles, identifies the entry point, validates
 source destinations, and invokes javac with debug information. It returns a
 closeable compiled-program description; source evidence is reparsed with symbol
-resolution under the selected discovery policy.
+resolution under the selected discovery policy. Normal preparation resolves
+dependencies before parsing source. CLI listing parses first and passes that
+same correlated result to `prepareParsed`, preserving its source-error precedence.
+
+Prepared rendering and CLI listing reuse the detached description without parsing
+source identity again. Logical destinations remain distinct from package-relative
+debug identities. Compiler destination checks run during preparation; duplicate
+debug identities fail only when rendering requests `SubmittedSources.metadata()`.
+Each failed projection creates a fresh exception, including on worker recovery.
+Listing retains its exact logical/native lookup and first basename-suffix fallback
+when the exact line set is empty. Raw-source rendering uses the same parser and
+identity implementation without requiring compilation or a launchable main method.
+See [submitted source identity](../guides/java-module-migration.md#submitted-source-identity)
+for rendering order and internal call conventions.
 
 `TraceClassPath` records ordered literal paths and explicit glob selections without
 reading files. Each operation resolves them during preparation. `PreparedClassPath`
@@ -238,10 +259,17 @@ methods during inspection.
 fields, and a reachable heap. Dedicated and persistent execution call the same capture
 operation with suspended threads, source/input observations, and the job output owner.
 Capture owns output synchronization, all-thread type prepasses, stack/static extraction,
-and shared heap traversal; its extraction helpers are private. Thread-local `TraceSession`
+root type evidence, and the final session admission call. One package-private
+`HeapInspection` per snapshot owns JDI conversion, reference admission, FIFO traversal,
+descendant discovery, and the heap map. All captured threads share it and the same
+`ReifiedTypeMetadata`. Admitted identities remain known after dequeue, preserving
+sharing and cycles. Source-observed lambda text is installed before traversal and
+retains precedence. Successful inspection transfers its existing map to the snapshot;
+a failed inspection publishes no partial snapshot. Thread-local `TraceSession`
 access remains in place for budgets and completed-snapshot admission. Guest launch,
-event handling, suspension, and cleanup remain with execution. `TraceValue` converts
-JDI values; object identities preserve sharing and cycles. Trusted inspection has specialized collection, map, wrapper, and lambda
+event handling, suspension, and cleanup remain with execution. `TraceValue` contains
+captured host-owned values, without JDI inspection. Trusted inspection has specialized
+collection, map, wrapper, and lambda
 representations. Field-only inspection avoids those guest method calls and uses
 raw fields for ordinary objects. Arrays, strings, and `java.awt.Color` retain
 dedicated handling; field-only color inspection reads the stored color value
@@ -312,7 +340,9 @@ preserves the original failure and phase, suppressing a rendering failure onto i
 These operations preserve their callers' resource scopes. Envelope CLI finishes
 output inside source preparation and renders after preparation closes; worker
 success renders inside preparation. The worker's existing recovery path can retry
-rendering after success rendering or preparation cleanup fails. Adapters retain
+rendering after success rendering or preparation cleanup fails. Envelope and worker
+adapters retain the detached submitted-source description before capture, so recovery
+does not need live compilation resources or a second source parse. Adapters retain
 their exception scopes, interrupt handling, guest-health decisions, and final
 `TraceSession.result` call after cleanup. Session result construction owns status,
 diagnostics, counters, and stop-reason precedence.

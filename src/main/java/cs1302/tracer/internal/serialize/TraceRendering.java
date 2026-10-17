@@ -2,6 +2,7 @@ package cs1302.tracer.internal.serialize;
 
 import org.apiguardian.api.API;
 import cs1302.tracer.api.TraceFormat;
+import cs1302.tracer.internal.SubmittedSources;
 import cs1302.tracer.api.TraceOutcome;
 import cs1302.tracer.internal.batch.BatchJobResponse;
 import cs1302.tracer.internal.execution.TraceJob;
@@ -31,7 +32,7 @@ public final class TraceRendering {
      * @param pretty Whether to indent Python Tutor output; modern ordinary output is always indented.
      * @return Complete JSON text.
      */
-    public static String ordinary(String source, String stdin, TraceJob job, TraceDispatch.Capture captured,
+    public static String ordinary(SubmittedSources source, String stdin, TraceJob job, TraceDispatch.Capture captured,
             boolean pretty) {
         return job.format() == TraceFormat.MODERN ? modern(source, captured, stdin, job)
                 : pytutor(source, captured, stdin, job, pretty);
@@ -45,7 +46,8 @@ public final class TraceRendering {
      * @param snapshots Completed states in capture order.
      * @return Opaque trace payload with a sequence root.
      */
-    public static Object sequence(String source, String stdin, TraceJob job, List<ExecutionSnapshot> snapshots) {
+    public static Object sequence(SubmittedSources source, String stdin, TraceJob job,
+            List<ExecutionSnapshot> snapshots) {
         if (job.format() == TraceFormat.MODERN) {
             return new ModernTraceSerializer(job.removeMainArgs(), job.inlineStrings(), job.removeMethodThis(),
                     job.typeStyle(), job.includePrimitiveBits()).createTrace(source, stdin, snapshots);
@@ -88,13 +90,13 @@ public final class TraceRendering {
     /**
      * Renders ordinary modern JSON with its historical indentation.
      *
-     * @param source Source string.
+     * @param source Detached submitted source text and identities.
      * @param captured Captured execution states.
      * @param guestStdin Standard input string for guest process.
      * @param job Resolved presentation choices.
      * @return Ordinary trace JSON.
      */
-    private static String modern(String source, TraceDispatch.Capture captured,
+    private static String modern(SubmittedSources source, TraceDispatch.Capture captured,
             String guestStdin, TraceJob job) {
         ModernTraceSerializer serializer = new ModernTraceSerializer(job.removeMainArgs(),
                 job.inlineStrings(),
@@ -137,14 +139,14 @@ public final class TraceRendering {
     /**
      * Renders ordinary Python Tutor JSON.
      *
-     * @param source Source string.
+     * @param source Detached submitted source text and identities.
      * @param captured Captured execution states.
      * @param guestStdin Standard input string for guest process.
      * @param job Resolved presentation choices.
      * @param pretty Whether to indent supported output shapes.
      * @return Ordinary trace JSON.
      */
-    private static String pytutor(String source, TraceDispatch.Capture captured,
+    private static String pytutor(SubmittedSources source, TraceDispatch.Capture captured,
             String guestStdin, TraceJob job, boolean pretty) {
         PyTutorSerializer serializer = new PyTutorSerializer(job.removeMainArgs(),
                 job.inlineStrings(),
@@ -156,16 +158,17 @@ public final class TraceRendering {
             return PyTutorSerializer.getGson(pretty).toJson(trace);
         } else if (captured instanceof TraceDispatch.FinalState finalState) {
             ExecutionSnapshot snapshot = finalState.snapshot();
-            String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
+            String pyTutorSnapshot = PyTutorSerializer.getGson(pretty).toJson(
+                    serializer.createTrace(source, guestStdin, snapshot));
             return pyTutorSnapshot;
         } else {
-            SourceMetadata metadata = SourceMetadata.from(source);
+            SourceMetadata metadata = source.metadata();
             TraceDispatch.Breakpoints selected = (TraceDispatch.Breakpoints) captured;
             Map<Integer, List<ExecutionSnapshot>> snapshots = selected.snapshots();
             if (selected.accumulated()) {
                 Map<Integer, List<PyTutorTrace>> pyTutorSnapshots = snapshots.entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().stream()
-                                .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList()));
+                                .map(s -> serializer.createTrace(source.code(), guestStdin, s, metadata)).toList()));
                 return PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots);
             } else {
                 Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
@@ -173,10 +176,10 @@ public final class TraceRendering {
                     List<ExecutionSnapshot> list = e.getValue();
                     if (list.size() == 1) {
                         pyTutorSnapshots.put(e.getKey(),
-                                serializer.createTrace(source, guestStdin, list.get(0), metadata));
+                                serializer.createTrace(source.code(), guestStdin, list.get(0), metadata));
                     } else {
                         pyTutorSnapshots.put(e.getKey(), list.stream()
-                                .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList());
+                                .map(s -> serializer.createTrace(source.code(), guestStdin, s, metadata)).toList());
                     } // if
                 } // for
                 return PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots);

@@ -9,6 +9,9 @@
  * {@link cs1302.tracer.internal.serialize.PyTutorSerializer} produces Python Tutor-compatible output, and
  * {@link cs1302.tracer.internal.serialize.ModernTraceSerializer} produces modern object-graph output.
  * Both apply presentation options and source metadata to captured state.
+ * Prepared rendering uses detached {@link cs1302.tracer.internal.SubmittedSources} rather than reparsing input.
+ * Raw-source rendering uses the shared parser without requiring successful compilation or a main method.
+ * Metadata projection stays at each format's existing call point to preserve failure precedence.
  * Primitive binary descriptors are derived at rendering time and omitted unless requested.
  * Their <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md#encoding-definitions-and-references">
  * encoding reference</a> distinguishes normative specifications from informative explanations.

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -29,10 +30,11 @@ import java.util.stream.Stream;
  * @param compilation Compiled program owned by this preparation.
  * @param units Source evidence used to interpret runtime values.
  * @param dependencies Prepared dependency files owned by this job.
+ * @param submitted Detached submitted text and identities, valid after preparation closes.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record SourcePreparation(CompilationHelper.CompilationResult compilation, List<CompilationUnit> units,
-        PreparedClassPath dependencies)
+        PreparedClassPath dependencies, SubmittedSources submitted)
         implements AutoCloseable {
 
     /** Explicit source discovery policy. */
@@ -53,15 +55,18 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
     /** Creates a preparation with an unmodifiable list copy; mutable compilation units remain shared. */
     public SourcePreparation {
         units = List.copyOf(units);
+        Objects.requireNonNull(submitted, "submitted");
     } // SourcePreparation
 
     /**
      * Constructs a preparation without additional binary resources.
      * @param compilation Owned compiled program.
      * @param units Source evidence.
+     * @param submitted Detached submitted-source description.
      */
-    public SourcePreparation(CompilationHelper.CompilationResult compilation, List<CompilationUnit> units) {
-        this(compilation, units, null);
+    public SourcePreparation(CompilationHelper.CompilationResult compilation, List<CompilationUnit> units,
+            SubmittedSources submitted) {
+        this(compilation, units, null, submitted);
     } // SourcePreparation
 
     /**
@@ -91,7 +96,7 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
             TraceClassPath classPath) throws IOException {
         PreparedClassPath dependencies = PreparedClassPath.prepare(classPath);
         try {
-            return prepareSource(source, inputPath, discovery, dependencies);
+            return prepareSource(CompilationHelper.parseSources(source), inputPath, discovery, dependencies);
         } catch (IOException | RuntimeException | Error failure) {
             closeAfterFailure(dependencies, failure);
             throw failure;
@@ -99,17 +104,37 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
     } // prepare
 
     /**
+     * Prepares sources already parsed by a caller whose source errors precede dependency preparation.
+     * @param sources Correlated parse result, without debug-path ambiguity validation.
+     * @param inputPath Original source location.
+     * @param discovery Permitted source evidence.
+     * @param classPath Deferred dependency configuration.
+     * @return Owned compilation and detached submitted-source description.
+     * @throws IOException On dependency or compilation I/O failure.
+     */
+    public static SourcePreparation prepareParsed(CompilationHelper.ParsedSources sources, Optional<Path> inputPath,
+            Discovery discovery, TraceClassPath classPath) throws IOException {
+        PreparedClassPath dependencies = PreparedClassPath.prepare(classPath);
+        try {
+            return prepareSource(sources, inputPath, discovery, dependencies);
+        } catch (IOException | RuntimeException | Error failure) {
+            closeAfterFailure(dependencies, failure);
+            throw failure;
+        } // try
+    } // prepareParsed
+
+    /**
      * Compiles and analyzes after dependency preparation has succeeded.
-     * @param source Submitted text.
+     * @param parsed Correlated parsed submitted files and detached identities.
      * @param inputPath Original source location.
      * @param discovery Source discovery policy.
      * @param dependencies Resolved dependency ownership.
      * @return Complete preparation.
      * @throws IOException On compilation failure.
      */
-    private static SourcePreparation prepareSource(String source, Optional<Path> inputPath, Discovery discovery,
-            PreparedClassPath dependencies) throws IOException {
-        List<CompilationHelper.SourceFile> sources = CompilationHelper.parseMultiFileStream(source);
+    private static SourcePreparation prepareSource(CompilationHelper.ParsedSources parsed, Optional<Path> inputPath,
+            Discovery discovery, PreparedClassPath dependencies) throws IOException {
+        List<CompilationHelper.SourceFile> sources = parsed.files();
         Optional<Path> root = discovery == Discovery.NEIGHBORS || discovery == Discovery.NEIGHBORS_OR_COMPILED
                 ? CompilationHelper.findSourceRoot(CompilationHelper.findEntryPoint(sources).ast(), inputPath)
                 : Optional.empty();
@@ -122,7 +147,8 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
             return new SourcePreparation(compiled, discoverAllCompilationUnits(sources, root,
                         (discovery == Discovery.SUBMITTED_OR_COMPILED
                                 || discovery == Discovery.NEIGHBORS_OR_COMPILED) && root.isEmpty()
-                                ? Optional.of(compiled.classPath()) : root, analysisRoots), dependencies);
+                                ? Optional.of(compiled.classPath()) : root, analysisRoots), dependencies,
+                    parsed.submitted());
         });
     } // prepareSource
 

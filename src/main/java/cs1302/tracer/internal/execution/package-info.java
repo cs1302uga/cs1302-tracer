@@ -11,6 +11,8 @@
  * precedence for envelope CLI and Java/NDJSON worker callers, preserving their resource scopes and failure rules.
  * Ordinary CLI retains direct rendering. Completion delegates presentation to retention and format conversion
  * to trace rendering; adapters retain guest cleanup, interruption, and final session-result construction.
+ * Detached {@link cs1302.tracer.internal.SubmittedSources} remains usable during completion after source
+ * preparation closes; source identity is passed per job rather than stored in session state.
  * {@link cs1302.tracer.api.TraceLimits} defines its resource budgets, while
  * {@link cs1302.tracer.internal.execution.TraceResult} represents completion, failure, or a partial result.
  * These limits control tracing resources; they do not provide a security sandbox for guest programs.</p>

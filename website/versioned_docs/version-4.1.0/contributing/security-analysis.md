@@ -27,9 +27,11 @@ The earlier security review identified three failures and added regression cover
   10,000 references and a cycle. Captured guest object links normally use references
   to concrete heap values, so this also hardens internal snapshot conversion.
 
-The private heap traversal queue uses composition rather than inheriting
-`LinkedList`'s cloning contract. Its tests cover FIFO removal and deduplication
-across removed references. Legacy batch dispatch explicitly requires its prepared
+`HeapInspection` owns the private heap traversal queue through composition rather
+than inheriting `LinkedList`'s cloning contract. Tests cross its inspection interface
+to check FIFO traversal, aliases and cycles, deduplication after dequeue, and budget
+failure without publishing a partial snapshot. `TraceValue` holds captured values
+without JDI inspection. Legacy batch dispatch explicitly requires its prepared
 persistent session. Unused private parameters and redundant boxing were removed.
 
 ## Binary dependency boundaries

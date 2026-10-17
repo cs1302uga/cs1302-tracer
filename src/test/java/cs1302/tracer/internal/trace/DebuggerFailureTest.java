@@ -246,12 +246,13 @@ class DebuggerFailureTest {
         var frame = mirror(StackFrame.class, Map.of("getValue", unsupported));
         var variable = mirror(LocalVariable.class, Map.of("name", "x"));
         var fields = new java.util.ArrayList<ExecutionSnapshot.Field>();
+        var metadata = new ReifiedTypeMetadata(null);
+        var heap = new HeapInspection(null, metadata);
         captureCall("appendStackField",
                 new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
-                    java.util.Optional.class, ReifiedTypeMetadata.class, List.class, Map.class,
-                    List.class },
+                    java.util.Optional.class, ReifiedTypeMetadata.class, HeapInspection.class, List.class },
                 frame, variable, false, "void", java.util.Optional.empty(),
-                new ReifiedTypeMetadata(null), new java.util.ArrayList<>(), new java.util.HashMap<>(), fields);
+                metadata, heap, fields);
         assertThat(fields).isEmpty();
         var field = mirror(Field.class, Map.of("isStatic", true, "name", "x"));
         var type = mirror(ReferenceType.class,
@@ -259,8 +260,8 @@ class DebuggerFailureTest {
         SourceAnalysis source = SourceAnalysis.from(
                 java.util.Arrays.asList((com.github.javaparser.ast.CompilationUnit) null));
         assertThat((List<?>) captureCall("collectStatics", new Class<?>[] { Iterable.class, SourceAnalysis.class,
-                List.class, Map.class }, List.of(type), source,
-                new java.util.ArrayList<>(), new java.util.HashMap<>())).isEmpty();
+                HeapInspection.class }, List.of(type), source, heap)).isEmpty();
+        assertThat(heap.finish()).isEmpty();
     }
 
     @Test

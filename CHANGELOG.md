@@ -49,6 +49,13 @@ and documentation updates were implemented in
 
 ### Non-breaking changes
 
+- **Contributor documentation:** define submitted source identity, logical and debug
+  source paths, and reachable-heap inspection in the shared glossary.
+- **Internal architecture:** retain detached submitted-source identity across
+  preparation, rendering, recovery, and breakpoint listing; preserve deferred
+  metadata validation and caller-specific path rules. Concentrate snapshot-local
+  heap identity and JDI inspection outside captured value records. Supported Java,
+  CLI, JSON/protocol, guest reuse, and tracing budget behavior remain unchanged.
 - **Java API, CLI, and batch:** add per-job binary directory/JAR dependencies through
   immutable `TraceClassPath` configuration and tracing/discovery overloads, repeatable
   `--class-path`/`-classpath`/`-cp` options, and optional batch request fields. Support

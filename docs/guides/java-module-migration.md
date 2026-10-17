@@ -38,7 +38,7 @@ Neither step builders nor outcome builders introduce another rendering policy.
 
 Primitive trace values are immutable and can be shared. Since 4.1.0,
 `TraceValue.Primitive.Boolean.TRUE` and `.FALSE` provide reusable Boolean values;
-JDI primitive conversion also returns these constants. `new TraceValue.Primitive.Boolean(value)`
+`HeapInspection.primitive` also returns these constants. `new TraceValue.Primitive.Boolean(value)`
 remains available, with the same value-based record equality. The constants contain
 no guest or job state and do not change either JSON format.
 
@@ -50,7 +50,7 @@ evidence, prepared binary dependencies, and archive views alive for the same sco
 ```java
 try (SourcePreparation prepared = SourcePreparation.prepare(
         source, inputPath, SourcePreparation.Discovery.NEIGHBORS_OR_COMPILED)) {
-    // Pass prepared.compilation() and prepared.units() to the tracing operation.
+    // Pass prepared to capture; render using prepared.submitted().
 }
 ```
 
@@ -66,8 +66,9 @@ The four-argument `prepare` overload accepts a `TraceClassPath`. It resolves the
 ordered dependency closure once per job and optionally captures copies before
 compilation. `PreparedClassPath` owns the effective locations and their correlated
 version-selected archive views; archive acquisition occurs after selection and
-copying, before source parsing and compilation. Compiler and bytecode type analysis
-share those views; both guest modes use the same prepared dependency order. The existing
+copying, before source parsing and compilation in normal preparation. Compiler and
+bytecode type analysis share those views; both guest modes use the same prepared
+dependency order. The existing
 overload uses an empty class path. See [binary dependencies](../reference/java-api.md#binary-dependencies)
 for the supported Java interface.
 
@@ -96,6 +97,52 @@ Dependency copying and owned-tree deletion remain with `ClassPathFiles`.
 exist under `cs1302.tracer.internal`; `App` here means the internal command class,
 not the supported launcher. `SourcePreparation.prepare` keeps internal callers from
 having to coordinate compilation, source resolution, and cleanup themselves.
+
+## Submitted source identity
+
+`CompilationHelper.parseSources(code)` returns a `ParsedSources` whose parsed files
+and detached `SubmittedSources` describe the same input. Its constructor is private;
+callers cannot pair ASTs from one submission with a description from another.
+Compilation and source analysis retain AST and type-resolution ownership.
+`SubmittedSources` retains original code, exact ordered file contents, logical and
+debug identities, and entry selection, without ASTs or compilation resources.
+`SourcePreparation.submitted()` remains usable after preparation closes.
+
+Normal `prepare` resolves dependencies before parsing. CLI `list-breakpoints` uses
+`parseSources`, then `prepareParsed`, preserving its source-parse-first validation.
+Listing reads each file's `logicalPath()` and `listingLines(availableLines)`;
+the latter preserves exact logical/native lookup followed by the first matching
+basename suffix when the exact line set is empty. It does not use breakpoint
+specification matching.
+
+Prepared tracing passes this description through `TraceRendering` and
+`TraceCompletion`. Raw-source serializer overloads and `SourceMetadata.from(code)`
+use the same parser and source identity implementation. They accept parseable
+source without compiling it or requiring a launchable main method. With no main
+candidate, source metadata retains the existing first-file entry fallback.
+Only submitted files contribute output metadata; neighboring analysis evidence
+does not become a submitted source.
+
+`SubmittedSources.metadata()` projects package-relative debug identities into the
+ordered source map. This is the point where duplicate debug paths are rejected,
+even if their distinct logical compilation destinations were valid. Do not move
+this validation into parsing or preparation. Keep metadata projection at each
+rendering path's existing position so ambiguity errors retain their precedence
+relative to step-conversion failures:
+
+| Rendering path | Metadata projection |
+| --- | --- |
+| Python Tutor single snapshot | Before step conversion |
+| Modern single snapshot | After step conversion |
+| Either chronological sequence | After converting steps |
+| Modern breakpoint map | After converting the map |
+| Ordinary Python Tutor breakpoint map | Once, before iterating groups |
+
+Each failed metadata projection creates a fresh exception. Recovery can retry
+rendering and suppress its new failure onto the original one; reusing an earlier
+exception would change that behavior.
+
+## Execution and completion
 
 `TraceJob` resolves effective tracing choices for the `JAVA`, `CLI`, `ENVELOPE`,
 and `NDJSON` caller profiles. Typed Java requests go through `fromJava`; command
@@ -167,6 +214,12 @@ render or cleanup failure. Keep final `TraceSession.result` construction after
 cleanup and worker guest-health checks. Ordinary CLI continues to pass its capture
 directly to `TraceRendering.ordinary`.
 
+Envelope and worker adapters retain `prepared.submitted()` in a job-local variable
+immediately after preparation succeeds, before capture or cleanup can fail. Pass
+that detached description to completion; recovery must not reconstruct identity
+from raw source or require a live preparation. A failed preparation has no completed
+description or trace history to render.
+
 For multithread worker success, completion requests the session's existing final-output
 refresh before selecting retained states. Guest execution drains and detaches output
 before reusable drainers reset; `SnapshotRetention` owns output projection and
@@ -174,6 +227,34 @@ accounting, and `TraceRendering` owns format conversion. Adapters retain guest
 cleanup. Envelope uses raw
 retained history for targeted jobs; worker completion uses targeted presentation.
 The adapters retain their distinct exception scopes and interrupt handling.
+
+## Snapshot assembly and reachable-heap inspection
+
+`SnapshotCapture` owns snapshot assembly and all-thread type prepasses. It creates
+one package-private `HeapInspection` with the suspended event thread and shared
+`ReifiedTypeMetadata`. Stack locals, `this`, and statics contribute root evidence
+and captured references through the existing capture logic; all threads feed the
+same heap owner. Root insertion and budget-check ordering remain with capture.
+
+`HeapInspection` owns JDI primitive and object conversion, the admitted-identity
+set, FIFO queue, descendant discovery, source-lambda insertion, and heap map.
+`encounter` deduplicates an identity before charging and retaining it, and keeps
+that identity known after dequeue. `sourceLambda` admits the reference, charges
+the source text, then installs its captured lambda; repeated occurrences still
+charge and replace the text. `finish` traverses pending objects while preserving
+already installed values, then transfers the existing completed map to capture.
+Capture stops using that owner after success and discards it on failure.
+
+Use this inspection interface for graph and failure tests; callers do not manage
+its queue or partially filled heap. `TraceValue` contains captured values and
+`toWrapperObject`, without JDI inspection or a descendant-list protocol.
+Snapshot capture still samples input/output, performs allocation checks, and calls
+`TraceSession.commit` only after the complete state exists. A failed inspection
+does not publish a partial heap or replace previously retained history. Trusted
+inspection retains its permitted guest calls and fallbacks; field-only and
+multithread inspection invoke no guest methods.
+
+## Source and input observations
 
 `SourceAnalysis.observations(declaringClass, methodName, argumentTypes, line)` returns
 source observations for a captured location. Use `isFinal(variable)` and

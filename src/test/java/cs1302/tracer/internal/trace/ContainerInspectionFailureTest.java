@@ -2,11 +2,11 @@ package cs1302.tracer.internal.trace;
 
 import static org.assertj.core.api.Assertions.*;
 import static cs1302.tracer.internal.trace.JdiValueContractTest.mirror;
+import static cs1302.tracer.internal.trace.JdiValueContractTest.inspect;
 import com.sun.jdi.*;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,39 +20,38 @@ class ContainerInspectionFailureTest {
                 new InvocationException(mirror(ObjectReference.class, Map.of()))).map(Arguments::of);
     }
 
-    @ParameterizedTest
-    @MethodSource("failures")
-    void mapAccessorFailuresAreClassified(Exception failure) {
+    private static ObjectReference container(String kind, Exception failure) {
         var contract = mirror(InterfaceType.class, Map.of());
-        var type = mirror(ClassType.class, Map.of("allInterfaces", List.of(contract), "concreteMethodByName",
-                mirror(com.sun.jdi.Method.class, Map.of())));
-        var vm = mirror(VirtualMachine.class, Map.of("classesByName", List.of(contract)));
-        var object = mirror(ObjectReference.class,
-                Map.of("referenceType", type, "virtualMachine", vm, "invokeMethod", failure));
-        if (failure instanceof InvocationException) {
-            assertThat(TraceValue.Map.tryFromJdiObjectReference(null, object, Optional.empty())).isEmpty();
-        } else {
-            assertThatThrownBy(() -> TraceValue.Map.tryFromJdiObjectReference(null, object, Optional.empty()))
-                    .isInstanceOf(failure instanceof IncompatibleThreadStateException ? IllegalArgumentException.class
-                            : IllegalStateException.class)
-                    .hasCause(failure);
-        }
+        var name = "java.util.Test" + kind;
+        var type = mirror(ClassType.class, Map.of("name", name, "signature", "L" + name.replace('.', '/') + ";",
+                "allInterfaces", List.of(contract), "concreteMethodByName", mirror(com.sun.jdi.Method.class, Map.of()),
+                "isEnum", false));
+        var vm = (VirtualMachine) Proxy.newProxyInstance(VirtualMachine.class.getClassLoader(),
+                new Class<?>[] { VirtualMachine.class }, (self, method, args) ->
+                        method.getName().equals("classesByName") && args[0].equals("java.util." + kind)
+                                ? List.of(contract) : List.of());
+        return mirror(ObjectReference.class, Map.of("uniqueID", 1L, "referenceType", type, "type", type,
+                "virtualMachine", vm, "invokeMethod", failure));
     }
 
     @ParameterizedTest
     @MethodSource("failures")
-    void collectionAccessorFailuresAreClassified(Exception failure) throws Exception {
-        var method = TraceValue.class.getDeclaredMethod("handleCollection", ThreadReference.class, ClassType.class,
-                ObjectReference.class, Optional.class, AstTypeResolver.class, ReifiedTypeMetadata.class);
-        method.setAccessible(true);
-        var type = mirror(ClassType.class, Map.of("concreteMethodByName", mirror(com.sun.jdi.Method.class, Map.of())));
-        var object = mirror(ObjectReference.class, Map.of("invokeMethod", failure));
+    void mapAccessorFailuresAreClassifiedThroughHeapInspection(Exception failure) {
+        assertFailureOrFallback("Map", failure);
+    }
+
+    @ParameterizedTest
+    @MethodSource("failures")
+    void collectionAccessorFailuresAreClassifiedThroughHeapInspection(Exception failure) {
+        assertFailureOrFallback("Collection", failure);
+    }
+
+    private static void assertFailureOrFallback(String kind, Exception failure) {
+        var object = container(kind, failure);
         if (failure instanceof InvocationException) {
-            assertThat(method.invoke(null, null, type, object, Optional.empty(), null, null))
-                    .isEqualTo(Optional.empty());
+            assertThat(inspect(object)).isEqualTo(new TraceValue.Object("java.util.Test" + kind, List.of()));
         } else {
-            assertThatThrownBy(() -> method.invoke(null, null, type, object, Optional.empty(), null, null))
-                    .isInstanceOf(InvocationTargetException.class).cause()
+            assertThatThrownBy(() -> inspect(object))
                     .isInstanceOf(failure instanceof IncompatibleThreadStateException ? IllegalArgumentException.class
                             : IllegalStateException.class)
                     .hasCause(failure);
@@ -77,14 +76,15 @@ class ContainerInspectionFailureTest {
         default -> primitive;
         };
         var object = mirror(ObjectReference.class,
-                Map.of("type", type, "referenceType", type, "getValue", primitive, "invokeMethod", invocation,
-                        "virtualMachine", mirror(VirtualMachine.class, Map.of("classesByName", List.of()))));
+                Map.of("uniqueID", 1L, "type", type, "referenceType", type, "getValue", primitive,
+                        "invokeMethod", invocation, "virtualMachine", mirror(VirtualMachine.class,
+                                Map.of("classesByName", List.of()))));
         try (var session = new cs1302.tracer.internal.execution.TraceSession(cs1302.tracer.api.TraceLimits.unlimited(),
                 mode.equals("fields-only") ? cs1302.tracer.api.InspectionPolicy.FIELDS
                         : cs1302.tracer.api.InspectionPolicy.TRUSTED,
                 true)) {
             assertThat(cs1302.tracer.internal.execution.TraceSession.current()).isSameAs(session);
-            var result = (TraceValue.Color) TraceValue.fromJdiValue(null, object, Optional.empty());
+            var result = (TraceValue.Color) inspect(object);
             assertThat(result.hex()).isEqualTo(mode.equals("field") || mode.equals("getter") ? "#123456" : "#00000000");
         }
     }

@@ -15,6 +15,12 @@ objects, source observations, reified type metadata, and input/output observatio
 ordering of those observations and shared heap identity within the state. Session budgets and
 snapshot retention govern admission; guest execution owns suspension, event loops, and cleanup.
 
+**Reachable-heap inspection**:
+Snapshot-local discovery and conversion of guest objects reachable from captured stack and static
+roots, preserving shared identity and cycles under the selected inspection policy. It includes
+descendant traversal and source-observed lambda representations, subject to session budgets and
+reified type evidence, without owning guest execution or completed-snapshot admission.
+
 **Trace-job resolution**:
 Interpretation of a caller's requested settings under its caller profile to determine effective budgets, inspection, capture intent, source-discovery policy, and presentation choices. Resolution preserves the caller's validation timing and failure semantics; it is distinct from executing the job or rendering its output.
 
@@ -52,6 +58,21 @@ guest program and the source evidence needed to trace it. Preparation owns its
 temporary compilation files and one prepared class path until tracing finishes and
 releases acquired resources if preparation fails. It closes compiled output before
 releasing the prepared class path.
+
+**Submitted source identity**:
+The association between each submitted file's exact text, logical source path, debug source path,
+and selection as the entry file. It describes submitted files independently of neighboring source
+evidence discovered for analysis.
+
+**Logical source path**:
+A relative name for a file in a source bundle or parsed submission, interpreted under the owning
+input or compilation rules. A logical path such as `src/demo/Main.java` can differ from the file's
+debug source path.
+
+**Debug source path**:
+The package-relative source name used by debug locations and serialized source maps, combining
+the declared package with the source filename. Distinct logical source paths can identify the
+same debug source path.
 
 **Source-discovery policy**:
 The caller's explicit choice of which sources may participate in preparation and which source-resolution fallbacks apply. Existing choices distinguish neighboring-source discovery from submitted sources only; they need not be identical for every execution path.

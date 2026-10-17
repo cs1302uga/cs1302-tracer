@@ -88,7 +88,8 @@ class BinaryClassPathBoundaryTest {
         var archive = opened.getFirst();
         Path output = Files.createDirectory(temporary.resolve("compiled"));
         var compilation = new CompilationHelper.CompilationResult(output, Set.of(), "Main", Optional.empty(), false);
-        SourcePreparation preparation = new SourcePreparation(compilation, List.of(), dependencies);
+        SourcePreparation preparation = new SourcePreparation(compilation, List.of(), dependencies,
+                CompilationHelper.parseSources("public class Main {}").submitted());
         assertThatThrownBy(preparation::close).isInstanceOf(UncheckedIOException.class).hasCause(closing);
         assertThat(archive.isOpen()).isFalse();
         assertThat(copied).doesNotExist();

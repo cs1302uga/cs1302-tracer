@@ -20,13 +20,10 @@ import cs1302.tracer.internal.trace.ExecutionSnapshot.StackSnapshot.ThisObject;
 import cs1302.tracer.internal.execution.TraceSession;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Assembles complete snapshots, owning prepass ordering and shared heap traversal.
@@ -59,22 +56,20 @@ final class SnapshotCapture {
         TraceSession session = TraceSession.current();
         prepareSessionAndStreams(session, mainThread, output);
 
-        List<ObjectReference> heapReferencesToWalk = new ReferenceQueue();
-        Map<Long, TraceValue> heap = new HashMap<>();
         AstTypeResolver astTypeResolver = sourceAnalysis.astTypeResolver();
         ReifiedTypeMetadata metadata = new ReifiedTypeMetadata(astTypeResolver);
+        HeapInspection heapInspection = new HeapInspection(mainThread, metadata);
 
         ThreadCapture capture = session == null ? null : session.threadCapture();
         List<ExecutionSnapshot.ThreadSnapshot> captured = collectThreadStacks(mainThread, sourceAnalysis, metadata,
-                heapReferencesToWalk, heap, harnessClassLoader);
+                heapInspection, harnessClassLoader);
         List<StackSnapshot> stackSnapshots = capture == null ? captured.getFirst().stack()
                 : captured.stream().filter(t -> t.id() == mainThread.uniqueID()).findFirst().orElseThrow().stack();
         List<ExecutionSnapshot.ThreadSnapshot> threads = capture == null ? null : captured;
 
-        List<ExecutionSnapshot.Field> statics = collectStatics(loadedClasses, sourceAnalysis, heapReferencesToWalk,
-                heap);
+        List<ExecutionSnapshot.Field> statics = collectStatics(loadedClasses, sourceAnalysis, heapInspection);
 
-        drainHeapReferences(mainThread, metadata, heapReferencesToWalk, heap);
+        Map<Long, TraceValue> heap = heapInspection.finish();
 
         JobOutput.Prefix prefix = output.capture();
         if (session != null) {
@@ -103,8 +98,7 @@ final class SnapshotCapture {
      * @param mainThread Event thread.
      * @param sourceAnalysis Source metadata.
      * @param metadata Inferred object types.
-     * @param heapReferencesToWalk Shared traversal queue.
-     * @param heap Shared heap.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @param harnessClassLoader Harness loader for legacy jobs.
      * @return Captured application thread states.
      * @throws IncompatibleThreadStateException If stacks cannot be read.
@@ -112,8 +106,8 @@ final class SnapshotCapture {
      * @throws ClassNotLoadedException If a referenced type is unavailable.
      */
     private static List<ExecutionSnapshot.ThreadSnapshot> collectThreadStacks(ThreadReference mainThread,
-            SourceAnalysis sourceAnalysis, ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap, ClassLoaderReference harnessClassLoader)
+            SourceAnalysis sourceAnalysis, ReifiedTypeMetadata metadata, HeapInspection heapInspection,
+            ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         TraceSession session = TraceSession.current();
         ThreadCapture capture = session == null ? null : session.threadCapture();
@@ -122,7 +116,7 @@ final class SnapshotCapture {
             prepassObjectTypes(mainThread, astTypeResolver, metadata, harnessClassLoader);
             List<StackSnapshot> stack = collectStackSnapshots(mainThread, astTypeResolver, metadata,
                     sourceAnalysis,
-                    heapReferencesToWalk, heap, harnessClassLoader);
+                    heapInspection, harnessClassLoader);
             return List.of(new ExecutionSnapshot.ThreadSnapshot(0, "", "", stack));
         } // if
         List<ThreadReference> capturedThreads = capture.threads(mainThread);
@@ -138,7 +132,7 @@ final class SnapshotCapture {
         for (ThreadReference thread : capturedThreads) {
             List<StackSnapshot> stack = collectStackSnapshots(thread, astTypeResolver, metadata,
                     sourceAnalysis,
-                    heapReferencesToWalk, heap, harnessClassLoader);
+                    heapInspection, harnessClassLoader);
             threads.add(new ExecutionSnapshot.ThreadSnapshot(thread.uniqueID(), thread.name(),
                     ThreadCapture.state(thread), stack));
         } // for
@@ -166,27 +160,6 @@ final class SnapshotCapture {
         } // if
         output.drain(0, 0);
     } // prepareSessionAndStreams
-
-    /**
-     * Drains reachable heap references into the heap map.
-     *
-     * @param mainThread Main thread reference.
-     * @param metadata Snapshot-owned reified type evidence.
-     * @param heapReferencesToWalk Queue of object references.
-     * @param heap Resulting heap map.
-     */
-    private static void drainHeapReferences(ThreadReference mainThread, ReifiedTypeMetadata metadata,
-            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap) {
-        while (!heapReferencesToWalk.isEmpty()) {
-            ObjectReference workingObject = heapReferencesToWalk.removeFirst();
-            if (heap.containsKey(workingObject.uniqueID())) {
-                continue;
-            } // if
-            TraceValue convertedObject = TraceValue.fromJdiValue(mainThread, workingObject,
-                    Optional.of(heapReferencesToWalk), metadata);
-            heap.put(workingObject.uniqueID(), convertedObject);
-        } // while
-    } // drainHeapReferences
 
     /**
      * Resolves the source file path for the current executing step.
@@ -377,16 +350,15 @@ final class SnapshotCapture {
      * @param observations Source observations for the captured location.
      * @param astTypeResolver AST type resolver.
      * @param metadata Snapshot-owned reified type evidence.
-     * @param heapReferencesToWalk Heap reference queue.
-     * @param heap Heap mapping.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @param stackFrameFields Target list for frame fields.
      * @param contexts Extraction-local invocation contexts.
      * @throws ClassNotLoadedException If a variable class is not loaded.
      */
     private static void processStackFrameVariables(StackFrame frame, List<LocalVariable> visibleVars,
             SourceAnalysis.Observations observations,
-            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk,
-            Map<Long, TraceValue> heap, List<ExecutionSnapshot.Field> stackFrameFields,
+            AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata, HeapInspection heapInspection,
+            List<ExecutionSnapshot.Field> stackFrameFields,
             ReifiedTypeMetadata.FrameBindings contexts) throws ClassNotLoadedException {
         for (LocalVariable lv : visibleVars) {
             TraceSession.elements(1);
@@ -394,7 +366,7 @@ final class SnapshotCapture {
             Optional<String> lvLambdaImplementation = observations.lambdaImplementation(lv.name());
             String resolvedTypeName = resolveLocalVariableType(frame, lv, astTypeResolver, contexts.bindings(frame));
             appendStackField(frame, lv, isFinal, resolvedTypeName, lvLambdaImplementation, metadata,
-                    heapReferencesToWalk, heap, stackFrameFields);
+                    heapInspection, stackFrameFields);
         } // for
     } // processStackFrameVariables
 
@@ -405,8 +377,7 @@ final class SnapshotCapture {
      * @param astTypeResolver AstTypeResolver instance.
      * @param metadata Snapshot-owned reified type evidence.
      * @param sourceAnalysis Source observations for captured locations.
-     * @param heapReferencesToWalk Heap references list.
-     * @param heap Heap trace values map.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @param harnessClassLoader Internal harness class loader, or null for ordinary tracing.
      * @return List of StackSnapshots in call order.
      * @throws IncompatibleThreadStateException On thread state error.
@@ -417,8 +388,7 @@ final class SnapshotCapture {
     private static List<StackSnapshot> collectStackSnapshots(ThreadReference mainThread,
             AstTypeResolver astTypeResolver, ReifiedTypeMetadata metadata,
             SourceAnalysis sourceAnalysis,
-            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
-            ClassLoaderReference harnessClassLoader)
+            HeapInspection heapInspection, ClassLoaderReference harnessClassLoader)
             throws IncompatibleThreadStateException, AbsentInformationException, ClassNotLoadedException {
         List<StackSnapshot> stackSnapshots = new LinkedList<>();
         List<StackFrame> frames = mainThread.frames();
@@ -442,9 +412,9 @@ final class SnapshotCapture {
                 continue;
             } // try
             processStackFrameVariables(frame, visibleVars, observations,
-                    astTypeResolver, metadata, heapReferencesToWalk, heap, stackFrameFields, contexts);
+                    astTypeResolver, metadata, heapInspection, stackFrameFields, contexts);
             Optional<ThisObject> thisObject = resolveThisObject(frame, declaringClassFqn, metadata,
-                    heapReferencesToWalk);
+                    heapInspection);
             String frameSourcePath = resolveFrameSourcePath(frame);
             stackSnapshots.addFirst(new StackSnapshot(frame.location().method().name(), frame.location().lineNumber(),
                     stackFrameFields, thisObject, Optional.ofNullable(frameSourcePath)));
@@ -500,23 +470,19 @@ final class SnapshotCapture {
      * @param resolvedTypeName Resolved type name.
      * @param lvLambdaImplementation Optional lambda implementation.
      * @param metadata Snapshot-owned reified type evidence.
-     * @param heapReferencesToWalk Heap references list.
-     * @param heap Heap map.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @param stackFrameFields Target fields list.
      */
     private static void appendStackField(StackFrame frame, LocalVariable lv, boolean isFinal, String resolvedTypeName,
             Optional<String> lvLambdaImplementation, ReifiedTypeMetadata metadata,
-            List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap,
-            List<ExecutionSnapshot.Field> stackFrameFields) {
+            HeapInspection heapInspection, List<ExecutionSnapshot.Field> stackFrameFields) {
         switch (frame.getValue(lv)) {
         case PrimitiveValue pv -> stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
-                TraceValue.Primitive.fromJdiPrimitive(pv)));
+                HeapInspection.primitive(pv)));
         case ObjectReference or when lvLambdaImplementation.isPresent() -> {
             stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
                     new TraceValue.Reference(or.uniqueID())));
-            heapReferencesToWalk.add(or);
-            TraceSession.elements(lvLambdaImplementation.get().length());
-            heap.put(or.uniqueID(), new TraceValue.Lambda(lvLambdaImplementation.get()));
+            heapInspection.sourceLambda(or, lvLambdaImplementation.get());
         } // case
         case ObjectReference or -> {
             String runtimeFqn = or.referenceType().name();
@@ -525,7 +491,7 @@ final class SnapshotCapture {
             } // if
             stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
                     new TraceValue.Reference(or.uniqueID())));
-            heapReferencesToWalk.add(or);
+            heapInspection.encounter(or);
         } // case
         case null -> stackFrameFields
                 .add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(), new TraceValue.Null()));
@@ -541,18 +507,18 @@ final class SnapshotCapture {
      * @param frame StackFrame.
      * @param declaringClassFqn Declaring class FQN.
      * @param metadata Snapshot-owned reified type evidence.
-     * @param heapReferencesToWalk Heap references list.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @return Optional containing ThisObject.
      */
     private static Optional<ThisObject> resolveThisObject(StackFrame frame, String declaringClassFqn,
-            ReifiedTypeMetadata metadata, List<ObjectReference> heapReferencesToWalk) {
+            ReifiedTypeMetadata metadata, HeapInspection heapInspection) {
         if (frame.thisObject() instanceof ObjectReference frameThis) {
             String thisType = declaringClassFqn;
             if (metadata.typeOf(frameThis.uniqueID()) != null) {
                 thisType = metadata.typeOf(frameThis.uniqueID());
             } // if
             TraceValue.Reference thisReference = new TraceValue.Reference(frameThis.uniqueID());
-            heapReferencesToWalk.add(frameThis);
+            heapInspection.encounter(frameThis);
             return Optional.of(new ThisObject(thisType, thisReference));
         } // if
         return Optional.empty();
@@ -563,12 +529,11 @@ final class SnapshotCapture {
      *
      * @param loadedClasses Loaded reference types.
      * @param sourceAnalysis Precomputed source analysis.
-     * @param heapReferencesToWalk Heap references list.
-     * @param heap Heap map.
+     * @param heapInspection Snapshot-owned reachable-heap inspection.
      * @return List of static Field snapshots.
      */
     private static List<ExecutionSnapshot.Field> collectStatics(Iterable<ReferenceType> loadedClasses,
-            SourceAnalysis sourceAnalysis, List<ObjectReference> heapReferencesToWalk, Map<Long, TraceValue> heap) {
+            SourceAnalysis sourceAnalysis, HeapInspection heapInspection) {
         List<ExecutionSnapshot.Field> statics = new ArrayList<>();
         for (ReferenceType loadedClass : loadedClasses) {
             for (Field f : loadedClass.allFields()) {
@@ -581,18 +546,16 @@ final class SnapshotCapture {
                 String fieldName = String.join(".", loadedClass.name(), f.name());
                 switch (loadedClass.getValue(f)) {
                 case PrimitiveValue pv -> statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
-                        TraceValue.Primitive.fromJdiPrimitive(pv)));
+                        HeapInspection.primitive(pv)));
                 case ObjectReference or when lambdaImplementation.isPresent() -> {
-                    heapReferencesToWalk.add(or);
-                    TraceSession.elements(lambdaImplementation.get().length());
-                    heap.put(or.uniqueID(), new TraceValue.Lambda(lambdaImplementation.get()));
+                    heapInspection.sourceLambda(or, lambdaImplementation.get());
                     statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                             new TraceValue.Reference(or.uniqueID())));
                 } // case
                 case ObjectReference or -> {
                     statics.add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName,
                             new TraceValue.Reference(or.uniqueID())));
-                    heapReferencesToWalk.add(or);
+                    heapInspection.encounter(or);
                 } // case
                 case null -> statics
                         .add(new ExecutionSnapshot.Field(f.isFinal(), f.typeName(), fieldName, new TraceValue.Null()));
@@ -654,47 +617,5 @@ final class SnapshotCapture {
             // Graceful degradation: do not interrupt tracing if flush invocation fails
         } // try
     } // flushPrintStreamField
-
-    /** Deduplicates and budgets references before retaining them for heap traversal. */
-    private static final class ReferenceQueue extends java.util.AbstractList<ObjectReference> {
-
-        private final LinkedList<ObjectReference> references = new LinkedList<>();
-        private final Set<Long> queued = new HashSet<>();
-
-        /** Constructs an empty reference work queue. */
-        ReferenceQueue() {} // ReferenceQueue
-
-        @Override
-        public boolean add(ObjectReference reference) {
-            if (reference == null || queued.contains(reference.uniqueID())) {
-                return false;
-            } // if
-            TraceSession session = TraceSession.current();
-            if (session != null) {
-                session.encounter(reference.uniqueID());
-            } // if
-            queued.add(reference.uniqueID());
-            return references.add(reference);
-        } // add
-
-        /** {@inheritDoc} */
-        @Override
-        public ObjectReference get(int index) {
-            return references.get(index);
-        } // get
-
-        /** {@inheritDoc} */
-        @Override
-        public int size() {
-            return references.size();
-        } // size
-
-        /** {@inheritDoc} */
-        @Override
-        public ObjectReference remove(int index) {
-            return references.remove(index);
-        } // remove
-
-    } // ReferenceQueue
 
 } // SnapshotCapture

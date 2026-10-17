@@ -34,7 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -349,7 +348,7 @@ public class App {
                 session.phase("trace");
                 TraceDispatch.Capture captured = TraceDispatch.dedicated().capture(prepared,
                         resolvedJob.capture().selection(), guestStdin);
-                emitTrace(TraceRendering.ordinary(source, guestStdin, resolvedJob, captured, pretty));
+                emitTrace(TraceRendering.ordinary(prepared.submitted(), guestStdin, resolvedJob, captured, pretty));
             } // try
         } // runOrdinary
 
@@ -365,13 +364,19 @@ public class App {
                 if (resolvedJob.multithread()) {
                     session.enableMultithread();
                 } // if
-                String source = "";
+                SubmittedSources submitted = null;
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;
                 try {
-                    source = readBoundedSource(session, limits);
+                    String source = readBoundedSource(session, limits);
                     session.phase("compile");
-                    snapshots = executeBoundedSource(source, session, limits, guestStdin);
+                    long files = SourceDelimiters.scan(source).size();
+                    session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
+                    try (SourcePreparation prepared = SourcePreparation.prepare(
+                            source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
+                        submitted = prepared.submitted();
+                        snapshots = executeBoundedSource(prepared, session, guestStdin);
+                    } // try
                 } catch (Exception caught) {
                     failure = caught;
                     if (caught instanceof InterruptedException) {
@@ -380,7 +385,7 @@ public class App {
                     } // if
                 } // try
                 TraceCompletion.Envelope completed = TraceCompletion.envelope(
-                        source, guestStdin, resolvedJob, session, snapshots, failure);
+                        submitted, guestStdin, resolvedJob, session, snapshots, failure);
                 TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT),
                         completed.payload(), completed.failure());
                 System.out.println(TraceRendering.freeze(result, pretty).json());
@@ -417,26 +422,19 @@ public class App {
         } // readBoundedSource
 
         /**
-         * Compiles a job and captures its selected trace.
-         *
-         * @param source Source stream.
+         * Captures a prepared job while its caller retains source ownership and detached recovery identity.
+         * @param prepared Compiled job and source evidence.
          * @param session Active session.
-         * @param limits Validated limits.
          * @param guestStdin Standard input string for guest process.
          * @return Completed snapshots.
-         * @throws Exception On compilation or tracing failure.
+         * @throws Exception On tracing failure.
          */
-        List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+        List<ExecutionSnapshot> executeBoundedSource(SourcePreparation prepared, TraceSession session,
                 String guestStdin) throws Exception {
-            long files = SourceDelimiters.scan(source).size();
-            session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
-            try (SourcePreparation prepared = SourcePreparation.prepare(
-                    source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
-                session.phase("trace");
-                TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
-                session.finishOutput();
-                return session.snapshots();
-            } // try
+            session.phase("trace");
+            TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
+            session.finishOutput();
+            return session.snapshots();
         } // executeBoundedSource
 
         /**
@@ -516,10 +514,11 @@ public class App {
             String source = readInputFile();
 
             try {
-                List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
-                try (SourcePreparation prepared = SourcePreparation.prepare(source, getInputPath(),
+                CompilationHelper.ParsedSources parsed = CompilationHelper.parseSources(source);
+                try (SourcePreparation prepared = SourcePreparation.prepareParsed(parsed, getInputPath(),
                         SourcePreparation.Discovery.NEIGHBORS, dependencies.resolve())) {
                     CompilationResult compilationResult = prepared.compilation();
+                    List<SubmittedSources.File> sourceFiles = prepared.submitted().files();
                     if (sourceFiles.size() > 1) {
                         Map<String, Set<Integer>> breakpointsByFile = DebugTraceHelper
                                 .getValidBreakpointLinesByFile(compilationResult);
@@ -545,13 +544,13 @@ public class App {
          * @param sourceFiles Input source files.
          * @param breakpointsByFile Valid line mappings by file path.
          */
-        private void listMultiFileBreakpoints(List<CompilationHelper.SourceFile> sourceFiles,
+        private void listMultiFileBreakpoints(List<SubmittedSources.File> sourceFiles,
                 Map<String, Set<Integer>> breakpointsByFile) {
             if (outputJson) {
                 List<BreakpointEntry> output = new ArrayList<>();
-                for (CompilationHelper.SourceFile sf : sourceFiles) {
-                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
-                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                for (SubmittedSources.File sf : sourceFiles) {
+                    String normPath = sf.logicalPath();
+                    Set<Integer> validLines = sf.listingLines(breakpointsByFile);
                     String[] fileLines = sf.content().split("\n");
                     for (int i = 0; i < fileLines.length; i++) {
                         int lineNum = i + 1;
@@ -563,10 +562,10 @@ public class App {
             } else {
                 StringBuilder sb = new StringBuilder();
                 for (int f = 0; f < sourceFiles.size(); f++) {
-                    CompilationHelper.SourceFile sf = sourceFiles.get(f);
-                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
+                    SubmittedSources.File sf = sourceFiles.get(f);
+                    String normPath = sf.logicalPath();
                     sb.append("// --- ").append(normPath).append(" ---\n");
-                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                    Set<Integer> validLines = sf.listingLines(breakpointsByFile);
                     String[] fileLines = sf.content().split("\n");
                     int digitLength = ((int) Math.log10(Math.max(1, fileLines.length))) + 1;
                     for (int i = 0; i < fileLines.length; i++) {
@@ -584,29 +583,6 @@ public class App {
                 System.out.println(sb.toString());
             } // if
         } // listMultiFileBreakpoints
-
-        /**
-         * Resolves valid breakpoint line numbers for a source file.
-         *
-         * @param breakpointsByFile File line map.
-         * @param sf SourceFile.
-         * @return Set of valid line numbers.
-         */
-        private Set<Integer> findValidLinesForFile(Map<String, Set<Integer>> breakpointsByFile,
-                CompilationHelper.SourceFile sf) {
-            String normPath = sf.relativePath().replace(File.separatorChar, '/');
-            Set<Integer> valid = breakpointsByFile.getOrDefault(normPath,
-                    breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
-            if (valid.isEmpty()) {
-                String simpleName = Path.of(sf.relativePath()).getFileName().toString();
-                for (Map.Entry<String, Set<Integer>> entry : breakpointsByFile.entrySet()) {
-                    if (entry.getKey().endsWith(simpleName)) {
-                        return entry.getValue();
-                    } // if
-                } // for
-            } // if
-            return valid;
-        } // findValidLinesForFile
 
         /**
          * Formats and prints breakpoints for single-file input.

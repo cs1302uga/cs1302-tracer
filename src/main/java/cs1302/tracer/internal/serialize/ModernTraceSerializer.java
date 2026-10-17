@@ -2,9 +2,13 @@ package cs1302.tracer.internal.serialize;
 
 import org.apiguardian.api.API;
 
+import cs1302.tracer.internal.SubmittedSources;
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.api.TypeStyle;
+import cs1302.tracer.internal.model.SourceMetadata;
 import cs1302.tracer.internal.model.modern.HeapObject;
 import cs1302.tracer.internal.model.modern.Reference;
 import cs1302.tracer.internal.model.modern.StackFrame;
@@ -123,8 +127,32 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(javaSource, stdin, snapshot, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a single-snapshot trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @return Modern trace whose metadata is projected after step conversion.
+     */
+    public Trace createTrace(SubmittedSources source, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(source.code(), stdin, snapshot, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares single-step conversion while retaining metadata validation after the step.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern single-snapshot sequence root.
+     */
+    private Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot,
+            Supplier<SourceMetadata> metadata) {
         Step step = createStep(snapshot, 1, true);
-        return new Trace(javaSource, stdin, List.of(step));
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, List.of(step), null, metadata.get());
     } // createTrace
 
     /**
@@ -147,11 +175,35 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, stdin, snapshots, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a chronological trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @return Modern trace whose metadata is projected after step conversion.
+     */
+    public Trace createTrace(SubmittedSources source, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(source.code(), stdin, snapshots, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares sequence conversion while deferring metadata until all steps are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern sequence root.
+     */
+    private Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots,
+            Supplier<SourceMetadata> metadata) {
         List<Step> steps = new ArrayList<>();
         for (int i = 0; i < snapshots.size(); i++) {
             steps.add(createStep(snapshots.get(i), i + 1, true));
         } // for
-        return new Trace(javaSource, stdin, steps);
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, steps, null, metadata.get());
     } // createTrace
 
     /**
@@ -174,6 +226,30 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createBreakpointsTrace(String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
+        return createBreakpointsTrace(javaSource, stdin, breakpointSnapshots, () -> SourceMetadata.from(javaSource));
+    } // createBreakpointsTrace
+
+    /**
+     * Creates breakpoint output without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param breakpointSnapshots Existing grouped captured states.
+     * @return Modern breakpoint root whose metadata is projected after conversion.
+     */
+    public Trace createBreakpointsTrace(SubmittedSources source, String stdin, Map<Integer, ?> breakpointSnapshots) {
+        return createBreakpointsTrace(source.code(), stdin, breakpointSnapshots, source::metadata);
+    } // createBreakpointsTrace
+
+    /**
+     * Shares grouped conversion while deferring metadata until all entries are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param breakpointSnapshots Existing grouped captured states.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern breakpoint root.
+     */
+    private Trace createBreakpointsTrace(String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots,
+            Supplier<SourceMetadata> metadata) {
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
@@ -188,7 +264,7 @@ public class ModernTraceSerializer {
                 converted.put(entry.getKey(), steps);
             } // if
         } // for
-        return new Trace(javaSource, stdin, converted);
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, null, converted, metadata.get());
     } // createBreakpointsTrace
 
     /**

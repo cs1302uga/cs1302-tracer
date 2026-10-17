@@ -1,7 +1,5 @@
 package cs1302.tracer.internal.trace;
 
-import static cs1302.tracer.internal.trace.DebuggerEventTest.captureCall;
-
 import static org.assertj.core.api.Assertions.*;
 import static cs1302.tracer.internal.trace.JdiValueContractTest.mirror;
 import com.sun.jdi.*;
@@ -12,12 +10,6 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class DebuggerTypeMetadataTest {
-    private static ReifiedTypeMetadata metadata(AstTypeResolver resolver, Map<Long, String> initial) {
-        var metadata = new ReifiedTypeMetadata(resolver);
-        initial.forEach(metadata::recordFallback);
-        return metadata;
-    }
-
     private static CompilationUnit parse(String source) {
         var parser = new JavaParser(
                 new ParserConfiguration().setSymbolResolver(new com.github.javaparser.symbolsolver.JavaSymbolSolver(
@@ -120,11 +112,19 @@ class DebuggerTypeMetadataTest {
 
     private static StackFrame localFrame(String methodName, int line, String variableName, ObjectReference value,
             ObjectReference self) {
+        return localFrame(methodName, line, variableName, value, self, "java.lang.Object");
+    }
+
+    private static StackFrame localFrame(String methodName, int line, String variableName, ObjectReference value,
+            ObjectReference self, String typeName) {
         var method = mirror(com.sun.jdi.Method.class, Map.of("name", methodName, "argumentTypes", List.of(),
             "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
         var location = mirror(Location.class, Map.of("method", method, "lineNumber", line,
             "sourcePath", "C.java"));
-        var variable = mirror(LocalVariable.class, Map.of("name", variableName, "typeName", "java.lang.Object"));
+        var variableValues = new HashMap<String, Object>(Map.of("name", variableName));
+        if (typeName != null)
+            variableValues.put("typeName", typeName);
+        var variable = mirror(LocalVariable.class, variableValues);
         var values = new HashMap<String, Object>(Map.of("location", location,
             "visibleVariables", List.of(variable), "getValue", value));
         if (self != null) values.put("thisObject", self);
@@ -148,25 +148,21 @@ class DebuggerTypeMetadataTest {
 
     @Test
     void localTypesSurviveMissingReceiverBindingsAndOptionalDeclaredNames() throws Exception {
-        var resolver = new AstTypeResolver(StaticJavaParser.parse("class C<T> { void m() { T local; } }"));
-        var self = mirror(ObjectReference.class, Map.of("uniqueID", 2L));
-        var variable = mirror(LocalVariable.class, Map.of("name", "local", "typeName", "java.lang.Object"));
-        assertThat(captureCall("resolveLocalVariableType",
-                new Class<?>[] { StackFrame.class, LocalVariable.class, AstTypeResolver.class, Map.class },
-                frame("m", self), variable, resolver, Map.of())).isEqualTo("T");
-        var child = mirror(ObjectReference.class,
-                Map.of("referenceType", mirror(ReferenceType.class, Map.of("name", "Box")), "uniqueID", 1L));
-        var fields = new ArrayList<ExecutionSnapshot.Field>();
-        var stackFrame = mirror(StackFrame.class, Map.of("getValue", child));
-        var types = metadata(resolver, Map.of(1L, "Box"));
-        var signature = new Class<?>[] { StackFrame.class, LocalVariable.class, boolean.class, String.class,
-            Optional.class, ReifiedTypeMetadata.class, List.class, Map.class, List.class };
-        captureCall("appendStackField", signature, stackFrame, variable, false, null, Optional.empty(), types,
-                new ArrayList<>(), new HashMap<>(), fields);
-        assertThat(fields.getFirst().typeName()).isNull();
-        captureCall("appendStackField", signature, stackFrame, variable, false, "Box<String>", Optional.empty(), types,
-                new ArrayList<>(), new HashMap<>(), fields);
-        assertThat(types.typeOf(1L)).isEqualTo("Box<String>");
+        var genericSource = SourceAnalysis.from(List.of(StaticJavaParser.parse(
+                "class C<T> { void m() { T local; } }")));
+        var generic = capture(genericSource, List.of(localFrame("m", 1, "local", object(1L, "Box"), object(2L, "C"))));
+        assertThat(generic.stack().getFirst().visibleVariables().getFirst().typeName()).isEqualTo("T");
+
+        var emptySource = SourceAnalysis.from(List.of(StaticJavaParser.parse("class C { void m() {} }")));
+        var missingNameFrame = localFrame("m", 1, "unknown", object(1L, "Box"), null, null);
+        var missingName = capture(emptySource, List.of(missingNameFrame));
+        assertThat(missingName.stack().getFirst().visibleVariables().getFirst().typeName()).isNull();
+        assertThat(((TraceValue.Object) missingName.heap().get(1L)).classFqn()).isEqualTo("Box");
+
+        var concreteSource = SourceAnalysis.from(List.of(StaticJavaParser.parse(
+                "class C { void m() { Box<String> local; } } class Box<T> {}")));
+        var concrete = capture(concreteSource, List.of(localFrame("m", 1, "local", object(1L, "Box"), null)));
+        assertThat(((TraceValue.Object) concrete.heap().get(1L)).classFqn()).isEqualTo("Box<String>");
     }
 
     @Test

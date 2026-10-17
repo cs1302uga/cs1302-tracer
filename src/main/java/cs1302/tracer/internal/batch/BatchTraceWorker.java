@@ -3,6 +3,7 @@ package cs1302.tracer.internal.batch;
 import org.apiguardian.api.API;
 
 import cs1302.tracer.internal.SourcePreparation;
+import cs1302.tracer.internal.SubmittedSources;
 import cs1302.tracer.internal.SourceDelimiters;
 import cs1302.tracer.internal.execution.TraceJob;
 import cs1302.tracer.internal.execution.TraceCompletion;
@@ -131,8 +132,13 @@ public final class BatchTraceWorker implements AutoCloseable {
             if (job.multithread()) {
                 traceSession.enableMultithread();
             } // if
+            SubmittedSources submitted = null;
             try {
-                Object payload = performTrace(source, input, job, traceSession);
+                Object payload;
+                try (SourcePreparation prepared = prepareSource(source, job, traceSession)) {
+                    submitted = prepared.submitted();
+                    payload = performTrace(prepared, input, job, traceSession);
+                } // try
                 if (session != null && !session.isAlive() && traceSession.stopReason() == null) {
                     traceSession.stop("guest_exit");
                 } // if
@@ -140,7 +146,7 @@ public final class BatchTraceWorker implements AutoCloseable {
                 return result;
             } catch (Throwable caught) {
                 restoreInterruptIfInterrupted(caught);
-                Object payload = TraceCompletion.workerRecovery(source, input, job, traceSession, caught);
+                Object payload = TraceCompletion.workerRecovery(submitted, input, job, traceSession, caught);
                 TraceResult result = traceSession.result(format.name().toLowerCase(Locale.ROOT), payload, caught);
                 return result;
             } // try
@@ -171,16 +177,14 @@ public final class BatchTraceWorker implements AutoCloseable {
     } // legacyGuest
 
     /**
-     * Performs compilation and dispatches tracing to the guest lifecycle selected by the job.
-     *
+     * Admits source and prepares it at the established point after guest selection.
      * @param source Submitted source.
-     * @param stdin Guest input.
      * @param job Effective job choices.
      * @param traceSession Active tracing session.
-     * @return Serialized payload.
-     * @throws Exception On compilation or execution error.
+     * @return Owned preparation, including its detached submitted-source description.
+     * @throws Exception On source admission or compilation error.
      */
-    private Object performTrace(String source, String stdin, TraceJob job, TraceSession traceSession) throws Exception {
+    private SourcePreparation prepareSource(String source, TraceJob job, TraceSession traceSession) throws Exception {
         if (source == null || source.isBlank()) {
             throw new IllegalArgumentException("Source code cannot be empty");
         } // if
@@ -192,20 +196,28 @@ public final class BatchTraceWorker implements AutoCloseable {
         traceSession.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
 
         traceSession.phase("compile");
-        Object payload;
-        try (SourcePreparation prepared = SourcePreparation.prepare(
-                source, Optional.empty(), job.discovery(), job.dependencies())) {
-            traceSession.phase("trace");
-            if (session != null) {
-                traceSession.attach(session.process(), false);
-            } // if
-            TraceDispatch dispatcher = job.multithread() ? TraceDispatch.dedicated()
-                    : TraceDispatch.persistent(legacyGuest());
-            TraceDispatch.Capture captured = dispatcher.capture(prepared,
-                    job.capture().selection(), stdin);
-            payload = TraceCompletion.workerSuccess(source, stdin, job, traceSession, captured);
-        } // try
-        return payload;
+        return SourcePreparation.prepare(source, Optional.empty(), job.discovery(), job.dependencies());
+    } // prepareSource
+
+    /**
+     * Captures and renders while the caller retains preparation ownership and detached recovery identity.
+     * @param prepared Owned compilation and source evidence.
+     * @param stdin Guest input.
+     * @param job Effective job choices.
+     * @param traceSession Active tracing session.
+     * @return Serialized payload.
+     * @throws Exception On capture or rendering error.
+     */
+    private Object performTrace(SourcePreparation prepared, String stdin, TraceJob job, TraceSession traceSession)
+            throws Exception {
+        traceSession.phase("trace");
+        if (session != null) {
+            traceSession.attach(session.process(), false);
+        } // if
+        TraceDispatch dispatcher = job.multithread() ? TraceDispatch.dedicated()
+                : TraceDispatch.persistent(legacyGuest());
+        TraceDispatch.Capture captured = dispatcher.capture(prepared, job.capture().selection(), stdin);
+        return TraceCompletion.workerSuccess(prepared.submitted(), stdin, job, traceSession, captured);
     } // performTrace
 
     /**

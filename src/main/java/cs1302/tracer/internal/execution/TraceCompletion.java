@@ -3,6 +3,7 @@ package cs1302.tracer.internal.execution;
 import org.apiguardian.api.API;
 
 import cs1302.tracer.internal.serialize.TraceRendering;
+import cs1302.tracer.internal.SubmittedSources;
 import cs1302.tracer.internal.trace.ExecutionSnapshot;
 import cs1302.tracer.internal.trace.TraceDispatch;
 import java.util.List;
@@ -38,7 +39,7 @@ public final class TraceCompletion {
      * @param failure Caught execution failure, or null.
      * @return Coherent payload and failure for result classification.
      */
-    public static Envelope envelope(String source, String stdin, TraceJob job, TraceSession session,
+    public static Envelope envelope(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             List<ExecutionSnapshot> supplied, Throwable failure) {
         return envelope(source, stdin, job, session, supplied, failure, TraceRendering::sequence);
     } // envelope
@@ -54,7 +55,7 @@ public final class TraceCompletion {
      * @param captured Completed capture.
      * @return Rendered sequence payload.
      */
-    public static Object workerSuccess(String source, String stdin, TraceJob job, TraceSession session,
+    public static Object workerSuccess(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             TraceDispatch.Capture captured) {
         return workerSuccess(source, stdin, job, session, captured, TraceRendering::sequence);
     } // workerSuccess
@@ -70,7 +71,7 @@ public final class TraceCompletion {
      * @param failure Original failure, retained for result classification.
      * @return Partial sequence payload, or null when unavailable or rendering failed.
      */
-    public static Object workerRecovery(String source, String stdin, TraceJob job, TraceSession session,
+    public static Object workerRecovery(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             Throwable failure) {
         return workerRecovery(source, stdin, job, session, failure, TraceRendering::sequence);
     } // workerRecovery
@@ -87,7 +88,7 @@ public final class TraceCompletion {
      * @param renderer Sequence renderer.
      * @return Coherent payload and failure.
      */
-    static Envelope envelope(String source, String stdin, TraceJob job, TraceSession session,
+    static Envelope envelope(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             List<ExecutionSnapshot> supplied, Throwable failure, SequenceRenderer renderer) {
         List<ExecutionSnapshot> snapshots = supplied;
         if (snapshots == null && session.traceAvailable()) {
@@ -112,7 +113,7 @@ public final class TraceCompletion {
      * @param renderer Sequence renderer.
      * @return Rendered sequence payload.
      */
-    static Object workerSuccess(String source, String stdin, TraceJob job, TraceSession session,
+    static Object workerSuccess(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             TraceDispatch.Capture captured, SequenceRenderer renderer) {
         if (job.capture().chronological()) {
             List<ExecutionSnapshot> snapshots = ((TraceDispatch.Chronological) captured).snapshots();
@@ -138,7 +139,7 @@ public final class TraceCompletion {
      * @param renderer Sequence renderer.
      * @return Partial sequence payload, or null.
      */
-    static Object workerRecovery(String source, String stdin, TraceJob job, TraceSession session,
+    static Object workerRecovery(SubmittedSources source, String stdin, TraceJob job, TraceSession session,
             Throwable failure, SequenceRenderer renderer) {
         if (!session.traceAvailable() || session.snapshots().isEmpty()) {
             return null;
@@ -175,7 +176,7 @@ public final class TraceCompletion {
          * @param snapshots Completed states.
          * @return Sequence payload.
          */
-        Object render(String source, String stdin, TraceJob job, List<ExecutionSnapshot> snapshots);
+        Object render(SubmittedSources source, String stdin, TraceJob job, List<ExecutionSnapshot> snapshots);
 
     } // SequenceRenderer
 

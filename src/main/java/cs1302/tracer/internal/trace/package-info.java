@@ -1,5 +1,5 @@
 /**
- * Debugger execution, source analysis, value extraction, and job-scoped observation.
+ * Debugger execution, source analysis, reachable-heap inspection, and job-scoped observation.
  *
  * <p>{@link cs1302.tracer.internal.trace.DebugTraceHelper} coordinates dedicated JDI event handling.
  * The package-private snapshot capture module assembles complete
@@ -10,6 +10,12 @@
  * lambda reconstruction. {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
  * while
  * {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.</p>
+ *
+ * <p>Package-private {@link cs1302.tracer.internal.trace.HeapInspection} owns one snapshot's reachable reference
+ * queue, admitted identities, heap values, and JDI inspection. It borrows the snapshot's type evidence;
+ * capture retains root ordering, source observations, input/output sampling, and completed-snapshot admission.
+ * {@link cs1302.tracer.internal.trace.TraceValue} contains host-owned captured values, independently of JDI
+ * conversion. Inspection preserves trusted invocation and field-only policies.</p>
  *
  * <p>Dedicated and persistent guest execution share capture and observation policies. Retained snapshots must remain
  * valid after guest completion or reuse, without depending on mutable buffers from later jobs.</p>

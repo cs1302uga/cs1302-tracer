@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.google.gson.JsonObject;
+import cs1302.tracer.internal.CompilationHelper;
+import cs1302.tracer.internal.SubmittedSources;
 import cs1302.tracer.api.InspectionPolicy;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TraceLimits;
@@ -30,7 +32,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceCompletionTest {
 
-    private static final String SOURCE = "public class Main { public static void main(String[] args) {} }";
+    private static final SubmittedSources SOURCE = CompilationHelper.parseSources(
+            "public class Main { public static void main(String[] args) {} }").submitted();
 
     @ParameterizedTest
     @EnumSource(TraceFormat.class)

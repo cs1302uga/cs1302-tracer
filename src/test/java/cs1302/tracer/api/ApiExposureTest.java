@@ -52,6 +52,9 @@ class ApiExposureTest {
                         || name.equals("cs1302.tracer.internal.guest.GuestClassPath")
                         || name.equals("cs1302.tracer.internal.SourceNames")
                         || name.equals("cs1302.tracer.internal.SourceGlob")
+                        || name.equals("cs1302.tracer.internal.SubmittedSources")
+                        || name.equals("cs1302.tracer.internal.SubmittedSources$File")
+                        || name.equals("cs1302.tracer.internal.CompilationHelper$ParsedSources")
                         || name.equals("cs1302.tracer.internal.FileSelection")
                         || name.equals("cs1302.tracer.internal.FileSelection$Match");
                 assertThat(annotation.since()).as(name).isEqualTo(introducedIn41 ? "4.1.0" : "4.0.0");

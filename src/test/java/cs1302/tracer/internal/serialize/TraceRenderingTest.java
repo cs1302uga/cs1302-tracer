@@ -3,6 +3,8 @@ package cs1302.tracer.internal.serialize;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.gson.JsonObject;
+import cs1302.tracer.internal.CompilationHelper;
+import cs1302.tracer.internal.SubmittedSources;
 import com.google.gson.JsonParser;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TraceOutcome;
@@ -21,7 +23,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class TraceRenderingTest {
-    private static final String SOURCE = "public class Main { public static void main(String[] args) {} }";
+    private static final SubmittedSources SOURCE = CompilationHelper.parseSources(
+            "public class Main { public static void main(String[] args) {} }").submitted();
     private static final ExecutionSnapshot SNAPSHOT = new ExecutionSnapshot(List.of(),
         List.of(new ExecutionSnapshot.Field(false, "double", "number", new TraceValue.Primitive.Double(Double.NaN)),
             new ExecutionSnapshot.Field(false, "Object", "nothing", new TraceValue.Null())),

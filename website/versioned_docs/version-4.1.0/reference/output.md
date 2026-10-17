@@ -21,8 +21,17 @@ Both formats include `code`, `sources`, and `entryFile`. `code` retains the supp
 input; `sources` maps package-relative file paths to submitted source text, excluding
 multi-file delimiters. `entryFile` selects the initial file and is a key in `sources`.
 Map order does not choose the entry point. Step and frame `file` values select the
-corresponding source; line numbers are 1-based. Duplicate source paths are rejected.
-Discovered dependencies outside the submitted bundle are not included in `sources`.
+corresponding source; line numbers are 1-based. Discovered dependencies outside the
+submitted bundle are not included in `sources`.
+
+Logical submitted paths choose compilation destinations. Escaping or duplicate
+destinations are rejected during preparation. Rendered source identities instead
+combine the declared package with the source basename. Distinct logical destinations
+can therefore compile successfully yet produce the same debug source path; rendering
+rejects that ambiguity when constructing source metadata. The same basename in
+different packages remains distinct. Source text, line endings, ordering, and entry
+selection are preserved when prepared tracing renders after compilation resources
+close or retries rendering during recovery.
 
 ## Input and output observations
 

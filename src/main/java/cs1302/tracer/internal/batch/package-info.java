@@ -11,6 +11,9 @@
  * {@link cs1302.tracer.internal.execution.TraceJob} choices, without constructing wire requests.
  * Job results and captured input/output remain scoped to their originating request.</p>
  *
+ * <p>Each execution retains its own detached {@link cs1302.tracer.internal.SubmittedSources} for rendering and
+ * recovery after preparation cleanup. Source descriptions and heap inspection state are not reused with a guest.</p>
+ *
  * <p>Binary dependencies are selected per request through literal paths or explicit root/glob entries.
  * Workers prepare each job's selections and optional copies independently; reused guests receive fresh
  * application loaders. Dependency selection and copying errors retain compilation-phase reporting.</p>

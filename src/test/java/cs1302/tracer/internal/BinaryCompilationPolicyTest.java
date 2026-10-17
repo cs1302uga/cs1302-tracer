@@ -87,16 +87,18 @@ class BinaryCompilationPolicyTest {
         Path output = Files.createDirectory(root.resolve("compiled"));
         var compiled = new CompilationHelper.CompilationResult(FaultPaths.refusingDeletion(output),
                 java.util.Set.of(), "Main");
-        var preparation = new SourcePreparation(compiled, List.of(), dependencies);
+        var preparation = new SourcePreparation(compiled, List.of(), dependencies,
+                CompilationHelper.parseSources("public class Main {}").submitted());
         assertThatThrownBy(preparation::close).isInstanceOf(java.io.UncheckedIOException.class);
         assertThat(captured).doesNotExist();
     }
 
     @Test
-    void compatibilityPreparationConstructorStillOwnsCompiledOutput() throws Exception {
+    void preparationWithoutDependenciesStillOwnsCompiledOutput() throws Exception {
         Path output = Files.createDirectory(root.resolve("compiled"));
         var compiled = new CompilationHelper.CompilationResult(output, java.util.Set.of(), "Main");
-        try (var preparation = new SourcePreparation(compiled, List.of())) {
+        try (var preparation = new SourcePreparation(compiled, List.of(),
+                CompilationHelper.parseSources("public class Main {}").submitted())) {
             assertThat(preparation.compilation()).isSameAs(compiled);
             assertThat(preparation.dependencies()).isNull();
         }

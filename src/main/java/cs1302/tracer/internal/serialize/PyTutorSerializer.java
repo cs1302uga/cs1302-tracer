@@ -2,6 +2,9 @@ package cs1302.tracer.internal.serialize;
 
 import org.apiguardian.api.API;
 
+import cs1302.tracer.internal.SubmittedSources;
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.internal.model.SourceMetadata;
@@ -116,6 +119,17 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
     } // createTrace
 
     /**
+     * Creates a single-snapshot trace from prepared source identity before converting its step.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @return Python Tutor trace with existing metadata-validation precedence.
+     */
+    public PyTutorTrace createTrace(SubmittedSources source, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(source.code(), stdin, snapshot, source.metadata());
+    } // createTrace
+
+    /**
      * Create a snapshot trace using source metadata shared by one breakpoint output.
      *
      * @param javaSource The original source code.
@@ -150,8 +164,32 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
      * @return The structured PyTutorTrace model.
      */
     public PyTutorTrace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, stdin, snapshots, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a chronological trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @return Python Tutor trace whose metadata is projected after step conversion.
+     */
+    public PyTutorTrace createTrace(SubmittedSources source, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(source.code(), stdin, snapshots, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares sequence conversion while deferring source validation until all steps are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @param metadata Raw or prepared metadata projection, evaluated only at the existing point.
+     * @return Python Tutor sequence root.
+     */
+    private PyTutorTrace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots,
+            Supplier<SourceMetadata> metadata) {
         List<TraceStep> steps = snapshots.stream().map(s -> createTraceStep(s, true)).toList();
-        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "", metadata.get());
     } // createTrace
 
     /**

@@ -6,6 +6,12 @@
  * interpret runtime values, plus one prepared class path. Close it when the trace job finishes to release
  * compiled output, then its dependency owner, which closes archive readers before removing owned copies.</p>
  *
+ * <p>{@link cs1302.tracer.internal.CompilationHelper.ParsedSources} correlates compiler-owned parsed files with
+ * {@link cs1302.tracer.internal.SubmittedSources}, an immutable description of submitted text and logical/debug
+ * source identities. The description survives preparation cleanup; its metadata projection preserves deferred
+ * rendering validation. Breakpoint listing uses its logical paths and existing debug-line matching rules.
+ * Resolver-equipped ASTs and neighboring evidence remain with source preparation and analysis.</p>
+ *
  * <p>{@link cs1302.tracer.internal.SourceDelimiters} recognizes the shared source-stream grammar.
  * {@link cs1302.tracer.internal.SourceNames} supplies source-name inference to compilation and the supported
  * source-bundle builder, preserving the stricter public-type requirement for legacy undelimited input.

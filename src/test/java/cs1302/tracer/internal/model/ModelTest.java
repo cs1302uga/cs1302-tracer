@@ -13,6 +13,23 @@ import org.junit.jupiter.api.Test;
 public class ModelTest {
 
     @Test
+    void rawModernRootsNormalizeNullInputWithoutCompilation() {
+        String source = "public class Helper {}";
+        var sequence = new cs1302.tracer.internal.model.modern.Trace(source, null, List.of());
+        var selected = new cs1302.tracer.internal.model.modern.Trace(source, null, Map.of());
+        for (var trace : List.of(sequence, selected)) {
+            assertThat(trace.stdin()).isEmpty();
+            assertThat(trace.code()).isEqualTo(source);
+            assertThat(trace.entryFile()).isEqualTo("Helper.java");
+            assertThat(trace.sources()).containsExactlyEntriesOf(Map.of("Helper.java", source));
+        }
+        assertThat(sequence.steps()).isEmpty();
+        assertThat(sequence.breakpoints()).isNull();
+        assertThat(selected.steps()).isNull();
+        assertThat(selected.breakpoints()).isEmpty();
+    }
+
+    @Test
     @DisplayName("BreakpointEntry should store line details and file correctly")
     void testBreakpointEntry() {
         BreakpointEntry entry = new BreakpointEntry(12, true, "int x = 5;");

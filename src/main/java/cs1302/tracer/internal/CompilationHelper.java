@@ -76,6 +76,51 @@ public class CompilationHelper {
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record SourceFile(String relativePath, String content, CompilationUnit ast) {} // SourceFile
 
+    /** Compiler-owned parsed files correlated with their detached submitted-source description. */
+    @API(status = API.Status.INTERNAL, since = "4.1.0")
+    public static final class ParsedSources {
+
+        private final List<SourceFile> files;
+        private final SubmittedSources submitted;
+
+        /**
+         * Constructs one correlated result without exposing a separately supplied description.
+         * @param code Original complete source input.
+         * @param files Files parsed from that input.
+         */
+        private ParsedSources(String code, List<SourceFile> files) {
+            this.files = List.copyOf(files);
+            this.submitted = new SubmittedSources(code, this.files);
+        } // ParsedSources
+
+        /**
+         * Returns compiler-owned ASTs, which callers must not mutate while preparation uses them.
+         * @return Ordered parsed submitted files.
+         */
+        public List<SourceFile> files() {
+            return this.files;
+        } // files
+
+        /**
+         * Returns the detached immutable text and source identities from this parse.
+         * @return Submitted-source interpretation, safe after compilation resources close.
+         */
+        public SubmittedSources submitted() {
+            return this.submitted;
+        } // submitted
+
+    } // ParsedSources
+
+    /**
+     * Parses once and retains correlated compiler input and detached source identity.
+     * Debug-path ambiguity remains deferred until rendering requests metadata.
+     * @param rawInput Original single-file or delimited source input.
+     * @return Parsed submitted files and their resource-independent description.
+     */
+    public static ParsedSources parseSources(String rawInput) {
+        return new ParsedSources(rawInput, parseMultiFileStream(rawInput));
+    } // parseSources
+
     /**
      * Parse a single-file or multi-file Java stream demarcated by comment delimiters.
      *
