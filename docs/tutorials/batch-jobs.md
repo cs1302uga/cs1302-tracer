@@ -22,7 +22,7 @@ externally when required.
 
 ## Process the stream
 
-In Bash or Command Prompt:
+In **Bash** or **Command Prompt**:
 
 <!-- batch-command:start -->
 ```sh
@@ -30,7 +30,7 @@ java -jar code-tracer.jar batch-trace --workers 1 --max-in-flight 2 --max-jobs-p
 ```
 <!-- batch-command:end -->
 
-PowerShell does not support shell input redirection with `<`. For this UTF-8 text
+**PowerShell** does not support shell input redirection with `<`. For this UTF-8 text
 example, use PowerShell 7.4+:
 
 ```powershell

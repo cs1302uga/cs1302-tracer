@@ -1,14 +1,26 @@
 # Development and quality gates
 
-Run commands from the repository root. Use a full JDK; CI tests Java 21 and 25 on Linux and macOS. `.java-version` selects JDK 25 locally. The tracer is compiled for Java 21; guest features depend on the active JDK.
+Run commands from the repository root. Use a full **JDK**; CI tests Java 21 and 25 on Linux and macOS. `.java-version` selects JDK 25 locally. The tracer is compiled for Java 21; guest features depend on the active JDK.
 
 Use `./mvnw` on Unix or `mvnw.cmd` on Windows. The official Wrapper 3.3.4 scripts
-select Maven 3.10.0 and verify the distribution's SHA-256 checksum. The build
+select **Maven 3.10.0** and verify the distribution's SHA-256 checksum. The build
 requires the Maven version selected by the wrapper or later, and JDK 21 or later;
 Enforcer checks both at `validate`. CI and the pre-push hook use the wrapper.
 A separate Windows job
 bootstraps the wrapper, packages the project, and checks both Windows launchers on Java 21 and 25;
 the full execution/fixture matrix remains Linux and macOS.
+Each Maven-running job in CI / Release logs the OS version and architecture,
+`JAVA_HOME`, and Java runtime/compiler paths and versions before invoking the wrapper.
+
+## Release validation
+
+The [release runbook](documentation.md#prepare-a-stable-release) owns version
+selection, trusted SSH signing, isolated preparation, CI integration, and recovery.
+The pinned **Maven Release Plugin 3.3.1** changes the POM, creates the signed release
+tag, and advances the development version. Its full preparation profiles run Java
+coverage, Python quality gates, trace fixtures, and documentation validation before
+the release commit. GitHub Actions remains the publisher. The ordinary development
+build does not invoke release preparation or push Git refs.
 
 ## Everyday workflow
 
@@ -30,7 +42,17 @@ covers the configured model and serializer packages.
 | Capture, serializers, or example sources | [Compatibility fixtures](#compatibility-fixtures) after packaging |
 | Python support scripts | [Python quality gates](#python-script-quality) |
 | User-facing behavior or documentation | [Executable docs and rendered site](documentation.md#local-checks) |
-| Supported Java declarations | [Interface checks](#supported-java-interface-checks) and Javadoc review |
+| Supported Java declarations | [Interface checks](#supported-java-interface-checks) and **Javadoc** review |
+
+### Test dependency logging
+
+JsonUnit's JSONPath dependency uses the SLF4J API. Tests select `slf4j-simple`
+explicitly, with the API and provider versions aligned in Maven dependency
+management. Dependency log messages at INFO level and above go to stderr by
+default; stdout remains available for command output. Both SLF4J artifacts have
+test scope and are excluded from the distributed executable JAR and the library's
+runtime dependencies. This does not change the tracer's own diagnostics or
+`--verbose` behavior.
 
 ### Building the Project
 
@@ -46,7 +68,12 @@ serially; their temporary-directory checks can interfere across concurrent runs.
 ./mvnw -B -ntp package -DskipTests
 ```
 
-Compilation treats warnings as errors. Checkstyle uses a 120-character line limit,
+The executable JAR's `CliBootstrap` entry point is compiled separately with
+`--release 8` solely to diagnose unsupported JVMs. All tracer implementation and
+supported API classes remain Java 21. The bootstrap delegates to the same CLI
+preflight used by `cs1302.tracer.App.execute`; Java API tracing bypasses it.
+
+Compilation treats warnings as errors. **Checkstyle** uses a 120-character line limit,
 requires explicit local types and qualified instance access where applicable, and
 rejects star imports. The exact checks and source scope are defined in
 `src/main/resources/cs1302_checks_extended.xml` and `pom.xml`.
@@ -67,15 +94,15 @@ JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchang
 
 ### JaCoCo Coverage Requirement
 
-The JaCoCo check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
+The **JaCoCo** check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
 
 ### Python script quality
 
-The dedicated Scripts quality CI job uses the checked-in uv wrapper, managed
-Python 3.15, and locked dependencies. It requires Ruff lint/format checks, ty, and
+The dedicated Scripts quality CI job uses the checked-in **uv** wrapper, managed
+Python 3.15, and locked dependencies. It requires **Ruff** lint/format checks, **ty**, and
 100% line and branch coverage for every production Python script under `scripts/`.
 Tests live under `scripts/tests/` and exercise callable interfaces and CLIs with
-real temporary files, Git repositories, and local HTTP servers. External process,
+real temporary files, **Git** repositories, and local HTTP servers. External process,
 network, and shutdown failures use controlled boundary substitutes.
 
 Run from the repository root:
@@ -172,7 +199,7 @@ Regenerate fixtures only intentionally with `./scripts/uv run python examples/ve
 
 See [documentation maintenance](documentation.md) for site checks and release preparation.
 
-See [security analysis](security-analysis.md) for CodeQL regression coverage and alert dispositions.
+See [security analysis](security-analysis.md) for **CodeQL** regression coverage and alert dispositions.
 
 ## Supported Java interface checks
 
@@ -187,6 +214,17 @@ breakpoint discovery, and consecutive batch jobs through the supported interface
 Runtime dependencies remain required for execution. Run these with
 `./mvnw -B -ntp -Djacoco.skip=true -Dtest=ApiExposureTest,TracerTest test`.
 
+## Docsite build profile
+
+`./mvnw -B -ntp -Pdocsite verify` adds frontend bootstrap and documentation gates
+to the normal build. The plugin version is managed centrally; `node.version` pins
+the distribution, which also supplies npm. Installations live under
+`target/frontend/`, and `website/package-lock.json` controls frontend dependencies.
+The profile runs its checks after the JAR and binary ZIP exist. It is inactive in
+ordinary builds and explicitly deactivated by nested Javadoc invocations.
+See [documentation maintenance](documentation.md#local-checks) for preview,
+published mode, live editing, and release rehearsal.
+
 ## Distribution packaging
 
 Packaging produces `target/code-tracer.jar` for local CLI use and release downloads.
@@ -200,12 +238,23 @@ and the Maven wrapper scripts and `.mvn/` configuration required by validation.
 CI extracts it and builds with its own `./mvnw` to verify that it is self-contained
 for Maven packaging.
 
+During `generate-resources`, AntRun captures the full commit and tracked-file dirty
+state from this project's own `.git` entry (directory or linked-worktree file).
+Untracked files are ignored. Resource filtering embeds these values with the Maven
+version in `cs1302/tracer/version.properties` in both JARs. The source archive carries
+`.mvn/build-provenance.properties`; rebuilding without Git retains that originating
+metadata, including its dirty flag. Subsequent edits to an extracted archive cannot
+be detected by that metadata. A new checkout's usable Git metadata takes precedence;
+without either source, the commit is `unknown`. No build timestamp is added.
+The CLI reads packaged metadata without invoking Git at runtime; see the
+[version report contract](../reference/cli.md#version-and-runtime-details).
+
 During `prepare-package`, AntRun copies `code-tracer.sh`, `code-tracer.ps1`, and
 `code-tracer.cmd` from `src/main/scripts/` without filtering. It removes the old
 generated `target/code-tracer.bat` and refreshes the extensionless `code-tracer`:
 a relative symlink to `code-tracer.sh` on Unix, or a regular copy on native Windows.
-Bash uses executable permissions, LF endings, and Bash 3.2-compatible syntax;
-PowerShell uses LF and requires 7.4+; Command Prompt uses CRLF and invokes Java
+**Bash** uses executable permissions, LF endings, and Bash 3.2-compatible syntax;
+**PowerShell** uses LF and requires 7.4+; **Command Prompt** uses CRLF and invokes Java
 directly. The `.cmd` copy normalizes CRLF during packaging.
 
 The ZIP assembly runs after `assemble-jar`. The `unix-launcher-archive` profile,
@@ -220,7 +269,7 @@ release job publishes all three. None replaces a JAR artifact.
 Bash subprocess tests live in `scripts/tests/test_launcher.py`; PowerShell and
 batch subprocess tests live in `scripts/tests/WindowsLauncher.Tests.ps1` and use
 a small Java probe to inspect received arguments, working directory, streams,
-and exit status. Windows CI runs Pester 6.2.0 and PSScriptAnalyzer 1.25.0.
+and exit status. Windows CI runs **Pester 6.2.0** and **PSScriptAnalyzer 1.25.0**.
 The Java 21/25 Linux/macOS and Windows matrices extract their respective archives
 and execute real traces from paths containing spaces. Unix checks compare both
 tar formats against the ZIP contents and extract and execute each tar variant. Windows runs launcher

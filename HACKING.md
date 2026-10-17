@@ -1,8 +1,8 @@
 # Contributing to cs1302-tracer
 
-Use a full JDK 21 or 25 and Git. The scripts wrapper provisions managed Python
+Use a full **JDK 21 or 25** and **Git**. The scripts wrapper provisions managed Python
 3.15 and the locked development tools. `.java-version` selects JDK 25.
-The Maven wrapper supplies Maven. Run these commands from the repository root:
+The **Maven** wrapper supplies Maven. Run these commands from the repository root:
 
 ```sh
 ./mvnw -B -ntp package
@@ -10,7 +10,7 @@ The Maven wrapper supplies Maven. Run these commands from the repository root:
 ./scripts/uv run python examples/verify.py
 ```
 
-The normal build runs Checkstyle and tests, and enforces 100% line/branch coverage
+The normal build runs **Checkstyle** and tests, and enforces 100% line/branch coverage
 for the configured model and serializer packages. The optional
 `./mvnw -Ppre-commit-coverage clean test` profile requires 100% line/branch coverage
 across all production classes. It is stricter than the normal CI gate.
@@ -26,28 +26,32 @@ serially because they share temporary-directory checks.
 
 Run `./scripts/uv sync --locked`, then follow the
 [scripts quality commands](scripts/README.md#tests-and-development-tools).
-CI enforces Ruff lint/format checks, ty, and 100% production Python line/branch
+CI enforces **Ruff** lint/format checks, **ty**, and 100% production Python line/branch
 coverage. Tests live under `scripts/tests/`; subprocess coverage is combined before
 reporting. The scripts CI job is required for releases; Git hooks remain Java-only.
 
 ## Documentation changes
 
-Node.js 22 or later is needed only for the documentation site. CI uses Node.js 22.
+Build and validate the site with the opt-in Maven profile:
 
 ```sh
-./scripts/uv run npm --prefix website ci
-./scripts/uv run npm --prefix website start
+./mvnw -B -ntp -Pdocsite verify
 ```
 
-Before submitting a change, build the JAR and run:
+It provisions **Node.js 24.22.0 LTS** and bundled **npm 11.19.1** locally, runs the
+locked frontend install, and checks executable examples, release metadata, **Javadoc**,
+the site build, and rendered links. Normal Maven builds do not require Node/npm.
+For live preview, bootstrap and select the local tools:
 
 ```sh
-./scripts/uv run python scripts/check_docs.py
-./scripts/uv run python scripts/docs_release.py check
-./scripts/uv run python -m unittest discover -s scripts/tests -t scripts
-./scripts/uv run npm --prefix website run build
-./scripts/uv run python scripts/check_site.py
+./mvnw -B -ntp -Pdocsite generate-resources
+export PATH="$PWD/target/frontend/node:$PATH"
+./scripts/uv run --locked npm --prefix website start
 ```
+
+See [documentation maintenance](docs/contributing/documentation.md) for prerequisites,
+published-mode builds, and release rehearsal. Python tooling changes also require
+the [scripts quality gates](scripts/README.md#tests-and-development-tools).
 
 For CLI changes, regenerate help with `./scripts/uv run python scripts/check_docs.py --update-cli`
 and review the diff. Keep README and HACKING concise; detailed guides belong in

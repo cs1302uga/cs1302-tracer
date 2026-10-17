@@ -169,6 +169,76 @@ for default values, inspection policies, exit codes, and partial results.
 
 <!-- cli-reference:manual -->
 
+## JDK environment preflight
+
+Every CLI invocation first validates its Java environment, including `--help`,
+`--version`, license display, and all subcommands. A nonempty `JAVA_HOME` is
+authoritative: both `bin/java` and `bin/javac` must exist and be executable
+(`java.exe` and `javac.exe` on Windows). An invalid selection never falls back to
+`PATH`. Without `JAVA_HOME`, both executables must be found on `PATH`.
+
+Both tools' version probes must succeed within five seconds each. Their complete
+release numbers must match (for example, `25.0.4.1` differs from `25.0.4`); vendor
+wording and build metadata are ignored. Only stable releases of JDK 21 or later
+are accepted. Early-access and other prerelease versions, unreadable version
+output, failed probes, and timeouts are errors. CI tests JDK 21 and 25; accepting a
+newer stable JDK does not mean that every newer release has been tested.
+
+The running JDK must also be the selected JDK, accounting for symlinks and equivalent
+paths. This matters for direct `java -jar` invocation: setting `JAVA_HOME` does not
+change an already-running JVM. Launch with that JDK's `bin/java` or correct the
+environment. The tracer does not rewrite `java.home` or relaunch itself. Supported
+Java library calls through `Tracer` and `BatchTracer` do not run this CLI preflight.
+
+A preflight failure prints a diagnostic to stderr, leaves stdout empty, and exits
+with status **1** before command work begins. Diagnostics identify the selected
+tool paths or versions when available and suggest correcting `JAVA_HOME` or `PATH`.
+The executable JAR includes a small Java-8-compatible bootstrap so Java 8–20 can
+report the unsupported runtime before loading the Java-21-compiled application.
+
+## Version and runtime details
+
+`--version` (alias `-V`) takes no value and prints a five-line report to standard
+output, then exits with status 0 after the environment preflight succeeds. It works on the root command and on `trace`,
+`batch-trace`, `list-breakpoints`, and `show-licenses`, without executing their work
+or requiring their normal input arguments. The installed launchers and direct
+`java -jar code-tracer.jar --version` invocation share the same implementation.
+
+Version output uses the same automatic ANSI color detection and controls as help.
+The entire first line is bold, including the version and commit. The remaining
+four lines are unstyled; no foreground colors or dim styling are applied. Plain output retains the same five lines and text.
+Picocli uses console detection rather than a stdout-only terminal check: redirecting
+stdin can also disable automatic color. Redirected or piped output is normally
+plain; an explicit color override can still enable ANSI escape sequences.
+Set `NO_COLOR` to disable automatic color, or use `-Dpicocli.ansi=false` before
+`-jar` to force plain output. `-Dpicocli.ansi=true` forces bold styling, including when
+output is redirected. These JVM properties take precedence over automatic detection.
+
+Example output (values depend on the build and the JVM running it):
+
+```text
+code-tracer 4.2.0-SNAPSHOT (caf1355923fcea4e8587a06c7bf1d008935b66e9)
+macOS 26.7.1 aarch64
+openjdk 25.0.4.1 2026-08-18
+OpenJDK Runtime Environment Homebrew (build 25.0.4.1)
+OpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)
+```
+
+The first line contains the packaged application version and full source commit.
+A `-dirty` suffix on the commit means tracked files had uncommitted changes when
+built; untracked files do not affect it. `(unknown)` means source provenance was
+unavailable. The remaining lines describe the host OS and the running JVM, using
+runtime properties. Rendering the report starts no additional process; the startup
+preflight separately probes the selected tools. Vendor wording can differ from the
+JDK's native version banner; unavailable fields display `unknown`.
+
+This replaces the previous single-line version value. Scripts that consumed the
+whole output as a version must instead read the second whitespace-separated field
+of the first line. Missing packaged version metadata uses `development`.
+Source-archive rebuilds retain the archive's originating provenance; edits after
+extraction are not detected unless the sources are placed in a Git checkout.
+
+
 ## Binary dependencies
 
 `trace` and `list-breakpoints` accept the optional aliases `--class-path`,

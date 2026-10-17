@@ -27,6 +27,13 @@
     </fileSet>
   </fileSets>
   <files>
+    <!-- Preserve the originating revision when rebuilding without Git metadata. -->
+    <file>
+      <source>${project.build.directory}/build-provenance.properties</source>
+      <outputDirectory>/.mvn</outputDirectory>
+      <destName>build-provenance.properties</destName>
+      <lineEnding>unix</lineEnding>
+    </file>
     <!-- Allow extracted source distributions to bootstrap Maven on Unix. -->
     <file>
       <source>${project.basedir}/mvnw</source>

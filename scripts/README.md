@@ -1,18 +1,18 @@
 # Repository support scripts
 
-These scripts check Maven version ownership, validate tracer documentation, build
-the versioned documentation site and Javadoc, and prepare documentation releases.
+These scripts check **Maven** version ownership, validate tracer documentation, build
+the versioned documentation site and **Javadoc**, and orchestrate signed releases.
 Executable documentation checks require `./mvnw -B -ntp package` first. In addition
 to CLI and reference examples, they extract the binary ZIP and run the first-trace,
-Java integration, and two-job batch tutorials using the installed JDK.
+Java integration, and two-job batch tutorials using the installed **JDK**.
 Run the examples below from the repository root unless stated otherwise.
 
-The Python test suite also exercises the Bash launcher under
+The Python test suite also exercises the **Bash** launcher under
 `src/main/scripts/code-tracer.sh`, including Java selection, relocation, argument
 boundaries, and error behavior. CI separately smoke-tests the packaged archive
 with real JDKs.
 
-On Windows with PowerShell 7.4+ and a full JDK on `PATH` (or selected with
+On Windows with **PowerShell 7.4+** and a full JDK on `PATH` (or selected with
 `JAVA_HOME`), run the Windows launcher checks from the repository root:
 
 ```powershell
@@ -24,9 +24,9 @@ Invoke-ScriptAnalyzer src/main/scripts/code-tracer.ps1
 Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1 -CI
 ```
 
-Treat any analyzer diagnostic as a failure, as CI does. The Pester tests compile a
+Treat any analyzer diagnostic as a failure, as CI does. The **Pester** tests compile a
 Java probe in a temporary directory and verify actual subprocess behavior. On
-macOS/Linux, they exercise PowerShell and skip the eleven Command Prompt tests;
+macOS/Linux, they exercise PowerShell and skip the eleven **Command Prompt** tests;
 only native Windows runs validate the batch launcher. Windows CI additionally
 extracts the packaged ZIP and runs real traces with both launchers on JDK 21/25.
 
@@ -44,7 +44,7 @@ shell wrapper below supports Windows through WSL only.
 ## Setup and command wrappers
 
 Use the checked-in `scripts/uv` and `scripts/uvx` symlinks. Both invoke
-[`uvw.sh`](uvw.sh), which downloads and caches the pinned uv release when needed.
+[`uvw.sh`](uvw.sh), which downloads and caches the pinned **uv** release when needed.
 No globally installed uv or Python is required for bootstrap. The wrapper supports
 Linux and macOS, and Windows through WSL; it requires Bash and the download/archive
 utilities listed in its header.
@@ -86,45 +86,89 @@ behavior.
 | --- | --- |
 | [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
 | [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
-| [`docs_site.py`](docs_site.py) | Run `build`, `start`, or `api` with explicit preview/published release selection; generate Javadoc and the release manifest. |
+| [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published release selection. |
 | [`build_javadoc.py`](build_javadoc.py) | Internal generation library for working-source and pinned historical Javadoc. Invoke through `docs_site.py api`. |
 | [`check_site.py`](check_site.py) | Check rendered links, fragments, base paths, and version-matched Javadoc links in `website/build`. |
 | [`serve_docs.py`](serve_docs.py) | Serve an existing build with its project base path and intact Javadoc URLs. Defaults to `127.0.0.1:3000`; accepts `--host` and `--port`. |
-| [`docs_release.py`](docs_release.py) | Validate releases with `check`, create snapshots with `prepare`, and export the legacy `published` selection report. |
+| [`docs_release.py`](docs_release.py) | Validate releases with `check`, create snapshots with `prepare --version X.Y.Z` while retaining the snapshot POM, and export the legacy `published` selection report. `check --pending X.Y.Z` checks snapshot agreement before the stable version transition; `check --tag vX.Y.Z` remains stable-only. |
+| [`release.py`](release.py) | Prepare signed Maven release history in an isolated clone; publish its exact commits through CI and verify assets/deployment. Provides `prepare`, `resume`, `publish`, saved-report `status`, and the workflow's `ci` branch check. |
+| [`release_validate.py`](release_validate.py) | Maven lifecycle hook that preserves stale Java coverage and runs the serial local release gates. The stable POM, strict Java coverage, and docsite profiles are required. |
+| [`release_evidence.py`](release_evidence.py) | Read-only evidence library for exact push-run matrix results, clean tagged JAR metadata, archive contents, and live documentation provenance. Used by `release.py publish`. |
 | [`rehearse_docs_release.py`](rehearse_docs_release.py) | Exercise release preparation, publishing selection, retained archives, retries, and missing tags using real builds in a disposable project. |
 | [`check_external_links.py`](check_external_links.py) | Check external HTTP links and write `external-links-report.md`; remote availability is advisory rather than a required PR gate. |
 | [`tests/`](tests/) | Behavioral tests for all Python script interfaces, release workflows, generated documentation, local HTTP services, and external-tool failure handling. |
 
 ## Build and preview documentation
 
-Install Node.js 22 or later and a full JDK meeting the repository's Java 21 baseline.
-Historical Javadoc generation requires local release tags. Follow
-[documentation maintenance](../docs/contributing/documentation.md) for the complete
-release and deployment workflow.
+Use a full JDK and local release tags. The Maven profile installs pinned
+**Node.js 24.22.0 LTS** with bundled **npm 11.19.1**, installs locked site dependencies,
+and runs executable docs, metadata, Javadoc, site generation, and rendered-link checks:
 
 ```sh
-./mvnw -B -ntp package -DskipTests
-./scripts/uv run npm --prefix website ci
 git fetch --tags
-./scripts/uv run python scripts/check_docs.py
-./scripts/uv run python scripts/docs_release.py check
-./scripts/uv run python scripts/docs_site.py build
-./scripts/uv run python scripts/check_site.py
-./scripts/uv run python scripts/serve_docs.py --port 3100
+./mvnw -B -ntp -Pdocsite verify
+./scripts/uv run --locked python scripts/serve_docs.py --port 3100
 ```
 
 Open `http://127.0.0.1:3100/cs1302-tracer/`. Stop the server with Ctrl-C.
-Use `docs_site.py start` for the development server or `docs_site.py api` to generate
-only Javadoc and the release manifest. All three actions default to preview mode.
-Published mode requires `--mode published --releases PATH`, where `PATH` contains a
-JSON array of GitHub release records. The build owns `website/build`; output/site/
-configuration overrides are rejected. `start` accepts `--host`, `--port`/`-p`, and
-`--no-open`; `start` and `build` accept `--no-minify`.
+Follow [documentation maintenance](../docs/contributing/documentation.md) for live
+preview, published mode, and release rehearsal using the plugin-installed toolchain.
 
-The website's npm scripts invoke `python3` from their inherited environment.
-Use `./scripts/uv run npm --prefix website ...` to select the required managed
-Python runtime. CI uses this wrapper form with `--locked` for documentation builds
-and script checks. Generating the local site does not publish it.
+`docs_site.py verify` runs the complete documentation checks after tracer packaging;
+`build` generates the site, `start` runs the development server, and `api` generates
+only Javadoc and the release manifest. `--mode` selects `preview` or `published`;
+`--releases PATH` supplies the JSON release records required in published mode.
+Defaults come from `DOCSITE_MODE` (otherwise `preview`) and `DOCSITE_RELEASES`
+(otherwise no records). The Maven profile passes these through environment variables.
+Explicit CLI options override the corresponding defaults.
+For an untagged release whose following development commit has already advanced
+the POM, preview can pin its stable ancestor with `--pending-commit FULL_SHA` or
+`DOCSITE_PENDING_COMMIT`; Maven forwards `-Ddocsite.pendingCommit=FULL_SHA`.
+The source commit and prepared/current docs must agree. This override is rejected
+in published mode, and it does not create or publish a release tag.
+CI bootstraps the pinned Node toolchain before release-context validation, including
+the `main` build between its next-development fast-forward and the explicit tag
+push. The pending stable commit must be the next-development commit's direct parent.
+
+The build owns `website/build`; output/site/configuration overrides are rejected.
+`start` accepts `--host`, `--port`/`-p`, and `--no-open`; `start` and `build` accept
+`--no-minify`. `verify` accepts no forwarded bundler flags. The `build:maven` npm
+script invokes the managed Python wrapper itself. Other npm scripts use `python3`
+from their inherited environment; invoke them through `./scripts/uv run --locked`.
+Generating a local site does not publish it.
+
+## Signed release workflow
+
+Follow the [release runbook](../docs/contributing/documentation.md#prepare-a-stable-release)
+for version classification, signing prerequisites, pending snapshots, and the
+full command sequence. **Maven Release Plugin 3.3.1** owns version transitions and
+tagging; **GitHub Actions** publishes assets. Do not use `release:perform`.
+
+`release.py prepare` requires explicit `--release-version`, `--development-version`,
+and `--change-kind major|minor|patch`, plus a nonexistent `--directory` for its
+isolated clone. Its source must be clean and equal the current `origin/main`, with
+a matching `X.Y.Z-SNAPSHOT` POM and committed pending documentation snapshot.
+The authenticated **GitHub CLI** supplies published-version and CI evidence.
+Existing trusted SSH signing configuration is required for both generated commits
+and the annotated tag. Preparation first rehearses POM/SCM transformations, then
+runs the full release gates; it pushes no refs.
+
+After review and explicit publication authorization, `release.py publish
+--directory PATH` pushes the stable and next-development commits successively to
+the same release branch, requiring CI on each exact revision, then fast-forwards
+`main` and explicitly pushes the tag. It returns 3 while CI or publication evidence
+is pending; rerun the same command to continue. Exit 0 means assets and live docs
+were verified, while exit 1 means the operation stopped with an error. Generated
+history is never squashed or rebased, and published tags are never moved.
+Retries accept later `main` descendants containing the exact prepared history.
+Every required CI job must pass in the latest attempt; if a partial rerun lacks
+the complete matrix, rerun all jobs before retrying publication.
+
+`status --directory PATH` only prints the saved `.git/code-tracer-release.json`
+report; it does not refresh remote state. `resume --directory PATH` handles only
+interrupted real preparation before remote publication. Inspect the report, Maven
+state, remote refs, and `.git/release-logs/` before recovery. See the runbook's
+[recovery procedure](../docs/contributing/documentation.md#recover-according-to-the-recorded-and-remote-state).
 
 ## Tests and development tools
 
@@ -135,9 +179,9 @@ and script checks. Generating the local site does not publish it.
 ./scripts/uv run ty check scripts
 ```
 
-Ruff lint and formatting, ty, and 100% production Python line and branch coverage
+**Ruff** lint and formatting, **ty**, and 100% production Python line and branch coverage
 are enforced by the Scripts quality CI job. Release creation depends on this job.
-The existing Git hooks remain Java-only. Run the coverage gate from the root:
+The existing **Git** hooks remain Java-only. Run the coverage gate from the root:
 
 ```sh
 export COVERAGE_RCFILE="$PWD/scripts/pyproject.toml"

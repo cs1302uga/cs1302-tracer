@@ -43,11 +43,14 @@ their declared dependencies.
 | `check_docs.py` | Checks Markdown links and executable CLI, quickstart, JSON, and batch examples. Requires the built tracer JAR. `--update-cli` rewrites the CLI reference. |
 | `check_site.py` | Validates links, fragments, base paths, and version-matched API links in `website/build`. Run after building the site. |
 | `check_external_links.py` | Checks external HTTP links and writes `external-links-report.md`; remote failures are advisory rather than a PR merge gate. |
-| `docs_release.py` | Validates and prepares snapshots; owns release selection, routes, and tag provenance. Provides `check`, `prepare`, and the legacy `published` selection report. |
-| `docs_site.py` | Entry point for `build`, `start`, and `api`; generates Javadoc and release manifests. Defaults to preview mode; published mode requires `--mode published --releases PATH`. |
+| `docs_release.py` | Validates and prepares snapshots; owns release selection, routes, tag provenance, and explicit pending-commit previews. `prepare --version` retains the snapshot POM; `check --pending` validates before its stable transition. |
+| `docs_site.py` | Entry point for `build`, `start`, `api`, and `verify`; generates Javadoc and release manifests. `verify` also checks executable docs, release metadata, and rendered links. See the documentation guide for mode options and environment defaults. |
 | `build_javadoc.py` | Library for staged API generation from working sources and pinned release archives. Invoke through `docs_site.py api`. |
 | `serve_docs.py` | Serves an existing build with project-base paths and unchanged Javadoc URLs. Supports `--host` and `--port`. |
 | `rehearse_docs_release.py` | Exercises preparation, publishing, archive retention, retries, and missing tags using real builds in a disposable project. |
+| `release.py` | Owns isolated signed preparation, resumable publication through exact CI revisions, saved reports, and release-branch validation. |
+| `release_validate.py` | Runs the serial local release gate around Maven's strict Java and documentation profiles; retains stale coverage as audit evidence. |
+| `release_evidence.py` | Verifies exact push-run matrix results and published JAR/archive/documentation provenance without publishing or waiting. |
 | `tests/` | Behavioral tests for release selection and preparation, build CLI, executable documentation, rendered links, HTTP checks, preview serving, and rehearsal. |
 
 ## Required Python checks
@@ -83,11 +86,19 @@ failure. Existing Git hooks continue to run Java checks.
 
 For site builds, release preparation, or publishing changes, read
 [`docs/contributing/documentation.md`](../docs/contributing/documentation.md).
-Site tooling needs Node/npm, a full JDK, and local release tags for historical APIs.
+Site tooling needs a full JDK and local release tags for historical APIs. The opt-in
+Maven profile provisions pinned Node/npm and runs the complete documentation checks.
+The release runbook also defines the required signing trust, semantic version
+classification, isolated prepare/publish phases, and recovery rules. Preserve its
+distinction between a saved report and freshly verified local/remote evidence.
+Keep release evidence checks fail-closed: missing or skipped CI jobs, unexpected
+refs, mismatched artifact metadata, and unpublished documentation do not establish
+publication. Pending source overrides are preview-only and must retain exact
+commit/documentation provenance. Tests must exercise real temporary Git history
+and substitute only external build, network, and process boundaries.
 
 ```sh
-./scripts/uv run python scripts/docs_site.py build
-./scripts/uv run python scripts/check_site.py
+./mvnw -B -ntp -Pdocsite verify
 ./scripts/uv run python scripts/serve_docs.py --port 3100
 ```
 

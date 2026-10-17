@@ -11,6 +11,9 @@ public final class App {
 
     /**
      * Executes a CLI invocation without terminating the calling JVM.
+     * The environment-selected Java and compiler must be matching stable JDK 21 or later tools,
+     * and the selected JDK must be the running JVM. Environment failures return 1 with stderr diagnostics,
+     * including for help and version requests. Embedding callers use {@link cs1302.tracer.api.Tracer}.
      *
      * @param args Command-line arguments.
      * @return Process exit status.

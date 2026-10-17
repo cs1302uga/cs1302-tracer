@@ -2,6 +2,10 @@
  * Command-line entry points and source preparation for Java execution tracing.
  *
  * <p>{@link cs1302.tracer.internal.App} routes tracing, batch processing, breakpoint discovery, and license commands.
+ * {@link cs1302.tracer.internal.CliEnvironment} validates the CLI's selected JDK before command dispatch;
+ * {@link cs1302.tracer.internal.CliBootstrap} diagnoses unsupported runtimes before loading Java 21 classes.
+ * This preflight does not apply to supported tracing API calls. Version options use Picocli color controls
+ * and report packaged build provenance and the OS/JVM running the CLI.
  * {@link cs1302.tracer.internal.SourcePreparation} owns compiled guest classes and the source evidence used to
  * interpret runtime values, plus one prepared class path. Close it when the trace job finishes to release
  * compiled output, then its dependency owner, which closes archive readers before removing owned copies.</p>

@@ -32,6 +32,9 @@ class LauncherTests(unittest.TestCase):
         self.java = self.jdk / "bin/java"
         self.java.write_text('#!/bin/bash\nprintf "%s\\0" "$$" "$PWD" "$@"\nprintf "java stderr" >&2\nexit 23\n')
         self.java.chmod(0o755)
+        self.javac = self.jdk / "bin/javac"
+        self.javac.write_text("#!/bin/bash\nexit 0\n")
+        self.javac.chmod(0o755)
         self.env = {**os.environ, "JAVA_HOME": str(self.jdk)}
         self.env.pop("CODE_TRACER_JAR_DIR", None)
 
@@ -157,3 +160,28 @@ class LauncherTests(unittest.TestCase):
                     self.assertEqual(result.stdout, b"")
                     self.assertIn(b"CODE_TRACER_JAR_DIR", result.stderr)
                     self.assertIn(value.encode(), result.stderr)
+
+    def test_missing_and_nonexecutable_compiler(self) -> None:
+        """Reject a missing or nonexecutable compiler even when Java itself is executable."""
+        self.javac.chmod(0o644)
+        for use_home in (True, False):
+            env = {**self.env, "PATH": f"{self.jdk / 'bin'}:/usr/bin:/bin"}
+            if not use_home:
+                env.pop("JAVA_HOME")
+                # macOS has a system javac shim, so use a utilities-only PATH.
+                utilities = self.root / "compiler-check-tools"
+                utilities.mkdir(exist_ok=True)
+                for tool in ("dirname", "readlink"):
+                    location = shutil.which(tool)
+                    assert location is not None
+                    (utilities / tool).symlink_to(location)
+                (utilities / "java").symlink_to(self.java)
+                env["PATH"] = str(utilities)
+            result = subprocess.run([str(self.launcher), "--help"], env=env, capture_output=True, timeout=10)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(result.stdout, b"")
+            self.assertIn(b"javac", result.stderr)
+        self.javac.unlink()
+        result = subprocess.run([str(self.launcher), "--version"], env=self.env, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(b"javac", result.stderr)

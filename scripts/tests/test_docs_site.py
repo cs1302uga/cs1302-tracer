@@ -48,6 +48,7 @@ class DocumentationSiteTests(unittest.TestCase):
 import json, os
 from pathlib import Path
 import sys
+assert "-P!docsite" in sys.argv
 source = Path.cwd()
 with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
     log.write(json.dumps(['maven', source.joinpath('source.txt').read_text()]) + '\\n')
@@ -197,6 +198,42 @@ if 'build' in sys.argv:
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "working source")
+
+    def test_pending_commit_option_and_environment_pin_preview_api_without_publishing(self) -> None:
+        """Render an unpublished stable ancestor after the development version has advanced."""
+        self.git("tag", "-d", "v1.0.0")
+        (self.root / "docs").mkdir()
+        (self.root / "docs/index.md").write_text("# Release")
+        (self.site / "sidebars.js").write_text("module.exports = {};")
+        (self.root / "source.txt").write_text("prepared release source")
+        self.git("add", ".")
+        self.git("commit", "-qm", "Prepared release")
+        commit = self.git("rev-parse", "HEAD")
+        (self.root / "pom.xml").write_text("<project><version>1.0.1-SNAPSHOT</version></project>")
+        (self.root / "source.txt").write_text("next development source")
+        self.git("add", ".")
+        self.git("commit", "-qm", "Next development")
+        result = self.run_site("build")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Missing release tag", result.stderr)
+        self.environment["DOCSITE_PENDING_COMMIT"] = commit
+        result = self.run_site("build")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        completed = self.site / "build"
+        self.assertEqual((completed / "api/next/index.html").read_text(), "next development source")
+        self.assertEqual((completed / "api/1.0.0/index.html").read_text(), "prepared release source")
+        manifest = json.loads((completed / "release-manifest.json").read_text())
+        self.assertEqual(manifest["versions"][1]["sourceCommit"], commit)
+        self.assertEqual(manifest["versions"][1]["banner"], "unreleased")
+
+        self.environment["DOCSITE_PENDING_COMMIT"] = "invalid"
+        result = self.run_site("api", "--pending-commit", commit)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        records = self.root / "releases.json"
+        records.write_text('[{"tag_name":"v1.0.0"}]')
+        result = self.run_site("build", "--mode", "published", "--releases", str(records))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Pending release commits require preview mode", result.stderr)
 
 
 if __name__ == "__main__":

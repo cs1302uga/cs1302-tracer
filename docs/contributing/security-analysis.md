@@ -1,6 +1,6 @@
 # Security analysis
 
-CodeQL findings are reviewed against the tracer's local CLI and library contracts.
+**CodeQL** findings are reviewed against the tracer's local CLI and library contracts.
 The tracer runs submitted Java code; it is not an isolation boundary. Hosting it for
 untrusted users requires the controls in the [runner contract](../RUNNER_CONTRACT.md).
 
@@ -136,11 +136,11 @@ every manifest, copy, and loader path has been analyzed.
 
 Keep generated databases, logs, reproducers, and SARIF in an ignored analysis
 directory. The October 2026 audit used `static_analysis_codeql_2/` at the repository
-root; earlier runs used `target/`. Maven `clean` deletes `target/`, so preserve any
+root; earlier runs used `target/`. **Maven** `clean` deletes `target/`, so preserve any
 needed evidence there before cleaning. Verify database extraction and nonempty suite resolution
 before interpreting results. Preserve raw SARIF, label Community debugging records
 separately, and compare findings by rule and location rather than only total count.
 
 Run the repository's strict coverage profile, compatibility fixtures, documentation
-checks, and JDK 21 integration tests after repairs. A remaining alert needs a
+checks, and **JDK 21** integration tests after repairs. A remaining alert needs a
 reviewed explanation; reducing alert counts is not itself evidence of correctness.

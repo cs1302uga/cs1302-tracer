@@ -13,7 +13,8 @@
     "serve": "python3 ../scripts/serve_docs.py",
     "docusaurus": "docusaurus",
     "check": "python3 ../scripts/check_docs.py",
-    "release:prepare": "python3 ../scripts/docs_release.py prepare"
+    "release:prepare": "python3 ../scripts/docs_release.py prepare",
+    "build:maven": "../scripts/uv run --locked python ../scripts/docs_site.py verify"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",

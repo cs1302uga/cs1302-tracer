@@ -24,6 +24,7 @@ def generate(root: Path, source: Path, destination: Path) -> None:
             "-f",
             str(source / "pom.xml"),
             "-Djacoco.skip=true",
+            "-P!docsite",
             "validate",
             "javadoc:javadoc",
         ],

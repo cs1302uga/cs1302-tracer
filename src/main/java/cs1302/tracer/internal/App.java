@@ -57,13 +57,14 @@ import picocli.CommandLine.Option;
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 @Command(name = "code-tracer", description = "Trace Java program execution and inspect memory states.",
-        mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
+        mixinStandardHelpOptions = true, usageHelpAutoWidth = true,
+        versionProvider = App.PropertiesVersionProvider.class)
 public class App {
 
     /** Constructs a new {@code App} command-line application instance. */
     public App() {} // App
 
-    /** Provides version string resolved from Maven resource filtering at build time. */
+    /** Reports build provenance and runtime details with Picocli-controlled ANSI styling. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public static class PropertiesVersionProvider implements CommandLine.IVersionProvider {
 
@@ -72,18 +73,46 @@ public class App {
 
         @Override
         public String[] getVersion() {
-            String version = "development";
+            Properties metadata = new Properties();
             try (InputStream is = App.class.getResourceAsStream("/cs1302/tracer/version.properties")) {
                 if (is != null) {
-                    Properties props = new Properties();
-                    props.load(is);
-                    version = props.getProperty("version", "development");
+                    metadata.load(is);
                 } // if
             } catch (IOException ignored) {
-                version = "development";
+                metadata.clear();
             } // try
-            return new String[] { version };
+            return formatVersion(metadata, System.getProperties());
         } // getVersion
+
+        /**
+         * Formats packaged provenance and the properties of the running JVM without subprocesses.
+         *
+         * @param metadata build-time version and Git provenance
+         * @param runtime runtime system properties
+         * @return the five-line CLI version report with Picocli ANSI markup
+         */
+        static String[] formatVersion(Properties metadata, Properties runtime) {
+            String version = metadata.getProperty("version", "development");
+            String commit = metadata.getProperty("git.commit", "unknown");
+            String dirty = Boolean.parseBoolean(metadata.getProperty("git.dirty")) ? "-dirty" : "";
+            String runtimeName = runtime.getProperty("java.runtime.name", "unknown");
+            String osName = runtime.getProperty("os.name", "unknown");
+            osName = osName.equals("Mac OS X") ? "macOS" : osName;
+            String javaName = runtimeName.startsWith("OpenJDK") ? "openjdk" : "java";
+            String vendor = runtime.getProperty("java.vendor.version", runtime.getProperty("java.vendor", "unknown"));
+            return new String[] {
+                "@|bold code-tracer " + version + " (" + commit + dirty + ")|@",
+                osName + " " + runtime.getProperty("os.version", "unknown")
+                    + " " + runtime.getProperty("os.arch", "unknown"),
+                javaName + " " + runtime.getProperty("java.version", "unknown")
+                    + " " + runtime.getProperty("java.version.date", "unknown"),
+                runtimeName + " " + vendor + " (build "
+                    + runtime.getProperty("java.runtime.version", "unknown") + ")",
+                runtime.getProperty("java.vm.name", "unknown") + " " + vendor
+                    + " (build " + runtime.getProperty("java.vm.version", "unknown") + ", "
+                    + runtime.getProperty("java.vm.info", "unknown") + ")"
+            };
+        } // formatVersion
 
     } // PropertiesVersionProvider
 
@@ -96,6 +125,16 @@ public class App {
      * @return Process exit code.
      */
     public static int execute(String[] args) {
+        try {
+            CliEnvironment.validate(System.getenv(), Path.of(System.getProperty("java.home")));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            System.err.println("code-tracer: JDK environment check was interrupted.");
+            return 1;
+        } catch (IOException | IllegalArgumentException invalid) {
+            System.err.println("code-tracer: JDK environment check failed: " + invalid.getMessage());
+            return 1;
+        } // try
         return new CommandLine(new App()).addSubcommand(new Trace()).addSubcommand(new BatchTrace())
                 .addSubcommand(new ListBreakpoints()).addSubcommand(new ShowLicenses()).execute(args);
     } // execute
@@ -216,7 +255,7 @@ public class App {
 
     /** Run a trace. */
     @Command(name = "trace", description = "Generate an execution trace for a Java program.",
-            mixinStandardHelpOptions = true)
+            mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
     static class Trace extends CommandBase {
 
         @picocli.CommandLine.Mixin
@@ -452,7 +491,7 @@ public class App {
     /** Run batch traces over NDJSON. */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     @Command(name = "batch-trace", description = "Execute independent trace jobs concurrently over an NDJSON stream.",
-            mixinStandardHelpOptions = true)
+            mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
     public static class BatchTrace implements Runnable {
 
         @Option(names = { "--workers", "-w" },
@@ -503,7 +542,7 @@ public class App {
 
     /** List the breakpoint lines available for a compiled Java program. */
     @Command(name = "list-breakpoints", description = "List the breakpoints available in the provided source file.",
-            mixinStandardHelpOptions = true)
+            mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
     static class ListBreakpoints extends CommandBase {
 
         @Option(names = { "--json", "-j" }, description = "Output available breakpoints in JSON format.")
@@ -623,7 +662,7 @@ public class App {
 
     /** Print dependency licenses to console. */
     @Command(name = "show-licenses", description = "Show the licenses for projects used in this program and then exit.",
-            mixinStandardHelpOptions = true)
+            mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
     static class ShowLicenses implements Runnable {
 
         @Override

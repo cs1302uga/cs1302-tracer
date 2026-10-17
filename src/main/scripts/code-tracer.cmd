@@ -11,6 +11,9 @@ if defined JAVA_HOME goto java_home
 set "tracer_java="
 for %%J in (java.exe) do set "tracer_java=%%~$PATH:J"
 if not defined tracer_java goto missing_java
+set "tracer_javac="
+for %%J in (javac.exe) do set "tracer_javac=%%~$PATH:J"
+if not defined tracer_javac goto missing_javac
 goto launch
 
 :java_home
@@ -19,6 +22,9 @@ if not exist "%tracer_java%" goto invalid_java_home
 if exist "%tracer_java%\" goto invalid_java_home
 
 :launch
+if defined JAVA_HOME set "tracer_javac=%JAVA_HOME%\bin\javac.exe"
+if not exist "%tracer_javac%" goto missing_javac
+if exist "%tracer_javac%\" goto missing_javac
 rem Avoid CALL and delayed expansion so arguments are not expanded a second time.
 "%tracer_java%" -jar "%tracer_jar%" %*
 exit /b %errorlevel%
@@ -34,6 +40,10 @@ exit /b 1
 
 :invalid_java_home
 >&2 echo code-tracer: JAVA_HOME does not select a Java executable: "%tracer_java%"
+exit /b 1
+
+:missing_javac
+>&2 echo code-tracer: No javac executable selected ("%tracer_javac%"); set JAVA_HOME to a full stable JDK 21 or later, or correct PATH.
 exit /b 1
 
 :missing_java

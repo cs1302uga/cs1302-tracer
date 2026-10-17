@@ -120,7 +120,7 @@ object identities, stable within one job and unrelated to a thread's name.
 Stacks contain submitted application frames, bottommost first. The top-level
 `callStack` remains the triggering thread's application stack. All stacks share
 one `heap` and one set of `statics`; the same reference ID means the same object.
-A thread waiting inside JDK code can have an empty application stack.
+A thread waiting inside **JDK** code can have an empty application stack.
 
 Events are `step_line`, `main_exit`, `exception`, `thread_start`, and
 `thread_death`. Death events include the terminating thread with `TERMINATED`

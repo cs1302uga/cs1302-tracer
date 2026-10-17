@@ -13,7 +13,7 @@ For instructors running examples and developers integrating trace output into to
 ## Build and run
 
 Use a **full JDK 21 or later**. CI tests JDK 21 and 25; guest programs using newer
-features need a matching JDK. The Maven wrapper downloads Maven automatically.
+features need a matching JDK. The **Maven** wrapper downloads Maven automatically.
 
 ```sh
 git clone https://github.com/cs1302uga/cs1302-tracer.git
@@ -23,7 +23,7 @@ cd cs1302-tracer
 
 For release downloads and shell-specific instructions, see [installation](docs/guides/installation.md).
 The executable from a source build is `target/code-tracer.jar`; the packaged
-launchers provide Bash, PowerShell, and Command Prompt entry points.
+launchers provide **Bash**, **PowerShell**, and **Command Prompt** entry points.
 Download users can follow [your first trace](docs/tutorials/first-trace.md) without
 cloning this repository. From this checkout, run:
 
@@ -54,7 +54,7 @@ library JAR and traces a program using a recursive class-path pattern.
 
 ## Documentation
 
-- [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and Javadoc, with development documentation under `/next/`.
+- [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and **Javadoc**, with development documentation under `/next/`.
 - [Installation](docs/guides/installation.md) and [first trace tutorial](docs/tutorials/first-trace.md).
 - [Read a trace](docs/tutorials/read-a-trace.md), [batch tutorial](docs/tutorials/batch-jobs.md), and [Java integration tutorial](docs/tutorials/java-integration.md).
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).

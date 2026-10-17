@@ -1,7 +1,7 @@
 # Embed the tracer in Java
 
 This tutorial runs one trusted source program through the supported
-`cs1302.tracer.api` interface. Use a full JDK 21 or later and the `code-tracer.jar`
+`cs1302.tracer.api` interface. Use a full **JDK 21 or later** and the `code-tracer.jar`
 from [installation](../guides/installation.md). Work beside that JAR, or enter
 `target` after a source build.
 
@@ -71,7 +71,7 @@ API. A `BatchTracer`, by contrast, owns workers and must be closed.
 
 ## Add the library to a Maven application
 
-For a maintained application, use the ordinary library artifact and let Maven
+For a maintained application, use the ordinary library artifact and let **Maven**
 resolve runtime dependencies. To try this development checkout locally, run
 `./mvnw -B -ntp install` at the tracer repository root, then add this dependency
 to your application's POM:

@@ -143,7 +143,7 @@ public class AppTest {
         cmd.setOut(new PrintWriter(swVersion));
         int exitCodeVersion = cmd.execute("--version");
         assertThat(exitCodeVersion).isEqualTo(0);
-        assertThat(swVersion.toString()).contains(new App.PropertiesVersionProvider().getVersion()[0]);
+        assertThat(swVersion.toString()).contains(cmd.getColorScheme().ansi().string(new App.PropertiesVersionProvider().getVersion()[0]));
     }
 
     @Test

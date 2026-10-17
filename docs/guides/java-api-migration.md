@@ -29,7 +29,7 @@ launching independently for the regular JAR and executable assembly. The build
 instead checks the supported declarations for dependency leakage and compiles an
 external consumer with only tracer classes and API Guardian on its compile classpath.
 
-Generated public Javadoc omits implementation packages. The repository's internal
+Generated public **Javadoc** omits implementation packages. The repository's internal
 package documentation and dependency links remain useful for contributor builds.
 The tracer executes guest code and is not a security sandbox; use the separate
 [runner contract](../RUNNER_CONTRACT.md) for isolation requirements.

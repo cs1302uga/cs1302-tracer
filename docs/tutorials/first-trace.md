@@ -2,7 +2,7 @@
 
 Create a Java program, capture its execution, and save the JSON result. The tracer
 produces data for a visualizer; it does not open an interactive visualization.
-First complete [installation](../guides/installation.md) with a full JDK 21 or later.
+First complete [installation](../guides/installation.md) with a full **JDK 21 or later**.
 
 ## Choose your working directory
 
@@ -12,8 +12,8 @@ Run the commands below in the directory containing `code-tracer.jar`:
 - Standalone download: use the directory where you saved the JAR.
 - Source build: from the repository root, run `cd target` after packaging.
 
-All commands in this tutorial use direct Java invocation and work in Bash,
-PowerShell, and Command Prompt. Launchers are an alternative once this works.
+All commands in this tutorial use direct Java invocation and work in **Bash**,
+**PowerShell**, and **Command Prompt**. Launchers are an alternative once this works.
 
 ## Create a program
 

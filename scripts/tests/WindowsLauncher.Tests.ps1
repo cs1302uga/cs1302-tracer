@@ -128,6 +128,15 @@ Describe 'Shared Java selection and diagnostics' -ForEach @(@{ Kind = 'ps1' }, @
         $result.Out | Should -BeNullOrEmpty
         $result.Err | Should -Match 'JAVA_HOME'
     }
+    It '<Kind> requires a compiler in an explicitly selected JDK' {
+        $incomplete = Join-Path $testRoot "incomplete $Kind JDK"
+        New-Item -ItemType Directory -Path "$incomplete/bin" -Force | Out-Null
+        Copy-Item "$selectedJdk/bin/$javaName" "$incomplete/bin/$javaName"
+        $result = Invoke-LauncherProbe -Kind $Kind -JavaHome $incomplete
+        $result.Code | Should -Be 1
+        $result.Out | Should -BeNullOrEmpty
+        $result.Err | Should -Match 'javac'
+    }
     It '<Kind> reports missing Java on stderr' {
         $result = Invoke-LauncherProbe -Kind $Kind -JavaHome '' -SearchPath ''
         $result.Code | Should -Be 1

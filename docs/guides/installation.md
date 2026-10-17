@@ -1,21 +1,25 @@
 # Installation
 
-Install a full **JDK 21 or later**, including the Java compiler and debugger modules.
+Install a full **stable JDK 21 or later**, including the Java compiler and debugger modules.
 CI tests JDK 21 and 25 on Ubuntu and macOS. JDK 25 is the local development default.
-The tracer targets Java 21 bytecode; submitted programs are compiled using the active
+The tracer requires Java 21 or later; submitted programs are compiled using the active
 JDK, so newer language/library features require a suitable runtime and parser support.
 
 ## Choose an installation
 
 | Your task | Download or build | Next step |
 | --- | --- | --- |
-| Run on Linux or macOS | Binary tar.gz or tar.xz archive | Extract it and run the Bash launcher. |
-| Run on Windows | Binary ZIP archive | Extract it and use PowerShell 7.4+ or Command Prompt. |
+| Run on Linux or macOS | Binary tar.gz or tar.xz archive | Extract it and run the **Bash** launcher. |
+| Run on Windows | Binary ZIP archive | Extract it and use **PowerShell 7.4+** or **Command Prompt**. |
 | Invoke Java directly | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
-| Develop or modify the tracer | Source checkout | Build with the included Maven wrapper. |
+| Develop or modify the tracer | Source checkout | Build with the included **Maven** wrapper. |
 
-Check `java -version` and `javac -version` before starting. Both should select the
-intended JDK. The launcher uses a nonempty `JAVA_HOME` in preference to `PATH`.
+Check `java --version` and `javac --version` before starting. Their complete release
+numbers must match and be stable JDK 21 or later releases. The launcher uses a
+nonempty `JAVA_HOME` in preference to `PATH`; both `java` and `javac` must be
+executable under that selection. Every command, including help and version,
+requires the [JDK environment preflight](../reference/cli.md#jdk-environment-preflight)
+to pass. Direct JAR execution must use the same JDK selected by the environment.
 Use the documentation version matching your downloaded release; `/next/` describes
 development builds, whose artifacts may differ from older releases.
 
@@ -45,7 +49,7 @@ the relative symlink `code-tracer -> code-tracer.sh`. The ZIP includes a regular
 identical copy at `code-tracer` so extraction does not depend on symlink support.
 Unix source builds produce all three archives; native Windows builds produce the ZIP.
 On Windows,
-extract the ZIP with File Explorer or PowerShell, then run the appropriate script:
+extract the ZIP with **File Explorer** or PowerShell, then run the appropriate script:
 
 ```powershell
 Expand-Archive .\code-tracer-bin.zip -DestinationPath .
@@ -79,6 +83,10 @@ java -jar target/code-tracer.jar --version
 java -jar target/code-tracer.jar --help
 ```
 
+The [version report](../reference/cli.md#version-and-runtime-details) includes the
+application version and source commit, followed by OS and Java runtime details.
+Include this report when diagnosing installation or JDK differences.
+
 Continue with [your first trace](../tutorials/first-trace.md). That tutorial creates
 its own source file and explains which directory to use for each installation.
 
@@ -107,14 +115,15 @@ working directory, which the launcher preserves. Internal launcher-directory
 resolution ignores `CDPATH`.
 
 If `JAVA_HOME` is nonempty, the launcher uses `$JAVA_HOME/bin/java` and reports an
-error if that executable is unavailable. Otherwise it uses `java` from `PATH`.
+error if that executable or its sibling `javac` is unavailable. Otherwise both
+`java` and `javac` must be executable on `PATH`.
 Select a full JDK 21 or later; the launcher does not install Java. It forwards all
 arguments to the tracer and preserves standard streams and the Java exit status.
 It has no launcher-specific flags and does not interpret `JAVA_OPTS`.
 
 ### Windows launchers
 
-Packaging creates `target/code-tracer.ps1` for **PowerShell 7.4 or later** and
+Packaging creates `target/code-tracer.ps1` for PowerShell 7.4 or later and
 `target/code-tracer.cmd` for Command Prompt. Both invoke Java directly; the batch
 launcher does not require PowerShell. Use the launcher for your shell:
 
@@ -136,7 +145,8 @@ By default, keep each launcher beside `code-tracer.jar`. PowerShell resolves a f
 to the installed script; the batch launcher locates the JAR beside the invoked
 batch file. Both preserve the caller's working directory, standard streams, and
 Java exit code. A nonempty `JAVA_HOME` selects `bin\java.exe` under that directory;
-an invalid selection fails without falling back. Otherwise Java is found on `PATH`.
+both it and `bin\javac.exe` are required. An invalid selection fails without
+falling back. Otherwise both tools are found on `PATH`.
 Select a full JDK 21 or later. There are no launcher-specific flags or `JAVA_OPTS`
 parsing. Quote arguments according to your shell; PowerShell preserves empty
 arguments and embedded quotes, while batch uses Command Prompt's quoting and

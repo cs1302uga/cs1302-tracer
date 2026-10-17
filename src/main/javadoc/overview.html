@@ -193,6 +193,12 @@ Java 21 and 25; the local development JDK is selected by {@code .java-version}. 
 regular JAR is intended for library integration; the dependency-bundled JAR is
 the executable CLI distribution. Both use the automatic module name
 {@code cs1302.tracer}. Features of submitted programs depend on the active JDK and parser support.</p>
+<p>CLI calls, including help and version, require matching stable Java/compiler releases of 21 or later.
+A nonempty {@code JAVA_HOME} selects both tools; otherwise both must be executable on {@code PATH}.
+The selected JDK must match the running JVM. Failed checks report stderr diagnostics and exit status 1.
+The executable JAR has a Java-8-compatible bootstrap solely for unsupported-runtime diagnostics;
+the tracer and supported API remain compiled for Java 21. Calls through {@code Tracer} and
+{@code BatchTracer} do not run the CLI environment preflight.</p>
 <p>API Guardian is a transitive compile dependency. Maven resolves it automatically;
 manual compilation against the regular JAR also requires the API Guardian JAR
 to avoid missing annotation warnings. It supplies stability metadata, while

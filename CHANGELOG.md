@@ -33,9 +33,56 @@ Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caea
 
 ### Breaking changes
 
-No breaking changes.
+- **CLI environment:** every command, including help, version, and licenses, now
+  requires executable Java/compiler tools with matching complete stable release
+  numbers of 21 or later. A nonempty `JAVA_HOME` is authoritative; otherwise both
+  tools must be on `PATH`. Direct JAR execution must use the environment-selected
+  JDK. Correct `JAVA_HOME`/`PATH` when upgrading; preflight failures return status 1
+  on stderr, with five-second tool-probe deadlines. Supported tracing API calls and
+  JSON/protocol formats are unchanged.
+
+- **CLI:** `--version` / `-V` now prints application provenance and OS/JVM details
+  as five lines instead of a bare version. Consumers should read the second
+  whitespace-separated field of the first line for the application version.
+  All subcommands now print the same report. Java API and JSON/protocol contracts
+  are unchanged.
 
 ### Non-breaking changes
+
+- **Release tooling:** standardize signed Maven release preparation and explicit
+  publication through a checked release branch, preserving commit identities while
+  fast-forwarding `main`. Require semantic version classification, complete local
+  validation, CI evidence for both version-transition commits, and verified release
+  assets and documentation. GitHub Actions remains the publisher; runtime and
+  serialized formats are unchanged.
+- **CI tooling:** pin all external GitHub Actions to the latest stable releases by
+  immutable commit, including setup-node 7.1.0, and validate release branch commits
+  before integration without deploying their pending documentation.
+
+- **Test tooling:** select the SLF4J Simple provider for dependency logs on stderr,
+  eliminating the missing-provider warning. Align the API and provider at 2.0.20;
+  both remain test-only and are excluded from runtime distributions.
+
+- **CLI presentation:** bold the entire first line of all version reports using
+  the same Picocli ANSI detection and controls as help; other lines are unstyled. Plain output preserves the existing text and
+  five-line layout; no native terminal library is required.
+
+- **Build provenance:** embed the full Git commit and tracked-file dirty state in
+  both JARs, and preserve originating metadata in source archives for rebuilds
+  without Git. Sources without provenance report an unknown revision.
+
+- **CI diagnostics:** print OS and JDK details before Maven runs in documentation,
+  test, Windows packaging, and release jobs to make runner differences easier to diagnose.
+
+- **Documentation build:** add an opt-in Maven `docsite` profile using
+  frontend-maven-plugin 2.0.2, Node.js 24.22.0 LTS, and bundled npm 11.19.1.
+  Documentation CI and deployment use the same managed toolchain and retain
+  Python release selection, executable checks, and versioned Javadoc. Ordinary
+  tracer builds do not bootstrap frontend tools.
+
+- **Documentation:** consistently emphasize each program or tool's first prose
+  mention per page, including version requirements, across current guides and
+  contributor entry points.
 
 - **Documentation:** add a download-compatible first trace, an output walkthrough,
   and runnable Java and batch integration tutorials. Reorganize installation,

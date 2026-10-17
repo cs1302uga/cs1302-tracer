@@ -45,5 +45,16 @@ else
     fi
 fi
 
+# Require the compiler from the same selection source before starting the JVM.
+if [[ -n "${JAVA_HOME:-}" ]]; then
+    javac_command=$JAVA_HOME/bin/javac
+else
+    javac_command=$(command -v javac || true)
+fi
+if [[ ! -f "$javac_command" || ! -x "$javac_command" ]]; then
+    printf 'code-tracer: no executable javac selected (%s); set JAVA_HOME to a full stable JDK 21 or later, or correct PATH.\n' "${javac_command:-not found on PATH}" >&2
+    exit 1
+fi
+
 # Preserve arguments, standard streams, signals, and the Java process exit status.
 exec "$java_command" -jar "$jar" "$@"

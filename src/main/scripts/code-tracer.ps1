@@ -47,6 +47,18 @@ try {
         $javaCommand = $javaApplication.Source
     }
 
+    $javacName = if ($IsWindows) { 'javac.exe' } else { 'javac' }
+    if (-not [string]::IsNullOrEmpty($env:JAVA_HOME)) {
+        $javacCommand = Join-Path $env:JAVA_HOME "bin/$javacName"
+    } else {
+        $javacApplication = Get-Command $javacName -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        $javacCommand = if ($null -eq $javacApplication) { '' } else { $javacApplication.Source }
+    }
+    if ([string]::IsNullOrEmpty($javacCommand) -or -not (Test-Path -LiteralPath $javacCommand -PathType Leaf)) {
+        throw "No javac executable selected ($javacCommand); set JAVA_HOME to a full stable JDK 21 or later, or correct PATH."
+    }
+
     # Windows has no Bash-style exec replacement; wait for Java and return its exit code.
     & $javaCommand '-jar' $jarPath @args
     exit $LASTEXITCODE

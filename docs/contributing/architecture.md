@@ -13,8 +13,12 @@ consumer interface.
 ## Entry points and execution flow
 
 The supported interface is `cs1302.tracer.api`, plus the CLI launcher
-`cs1302.tracer.App`. The launcher delegates to Picocli commands in
-`cs1302.tracer.internal.App`. The command class, parser ASTs, debugger objects,
+`cs1302.tracer.App`. The executable JAR first enters the Java-8-compatible
+`CliBootstrap` to diagnose unsupported runtimes. Supported launcher calls and
+that bootstrap converge on `cs1302.tracer.internal.App`, which runs
+`CliEnvironment` preflight before dispatching Picocli commands. Preflight owns
+tool selection, bounded version probes, and running-JDK identity checks; it does
+not change the JVM or apply to supported tracing API calls. The command class, parser ASTs, debugger objects,
 wire models, and serializer configuration are internal implementation details.
 
 `SourceBundle` assembles explicitly supplied source text before tracing. Its builder
@@ -112,7 +116,7 @@ Supported types declare API Guardian `STABLE`, and public implementation types
 are the sole permitted external metadata in supported declarations. Exposure tests
 reject other third-party/internal types, including in generics and annotations.
 Public internal classes remain accessible on the classpath and through the automatic
-module, but are outside the supported compatibility contract and public Javadoc.
+module, but are outside the supported compatibility contract and public **Javadoc**.
 
 Builders stay with their owning values: requests preserve caller settings, limits
 reuse the existing presets and validation, and wire values preserve nullability and
@@ -244,7 +248,7 @@ mutable parser state. `AstTypeResolver` holds reusable source-derived type index
 `BreakpointReader` uses ASM to read SourceFile and line-number attributes without
 loading or executing guest classes. All compiled classes contribute to its index,
 including unused nested classes and records. The build targets Java 21; the active
-JDK, parser, and bytecode-reader support together constrain guest compatibility.
+**JDK**, parser, and bytecode-reader support together constrain guest compatibility.
 Dependency versions are selected in `pom.xml`.
 
 ## Capture and reified type metadata

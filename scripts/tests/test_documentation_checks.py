@@ -201,6 +201,63 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("bad Java example", result.stderr)
 
+    def test_maven_verification_checks_examples_build_and_rendered_links(self) -> None:
+        """Run real checkers around external tools and reject invalid examples and rendered output."""
+        site = self.root / "website"
+        site.mkdir()
+        (site / "versions.json").write_text("[]")
+        (self.root / "pom.xml").write_text("<project><version>1.0.0-SNAPSHOT</version></project>")
+        executable(
+            self.root / "mvnw",
+            """
+import sys
+from pathlib import Path
+assert '-P!docsite' in sys.argv
+output = Path('target/reports/apidocs')
+output.mkdir(parents=True, exist_ok=True)
+for name in ('index.html', 'search.html', 'element-list'):
+    (output / name).write_text('API')
+""",
+        )
+        executable(
+            self.root / "bin/npm",
+            """
+import os, shutil, sys
+from pathlib import Path
+assert sys.argv[1:] == ['run', 'docusaurus', '--', 'build']
+output = Path('build')
+output.mkdir(exist_ok=True)
+shutil.copytree('generated-api/api', output / 'api', dirs_exist_ok=True)
+text = '<a href="/cs1302-tracer/api/next/index.html">API</a>'
+if os.environ.get('BAD_SITE'):
+    text += '<a href="missing.html">Broken</a>'
+(output / 'index.html').write_text(text)
+""",
+        )
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = invoke(self.root, "docs_site.py", "verify", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Packaged tutorials passed", result.stdout)
+        self.assertIn("Validated links", result.stdout)
+        manifest = site / "build/release-manifest.json"
+        self.assertEqual(json.loads(manifest.read_text())["mode"], "preview")
+        records = self.root / "published releases.json"
+        records.write_text("[]")
+        published = dict(self.env, DOCSITE_MODE="published", DOCSITE_RELEASES=str(records))
+        result = invoke(self.root, "docs_site.py", "verify", env=published)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(manifest.read_text())["mode"], "published")
+        result = invoke(self.root, "docs_site.py", "verify", env=dict(self.env, BAD_SITE="1"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing missing.html", result.stderr)
+        shutil.rmtree(site / "generated-api")
+        (self.root / "README.md").write_text("[Missing](absent.md)")
+        result = invoke(self.root, "docs_site.py", "verify", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("missing absent.md", result.stderr)
+        self.assertFalse((site / "generated-api").exists())
+
     def test_command_failure_preserves_exit_status_and_stderr(self) -> None:
         """Explain a failed documentation child process."""
         with self.assertRaisesRegex(RuntimeError, "exit 7\\nfailed"):

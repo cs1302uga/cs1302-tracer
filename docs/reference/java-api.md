@@ -5,9 +5,9 @@ This reference defines the supported contracts and advanced configuration.
 
 The supported Java interface is `cs1302.tracer.api`, plus the stable CLI launcher
 `cs1302.tracer.App`. Use the regular tracer JAR for library integration and supply
-its Maven runtime dependencies. The dependency-bundled JAR remains the executable
+its **Maven** runtime dependencies. The dependency-bundled JAR remains the executable
 CLI distribution. Both declare the automatic module name `cs1302.tracer`.
-Run with a full JDK 21 or later; CI exercises Java 21 and 25, and `.java-version`
+Run with a full **JDK 21 or later**; CI exercises Java 21 and 25, and `.java-version`
 selects the local development JDK. Submitted-program features depend on the active
 JDK and parser support.
 

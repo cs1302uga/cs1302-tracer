@@ -187,6 +187,93 @@ class ReleaseSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unknown documentation mode"):
             docs_release.Project(self.root).plan("automatic")
 
+    def prepare_next_development(self) -> str:
+        """Commit a stable release and the following development version without publishing a tag."""
+        self.git("add", ".")
+        self.git("commit", "-qm", "Prepared stable release")
+        commit = self.git("rev-parse", "HEAD")
+        (self.root / "pom.xml").write_text("<project><version>2.0.1-SNAPSHOT</version></project>")
+        self.git("add", ".")
+        self.git("commit", "-qm", "Next development version")
+        return commit
+
+    def test_explicit_pending_commit_previews_exact_release_ancestor_without_a_tag(self) -> None:
+        """Pin pending Javadoc to the stable source while preserving the unpublished banner."""
+        commit = self.prepare_next_development()
+        project = docs_release.Project(self.root)
+        with self.assertRaisesRegex(ValueError, "Missing release tag for 2.0.0"):
+            project.plan("preview")
+        plan = project.plan("preview", pending_commit=commit)
+        self.assertEqual(plan["versions"][1]["sourceCommit"], commit)
+        self.assertEqual(plan["versions"][1]["banner"], "unreleased")
+        with self.assertRaisesRegex(ValueError, "Pending release commits require preview mode"):
+            project.plan("published", releases=[{"tag_name": "v2.0.0"}], pending_commit=commit)
+        with self.assertRaisesRegex(ValueError, "Missing release tag for 2.0.0"):
+            project.plan("published", releases=[{"tag_name": "v2.0.0"}])
+
+        self.git("tag", "v2.0.0", commit)
+        plan = project.plan("preview", pending_commit=commit)
+        self.assertEqual(plan["versions"][1]["sourceCommit"], commit)
+        self.assertEqual(plan["versions"][1]["banner"], "none")
+        self.git("tag", "-d", "v2.0.0")
+        self.commit_version("2.0.0", "v2.0.0")
+        with self.assertRaisesRegex(ValueError, "differs from the pending commit"):
+            project.plan("preview", pending_commit=commit)
+
+    def test_pending_source_requires_an_immutable_ancestor_commit(self) -> None:
+        """Reject branch names, tag-object IDs, and commits outside the current history."""
+        commit = self.prepare_next_development()
+        project = docs_release.Project(self.root)
+        with self.assertRaisesRegex(AssertionError, "full commit SHA"):
+            project.plan("preview", pending_commit="HEAD^")
+        self.git("tag", "-a", "pending", "-m", "Annotated", commit)
+        with self.assertRaisesRegex(AssertionError, "not a tag object"):
+            project.plan("preview", pending_commit=self.git("rev-parse", "pending"))
+        self.git("checkout", "--orphan", "unrelated")
+        self.git("add", ".")
+        self.git("commit", "-qm", "Unrelated history")
+        with self.assertRaisesRegex(AssertionError, "ancestor of HEAD"):
+            project.plan("preview", pending_commit=commit)
+
+    def test_pending_source_requires_latest_stable_release(self) -> None:
+        """Neither a snapshot commit nor an older release can substitute for the pending release."""
+        self.prepare_next_development()
+        project = docs_release.Project(self.root)
+        with self.assertRaisesRegex(AssertionError, "stable Maven version"):
+            project.plan("preview", pending_commit=self.git("rev-parse", "HEAD"))
+        with self.assertRaisesRegex(AssertionError, "newest snapshot"):
+            project.plan("preview", pending_commit=self.git("rev-parse", "v1.0.0"))
+        (self.site / "versions.json").write_text("[]")
+        with self.assertRaisesRegex(AssertionError, "newest snapshot"):
+            project.plan("preview", pending_commit=self.git("rev-parse", "v1.0.0"))
+
+    def test_pending_source_rejects_current_and_committed_documentation_drift(self) -> None:
+        """Require the pinned release docs, prepared snapshot, and current docs to agree."""
+        snapshot = self.site / "versioned_docs/version-2.0.0/index.md"
+        snapshot.write_text("# Invalid committed snapshot\n")
+        commit = self.prepare_next_development()
+        project = docs_release.Project(self.root)
+        snapshot.write_text("# Current\n")
+        with self.assertRaisesRegex(AssertionError, "commit snapshot differs"):
+            project.plan("preview", pending_commit=commit)
+        (self.root / "docs/index.md").write_text("# Changed\n")
+        snapshot.write_text("# Changed\n")
+        with self.assertRaisesRegex(AssertionError, "commit documentation differs"):
+            project.plan("preview", pending_commit=commit)
+
+    def test_pending_source_requires_committed_metadata_agreement(self) -> None:
+        """Reject even logically equivalent metadata edits after local release preparation."""
+        commit = self.prepare_next_development()
+        project = docs_release.Project(self.root)
+        for name in ("versions.json", "sidebars.js", "versioned_sidebars/version-2.0.0-sidebars.json"):
+            with self.subTest(name=name):
+                path = self.site / name
+                original = path.read_text()
+                path.write_text(original + "\n")
+                with self.assertRaisesRegex(AssertionError, "metadata differs"):
+                    project.plan("preview", pending_commit=commit)
+                path.write_text(original)
+
 
 if __name__ == "__main__":
     unittest.main()

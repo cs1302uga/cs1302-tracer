@@ -72,7 +72,9 @@ class ResourceFallbackTest {
     void versionFallsBackWhenResourceCannotProvideAVersion(String mode) throws Exception {
         var type = new ResourceLoader(mode).loadClass("cs1302.tracer.internal.App$PropertiesVersionProvider");
         String[] version = (String[]) type.getMethod("getVersion").invoke(type.getConstructor().newInstance());
-        assertThat(version).containsExactly(mode.equals("valid") ? "test-version" : "development");
+        assertThat(version).hasSize(5);
+        assertThat(picocli.CommandLine.Help.Ansi.OFF.string(version[0])).isEqualTo("code-tracer " + (mode.equals("valid") ? "test-version" : "development")
+                + " (unknown)");
     }
 
     @ParameterizedTest

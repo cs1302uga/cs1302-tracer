@@ -89,7 +89,7 @@ The independent watchdog can terminate the guest even while such a call blocks.
 `FIELDS` avoids these method invocations. Objects, including collections and
 wrappers, are inspected through fields; arrays, strings, and colors retain dedicated
 representations. Colors are read from fields without invoking `getRGB`.
-Collection internals vary by JDK and are not promised to match
+Collection internals vary by **JDK** and are not promised to match
 TRUSTED collection presentation. A diagnostic describes this policy in the result.
 Only bytes already emitted to the OS pipes can be captured: guest buffers are not
 flushed by calling into the program.
@@ -181,7 +181,7 @@ Recovering checkpoints after a kill is deferred.
 ```
 
 The committed regression fixtures live in `examples/regression/`; their manifest
-selects the source programs and capture options. Git history records fixture and
+selects the source programs and capture options. **Git** history records fixture and
 source-line updates. Verification never overwrites fixtures. Regeneration is explicit:
 
 ```sh

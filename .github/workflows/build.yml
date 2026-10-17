@@ -2,7 +2,7 @@ name: CI / Release
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "release/**" ]
     tags:
       - '*'
   pull_request:
@@ -20,26 +20,44 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-java@v6
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
       - uses: ./.github/actions/configure-maven
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: website/package-lock.json
-      - name: Build tracer
-        run: ./mvnw -B -ntp package -DskipTests
-      - name: Check executable documentation
+      - name: Print OS and JDK details
+        shell: bash
         run: |
-          ./scripts/uv run --locked python scripts/check_docs.py
-          ./scripts/uv run --locked python scripts/docs_release.py check
+          echo '::group::OS details'
+          uname -srm
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            sw_vers
+          else
+            cat /etc/os-release
+          fi
+          echo '::endgroup::'
+          echo '::group::JDK details'
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME"
+          command -v java
+          java -version
+          command -v javac
+          javac -version
+          echo '::endgroup::'
+      - name: Bootstrap release documentation tools
+        if: github.event_name == 'push'
+        run: |
+          ./mvnw -B -ntp -Pdocsite generate-resources
+          echo "$PWD/target/frontend/node" >> "$GITHUB_PATH"
+      - name: Validate release branch and pending documentation revision
+        id: release-context
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
+        env:
+          RELEASE_BRANCH: ${{ github.ref_name }}
+        run: ./scripts/uv run --locked python scripts/release.py ci --branch "$RELEASE_BRANCH" --github-output "$GITHUB_OUTPUT"
       - name: Retain existing documentation versions
         if: github.event_name == 'pull_request'
         env:
@@ -52,11 +70,12 @@ jobs:
         run: |
           git merge-base --is-ancestor HEAD origin/main
           ./scripts/uv run --locked python scripts/docs_release.py check --tag "$RELEASE_TAG"
-      - run: npm --prefix website ci
-      - run: ./scripts/uv run --locked npm --prefix website run build
-      - run: ./scripts/uv run --locked python scripts/check_site.py
+      - name: Build and verify documentation with the pinned frontend toolchain
+        run: >-
+          ./mvnw -B -ntp -Pdocsite -DskipTests
+          "-Ddocsite.pendingCommit=${{ steps.release-context.outputs.pending_commit }}" verify
       - name: Save reviewable site
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: documentation-preview
           path: website/build
@@ -71,8 +90,8 @@ jobs:
       COVERAGE_RCFILE: ${{ github.workspace }}/scripts/pyproject.toml
       COVERAGE_FILE: ${{ github.workspace }}/.coverage
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Install locked managed Python tooling
@@ -92,20 +111,39 @@ jobs:
           ./scripts/uv run --locked coverage report
 
   test:
+    name: Java (${{ matrix.os }}, ${{ matrix.java }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
         java: [ '21', '25' ]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
       - uses: ./.github/actions/configure-maven
+      - name: Print OS and JDK details
+        shell: bash
+        run: |
+          echo '::group::OS details'
+          uname -srm
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            sw_vers
+          else
+            cat /etc/os-release
+          fi
+          echo '::endgroup::'
+          echo '::group::JDK details'
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME"
+          command -v java
+          java -version
+          command -v javac
+          javac -version
+          echo '::endgroup::'
       - name: Build and test with Maven
         run: ./mvnw -B -ntp clean package
       - name: Verify launcher distribution
@@ -117,8 +155,16 @@ jobs:
           test "$(readlink target/code-tracer)" = code-tracer.sh
           test ! -e target/code-tracer.bat
           python3 - <<'PY'
-          import stat, tarfile, zipfile
+          import stat, subprocess, tarfile, zipfile
           from pathlib import Path
+          metadata_path = 'cs1302/tracer/version.properties'
+          with zipfile.ZipFile('target/code-tracer.jar') as jar:
+              metadata = jar.read(metadata_path)
+          with zipfile.ZipFile(next(Path('target').glob('cs1302-tracer-[0-9]*.jar'))) as jar:
+              assert jar.read(metadata_path) == metadata
+          provenance = Path('target/build-provenance.properties').read_text()
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          assert f'git.commit={head}' in provenance.splitlines()
           expected = {'code-tracer', 'code-tracer.sh', 'code-tracer.ps1', 'code-tracer.cmd', 'code-tracer.jar', 'LICENSE'}
           with zipfile.ZipFile('target/code-tracer-bin.zip') as zip:
               entries = {Path(m.filename).name: m for m in zip.infolist() if not m.is_dir()}
@@ -165,8 +211,11 @@ jobs:
           source_root=$(mktemp -d)
           trap 'rm -rf "$source_root"' EXIT
           tar -xf target/code-tracer-src.tar.xz -C "$source_root"
+          cp target/build-provenance.properties "$source_root/expected-provenance.properties"
           cd "$source_root/code-tracer"
           ./mvnw -B -ntp -DskipTests -Djacoco.skip=true package
+          cmp "$source_root/expected-provenance.properties" target/build-provenance.properties
+          ./target/code-tracer --version
       - name: Verify trace compatibility
         run: |
           python3 -m unittest discover -s examples -p test_verify.py
@@ -180,12 +229,28 @@ jobs:
       matrix:
         java: [ '21', '25' ]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
       - uses: ./.github/actions/configure-maven
+      - name: Print OS and JDK details
+        shell: pwsh
+        run: |
+          Write-Output '::group::OS details'
+          [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
+          [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+          Write-Output '::endgroup::'
+          Write-Output '::group::JDK details'
+          Write-Output "JAVA_HOME=$env:JAVA_HOME"
+          (Get-Command java -CommandType Application).Source
+          java -version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          (Get-Command javac -CommandType Application).Source
+          javac -version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output '::endgroup::'
       - name: Bootstrap wrapper and package
         shell: cmd
         env:
@@ -260,20 +325,38 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
       - name: Set up JDK 21
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
       - uses: ./.github/actions/configure-maven
+      - name: Print OS and JDK details
+        shell: bash
+        run: |
+          echo '::group::OS details'
+          uname -srm
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            sw_vers
+          else
+            cat /etc/os-release
+          fi
+          echo '::endgroup::'
+          echo '::group::JDK details'
+          printf 'JAVA_HOME=%s\n' "$JAVA_HOME"
+          command -v java
+          java -version
+          command -v javac
+          javac -version
+          echo '::endgroup::'
       - name: Build with Maven
         run: ./mvnw -B -ntp clean package -DskipTests
       - name: Create release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
             target/code-tracer.jar

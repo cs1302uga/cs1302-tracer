@@ -109,6 +109,29 @@ diff, and run `./scripts/uv run python scripts/check_docs.py`. Completion requir
 agreement between the implemented arguments, help, reference, and affected usage
 examples; generated help alone does not document behavioral changes.
 
+### Release and versioning workflow
+
+For release preparation, publication, or recovery, follow the
+[release runbook](docs/contributing/documentation.md#prepare-a-stable-release).
+Use the pinned Maven Release Plugin through `scripts/release.py`: explicit stable
+release and next `-SNAPSHOT` versions, `vX.Y.Z` tags, and signed version-transition
+commits and annotated tags verified against trusted SSH signers. Classify changes
+across the supported Java API, CLI, JSON/batch protocol, and runtime requirements;
+incompatible changes require a major increment, compatible features a minor
+increment, and compatible fixes a patch increment. Review the classification
+against the actual release range; a preexisting POM version does not establish it.
+
+Prepare documentation and changelog content before the plugin changes versions.
+The local prepare phase uses a clean isolated checkout and the complete release
+validation gate before committing and tagging. Publication is a separate explicit
+operation: validate the stable and next-development commits on the dedicated
+release branch, preserve their identities while fast-forwarding `main`, then push
+only the verified release tag. An instruction to prepare and publish authorizes
+both phases; otherwise stop at the requested phase. Preserve published tags and
+inspect saved state before recovery. Report publication complete only after the
+release assets and live versioned documentation are verified. Keep operational
+commands, failure handling, and signing setup in the runbook.
+
 ### Maintain the release changelog
 
 Maintain a top-level `CHANGELOG.md` with an `Unreleased` section and entries for

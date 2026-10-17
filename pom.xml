@@ -73,10 +73,12 @@
     <jspecify.version>1.0.1</jspecify.version>
     <junit-bom.version>6.1.3</junit-bom.version>
     <picocli.version>4.7.7</picocli.version>
+    <slf4j.version>2.0.20</slf4j.version>
 
     <!-- Build plugin and plugin dependency versions -->
     <checkstyle.version>14.3.0</checkstyle.version>
     <build-helper-maven-plugin.version>3.6.2</build-helper-maven-plugin.version>
+    <frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
     <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
     <maven-antrun-plugin.version>3.2.0</maven-antrun-plugin.version>
@@ -91,9 +93,20 @@
     <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
     <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
     <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
+    <maven-release-plugin.version>3.3.1</maven-release-plugin.version>
     <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
     <maven-site-plugin.version>3.22.0</maven-site-plugin.version>
     <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+
+    <!-- Pin the docsite toolchain; npm is supplied by this Node distribution. -->
+    <node.version>v24.22.0</node.version>
+    <docsite.mode>preview</docsite.mode>
+    <docsite.releases></docsite.releases>
+    <docsite.pendingCommit></docsite.pendingCommit>
+
+    <!-- The release orchestrator overrides these only for the non-mutating POM/SCM dry run. -->
+    <release.preparationGoals>verify</release.preparationGoals>
+    <release.preparationProfiles>pre-commit-coverage,docsite,release-validation</release.preparationProfiles>
 
     <!-- Keep the ordinary and executable JARs on the same automatic module name. -->
     <automatic.module.name>cs1302.tracer</automatic.module.name>
@@ -101,6 +114,18 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- Align the transitive test logging API with its explicitly selected provider. -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <!-- Keep the test logging provider on the same release as the SLF4J API. -->
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-simple</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
       <!-- Align JUnit dependency versions through the BOM. -->
       <dependency>
         <groupId>org.junit</groupId>
@@ -191,6 +216,12 @@
       <artifactId>gson</artifactId>
       <version>${gson.version}</version>
     </dependency>
+    <!-- Send dependency log messages to stderr during tests without shipping a logging provider. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <scope>test</scope>
+    </dependency>
     <!-- Keep both JsonUnit test APIs on the same release. -->
     <dependency>
       <groupId>net.javacrumbs.json-unit</groupId>
@@ -215,8 +246,12 @@
   </dependencies>
 
   <build>
+    <!-- Generated before resource filtering; contains only deterministic Git provenance. -->
+    <filters>
+      <filter>${project.build.directory}/build-provenance.properties</filter>
+    </filters>
     <resources>
-      <!-- Substitute the project version into the runtime version.properties resource. -->
+      <!-- Embed the project version and build provenance in both JARs. -->
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
@@ -274,9 +309,23 @@
             </compilerArgs>
           </configuration>
           <executions>
+            <!-- Keep only the diagnostic entry point runnable on Java 8 and later. -->
+            <execution>
+              <id>compile-cli-bootstrap</id>
+              <phase>compile</phase>
+              <goals><goal>compile</goal></goals>
+              <configuration>
+                <release>8</release>
+                <proc>none</proc>
+                <includes><include>cs1302/tracer/internal/CliBootstrap.java</include></includes>
+                <compilerArgs combine.children="append"><arg>-Xlint:-options</arg></compilerArgs>
+              </configuration>
+            </execution>
             <execution>
               <id>default-compile</id>
               <configuration>
+                <!-- The entry point is compiled separately so old JVMs can report a useful error. -->
+                <excludes><exclude>cs1302/tracer/internal/CliBootstrap.java</exclude></excludes>
                 <!-- Generate Picocli metadata during production compilation using the matching processor version. -->
                 <annotationProcessorPaths>
                   <!-- Run the Picocli annotation processor at the same version as the CLI library. -->
@@ -365,6 +414,22 @@
           <artifactId>maven-deploy-plugin</artifactId>
           <version>${maven-deploy-plugin.version}</version>
         </plugin>
+        <!-- Prepare signed version transitions locally; GitHub Actions publishes pushed release tags. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>${maven-release-plugin.version}</version>
+          <configuration>
+            <tagNameFormat>v@{project.version}</tagNameFormat>
+            <pushChanges>false</pushChanges>
+            <signTag>true</signTag>
+            <!-- Use external Git so the configured SSH commit and tag signer is honored. -->
+            <providerImplementations><git>git</git></providerImplementations>
+            <!-- Retain audit evidence; the release gate archives stale coverage before testing. -->
+            <preparationGoals>${release.preparationGoals}</preparationGoals>
+            <preparationProfiles>${release.preparationProfiles}</preparationProfiles>
+          </configuration>
+        </plugin>
         <!-- Site generation and project reports -->
         <!-- Manage Maven site generation when the site lifecycle is invoked. -->
         <plugin>
@@ -424,9 +489,26 @@
           <artifactId>properties-maven-plugin</artifactId>
           <version>${properties-maven-plugin.version}</version>
         </plugin>
+        <!-- Manage the local Node/npm toolchain used only by the docsite profile. -->
+        <plugin>
+          <groupId>com.github.eirslett</groupId>
+          <artifactId>frontend-maven-plugin</artifactId>
+          <version>${frontend-maven-plugin.version}</version>
+          <configuration>
+            <workingDirectory>${project.basedir}/website</workingDirectory>
+            <installDirectory>${project.build.directory}/frontend</installDirectory>
+            <nodeVersion>${node.version}</nodeVersion>
+            <npmVersion>provided</npmVersion>
+          </configuration>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
+      <!-- Expose the pinned release goals without binding publication to the build lifecycle. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+      </plugin>
       <!--
         Keep these validate executions ordered: read the wrapper properties,
         derive the Maven version, then enforce it as the minimum supported version.
@@ -574,7 +656,7 @@
             <configuration>
               <archive>
                 <manifest>
-                  <mainClass>cs1302.tracer.App</mainClass>
+                  <mainClass>cs1302.tracer.internal.CliBootstrap</mainClass>
                 </manifest>
                 <manifestEntries>
                   <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
@@ -612,6 +694,47 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
         <executions>
+          <!-- Capture provenance before filtering resources; archives need neither Git nor a checkout. -->
+          <execution>
+            <id>build-provenance</id>
+            <phase>generate-resources</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target xmlns:if="ant:if">
+                <!-- Require this project's own .git entry, including linked-worktree files. -->
+                <available file="${project.basedir}/.git" property="provenance.checkout" />
+                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout"
+                  failifexecutionfails="false" outputproperty="provenance.head" errorproperty="provenance.head.error">
+                  <arg value="rev-parse" /><arg value="--verify" /><arg value="HEAD" />
+                </exec>
+                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout"
+                  failifexecutionfails="false" outputproperty="provenance.status" errorproperty="provenance.status.error"
+                  resultproperty="provenance.status.result">
+                  <arg value="status" /><arg value="--porcelain" /><arg value="--untracked-files=no" />
+                  <arg value="--ignore-submodules=untracked" />
+                </exec>
+                <condition property="git.commit" value="${provenance.head}">
+                  <and>
+                    <matches string="${provenance.head}" pattern="^[0-9a-f]{40,64}$" />
+                    <equals arg1="${provenance.status.result}" arg2="0" />
+                  </and>
+                </condition>
+                <condition property="git.dirty" value="true" else="false" if:set="git.commit">
+                  <length string="${provenance.status}" trim="true" when="greater" length="0" />
+                </condition>
+                <!-- Ant properties are immutable: live Git wins over archive metadata and defaults. -->
+                <property file="${project.basedir}/.mvn/build-provenance.properties" />
+                <property name="git.commit" value="unknown" />
+                <property name="git.dirty" value="false" />
+                <mkdir dir="${project.build.directory}" />
+                <!-- Write deterministic metadata without a timestamp for the source assembly. -->
+                <echo file="${project.build.directory}/build-provenance.properties"
+                  encoding="UTF-8">git.commit=${git.commit}
+git.dirty=${git.dirty}
+</echo>
+              </target>
+            </configuration>
+          </execution>
           <!-- Stage launcher files before the binary archives are assembled. -->
           <execution>
             <id>prepare-launchers</id>
@@ -735,6 +858,98 @@
   </build>
 
   <profiles>
+    <!-- Add serial release-only checks to the strict Java and docsite preparation profiles. -->
+    <profile>
+      <id>release-validation</id>
+      <build>
+        <plugins>
+          <!-- Preserve previous coverage, then check Python, fixtures, launchers, and internal Javadoc. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>initialize-release-validation</id>
+                <phase>initialize</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <fail message="Release validation requires Java tests and coverage without skip flags.">
+                      <condition>
+                        <or>
+                          <istrue value="${skipTests}"/>
+                          <istrue value="${maven.test.skip}"/>
+                          <istrue value="${jacoco.skip}"/>
+                        </or>
+                      </condition>
+                    </fail>
+                    <exec executable="${project.basedir}/scripts/uv" dir="${project.basedir}" failonerror="true">
+                      <env key="UVW_GIT_COMMIT" value="never"/>
+                      <arg value="run"/><arg value="--locked"/><arg value="python"/>
+                      <arg value="scripts/release_validate.py"/><arg value="initialize"/>
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+              <execution>
+                <id>verify-release-validation</id>
+                <phase>verify</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <exec executable="${project.basedir}/scripts/uv" dir="${project.basedir}" failonerror="true">
+                      <env key="UVW_GIT_COMMIT" value="never"/>
+                      <arg value="run"/><arg value="--locked"/><arg value="python"/>
+                      <arg value="scripts/release_validate.py"/><arg value="verify"/>
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- Opt in to frontend bootstrap and complete documentation verification after packaging. -->
+    <profile>
+      <id>docsite</id>
+      <build>
+        <plugins>
+          <!-- Use pinned local Node/npm and the existing managed-Python documentation workflow. -->
+          <plugin>
+            <groupId>com.github.eirslett</groupId>
+            <artifactId>frontend-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>install-docsite-toolchain</id>
+                <phase>initialize</phase>
+                <goals><goal>install-node-and-npm</goal></goals>
+              </execution>
+              <execution>
+                <id>install-docsite-dependencies</id>
+                <phase>generate-resources</phase>
+                <goals><goal>npm</goal></goals>
+                <configuration><arguments>ci --no-audit --no-fund</arguments></configuration>
+              </execution>
+              <execution>
+                <id>verify-docsite</id>
+                <phase>verify</phase>
+                <goals><goal>npm</goal></goals>
+                <configuration>
+                  <arguments>run build:maven</arguments>
+                  <environmentVariables>
+                    <DOCSITE_MODE>${docsite.mode}</DOCSITE_MODE>
+                    <DOCSITE_RELEASES>${docsite.releases}</DOCSITE_RELEASES>
+                    <DOCSITE_PENDING_COMMIT>${docsite.pendingCommit}</DOCSITE_PENDING_COMMIT>
+                    <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
+                  </environmentVariables>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <!-- Tar distributions preserve Unix symlinks; native Windows builds the portable ZIP only. -->
     <profile>
       <id>unix-launcher-archive</id>
