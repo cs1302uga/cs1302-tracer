@@ -35,6 +35,10 @@ Implementation: [68d81e2](https://github.com/cs1302uga/cs1302-tracer/commit/68d8
 — Signed release workflow, CLI environment checks and version reports, embedded
 build provenance, test logging, and managed documentation builds described below.
 
+Implementation: [43c8970](https://github.com/cs1302uga/cs1302-tracer/commit/43c8970e7448206607ecce30f5f112a514dc23d8)
+— Historical Javadoc caching, documentation stage timing, and one dependency
+installation per documentation CI build.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -52,6 +56,16 @@ build provenance, test logging, and managed documentation builds described below
   are unchanged.
 
 ### Non-breaking changes
+
+- **Release Javadoc:** attach a standard Javadoc JAR through the opt-in
+  `release-javadoc` profile and publish its checksum and verified build-provenance
+  attestation. Published documentation prefers that release's verified API output,
+  preserving its bytes across later JDK and year changes; legacy releases can use
+  tagged-source fallback, and an explicit source mode supports regeneration.
+  Publisher retries preserve complete verified Javadoc artifacts and require explicit
+  recovery for partial uploads.
+  Ordinary packaging, public API routes, Java/CLI contracts, and trace formats are
+  unchanged.
 
 - **Documentation build performance:** reuse validated historical Javadoc output
   with explicit use, refresh, and off modes; keep development and untagged pending

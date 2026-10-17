@@ -1,5 +1,6 @@
 """Exercise release evidence with real archives, Git paths, and external-tool stand-ins."""
 
+import hashlib
 import io
 import json
 import os
@@ -21,7 +22,6 @@ from scripts import release_evidence as evidence
 from tests.support import executable, tool_environment
 
 VERSION = "2.0.0"
-COMMIT = "1" * 40
 BRANCH = "release/2.0.0"
 
 
@@ -37,6 +37,8 @@ class ReleaseEvidenceTests(unittest.TestCase):
         subprocess.run(
             ["git", "remote", "add", "origin", "git@github.com:example/release-test.git"], cwd=self.root, check=True
         )
+        (self.root / "pom.xml").write_text(f"<project><version>{VERSION}</version></project>")
+        self.commit = self.commit_pom()
         environment = tool_environment(self.root)
         environment_patch = patch.dict(os.environ, environment)
         environment_patch.start()
@@ -57,6 +59,11 @@ if args[:2] == ['repo', 'view']:
     assert args[2] == 'git@github.com:example/release-test.git', args
     print(json.dumps(state['repository']))
     sys.exit(0)
+if args[:2] == ['attestation', 'verify']:
+    assert args[args.index('--repo') + 1] == 'example/release-test', args
+    assert pathlib.Path(args[2]).is_file()
+    assert pathlib.Path(args[args.index('--bundle') + 1]).is_file()
+    sys.exit(int(state.get('attestation_exit', 0)))
 assert args[args.index('--repo') + 1] == 'github.com/example/release-test', args
 if args[:2] == ['run', 'list']:
     print(json.dumps(state['tag_runs'] if args[args.index('--branch') + 1].startswith('v') else state['runs']))
@@ -91,7 +98,7 @@ else:
                     "attempt": 1,
                     "event": "push",
                     "headBranch": BRANCH,
-                    "headSha": COMMIT,
+                    "headSha": self.commit,
                     "status": "completed",
                     "conclusion": "success",
                 }
@@ -99,7 +106,7 @@ else:
             "run": {
                 "event": "push",
                 "headBranch": BRANCH,
-                "headSha": COMMIT,
+                "headSha": self.commit,
                 "status": "completed",
                 "conclusion": "success",
                 "jobs": [
@@ -119,7 +126,7 @@ else:
         }
         self.manifest: dict[str, Any] = {
             "mode": "published",
-            "versions": [{"name": VERSION, "sourceCommit": COMMIT, "banner": "none"}],
+            "versions": [{"name": VERSION, "sourceCommit": self.commit, "banner": "none"}],
         }
         self.state["tag_runs"] = [dict(self.state["runs"][0], headBranch="v" + VERSION, databaseId=9)]
         tag_run: dict[str, Any] = deepcopy(self.state["run"])
@@ -128,11 +135,78 @@ else:
         self.state["tag_run"] = tag_run
         self.assets = self.root / "assets"
         self.assets.mkdir()
-        self.metadata = f"version={VERSION}\ngit.commit={COMMIT}\ngit.dirty=false\n".encode()
+        self.metadata = f"version={VERSION}\ngit.commit={self.commit}\ngit.dirty=false\n".encode()
         for name in (self.names[0], self.names[-1]):
             self.jar(self.assets / name, self.metadata)
         self.archives((self.assets / self.names[0]).read_bytes())
         self.save()
+
+    def commit_pom(self) -> str:
+        """Commit real capability metadata for the release-evidence Git lookup."""
+        subprocess.run(["git", "add", "pom.xml"], cwd=self.root, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Evidence Test",
+                "-c",
+                "user.email=evidence@example.invalid",
+                "-c",
+                "commit.gpgSign=false",
+                "-c",
+                "core.hooksPath=/dev/null",
+                "commit",
+                "-qm",
+                "Release metadata",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.root, text=True).strip()
+
+    def javadoc(self, *, required: bool = False) -> list[str]:
+        """Create a real classified JAR and companions, optionally declaring the capability."""
+        if required:
+            (self.root / "pom.xml").write_text(
+                f"<project><version>{VERSION}</version><properties>"
+                "<release.javadoc.schema>1</release.javadoc.schema></properties></project>"
+            )
+            self.commit = self.commit_pom()
+            for name in ("runs", "tag_runs"):
+                self.state[name][0]["headSha"] = self.commit
+            for name in ("run", "tag_run"):
+                self.state[name]["headSha"] = self.commit
+            self.manifest["versions"][0]["sourceCommit"] = self.commit
+            self.metadata = f"version={VERSION}\ngit.commit={self.commit}\ngit.dirty=false\n".encode()
+            for name in (self.names[0], self.names[-1]):
+                self.jar(self.assets / name, self.metadata)
+            self.archives((self.assets / self.names[0]).read_bytes())
+        name = f"cs1302-tracer-{VERSION}-javadoc.jar"
+        path = self.assets / name
+        values = {
+            "Manifest-Version": "1.0",
+            "Code-Tracer-Javadoc-Schema": "1",
+            "Code-Tracer-Version": VERSION,
+            "Code-Tracer-Commit": self.commit,
+            "Code-Tracer-Dirty": "false",
+            "Code-Tracer-Javadoc-Plugin": "3.12.0",
+            "Code-Tracer-Build-Jdk": "21.0.9",
+            "Code-Tracer-Build-Jdk-Vendor": "Eclipse Adoptium",
+            "Code-Tracer-Build-Maven": "4.0.0-rc-5",
+        }
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF", "".join(f"{key}: {value}\r\n" for key, value in values.items()) + "\r\n"
+            )
+            for member in ("index.html", "search.html", "element-list"):
+                archive.writestr(member, "Generated API reference")
+        names = [name, name + ".sha256", name + ".sigstore.json"]
+        (self.assets / names[1]).write_text(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {name}\n")
+        (self.assets / names[2]).write_text('{"externalSigstoreFixture": true}')
+        self.state["release"]["assets"].extend(
+            {"name": item, "size": (self.assets / item).stat().st_size} for item in names
+        )
+        return names
 
     def save(self) -> None:
         """Publish the next GitHub response to the external-process fixture."""
@@ -157,12 +231,12 @@ else:
         """Verify actual downloaded files against a controlled HTTP response."""
         self.save()
         with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(self.manifest).encode())):
-            return evidence.publication_verified(self.root, VERSION, COMMIT)
+            return evidence.publication_verified(self.root, VERSION, self.commit)
 
     def ci(self) -> bool:
         """Verify the current observable run and jobs."""
         self.save()
-        return evidence.ci_passed(self.root, BRANCH, COMMIT)
+        return evidence.ci_passed(self.root, BRANCH, self.commit)
 
     def test_exact_ci_jobs_and_latest_run(self) -> None:
         """Accept all required jobs while ignoring the intentionally skipped publisher."""
@@ -179,7 +253,7 @@ else:
         commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
         self.assertEqual(commands[-1][:3], ["run", "view", "8"])
         self.assertIn("build.yml", commands[1])
-        self.assertIn(COMMIT, commands[1])
+        self.assertIn(self.commit, commands[1])
 
     def test_repository_identity_ignores_ambient_defaults(self) -> None:
         """Bind every API request to origin even when a different repository is selected globally."""
@@ -211,7 +285,7 @@ else:
                 "attempt": 1,
                 "event": "push",
                 "headBranch": BRANCH,
-                "headSha": COMMIT,
+                "headSha": self.commit,
             }
         ]
         self.state["run"]["status"] = "in_progress"
@@ -283,7 +357,7 @@ else:
 
     def test_invalid_publication_identity_rejected_before_io(self) -> None:
         """Do not use unvalidated version paths or abbreviated revisions."""
-        for version, commit in (("../../evil", COMMIT), ("01.0.0", COMMIT), (VERSION, "short")):
+        for version, commit in (("../../evil", self.commit), ("01.0.0", self.commit), (VERSION, "short")):
             with self.subTest(version=version, commit=commit), self.assertRaises(ValueError):
                 evidence.publication_verified(self.root, version, commit)
         self.assertFalse((self.root / "commands.jsonl").exists())
@@ -312,12 +386,97 @@ else:
                 self.published()
             self.state["release"][field] = original
 
+    def test_release_asset_records_must_be_unambiguous(self) -> None:
+        """Reject malformed and duplicate asset metadata before downloading any files."""
+        original = deepcopy(self.state["release"]["assets"])
+        invalid = [
+            None,
+            [None],
+            [{"name": None, "size": 1}],
+            [{"name": "", "size": 1}],
+            [{"name": "file", "size": "1"}],
+            [{"name": "file", "size": True}],
+            [{"name": "file", "size": -1}],
+            [*original, original[0]],
+        ]
+        for records in invalid:
+            with self.subTest(records=records), self.assertRaisesRegex(ValueError, "Release assets must"):
+                self.state["release"]["assets"] = records
+                self.published()
+        commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
+        self.assertFalse(any(command[:2] == ["release", "download"] for command in commands))
+
+    def test_required_javadoc_checks_exact_publisher_before_completing(self) -> None:
+        """Download all new assets and enforce exact GitHub certificate policy on the actual JAR."""
+        names = self.javadoc(required=True)
+        self.assertTrue(self.published())
+        commands = [json.loads(line) for line in (self.root / "commands.jsonl").read_text().splitlines()]
+        downloaded = next(command for command in commands if command[:2] == ["release", "download"])
+        for name in names:
+            self.assertIn(name, downloaded)
+        verification = next(command for command in commands if command[:2] == ["attestation", "verify"])
+        destination = self.root / ".git/release-assets" / VERSION
+        self.assertEqual(
+            verification,
+            [
+                "attestation",
+                "verify",
+                str(destination / names[0]),
+                "--bundle",
+                str(destination / names[2]),
+                "--hostname",
+                "github.com",
+                "--repo",
+                "example/release-test",
+                "--signer-workflow",
+                "example/release-test/.github/workflows/build.yml",
+                "--signer-digest",
+                self.commit,
+                "--source-digest",
+                self.commit,
+                "--source-ref",
+                "refs/tags/v" + VERSION,
+                "--deny-self-hosted-runners",
+                "--predicate-type",
+                "https://slsa.dev/provenance/v1",
+            ],
+        )
+        self.state["release"]["assets"] = [
+            asset for asset in self.state["release"]["assets"] if asset["name"] not in names
+        ]
+        self.assertFalse(self.published(), "Declared artifact support must not silently become a legacy release")
+
+    def test_advertised_legacy_javadoc_requires_every_companion(self) -> None:
+        """An optional legacy artifact becomes required evidence when any companion is advertised."""
+        names = self.javadoc()
+        complete = deepcopy(self.state["release"]["assets"])
+        for only in names:
+            self.state["release"]["assets"] = [
+                asset for asset in complete if asset["name"] not in names or asset["name"] == only
+            ]
+            self.assertFalse(self.published())
+        self.state["release"]["assets"] = complete
+        self.assertTrue(self.published())
+
+    def test_invalid_javadoc_checksum_or_attestation_cannot_complete(self) -> None:
+        """Keep integrity and external trust failures visible instead of falling back to old assets."""
+        names = self.javadoc()
+        checksum = self.assets / names[1]
+        original = checksum.read_text()
+        checksum.write_text("wrong checksum\n")
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+            self.published()
+        checksum.write_text(original)
+        self.state["attestation_exit"] = 1
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.published()
+
     def test_inconsistent_and_dirty_jar_metadata_is_error(self) -> None:
         """Wrong versions, commits, and dirty flags fail after actual asset download."""
         self.jar(self.assets / self.names[-1], b"different")
         with self.assertRaisesRegex(ValueError, "different build metadata"):
             self.published()
-        for old, new in ((VERSION, "1.0.0"), (COMMIT, "2" * 40), ("false", "true")):
+        for old, new in ((VERSION, "1.0.0"), (self.commit, "2" * 40), ("false", "true")):
             metadata = self.metadata.replace(old.encode(), new.encode())
             for name in (self.names[0], self.names[-1]):
                 self.jar(self.assets / name, metadata)
@@ -378,7 +537,7 @@ else:
         with self.assertRaisesRegex(ValueError, "not a published build"):
             self.published()
         self.manifest["mode"] = "published"
-        entry = {"name": VERSION, "sourceCommit": COMMIT, "banner": "none"}
+        entry = {"name": VERSION, "sourceCommit": self.commit, "banner": "none"}
         for entries in ([entry, entry], [dict(entry, sourceCommit="2" * 40)], [dict(entry, banner="unreleased")]):
             self.manifest["versions"] = entries
             with self.assertRaisesRegex(ValueError, "expected tagged revision"):
@@ -390,10 +549,10 @@ else:
             error = urllib.error.HTTPError(evidence.MANIFEST_URL, status, "test error", Message(), None)
             with patch("urllib.request.urlopen", side_effect=error):
                 if status == 404:
-                    self.assertFalse(evidence.publication_verified(self.root, VERSION, COMMIT))
+                    self.assertFalse(evidence.publication_verified(self.root, VERSION, self.commit))
                 else:
                     with self.assertRaises(urllib.error.HTTPError):
-                        evidence.publication_verified(self.root, VERSION, COMMIT)
+                        evidence.publication_verified(self.root, VERSION, self.commit)
         with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("offline")):
             with self.assertRaises(urllib.error.URLError):
-                evidence.publication_verified(self.root, VERSION, COMMIT)
+                evidence.publication_verified(self.root, VERSION, self.commit)

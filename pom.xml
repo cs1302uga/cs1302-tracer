@@ -104,6 +104,10 @@
     <docsite.releases></docsite.releases>
     <docsite.pendingCommit></docsite.pendingCommit>
     <docsite.javadocCache>use</docsite.javadocCache>
+    <docsite.javadocSource>auto</docsite.javadocSource>
+
+    <!-- Published releases declaring this schema must provide authenticated Javadoc artifacts. -->
+    <release.javadoc.schema>1</release.javadoc.schema>
 
     <!-- The release orchestrator overrides these only for the non-mutating POM/SCM dry run. -->
     <release.preparationGoals>verify</release.preparationGoals>
@@ -911,6 +915,68 @@ git.dirty=${git.dirty}
         </plugins>
       </build>
     </profile>
+    <!-- Produce the standard Javadoc classifier and record its exact source and build toolchain. -->
+    <profile>
+      <id>release-javadoc</id>
+      <build>
+        <plugins>
+          <!-- Build a Maven archive manifest from generated Git provenance and runtime properties. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>prepare-release-javadoc-manifest</id>
+                <phase>prepare-package</phase>
+                <goals><goal>run</goal></goals>
+                <configuration>
+                  <target>
+                    <available file="${project.build.directory}/build-provenance.properties"
+                      property="release.javadoc.provenance.available" />
+                    <fail unless="release.javadoc.provenance.available"
+                      message="Javadoc packaging requires generated build provenance." />
+                    <property file="${project.build.directory}/build-provenance.properties" />
+                    <!-- Maven supplies its actual runtime version; reject an unresolved interpolation. -->
+                    <fail message="Javadoc packaging requires the actual Maven runtime version.">
+                      <condition>
+                        <not><matches string="${maven.version}" pattern="^[0-9]+\.[0-9]+\.[0-9]+(?:[-.][A-Za-z0-9.-]+)?$" /></not>
+                      </condition>
+                    </fail>
+                    <manifest file="${project.build.directory}/javadoc-release-manifest.mf">
+                      <attribute name="Code-Tracer-Javadoc-Schema" value="${release.javadoc.schema}" />
+                      <attribute name="Code-Tracer-Version" value="${project.version}" />
+                      <attribute name="Code-Tracer-Commit" value="${git.commit}" />
+                      <attribute name="Code-Tracer-Dirty" value="${git.dirty}" />
+                      <attribute name="Code-Tracer-Javadoc-Plugin" value="${maven-javadoc-plugin.version}" />
+                      <attribute name="Code-Tracer-Build-Jdk" value="${java.version}" />
+                      <attribute name="Code-Tracer-Build-Jdk-Vendor" value="${java.vendor}" />
+                      <attribute name="Code-Tracer-Build-Maven" value="${maven.version}" />
+                    </manifest>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!-- Attach supported API documentation with the same Javadoc configuration as the site. -->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-release-javadoc</id>
+                <phase>package</phase>
+                <goals><goal>jar</goal></goals>
+                <configuration>
+                  <archive>
+                    <manifestFile>${project.build.directory}/javadoc-release-manifest.mf</manifestFile>
+                  </archive>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <!-- Opt in to frontend bootstrap and complete documentation verification after packaging. -->
     <profile>
       <id>docsite</id>
@@ -948,6 +1014,7 @@ git.dirty=${git.dirty}
                     <DOCSITE_RELEASES>${docsite.releases}</DOCSITE_RELEASES>
                     <DOCSITE_PENDING_COMMIT>${docsite.pendingCommit}</DOCSITE_PENDING_COMMIT>
                     <DOCSITE_JAVADOC_CACHE>${docsite.javadocCache}</DOCSITE_JAVADOC_CACHE>
+                    <DOCSITE_JAVADOC_SOURCE>${docsite.javadocSource}</DOCSITE_JAVADOC_SOURCE>
                     <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
                   </environmentVariables>
                 </configuration>

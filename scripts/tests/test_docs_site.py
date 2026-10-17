@@ -1,5 +1,6 @@
 """Exercise the documentation CLI with real projects and external tool stand-ins."""
 
+import hashlib
 import json
 import os
 import shutil
@@ -7,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -24,7 +26,14 @@ class DocumentationSiteTests(unittest.TestCase):
         self.site.mkdir()
         scripts = self.root / "scripts"
         scripts.mkdir()
-        for name in ("docs_site.py", "docs_release.py", "build_javadoc.py", "javadoc_cache.py", "docs_timing.py"):
+        for name in (
+            "docs_site.py",
+            "docs_release.py",
+            "build_javadoc.py",
+            "javadoc_cache.py",
+            "javadoc_artifact.py",
+            "docs_timing.py",
+        ):
             shutil.copy2(SCRIPTS / name, scripts / name)
         (self.root / "pom.xml").write_text("<project><version>1.0.0</version></project>")
         (self.root / "source.txt").write_text("released source")
@@ -88,6 +97,15 @@ if 'build' in sys.argv:
 """,
         )
         self.environment["PATH"] = str(binaries) + os.pathsep + os.environ["PATH"]
+        self.executable(
+            binaries / "gh",
+            """
+import json, os, sys
+with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
+    log.write(json.dumps(['gh', *sys.argv[1:]]) + '\\n')
+sys.exit(1 if os.environ.get('DOCS_TEST_FAIL_ATTESTATION') else 0)
+""",
+        )
 
     def executable(self, path: Path, body: str) -> None:
         """Write an executable external-tool stand-in."""
@@ -118,12 +136,88 @@ if 'build' in sys.argv:
     def run_site(self, *args: str) -> subprocess.CompletedProcess[str]:
         """Invoke the documentation CLI."""
         return subprocess.run(
-            [sys.executable, str(self.root / "scripts/docs_site.py"), *args],
+            [
+                sys.executable,
+                "-c",
+                """
+import json, os, runpy, sys, urllib.parse, urllib.request
+from pathlib import Path
+if os.environ.get('DOCS_TEST_ASSETS'):
+    def download(request, timeout):
+        url = request.full_url if isinstance(request, urllib.request.Request) else request
+        with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
+            log.write(json.dumps(['download', url]) + '\\n')
+        return (Path(os.environ['DOCS_TEST_ASSETS']) / urllib.parse.urlparse(url).path.rsplit('/', 1)[-1]).open('rb')
+    urllib.request.urlopen = download
+sys.argv.pop(0)
+sys.path.insert(0, str(Path(sys.argv[0]).parent))
+runpy.run_path(sys.argv[0], run_name='__main__')
+""",
+                str(self.root / "scripts/docs_site.py"),
+                *args,
+            ],
             cwd=self.root,
             env=self.environment,
             text=True,
             capture_output=True,
         )
+
+    def release_assets(self, *, commit: str | None = None) -> Path:
+        """Advertise real Javadoc files behind the external download boundary."""
+        directory = self.root / "release-assets"
+        directory.mkdir(exist_ok=True)
+        artifact = directory / "cs1302-tracer-1.0.0-javadoc.jar"
+        manifest = {
+            "Manifest-Version": "1.0",
+            "Code-Tracer-Javadoc-Schema": "1",
+            "Code-Tracer-Version": "1.0.0",
+            "Code-Tracer-Commit": commit or self.git("rev-parse", "v1.0.0^{commit}"),
+            "Code-Tracer-Dirty": "false",
+            "Code-Tracer-Javadoc-Plugin": "3.12.0",
+            "Code-Tracer-Build-Jdk": "21.0.10",
+            "Code-Tracer-Build-Jdk-Vendor": "Eclipse Adoptium",
+            "Code-Tracer-Build-Maven": "3.9.16",
+        }
+        with zipfile.ZipFile(artifact, "w") as archive:
+            archive.writestr(
+                "META-INF/MANIFEST.MF", "".join(f"{key}: {value}\r\n" for key, value in manifest.items()) + "\r\n"
+            )
+            archive.writestr("index.html", "published release API")
+            archive.writestr("search.html", "Published search")
+            archive.writestr("element-list", "cs1302.tracer")
+            archive.writestr("script-files/search.js", "Published search script")
+        (directory / (artifact.name + ".sha256")).write_text(
+            hashlib.sha256(artifact.read_bytes()).hexdigest() + "  " + artifact.name + "\n"
+        )
+        (directory / (artifact.name + ".sigstore.json")).write_text('{"verification":"external gh boundary"}')
+        self.environment["DOCS_TEST_ASSETS"] = str(directory)
+        return self.advertise_assets(directory)
+
+    def advertise_assets(self, directory: Path) -> Path:
+        """Write release records containing the current files' actual size and digest."""
+        records = self.root / "releases.json"
+        records.write_text(
+            json.dumps(
+                [
+                    {
+                        "tag_name": "v1.0.0",
+                        "draft": False,
+                        "prerelease": False,
+                        "assets": [
+                            {
+                                "name": asset.name,
+                                "browser_download_url": "https://github.com/cs1302uga/cs1302-tracer/releases/download/v1.0.0/"
+                                + asset.name,
+                                "size": asset.stat().st_size,
+                                "digest": "sha256:" + hashlib.sha256(asset.read_bytes()).hexdigest(),
+                            }
+                            for asset in sorted(directory.iterdir())
+                        ],
+                    }
+                ]
+            )
+        )
+        return records
 
     def test_rejects_output_relocation_before_generating_or_changing_a_build(self) -> None:
         """Rejects output relocation before generating or changing a build."""
@@ -333,6 +427,109 @@ if 'build' in sys.argv:
         result = self.run_site("api", "--javadoc-cache", "off")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.site / ".cache").exists())
+
+    def test_published_artifact_replaces_historical_generation_and_survives_local_toolchain_changes(self) -> None:
+        """Use signed release output before probing source caches, even in refresh/off cache modes."""
+        records = self.release_assets()
+        options = ("api", "--mode", "published", "--releases", str(records))
+        result = self.run_site(*options, "--javadoc-cache", "refresh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "published release API")
+        self.assertEqual(
+            (self.site / "generated-api/api/1.0.0/script-files/search.js").read_text(), "Published search script"
+        )
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call for call in calls if call[0] == "maven"], [["maven", "working source"]])
+        self.assertNotIn(["maven-version"], calls)
+        self.assertEqual(len([call for call in calls if call[0] == "download"]), 3)
+        self.assertTrue(any(call[0] == "gh" for call in calls))
+        self.assertFalse((self.site / ".cache/javadoc").exists())
+        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual(report["stages"][-1]["cache"], "release-asset")
+        self.assertEqual(report["javadocSource"], "auto")
+        self.assertNotIn("assets", json.loads((self.site / "release-manifest.json").read_text())["versions"][1])
+
+        wrapper = self.root / "mvnw"
+        wrapper.write_text(wrapper.read_text().replace("Java version: 25", "Java version: 30"))
+        (self.root / "source.txt").write_text("later development source")
+        self.log.write_text("")
+        result = self.run_site(*options, "--javadoc-cache", "off")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call for call in calls if call[0] == "maven"], [["maven", "later development source"]])
+        self.assertFalse(any(call[0] in ("maven-version", "download") for call in calls))
+        self.assertTrue(any(call[0] == "gh" for call in calls), "Warm artifacts still require attestation verification")
+        self.assertEqual(
+            json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "release-asset-cache"
+        )
+
+    def test_legacy_published_release_falls_back_to_the_existing_source_cache(self) -> None:
+        """A release with no advertised artifact and no producer marker remains buildable."""
+        records = self.root / "releases.json"
+        records.write_text('[{"tag_name":"v1.0.0","assets":[]}]')
+        result = self.run_site("api", "--mode", "published", "--releases", str(records))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "released source")
+        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "miss")
+
+    def test_invalid_advertised_artifact_fails_without_replacing_previous_api_or_using_source_cache(self) -> None:
+        """Wrong producer provenance cannot silently become regenerated publication output."""
+        result = self.run_site("api")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        previous_manifest = (self.site / "release-manifest.json").read_bytes()
+        records = self.release_assets(commit="0" * 40)
+        self.log.write_text("")
+        result = self.run_site("api", "--mode", "published", "--releases", str(records))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "released source")
+        self.assertEqual((self.site / "release-manifest.json").read_bytes(), previous_manifest)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertNotIn(["maven-version"], calls)
+        self.assertNotIn(["maven", "released source"], calls)
+        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual(report["stages"][-1]["name"], "javadoc/1.0.0")
+        self.assertEqual(report["stages"][-1]["status"], "failed")
+
+    def test_source_override_and_preview_do_not_consume_published_artifacts(self) -> None:
+        """Source mode provides an explicit local path; preview never performs artifact IO."""
+        records = self.release_assets(commit="0" * 40)
+        self.environment["DOCSITE_JAVADOC_SOURCE"] = "source"
+        result = self.run_site("api", "--mode", "published", "--releases", str(records), "--javadoc-cache", "off")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual(calls, [["maven", "working source"], ["maven", "released source"]])
+        self.assertFalse((self.site / ".cache").exists())
+        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["javadocSource"], "source")
+        self.log.write_text("")
+        result = self.run_site("api", "--javadoc-source", "auto", "--javadoc-cache", "off")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual(calls, [["maven", "working source"], ["maven", "released source"]])
+
+    def test_invalid_source_environment_fails_early_and_explicit_option_overrides_it(self) -> None:
+        """Reject invalid environment modes before invoking external tools."""
+        self.environment["DOCSITE_JAVADOC_SOURCE"] = "invalid"
+        result = self.run_site("api")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("DOCSITE_JAVADOC_SOURCE", result.stderr)
+        self.assertFalse(self.log.exists())
+        result = self.run_site("api", "--javadoc-source", "source")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, 'scripts'); from pathlib import Path; "
+                "from build_javadoc import build; from docs_release import Project; root=Path.cwd(); "
+                "build(root, Project(root).plan('preview'), artifact_mode='invalid')",
+            ],
+            cwd=self.root,
+            env=self.environment,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unknown Javadoc source mode", result.stderr)
 
     def test_failed_executable_documentation_is_recorded_before_api_generation(self) -> None:
         """A failing prerequisite stops generation and leaves an invocation-specific timing report."""

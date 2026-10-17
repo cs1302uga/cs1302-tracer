@@ -14,12 +14,22 @@ SITE = ROOT / "website"
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 
 
+class ReleaseAsset(TypedDict):
+    """Published asset identity and integrity fields used by the Javadoc consumer."""
+
+    name: str
+    browser_download_url: str
+    size: int
+    digest: str
+
+
 class ReleaseRecord(TypedDict):
     """GitHub release fields used to select public documentation."""
 
     tag_name: str
     draft: NotRequired[bool]
     prerelease: NotRequired[bool]
+    assets: NotRequired[list[ReleaseAsset]]
 
 
 class ReleaseEntry(TypedDict):

@@ -86,9 +86,11 @@ behavior.
 | --- | --- |
 | [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
 | [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
-| [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published selection, historical Javadoc cache controls, and stage timings. |
-| [`build_javadoc.py`](build_javadoc.py) | Generate working-source Javadoc and reuse validated historical output when eligible. Invoke through `docs_site.py api`. |
+| [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published selection, Javadoc artifact/source and cache controls, and stage timings. |
+| [`build_javadoc.py`](build_javadoc.py) | Select verified release Javadoc or tagged-source output and generate development API pages. Invoke through `docs_site.py api`. |
 | [`javadoc_cache.py`](javadoc_cache.py) | Internal historical-output cache with build-input fingerprints and complete-file integrity checks. Configure it through `docs_site.py`. |
+| [`javadoc_artifact.py`](javadoc_artifact.py) | Validate release Javadoc structure and manifest metadata with `check`, writing its checksum; `verify` also checks the adjacent checksum and attestation bundle against the trusted release identity. |
+| [`javadoc_publish.py`](javadoc_publish.py) | Preserve a complete verified remote Javadoc set before upload and verify actual remote files afterward; reject partial sets rather than replacing them. See the release runbook for CLI arguments and recovery. |
 | [`docs_timing.py`](docs_timing.py) | Record documentation stage durations and completion status. Its `npm-ci` action runs locked frontend installation and writes a separate timing report. |
 | [`check_site.py`](check_site.py) | Check rendered links, fragments, base paths, and version-matched Javadoc links in `website/build`. |
 | [`serve_docs.py`](serve_docs.py) | Serve an existing build with its project base path and intact Javadoc URLs. Defaults to `127.0.0.1:3000`; accepts `--host` and `--port`. |
@@ -120,6 +122,8 @@ preview, published mode, and release rehearsal using the plugin-installed toolch
 `build` generates the site, `start` runs the development server, and `api` generates
 only Javadoc and the release manifest. `--mode` selects `preview` or `published`;
 `--releases PATH` supplies the JSON release records required in published mode.
+Retain complete asset descriptors for automatic Javadoc artifact selection,
+including names, sizes, download URLs, and SHA-256 digests.
 Defaults come from `DOCSITE_MODE` (otherwise `preview`) and `DOCSITE_RELEASES`
 (otherwise no records). The Maven profile passes these through environment variables.
 Explicit CLI options override the corresponding defaults.
@@ -142,12 +146,26 @@ script invokes the managed Python wrapper itself. Other npm scripts use `python3
 from their inherited environment; invoke them through `./scripts/uv run --locked`.
 Generating a local site does not publish it.
 
-Historical Javadoc uses the ignored `website/.cache/javadoc/` directory, which
-survives Maven `clean`. All actions accept `--javadoc-cache use|refresh|off`:
+All actions accept `--javadoc-source auto|source`, defaulting to
+`DOCSITE_JAVADOC_SOURCE` or `auto`. An explicit option takes precedence; Maven
+forwards `-Ddocsite.javadocSource=auto|source`. Preview uses tagged source without
+release-artifact downloads. Published `auto` prefers the selected release's verified
+Javadoc JAR, checksum, and attestation bundle. A marker-free legacy release that
+advertises no artifact can fall back to source; missing required artifacts
+or incomplete/invalid advertised sets fail. `source` explicitly bypasses release
+artifacts. Downloaded bundles live under `website/.cache/release-javadoc/` and are
+verified on every reuse, which can still require network access for trust data.
+See [published Javadoc artifacts](../docs/contributing/documentation.md#published-javadoc-artifacts)
+for provenance requirements and the `javadoc_artifact.py check`/`verify` commands.
+
+Source-built historical Javadoc uses the ignored `website/.cache/javadoc/`
+directory, which survives Maven `clean`. All actions accept `--javadoc-cache use|refresh|off`:
 `use` reuses valid entries or generates missing ones, `refresh` regenerates and
 replaces them, and `off` generates without cache access. The explicit option
 overrides `DOCSITE_JAVADOC_CACHE`; the default is `use`. Maven forwards
-`-Ddocsite.javadocCache=use|refresh|off` through that variable. Development and
+`-Ddocsite.javadocCache=use|refresh|off` through that variable. These modes apply
+only to source builds; combine `--javadoc-source source` and `--javadoc-cache off`
+to bypass both artifact and generated-output reuse. Development and
 untagged pending Javadoc always regenerate. Cache use preserves tag/POM validation
 and the complete `verify` workflow's documentation and rendered-link checks.
 
@@ -184,6 +202,9 @@ history is never squashed or rebased, and published tags are never moved.
 Retries accept later `main` descendants containing the exact prepared history.
 Every required CI job must pass in the latest attempt; if a partial rerun lacks
 the complete matrix, rerun all jobs before retrying publication.
+The publisher preserves complete verified Javadoc assets on retries and never
+automatically overwrites them. A partial artifact set requires the runbook's
+explicit recovery procedure; a final check verifies the actual remote files.
 
 `status --directory PATH` only prints the saved `.git/code-tracer-release.json`
 report; it does not refresh remote state. `resume --directory PATH` handles only

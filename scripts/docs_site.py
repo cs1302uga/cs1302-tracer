@@ -28,10 +28,16 @@ def main() -> None:
         help="GitHub release records; required in published mode",
     )
     parser.add_argument(
+        "--javadoc-source",
+        choices=("auto", "source"),
+        default=os.environ.get("DOCSITE_JAVADOC_SOURCE", "auto"),
+        help="Prefer verified published Javadoc (preview uses source), or force historical source with its cache mode",
+    )
+    parser.add_argument(
         "--javadoc-cache",
         choices=("use", "refresh", "off"),
         default=os.environ.get("DOCSITE_JAVADOC_CACHE", "use"),
-        help="Reuse validated historical Javadoc, regenerate and replace it, or bypass the cache entirely",
+        help="Reuse, refresh, or bypass source-generation caches; published artifacts take precedence in auto mode",
     )
     parser.add_argument(
         "--pending-commit",
@@ -39,6 +45,8 @@ def main() -> None:
         help="Full release commit SHA for previewing its untagged snapshot after the next development bump",
     )
     args, remaining = parser.parse_known_args()
+    if args.javadoc_source not in ("auto", "source"):
+        parser.error("DOCSITE_JAVADOC_SOURCE must be auto or source")
     if args.javadoc_cache not in ("use", "refresh", "off"):
         parser.error("DOCSITE_JAVADOC_CACHE must be use, refresh, or off")
     # The release manifest, checker, and preview server all own website/build.
@@ -63,7 +71,14 @@ def main() -> None:
                 subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py")], cwd=ROOT, check=True)
             with timings.measure("release-metadata"):
                 subprocess.run([sys.executable, str(ROOT / "scripts/docs_release.py"), "check"], cwd=ROOT, check=True)
-        build(ROOT, plan, cache_mode=args.javadoc_cache, timings=timings)
+        build(
+            ROOT,
+            plan,
+            releases=records,
+            artifact_mode=args.javadoc_source,
+            cache_mode=args.javadoc_cache,
+            timings=timings,
+        )
         manifest = project.write_manifest(plan)
         if args.action != "api":
             action = "build" if args.action == "verify" else args.action
@@ -81,6 +96,7 @@ def main() -> None:
             action=args.action,
             mode=args.mode,
             javadocCache=args.javadoc_cache,
+            javadocSource=args.javadoc_source,
         )
 
 

@@ -63,6 +63,21 @@ use the installation instructions for that release.
 
 Continue with [your first trace](../tutorials/first-trace.md); no checkout is needed.
 
+### Offline API documentation
+
+Releases produced by the current workflow also include
+`cs1302-tracer-VERSION-javadoc.jar`, its `.jar.sha256` checksum, and its
+`.jar.sigstore.json` provenance bundle. These contain **Javadoc** for library
+integration; they are separate from the executable and library JARs. Older
+releases may not provide them.
+
+Download the three matching files and follow the
+[release-artifact verification instructions](../contributing/documentation.md#published-javadoc-artifacts)
+to check their source identity and trusted build provenance. Extract the verified
+Javadoc JAR into an empty directory and open `index.html` in a browser. The HTML,
+navigation, and search are bundled; links to other projects can still need network
+access. Do not run this JAR with `java -jar` or add it as a runtime dependency.
+
 ## Build from source
 
 ```sh

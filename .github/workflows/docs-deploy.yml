@@ -57,10 +57,12 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s '.' > "$RUNNER_TEMP/releases.json"
+      # Authenticate published API artifacts; older releases retain exact tagged-source generation.
       - name: Build and verify published documentation with the pinned frontend toolchain
         run: >-
           ./mvnw -B -ntp -Pdocsite -DskipTests
           -Ddocsite.mode=published
+          -Ddocsite.javadocSource=auto
           "-Ddocsite.releases=$RUNNER_TEMP/releases.json" verify
       # Manual main deployments may populate the cache after full validation.
       # Immutable transport keys follow validated manifests, not checkout SHAs.

@@ -9,6 +9,8 @@ import urllib.request
 import zipfile
 from typing import TYPE_CHECKING, Any, cast
 
+from javadoc_artifact import requires_artifact, verify_release_files
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -150,7 +152,8 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
     tag = "v" + version
     if not ci_passed(root, tag, commit, publisher=True):
         return False
-    target = "github.com/" + repository(root)
+    repository_name = repository(root)
+    target = "github.com/" + repository_name
     releases = cast(
         "list[Record]",
         gh_json(
@@ -184,14 +187,33 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
         raise ValueError("Published release identity or stable-release classification is incorrect")
     if release["isDraft"] or not release["publishedAt"]:
         return False
-    names = [
-        "code-tracer.jar",
+    library = f"cs1302-tracer-{version}.jar"
+    archives = [
         "code-tracer-bin.tar.gz",
         "code-tracer-bin.tar.xz",
         "code-tracer-bin.zip",
-        f"cs1302-tracer-{version}.jar",
     ]
-    assets = {asset["name"]: asset["size"] for asset in release["assets"]}
+    javadoc = f"cs1302-tracer-{version}-javadoc.jar"
+    javadoc_assets = [javadoc, javadoc + ".sha256", javadoc + ".sigstore.json"]
+    assets: dict[str, int] = {}
+    if not isinstance(release["assets"], list):
+        raise ValueError("Release assets must be a list of unique named files")
+    for asset in release["assets"]:
+        if (
+            not isinstance(asset, dict)
+            or not isinstance(asset.get("name"), str)
+            or not asset["name"]
+            or not isinstance(asset.get("size"), int)
+            or isinstance(asset["size"], bool)
+            or asset["size"] < 0
+            or asset["name"] in assets
+        ):
+            raise ValueError("Release assets must be unique named files with nonnegative sizes")
+        assets[asset["name"]] = asset["size"]
+    require_javadoc = requires_artifact(root, commit) or any(name in assets for name in javadoc_assets)
+    names = ["code-tracer.jar", *archives, library]
+    if require_javadoc:
+        names.extend(javadoc_assets)
     if any(assets.get(name, 0) <= 0 for name in names):
         return False
     git_path = subprocess.run(
@@ -222,7 +244,7 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
         timeout=60,
     )
     metadata = jar_metadata(destination / names[0])
-    if metadata != jar_metadata(destination / names[-1]):
+    if metadata != jar_metadata(destination / library):
         raise ValueError("Library and executable release JARs contain different build metadata")
     values = dict(line.split("=", 1) for line in metadata.decode().splitlines())
     if any(
@@ -235,9 +257,11 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
     ):
         raise ValueError("Release JAR metadata must identify the expected clean tagged revision")
     executable = (destination / names[0]).read_bytes()
-    for name in names[1:-1]:
+    for name in archives:
         if archived_jar(destination / name) != executable:
             raise ValueError(f"{name} contains a different executable JAR")
+    if require_javadoc:
+        verify_release_files(root, destination / javadoc, version, commit, repository_name)
     request = urllib.request.Request(MANIFEST_URL, headers={"Cache-Control": "no-cache"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:

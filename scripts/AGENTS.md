@@ -44,9 +44,11 @@ their declared dependencies.
 | `check_site.py` | Validates links, fragments, base paths, and version-matched API links in `website/build`. Run after building the site. |
 | `check_external_links.py` | Checks external HTTP links and writes `external-links-report.md`; remote failures are advisory rather than a PR merge gate. |
 | `docs_release.py` | Validates and prepares snapshots; owns release selection, routes, tag provenance, and explicit pending-commit previews. `prepare --version` retains the snapshot POM; `check --pending` validates before its stable transition. |
-| `docs_site.py` | Entry point for `build`, `start`, `api`, and `verify`; owns release selection, cache controls, and stage timings. `verify` retains executable docs, metadata, and rendered-link checks. |
-| `build_javadoc.py` | Stages development Javadoc and validated historical output, generating cache misses. Invoke through `docs_site.py api`. |
+| `docs_site.py` | Entry point for `build`, `start`, `api`, and `verify`; owns release selection, Javadoc source/cache controls, and stage timings. `verify` retains executable docs, metadata, and rendered-link checks. |
+| `build_javadoc.py` | Stages fresh development Javadoc and verified release artifacts or tagged-source output. Invoke through `docs_site.py api`. |
 | `javadoc_cache.py` | Owns historical-output fingerprints, complete-entry verification, and cache storage; configure through `docs_site.py`. |
+| `javadoc_artifact.py` | Owns release Javadoc structure, manifest/checksum checks, and trusted attestation verification. `check` writes a checksum; `verify` requires the adjacent release companions. |
+| `javadoc_publish.py` | Preserves verified remote Javadoc bytes on retries and verifies the uploaded set. Partial sets require reviewed recovery; never replace them automatically. |
 | `docs_timing.py` | Records stages for one documentation invocation; `npm-ci` measures dependency installation separately. |
 | `serve_docs.py` | Serves an existing build with project-base paths and unchanged Javadoc URLs. Supports `--host` and `--port`. |
 | `rehearse_docs_release.py` | Exercises preparation, publishing, archive retention, retries, and missing tags using real builds in a disposable project. |
@@ -99,7 +101,10 @@ publication. Pending source overrides are preview-only and must retain exact
 commit/documentation provenance. Tests must exercise real temporary Git history
 and substitute only external build, network, and process boundaries.
 For cache changes, preserve provenance validation before reuse and complete
-rendered checks afterward. For performance claims, follow the guide's controlled
+rendered checks afterward. Keep published Javadoc artifacts distinct from generated
+caches; a cache hit or checksum alone does not establish trusted release provenance.
+Preserve required-artifact failures and the explicit source-build override described
+in the guide. For performance claims, follow the guide's controlled
 cold/warm comparison and report the measured stages separately from whole-build time.
 
 ```sh

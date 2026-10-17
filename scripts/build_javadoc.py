@@ -8,10 +8,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from docs_timing import BuildTimings
+from javadoc_artifact import restore
 from javadoc_cache import REQUIRED, JavadocCache
 
 if TYPE_CHECKING:
-    from docs_release import ReleasePlan
+    from docs_release import ReleasePlan, ReleaseRecord
 
 
 def generate(root: Path, source: Path, destination: Path) -> None:
@@ -41,9 +42,19 @@ def generate(root: Path, source: Path, destination: Path) -> None:
     shutil.copytree(generated, destination)
 
 
-def build(root: Path, plan: ReleasePlan, *, cache_mode: str = "use", timings: BuildTimings | None = None) -> None:
-    """Generate exactly the releases and pinned revisions selected by the release module."""
+def build(
+    root: Path,
+    plan: ReleasePlan,
+    *,
+    releases: list[ReleaseRecord] | None = None,
+    artifact_mode: str = "auto",
+    cache_mode: str = "use",
+    timings: BuildTimings | None = None,
+) -> None:
+    """Use verified published artifacts or generate the exact revisions selected by the release module."""
     output = root / "website/generated-api"
+    if artifact_mode not in ("auto", "source"):
+        raise ValueError("Unknown Javadoc source mode")
     timings = timings or BuildTimings()
     cache = JavadocCache(root, cache_mode)
     with tempfile.TemporaryDirectory(prefix="tracer-javadoc-") as temporary:
@@ -60,6 +71,11 @@ def build(root: Path, plan: ReleasePlan, *, cache_mode: str = "use", timings: Bu
                     shutil.copytree(development, destination)
                     continue
                 historical = entry["banner"] == "none"
+                if historical and artifact_mode == "auto" and plan["mode"] == "published":
+                    outcome = restore(root, entry, releases or [], destination)
+                    if outcome is not None:
+                        record["cache"] = outcome
+                        continue
                 key = cache.key(entry["sourceCommit"]) if historical else None
                 record["cache"] = ("miss" if cache_mode == "use" else cache_mode) if historical else "pending"
                 if historical and cache.restore(key, destination):

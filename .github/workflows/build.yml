@@ -201,7 +201,8 @@ jobs:
           metadata_path = 'cs1302/tracer/version.properties'
           with zipfile.ZipFile('target/code-tracer.jar') as jar:
               metadata = jar.read(metadata_path)
-          with zipfile.ZipFile(next(Path('target').glob('cs1302-tracer-[0-9]*.jar'))) as jar:
+          version = dict(line.split('=', 1) for line in metadata.decode().splitlines())['version']
+          with zipfile.ZipFile(f'target/cs1302-tracer-{version}.jar') as jar:
               assert jar.read(metadata_path) == metadata
           provenance = Path('target/build-provenance.properties').read_text()
           head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
@@ -362,6 +363,8 @@ jobs:
   release:
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     needs: [test, documentation, windows-wrapper, scripts-quality]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
@@ -395,13 +398,82 @@ jobs:
           javac -version
           echo '::endgroup::'
       - name: Build with Maven
-        run: ./mvnw -B -ntp clean package -DskipTests
-      - name: Create release
+        run: ./mvnw -B -ntp -Prelease-javadoc clean package -DskipTests
+      - name: Validate Javadoc release identity and checksum
+        id: release-artifacts
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          test "$RELEASE_TAG" = "v$version"
+          javadoc="target/cs1302-tracer-$version-javadoc.jar"
+          ./scripts/uv run --locked python scripts/javadoc_artifact.py check "$javadoc" \
+            --version "$version" --commit "$GITHUB_SHA"
+          printf 'library=target/cs1302-tracer-%s.jar\njavadoc=%s\nversion=%s\n' \
+            "$version" "$javadoc" "$version" >> "$GITHUB_OUTPUT"
+      # A retry reuses a verified complete trio; partial uploads require explicit recovery.
+      - name: Preserve existing Javadoc release artifacts
+        id: preserve-javadoc
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JAVADOC_JAR: ${{ steps.release-artifacts.outputs.javadoc }}
+          RELEASE_VERSION: ${{ steps.release-artifacts.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ./scripts/uv run --locked python scripts/javadoc_publish.py preserve "$JAVADOC_JAR" \
+            --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --github-output "$GITHUB_OUTPUT"
+      # Sign fresh final bytes in this checked tag job; caches are never release evidence.
+      - name: Attest Javadoc release artifact
+        id: attest-javadoc
+        if: steps.preserve-javadoc.outputs.preserved == 'false'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ github.workspace }}/${{ steps.release-artifacts.outputs.javadoc }}
+          create-storage-record: false
+      - name: Retain new Javadoc attestation bundle
+        if: steps.preserve-javadoc.outputs.preserved == 'false'
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest-javadoc.outputs.bundle-path }}
+          JAVADOC_JAR: ${{ steps.release-artifacts.outputs.javadoc }}
+        run: cp -- "$ATTESTATION_BUNDLE" "$JAVADOC_JAR.sigstore.json"
+      - name: Verify Javadoc release attestation
+        env:
+          JAVADOC_JAR: ${{ steps.release-artifacts.outputs.javadoc }}
+          RELEASE_VERSION: ${{ steps.release-artifacts.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ./scripts/uv run --locked python scripts/javadoc_artifact.py verify "$JAVADOC_JAR" \
+            --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$REPOSITORY"
+      # Runtime assets retain their existing retry behavior; only Javadoc bytes are frozen.
+      - name: Publish runtime release files
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
+          # Keep a new release private until the following step uploads all required Javadoc files.
+          draft: true
+          fail_on_unmatched_files: true
+          overwrite_files: true
           files: |
             target/code-tracer.jar
             target/code-tracer-bin.tar.gz
             target/code-tracer-bin.tar.xz
             target/code-tracer-bin.zip
-            target/cs1302-tracer-*.jar
+            ${{ steps.release-artifacts.outputs.library }}
+      - name: Publish frozen Javadoc release files
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          files: |
+            ${{ steps.release-artifacts.outputs.javadoc }}
+            ${{ steps.release-artifacts.outputs.javadoc }}.sha256
+            ${{ steps.release-artifacts.outputs.javadoc }}.sigstore.json
+      - name: Verify published Javadoc release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JAVADOC_JAR: ${{ steps.release-artifacts.outputs.javadoc }}
+          RELEASE_VERSION: ${{ steps.release-artifacts.outputs.version }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          ./scripts/uv run --locked python scripts/javadoc_publish.py verify "$JAVADOC_JAR" \
+            --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --repository "$REPOSITORY"
