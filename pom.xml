@@ -105,6 +105,7 @@
     <docsite.pendingCommit></docsite.pendingCommit>
     <docsite.javadocCache>use</docsite.javadocCache>
     <docsite.javadocSource>auto</docsite.javadocSource>
+    <docsite.guides>all</docsite.guides>
 
     <!-- Published releases declaring this schema must provide authenticated Javadoc artifacts. -->
     <release.javadoc.schema>1</release.javadoc.schema>
@@ -1015,6 +1016,7 @@ git.dirty=${git.dirty}
                     <DOCSITE_PENDING_COMMIT>${docsite.pendingCommit}</DOCSITE_PENDING_COMMIT>
                     <DOCSITE_JAVADOC_CACHE>${docsite.javadocCache}</DOCSITE_JAVADOC_CACHE>
                     <DOCSITE_JAVADOC_SOURCE>${docsite.javadocSource}</DOCSITE_JAVADOC_SOURCE>
+                    <DOCSITE_GUIDES>${docsite.guides}</DOCSITE_GUIDES>
                     <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
                   </environmentVariables>
                 </configuration>

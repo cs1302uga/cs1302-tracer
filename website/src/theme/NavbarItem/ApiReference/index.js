@@ -11,5 +11,5 @@ export default function ApiReference(props) {
   const href = siteConfig.customFields.documentationRelease.versions
     .find(entry => entry.name === version).javadocUrl;
   // Javadoc is static HTML outside the React router; use a full-page navigation.
-  return <DefaultNavbarItem {...props} href={`pathname://${href}`} target="_self" />;
+  return <DefaultNavbarItem {...props} to={`pathname://${href}`} target="_self" autoAddBaseUrl={false} />;
 }

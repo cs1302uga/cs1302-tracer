@@ -61,6 +61,11 @@ library JAR and traces a program using a recursive class-path pattern.
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
 - [HACKING](HACKING.md) — contributor setup and quality gates.
 
+Historical guide versions retain their existing URLs. The
+[documentation archive runbook](docs/contributing/documentation.md#archived-guide-applications)
+describes verified standalone guide archives and their staged rollout; deployment
+continues to compile all guide versions until backfill and catalog review are complete.
+
 ## License
 
 First-party code and documentation are [MIT licensed](LICENSE).

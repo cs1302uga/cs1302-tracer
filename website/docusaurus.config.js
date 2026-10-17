@@ -1,14 +1,21 @@
 const release = require('./release-manifest.json');
-const latest = release.latestVersion;
+const fs = require('node:fs');
+const path = require('node:path');
+const {guideBuild} = require('./src/lib/guide-build');
+const selectionPath = path.join(__dirname, 'guide-build.json');
+const selection = fs.existsSync(selectionPath) ? JSON.parse(fs.readFileSync(selectionPath, 'utf8')) : undefined;
+const guide = guideBuild(release, selection);
+const latest = guide.latest;
 
 module.exports = {
   title: 'cs1302-tracer',
   tagline: 'Trace Java execution and inspect memory states',
   url: release.origin,
-  baseUrl: release.baseUrl,
+  baseUrl: guide.baseUrl,
   trailingSlash: true,
-  staticDirectories: ['static', 'generated-api'],
-  customFields: {latestDocVersion: latest, documentationRelease: release},
+  storage: {type: 'localStorage', namespace: true},
+  staticDirectories: guide.archive ? ['static'] : ['static', 'generated-api'],
+  customFields: {latestDocVersion: latest, documentationRelease: guide.release, guideCatalog: guide.catalog},
   organizationName: 'cs1302uga',
   projectName: 'cs1302-tracer',
   onBrokenLinks: 'throw',
@@ -24,13 +31,14 @@ module.exports = {
       routeBasePath: '/',
       sidebarPath: require.resolve('./sidebars.js'),
       lastVersion: latest || 'current',
-      onlyIncludeVersions: release.versions.map(version => version.name),
-      versions: Object.fromEntries(release.versions.map(version => [version.name, {
-        label: version.label, path: version.docsPath, banner: version.banner,
+      onlyIncludeVersions: guide.included.map(version => version.name),
+      includeCurrentVersion: guide.included.some(version => version.name === 'current'),
+      versions: Object.fromEntries(guide.included.map(version => [version.name, {
+        label: version.label, path: guide.archive ? '' : version.docsPath, banner: version.banner,
       }])),
     },
     blog: false,
-    pages: latest ? {path: 'src/pages'} : false,
+    pages: guide.archive ? false : {path: 'src/pages', exclude: latest ? [] : ['**/index.jsx']},
   }]],
   themeConfig: {
     announcementBar: latest ? undefined : {
@@ -43,7 +51,7 @@ module.exports = {
       items: [
         {type: 'docSidebar', sidebarId: 'docs', label: 'Documentation', position: 'left'},
         {type: 'custom-apiReference', label: 'API Reference', position: 'left'},
-        {type: 'docsVersionDropdown', position: 'right'},
+        {type: 'custom-guideVersions', position: 'right'},
         {href: 'https://github.com/cs1302uga/cs1302-tracer', label: 'GitHub', position: 'right'},
       ],
     },

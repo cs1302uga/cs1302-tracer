@@ -33,6 +33,8 @@ class DocumentationSiteTests(unittest.TestCase):
             "javadoc_cache.py",
             "javadoc_artifact.py",
             "docs_timing.py",
+            "guide_build.py",
+            "guide_archive.py",
         ):
             shutil.copy2(SCRIPTS / name, scripts / name)
         (self.root / "pom.xml").write_text("<project><version>1.0.0</version></project>")
@@ -93,6 +95,13 @@ if 'build' in sys.argv:
         output = Path(sys.argv[sys.argv.index('--out-dir') + 1])
     output.mkdir(parents=True, exist_ok=True)
     output.joinpath('index.html').write_text('completed site')
+    plan = json.loads(Path('release-manifest.json').read_text())
+    selected = json.loads(Path('guide-build.json').read_text())['versions']
+    for entry in plan['versions']:
+        if entry['name'] in selected:
+            folder = output / entry['docsUrl'].removeprefix(plan['baseUrl'])
+            folder.mkdir(parents=True, exist_ok=True)
+            folder.joinpath('index.html').write_text('completed guide ' + entry['name'])
     shutil.copytree('generated-api/api', output / 'api', dirs_exist_ok=True)
 """,
         )
@@ -242,6 +251,43 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertIn(
             ["npm", "run", "docusaurus", "--", "start", "--host", "127.0.0.1", "--port=3100", "--no-open"], calls
         )
+
+    def test_guide_mode_defaults_overrides_and_server_restriction(self) -> None:
+        """Reject unsupported guide defaults before tools, but permit explicit choices and API-only use."""
+        self.environment["DOCSITE_GUIDES"] = "invalid"
+        result = self.run_site("build")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("DOCSITE_GUIDES", result.stderr)
+        self.assertFalse(self.log.exists())
+        result = self.run_site("start", "--guides", "active")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("serve_docs.py", result.stderr)
+        self.assertFalse(self.log.exists())
+        result = self.run_site("api", "--guides", "active")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.site / "guide-build.json").exists())
+        result = self.run_site("build", "--guides", "active")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        selection = json.loads((self.site / "guide-build.json").read_text())
+        self.assertEqual(selection, {"kind": "active", "versions": ["current", "1.0.0"]})
+        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["guides"], "active")
+
+    def test_published_retention_fails_before_api_or_frontend_generation_in_all_modes(self) -> None:
+        """Preserve previously published documentation when mutable release metadata excludes a pinned version."""
+        (self.site / "guide-archives.json").write_text(
+            json.dumps({"schemaVersion": 1, "archives": {"1.0.0": {"releaseCommit": self.git("rev-parse", "v1.0.0")}}})
+        )
+        records = self.root / "releases.json"
+        records.write_text("[]")
+        for mode in ("all", "active"):
+            result = self.run_site("build", "--guides", mode, "--mode", "published", "--releases", str(records))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("retain pinned guide 1.0.0", result.stderr)
+            self.assertFalse(self.log.exists())
+            self.assertFalse((self.site / "release-manifest.json").exists())
+            report = json.loads((self.site / "build-timings.json").read_text())
+            self.assertEqual(report["stages"][-1]["name"], "release-selection")
+            self.assertEqual(report["stages"][-1]["status"], "failed")
 
     def test_build_keeps_pinned_release_api_and_its_manifest_together(self) -> None:
         """Build keeps pinned release api and its manifest together."""
@@ -557,6 +603,20 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue((self.site / "generated-api/api/1.0.0/search.html").is_file())
+
+    def test_importing_the_site_entry_point_does_not_execute_a_build(self) -> None:
+        """Keep the callable entry point usable without parsing arguments or starting tools at import time."""
+        result = subprocess.run(
+            [sys.executable, "-c", "import sys; sys.path.insert(0, 'scripts'); import docs_site"],
+            cwd=self.root,
+            env=self.environment,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.log.exists())
+        self.assertFalse((self.site / "guide-build.json").exists())
+        self.assertFalse((self.site / "build-timings.json").exists())
 
 
 if __name__ == "__main__":

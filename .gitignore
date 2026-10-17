@@ -42,6 +42,7 @@ website/build-timings.json
 website/npm-ci-timing.json
 website/published-versions.json
 website/release-manifest.json
+website/guide-build.json
 __pycache__/
 external-links-report.md
 

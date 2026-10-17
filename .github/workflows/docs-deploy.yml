@@ -15,6 +15,8 @@ concurrency:
 
 env:
   UVW_GIT_COMMIT: never
+  # Switch to active only after backfill publications and their pinned catalog have passed review.
+  DOCSITE_GUIDE_MODE: all
 
 jobs:
   build:
@@ -24,6 +26,7 @@ jobs:
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        !startsWith(github.event.workflow_run.head_branch, 'release/') &&
+       !startsWith(github.event.workflow_run.head_branch, 'docs-') &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -63,6 +66,7 @@ jobs:
           ./mvnw -B -ntp -Pdocsite -DskipTests
           -Ddocsite.mode=published
           -Ddocsite.javadocSource=auto
+          "-Ddocsite.guides=$DOCSITE_GUIDE_MODE"
           "-Ddocsite.releases=$RUNNER_TEMP/releases.json" verify
       # Manual main deployments may populate the cache after full validation.
       # Immutable transport keys follow validated manifests, not checkout SHAs.

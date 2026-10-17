@@ -39,6 +39,10 @@ Implementation: [43c8970](https://github.com/cs1302uga/cs1302-tracer/commit/43c8
 — Historical Javadoc caching, documentation stage timing, and one dependency
 installation per documentation CI build.
 
+Implementation: [05b6c82](https://github.com/cs1302uga/cs1302-tracer/commit/05b6c823de21ccda099d0212abf4e6587f0809d1)
+— Verified release Javadoc artifacts, provenance and checksum checks, preserved
+publication retries, and documentation reuse of the original API bytes.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -56,6 +60,15 @@ installation per documentation CI build.
   are unchanged.
 
 ### Non-breaking changes
+
+- **Historical guide archives:** add independently rendered, verified guide ZIPs,
+  a separate attested documentation publisher, and a reviewed archive catalog.
+  Optional active mode compiles development, the two newest stable guides, and one
+  pending release while preserving historical URLs through verified archives.
+  Deployment remains in all-version mode until backfill and cutover are reviewed.
+  Documentation publications use a distinct `docs-*` prerelease namespace and
+  preserve archive bytes on retries; software signing and Java, CLI, and JSON
+  contracts are unchanged.
 
 - **Release Javadoc:** attach a standard Javadoc JAR through the opt-in
   `release-javadoc` profile and publish its checksum and verified build-provenance

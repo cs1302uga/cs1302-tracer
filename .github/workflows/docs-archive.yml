@@ -1,0 +1,146 @@
+name: Publish documentation archives
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: Reviewed full main commit SHA that must still be current
+        required: true
+        type: string
+      versions:
+        description: Comma-separated stable guide versions, without spaces
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-archive-publication
+  cancel-in-progress: false
+
+env:
+  UVW_GIT_COMMIT: never
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      VERSIONS: ${{ inputs.versions }}
+      EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      ARCHIVE_DIRECTORY: target/guide-archives
+    steps:
+      # Dispatch inputs are data; the executable builder always comes from reviewed current main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate reviewed builder and guide selection
+        run: |
+          test "$EXPECTED_COMMIT" = "$GITHUB_SHA"
+          ./scripts/uv run --locked python scripts/guide_publish.py plan \
+            --versions "$VERSIONS" --builder-commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --directory "$ARCHIVE_DIRECTORY" > "$RUNNER_TEMP/guide-versions"
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: ./.github/actions/configure-maven
+      - name: Install the pinned documentation toolchain
+        run: |
+          ./mvnw -B -ntp -Pdocsite generate-resources
+          echo "$PWD/target/frontend/node" >> "$GITHUB_PATH"
+      - name: Build selected guide applications
+        run: |
+          while IFS= read -r version; do
+            ./scripts/uv run --locked python scripts/guide_build.py archive \
+              --version "$version" --output "$ARCHIVE_DIRECTORY"
+          done < "$RUNNER_TEMP/guide-versions"
+      - name: Preserve an existing complete publication
+        id: preserve
+        run: |
+          ./scripts/uv run --locked python scripts/guide_publish.py preserve \
+            --versions "$VERSIONS" --builder-commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --directory "$ARCHIVE_DIRECTORY" --github-output "$GITHUB_OUTPUT"
+      - name: Attest new guide archive bytes
+        id: attest
+        if: steps.preserve.outputs.preserved == 'false'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ github.workspace }}/target/guide-archives/*-guides.zip
+          create-storage-record: false
+      - name: Retain the new attestation with each archive
+        if: steps.preserve.outputs.preserved == 'false'
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          for archive in "$ARCHIVE_DIRECTORY"/*-guides.zip; do
+            cp -- "$ATTESTATION_BUNDLE" "$archive.sigstore.json"
+          done
+      - name: Verify local publication evidence
+        run: |
+          ./scripts/uv run --locked python scripts/guide_publish.py verify-local \
+            --versions "$VERSIONS" --builder-commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --directory "$ARCHIVE_DIRECTORY"
+      # The distinct lightweight docs tag is bound to main by attestation, not software release signing.
+      - name: Create the documentation tag without moving an existing ref
+        if: steps.preserve.outputs.preserved == 'false'
+        run: |
+          existing="$(gh api --hostname github.com \
+            "repos/$REPOSITORY/git/matching-refs/tags/docs-$GITHUB_SHA" --jq '.[].object.sha')"
+          if [[ -z "$existing" ]]; then
+            gh api --hostname github.com --method POST "repos/$REPOSITORY/git/refs" \
+              -f "ref=refs/tags/docs-$GITHUB_SHA" -f "sha=$GITHUB_SHA"
+          else
+            test "$existing" = "$GITHUB_SHA"
+          fi
+      # Upload to a draft so a first publication never exposes an incomplete artifact set.
+      - name: Upload documentation archives without replacing existing files
+        if: steps.preserve.outputs.preserved == 'false'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: docs-${{ github.sha }}
+          target_commitish: ${{ github.sha }}
+          name: Documentation archives from ${{ github.sha }}
+          body: Immutable guide applications. Catalog entries require separate review before deployment uses them.
+          draft: true
+          prerelease: true
+          make_latest: 'false'
+          overwrite_files: false
+          fail_on_unmatched_files: true
+          files: |
+            target/guide-archives/*-guides.zip
+            target/guide-archives/*-guides.zip.sha256
+            target/guide-archives/*-guides.zip.sigstore.json
+      - name: Verify uploaded archive set before publication
+        run: |
+          ./scripts/uv run --locked python scripts/guide_publish.py verify-remote \
+            --versions "$VERSIONS" --builder-commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --directory "$ARCHIVE_DIRECTORY"
+      - name: Publish documentation prerelease without changing latest software release
+        if: steps.preserve.outputs.published == 'false'
+        run: |
+          gh release edit "docs-$GITHUB_SHA" --repo "github.com/$REPOSITORY" \
+            --draft=false --prerelease --latest=false
+      - name: Propose catalog entries from verified published bytes
+        run: |
+          ./scripts/uv run --locked python scripts/guide_publish.py catalog \
+            --versions "$VERSIONS" --builder-commit "$GITHUB_SHA" --repository "$REPOSITORY" \
+            --directory "$ARCHIVE_DIRECTORY" --catalog-output target/guide-archive-catalog.json
+      - name: Retain catalog candidate for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: guide-archive-catalog-${{ github.sha }}
+          path: target/guide-archive-catalog.json
+          if-no-files-found: error
+          retention-days: 30

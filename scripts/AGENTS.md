@@ -49,6 +49,9 @@ their declared dependencies.
 | `javadoc_cache.py` | Owns historical-output fingerprints, complete-entry verification, and cache storage; configure through `docs_site.py`. |
 | `javadoc_artifact.py` | Owns release Javadoc structure, manifest/checksum checks, and trusted attestation verification. `check` writes a checksum; `verify` requires the adjacent release companions. |
 | `javadoc_publish.py` | Preserves verified remote Javadoc bytes on retries and verifies the uploaded set. Partial sets require reviewed recovery; never replace them automatically. |
+| `guide_archive.py` | Validates guide ZIPs, catalog descriptors, and main-branch attestations before private extraction. |
+| `guide_build.py` | Selects active guides, builds archive candidates, and composes historical applications into the site. |
+| `guide_publish.py` | Checks the clean main builder, preserves complete archive sets, and proposes catalogs from verified remote files. |
 | `docs_timing.py` | Records stages for one documentation invocation; `npm-ci` measures dependency installation separately. |
 | `serve_docs.py` | Serves an existing build with project-base paths and unchanged Javadoc URLs. Supports `--host` and `--port`. |
 | `rehearse_docs_release.py` | Exercises preparation, publishing, archive retention, retries, and missing tags using real builds in a disposable project. |
