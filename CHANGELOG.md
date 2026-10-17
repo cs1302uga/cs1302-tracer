@@ -31,6 +31,10 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae)
 — Maven configuration, dependency updates, and portable launcher distributions.
 
+Implementation: [68d81e2](https://github.com/cs1302uga/cs1302-tracer/commit/68d81e2a2959100d3cb2b8c0a845861f2fa02a4a)
+— Signed release workflow, CLI environment checks and version reports, embedded
+build provenance, test logging, and managed documentation builds described below.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -48,6 +52,13 @@ Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caea
   are unchanged.
 
 ### Non-breaking changes
+
+- **Documentation build performance:** reuse validated historical Javadoc output
+  with explicit use, refresh, and off modes; keep development and untagged pending
+  output fresh. Record documentation stages and dependency-installation timing,
+  and install npm dependencies once in documentation CI. All selected versions,
+  release provenance checks, and complete rendered-link gates remain in place;
+  public URLs, Java API, CLI behavior, and trace formats are unchanged.
 
 - **Release tooling:** standardize signed Maven release preparation and explicit
   publication through a checked release branch, preserving commit identities while

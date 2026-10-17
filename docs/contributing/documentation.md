@@ -88,9 +88,10 @@ The **API Reference** navigation link follows the selected documentation version
 Javadoc keeps its own navigation, search, and styling under `api/next/` for development
 and `api/<version>/` for releases, beneath the site's `/cs1302-tracer/` base path.
 
-Release API references are rebuilt from their exact **Git** tags on every deployment,
-including all previously published documentation versions. Missing tags, mismatched
-Maven versions, and Javadoc errors fail the build. Deployment selects the same
+Release API references are resolved from their exact **Git** tags on every build,
+including all previously published documentation versions. Valid cached historical
+Javadoc can supply the generated files; missing tags, mismatched Maven versions,
+and generation errors still fail the build. Deployment selects the same
 published releases for guides and API references. Local builds preview all prepared
 snapshots; an untagged snapshot matching the current Maven version, or its target
 version after removing a trailing `-SNAPSHOT`, uses working source until release.
@@ -108,9 +109,13 @@ and the snapshot retains its unreleased banner. Published builds reject this
 override and continue to require release tags. Historical snapshots never fall
 back to an arbitrary working tree.
 The documentation CI job bootstraps the pinned frontend toolchain with
-`-Pdocsite generate-resources` and adds its Node directory to `GITHUB_PATH` before
-running the release-context check. That check handles both `release/X.Y.Z` and
-the next-development commit on `main` during the interval before the tag push.
+`-Pdocsite initialize` and adds its Node directory to `GITHUB_PATH` before
+running the release-context check. The subsequent `verify` invocation runs
+`npm ci` once; the early bootstrap only needs Node to inspect the sidebar.
+The local editing recipe still uses `generate-resources` to install the site's
+dependencies before starting the development server. The context check handles
+both `release/X.Y.Z` and the next-development commit on `main` during the interval
+before the tag push.
 It requires the untagged stable release to be that commit's direct parent; it
 does not infer an arbitrary release source from the available history.
 Generated HTML lives in ignored `website/generated-api/` and
@@ -168,6 +173,98 @@ The scheduled External documentation links workflow checks remote links and
 uploads a report. It is not a required PR check because remote availability is
 outside this repository's control. A newly configured site can return 404 until
 its first deployment.
+
+## Documentation build cache and timing
+
+The full documentation verification workflow retains every selected documentation
+version, generates development Javadoc, and runs the existing executable, release,
+and rendered-link checks.
+Only historical Javadoc from validated release tags is cached. Current source and
+untagged pending-release Javadoc are regenerated on each invocation. Docusaurus
+still builds all selected guides together; this optimization does not remove old
+versions, change routes, or introduce a separate archive site.
+
+The ignored cache lives at `website/.cache/javadoc/`, outside Maven's `target/`,
+so `mvnw clean` leaves it available. Cache mode defaults to `use`:
+
+| Mode | Historical Javadoc behavior |
+| --- | --- |
+| `use` | Reuse a valid entry; otherwise generate and cache the result. |
+| `refresh` | Regenerate historical Javadoc and replace its cache entries. |
+| `off` | Generate historical Javadoc without reading or writing the cache. |
+
+Select the mode with Maven's `docsite.javadocCache` property:
+
+```sh
+./mvnw -B -ntp -Pdocsite -Ddocsite.javadocCache=refresh verify
+```
+
+For direct Python use, all four actions accept `--javadoc-cache use|refresh|off`.
+An explicit option overrides `DOCSITE_JAVADOC_CACHE`, which otherwise supplies the
+mode. Other values are argument errors and exit with status 2. Maven passes its
+property through that environment variable. For example,
+after frontend bootstrap:
+
+```sh
+./scripts/uv run --locked python scripts/docs_site.py api --javadoc-cache off
+```
+
+Release selection and tag/POM agreement are checked before looking in the cache.
+Entries identify the immutable source commit, current wrapper and actual
+Maven/JDK toolchain, generator and configuration digests, artifact-resolution
+settings, platform, and UTC year used in the copyright footer. An entry includes
+the complete generated file inventory and checksums, including the API index,
+search page, and element list. An incompatible, incomplete, or corrupt entry
+causes regeneration. Complete
+entries are written atomically; a cache-write failure is reported without
+discarding successfully generated documentation. A generation failure remains a
+build failure and preserves the previous complete generated API output.
+
+The cache is replaceable build output, not release evidence or durable storage.
+CI can restore generated entries, but shared entries are saved only by pushes to
+`main` and manually dispatched deployments from `main`. Automatic `workflow_run`
+deployments restore entries without saving them. A newly published release may
+therefore regenerate its Javadoc until a later `main` push or manual deployment
+warms the shared cache. A restored entry must still pass local input and integrity
+validation; PR-produced output does not become trusted publication input.
+Use `refresh` when investigating discrepancies or deliberately refreshing
+externally fetched documentation resources. Removing the cache simply makes the
+next build regenerate historical Javadoc.
+
+`website/build-timings.json` records the Python documentation run's applicable
+stages: release selection, executable documentation, release metadata, per-version
+Javadoc with cache outcomes, Docusaurus, and rendered-link checks. The separate
+`website/npm-ci-timing.json` records dependency installation with its own timestamps.
+These are ignored local reports; use their invocation timestamps to distinguish
+current results from an earlier run. Dependency installation is not folded into a
+later Python run's duration. Neither report measures the outer Maven packaging,
+frontend bootstrap, cache transfer, or artifact upload. GitHub Actions step
+durations provide those workflow-level measurements. Both workflows upload the
+available reports in a timing artifact, separate from the site, with seven-day
+retention. Timing reports are diagnostic;
+existing validation gates determine whether the build passes.
+
+### Compare cold and warm builds
+
+Use the same checkout, release selection, toolchain, site mode, and Maven options for
+both runs. Keep Java tests either enabled for both or explicitly skipped for both,
+and state that choice with the results. Run the checks serially and preserve each
+timing report before the next invocation overwrites it.
+
+1. Run with `-Ddocsite.javadocCache=refresh` to regenerate historical Javadoc and
+   populate entries. Record this as a Javadoc-cache-cold run; it does not imply
+   that Maven dependencies or npm download caches were cold.
+2. Repeat with `-Ddocsite.javadocCache=use`, confirming historical cache hits and
+   fresh development generation in the report. Compare per-stage durations and
+   repeated runs before attributing a speedup to the cache.
+3. Compare release manifests, selected routes, and generated content between the
+   runs. Both must pass the same executable documentation and complete rendered
+   link/fragment checks. Investigate output differences before claiming equivalence.
+
+Report whole-build and stage timings separately. Historical generation can shrink
+while Docusaurus compilation, full-tree validation, and published site size still
+grow with the number of retained versions. No performance threshold replaces a
+correctness gate.
 
 ## Prepare a stable release
 

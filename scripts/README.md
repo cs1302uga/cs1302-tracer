@@ -86,8 +86,10 @@ behavior.
 | --- | --- |
 | [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
 | [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
-| [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published release selection. |
-| [`build_javadoc.py`](build_javadoc.py) | Internal generation library for working-source and pinned historical Javadoc. Invoke through `docs_site.py api`. |
+| [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published selection, historical Javadoc cache controls, and stage timings. |
+| [`build_javadoc.py`](build_javadoc.py) | Generate working-source Javadoc and reuse validated historical output when eligible. Invoke through `docs_site.py api`. |
+| [`javadoc_cache.py`](javadoc_cache.py) | Internal historical-output cache with build-input fingerprints and complete-file integrity checks. Configure it through `docs_site.py`. |
+| [`docs_timing.py`](docs_timing.py) | Record documentation stage durations and completion status. Its `npm-ci` action runs locked frontend installation and writes a separate timing report. |
 | [`check_site.py`](check_site.py) | Check rendered links, fragments, base paths, and version-matched Javadoc links in `website/build`. |
 | [`serve_docs.py`](serve_docs.py) | Serve an existing build with its project base path and intact Javadoc URLs. Defaults to `127.0.0.1:3000`; accepts `--host` and `--port`. |
 | [`docs_release.py`](docs_release.py) | Validate releases with `check`, create snapshots with `prepare --version X.Y.Z` while retaining the snapshot POM, and export the legacy `published` selection report. `check --pending X.Y.Z` checks snapshot agreement before the stable version transition; `check --tag vX.Y.Z` remains stable-only. |
@@ -128,7 +130,10 @@ The source commit and prepared/current docs must agree. This override is rejecte
 in published mode, and it does not create or publish a release tag.
 CI bootstraps the pinned Node toolchain before release-context validation, including
 the `main` build between its next-development fast-forward and the explicit tag
-push. The pending stable commit must be the next-development commit's direct parent.
+push. Its early `initialize` phase installs the toolchain; the later `verify`
+installs npm dependencies once. Local editing still uses `generate-resources`
+before starting the server. The pending stable commit must be the next-development
+commit's direct parent.
 
 The build owns `website/build`; output/site/configuration overrides are rejected.
 `start` accepts `--host`, `--port`/`-p`, and `--no-open`; `start` and `build` accept
@@ -136,6 +141,22 @@ The build owns `website/build`; output/site/configuration overrides are rejected
 script invokes the managed Python wrapper itself. Other npm scripts use `python3`
 from their inherited environment; invoke them through `./scripts/uv run --locked`.
 Generating a local site does not publish it.
+
+Historical Javadoc uses the ignored `website/.cache/javadoc/` directory, which
+survives Maven `clean`. All actions accept `--javadoc-cache use|refresh|off`:
+`use` reuses valid entries or generates missing ones, `refresh` regenerates and
+replaces them, and `off` generates without cache access. The explicit option
+overrides `DOCSITE_JAVADOC_CACHE`; the default is `use`. Maven forwards
+`-Ddocsite.javadocCache=use|refresh|off` through that variable. Development and
+untagged pending Javadoc always regenerate. Cache use preserves tag/POM validation
+and the complete `verify` workflow's documentation and rendered-link checks.
+
+`website/build-timings.json` records Python stages and per-version cache outcomes;
+`website/npm-ci-timing.json` separately records the timed dependency installation.
+Check their invocation timestamps and preserve reports before comparing runs.
+They exclude outer Maven packaging, frontend bootstrap, and workflow transfers.
+See [cache and timing guidance](../docs/contributing/documentation.md#documentation-build-cache-and-timing)
+for input validation, CI trust, failure handling, and controlled cold/warm comparisons.
 
 ## Signed release workflow
 

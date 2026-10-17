@@ -7,6 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "ci:timed": "../scripts/uv run --locked python ../scripts/docs_timing.py npm-ci",
     "api": "python3 ../scripts/docs_site.py api",
     "start": "python3 ../scripts/docs_site.py start",
     "build": "python3 ../scripts/docs_site.py build",

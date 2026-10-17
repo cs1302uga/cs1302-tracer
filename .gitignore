@@ -37,6 +37,9 @@ website/node_modules/
 website/build/
 website/generated-api/
 website/.docusaurus/
+website/.cache/
+website/build-timings.json
+website/npm-ci-timing.json
 website/published-versions.json
 website/release-manifest.json
 __pycache__/

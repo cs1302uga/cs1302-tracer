@@ -103,6 +103,7 @@
     <docsite.mode>preview</docsite.mode>
     <docsite.releases></docsite.releases>
     <docsite.pendingCommit></docsite.pendingCommit>
+    <docsite.javadocCache>use</docsite.javadocCache>
 
     <!-- The release orchestrator overrides these only for the non-mutating POM/SCM dry run. -->
     <release.preparationGoals>verify</release.preparationGoals>
@@ -929,7 +930,12 @@ git.dirty=${git.dirty}
                 <id>install-docsite-dependencies</id>
                 <phase>generate-resources</phase>
                 <goals><goal>npm</goal></goals>
-                <configuration><arguments>ci --no-audit --no-fund</arguments></configuration>
+                <configuration>
+                  <arguments>run ci:timed</arguments>
+                  <environmentVariables>
+                    <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
+                  </environmentVariables>
+                </configuration>
               </execution>
               <execution>
                 <id>verify-docsite</id>
@@ -941,6 +947,7 @@ git.dirty=${git.dirty}
                     <DOCSITE_MODE>${docsite.mode}</DOCSITE_MODE>
                     <DOCSITE_RELEASES>${docsite.releases}</DOCSITE_RELEASES>
                     <DOCSITE_PENDING_COMMIT>${docsite.pendingCommit}</DOCSITE_PENDING_COMMIT>
+                    <DOCSITE_JAVADOC_CACHE>${docsite.javadocCache}</DOCSITE_JAVADOC_CACHE>
                     <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
                   </environmentVariables>
                 </configuration>

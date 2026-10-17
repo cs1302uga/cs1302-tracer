@@ -57,7 +57,7 @@ branch = true
 source = ["scripts"]
 source_pkgs = [
     "build_javadoc", "check_docs", "check_external_links", "check_site", "check_pom", "configure_maven",
-    "docs_release", "docs_site", "rehearse_docs_release", "release", "release_evidence", "release_validate", "serve_docs",
+    "docs_release", "docs_site", "docs_timing", "javadoc_cache", "rehearse_docs_release", "release", "release_evidence", "release_validate", "serve_docs",
 ]
 omit = ["*/scripts/tests/*", "*/scripts/.venv/*", "*/scripts/.uv/*"]
 patch = ["subprocess"]

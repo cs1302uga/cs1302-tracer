@@ -41,6 +41,16 @@ jobs:
           java-version: '21'
           cache: maven
       - uses: ./.github/actions/configure-maven
+      # Reuse main's cache, retaining workflow_run's read-only cache permission.
+      # The builder checks each entry's source/toolchain key and file digests.
+      - name: Restore historical Javadoc
+        id: javadoc-cache-restore
+        continue-on-error: true
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: website/.cache/javadoc
+          key: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-lookup
+          restore-keys: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Select published stable documentation
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,10 +62,42 @@ jobs:
           ./mvnw -B -ntp -Pdocsite -DskipTests
           -Ddocsite.mode=published
           "-Ddocsite.releases=$RUNNER_TEMP/releases.json" verify
+      # Manual main deployments may populate the cache after full validation.
+      # Immutable transport keys follow validated manifests, not checkout SHAs.
+      - name: Identify validated Javadoc cache
+        id: javadoc-cache-key
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        env:
+          CACHE_PREFIX: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
+          MANIFEST_DIGEST: ${{ hashFiles('website/.cache/javadoc/*/manifest.json') }}
+        run: |
+          if [[ -n "$MANIFEST_DIGEST" ]]; then
+            printf 'key=%s%s\n' "$CACHE_PREFIX" "$MANIFEST_DIGEST" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save validated historical Javadoc
+        if: >-
+          github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+          steps.javadoc-cache-key.outputs.key != '' &&
+          steps.javadoc-cache-restore.outputs.cache-matched-key != steps.javadoc-cache-key.outputs.key
+        continue-on-error: true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: website/.cache/javadoc
+          key: ${{ steps.javadoc-cache-key.outputs.key }}
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: website/build
+      - name: Save documentation timings
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: documentation-deployment-timings
+          path: |
+            website/build-timings.json
+            website/npm-ci-timing.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   deploy:
     needs: build

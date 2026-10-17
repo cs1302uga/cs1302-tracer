@@ -7,6 +7,9 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from docs_timing import BuildTimings
+from javadoc_cache import REQUIRED, JavadocCache
+
 if TYPE_CHECKING:
     from docs_release import ReleasePlan
 
@@ -33,29 +36,44 @@ def generate(root: Path, source: Path, destination: Path) -> None:
     )
     if not (generated / "index.html").is_file():
         raise RuntimeError(f"Javadoc index missing in {generated}")
+    if any(not (generated / name).is_file() for name in REQUIRED):
+        raise RuntimeError(f"Javadoc assets missing in {generated}")
     shutil.copytree(generated, destination)
 
 
-def build(root: Path, plan: ReleasePlan) -> None:
+def build(root: Path, plan: ReleasePlan, *, cache_mode: str = "use", timings: BuildTimings | None = None) -> None:
     """Generate exactly the releases and pinned revisions selected by the release module."""
     output = root / "website/generated-api"
+    timings = timings or BuildTimings()
+    cache = JavadocCache(root, cache_mode)
     with tempfile.TemporaryDirectory(prefix="tracer-javadoc-") as temporary:
         staging = Path(temporary)
         development = staging / plan["versions"][0]["javadocPath"]
-        generate(root, root, development)
+        with timings.measure("javadoc/" + plan["versions"][0]["name"]) as record:
+            record["cache"] = "development"
+            generate(root, root, development)
         for entry in plan["versions"][1:]:
             destination = staging / entry["javadocPath"]
-            if entry["sourceCommit"] is None:
-                shutil.copytree(development, destination)
-                continue
-            source = staging / ("source-" + entry["name"])
-            source.mkdir()
-            archive = staging / "source.tar"
-            subprocess.run(
-                ["git", "archive", "--format=tar", "-o", str(archive), entry["sourceCommit"]], cwd=root, check=True
-            )
-            subprocess.run(["tar", "-xf", str(archive), "-C", str(source)], check=True)
-            generate(root, source, destination)
+            with timings.measure("javadoc/" + entry["name"]) as record:
+                if entry["sourceCommit"] is None:
+                    record["cache"] = "pending"
+                    shutil.copytree(development, destination)
+                    continue
+                historical = entry["banner"] == "none"
+                key = cache.key(entry["sourceCommit"]) if historical else None
+                record["cache"] = ("miss" if cache_mode == "use" else cache_mode) if historical else "pending"
+                if historical and cache.restore(key, destination):
+                    record["cache"] = "hit"
+                    continue
+                source = staging / ("source-" + entry["name"])
+                source.mkdir()
+                archive = staging / "source.tar"
+                subprocess.run(
+                    ["git", "archive", "--format=tar", "-o", str(archive), entry["sourceCommit"]], cwd=root, check=True
+                )
+                subprocess.run(["tar", "-xf", str(archive), "-C", str(source)], check=True)
+                generate(root, source, destination)
+                cache.save(key, destination)
         if output.exists():
             shutil.rmtree(output)
         output.mkdir()
