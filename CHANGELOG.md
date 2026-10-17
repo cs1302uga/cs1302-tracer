@@ -1,6 +1,6 @@
 # Changelog
 
-Published releases are listed newest first. Publication dates are UTC dates from
+Published software releases are listed newest first. Publication dates are UTC dates from
 [GitHub release records](https://github.com/cs1302uga/cs1302-tracer/releases), verified
 on 2026-10-17. Version bumps without a published release are included in the next
 published range, not presented as separate releases.
@@ -16,8 +16,9 @@ from changes to structure. Consumers should tolerate unknown additive fields.
 Every commit reachable in each consecutive release range is linked, including
 merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
-The checkout is not shallow, all 44 published release tags match origin, and no
-published release tag is missing. There are no published records for the skipped
+The checkout is not shallow, all 44 published software-release tags match origin, and no
+published software-release tag is missing. Separate `docs-*` prereleases publish
+documentation artifacts and are not software-version entries. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
 Maintain curated summaries here as changes land. Add final commit links after
@@ -47,6 +48,9 @@ Implementation: [7f023e9](https://github.com/cs1302uga/cs1302-tracer/commit/7f02
 — Bounded guide compilation, independently verified historical applications,
 complete version navigation, and a staged archive publication and backfill workflow.
 
+Implementation: [e6b1d44](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
+— Managed Python command guidance and version-specific historical tooling notices.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -73,7 +77,10 @@ complete version navigation, and a staged archive publication and backfill workf
   a separate attested documentation publisher, and a reviewed archive catalog.
   Optional active mode compiles development, the two newest stable guides, and one
   pending release while preserving historical URLs through verified archives.
-  Deployment remains in all-version mode until backfill and cutover are reviewed.
+  The [initial backfill](https://github.com/cs1302uga/cs1302-tracer/releases/tag/docs-e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
+  publishes all seven retained stable guides with verified checksums and attestations;
+  the catalog pins their source identities and exact remote bytes. Deployment remains
+  in all-version mode pending the separate active-mode validation and reviewed cutover.
   Documentation publications use a distinct `docs-*` prerelease namespace and
   preserve archive bytes on retries; software signing and Java, CLI, and JSON
   contracts are unchanged.

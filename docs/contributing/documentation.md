@@ -243,10 +243,16 @@ tag to conceal different bytes is outside this workflow.
 
 ### Roll out archived guides
 
-Deployment explicitly remains in `all` mode and the initial catalog is empty.
-Implementation alone does not establish published backfill or activate archived guides.
+Deployment explicitly remains in `all` mode. The
+[initial documentation publication](https://github.com/cs1302uga/cs1302-tracer/releases/tag/docs-e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038)
+on 2026-10-17 archived all seven retained stable versions, from 3.2.1 through 4.1.0,
+using reviewed builder commit `e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038`.
+`website/guide-archives.json` pins those verified publications, including the two
+guides that remain active. Adding catalog entries does not activate archived guides;
+the published active-mode validation and separate deployment cutover below remain required.
 
-1. Land the workflow and builder on reviewed `main`, retaining `all` mode. Local
+1. Use the workflow and builder from reviewed `main`, retaining `all` mode until
+   the initial cutover has passed review. Local
    layout/metadata checks cannot create a genuine GitHub workflow attestation.
 2. Dispatch **Publish documentation archives** on that main SHA. For the initial
    backfill, include all seven retained stable guide versions, including the two
