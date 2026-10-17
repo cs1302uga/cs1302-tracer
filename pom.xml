@@ -9,8 +9,21 @@
   <version>4.2.0-SNAPSHOT</version>
 
   <name>cs1302-tracer</name>
+  <description>Compiles Java programs, traces execution through JDI, and emits Python Tutor or modern JSON.</description>
   <inceptionYear>2025</inceptionYear>
   <url>https://github.com/cs1302uga/cs1302-tracer</url>
+
+  <!-- Identify the source repository and issue tracker for published artifacts. -->
+  <scm>
+    <connection>scm:git:https://github.com/cs1302uga/cs1302-tracer.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/cs1302uga/cs1302-tracer.git</developerConnection>
+    <url>https://github.com/cs1302uga/cs1302-tracer</url>
+    <tag>HEAD</tag>
+  </scm>
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/cs1302uga/cs1302-tracer/issues</url>
+  </issueManagement>
 
   <developers>
     <developer>
@@ -207,6 +220,17 @@
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
+        <includes>
+          <include>cs1302/tracer/version.properties</include>
+        </includes>
+      </resource>
+      <!-- Preserve all other resources literally, including Checkstyle property expressions. -->
+      <resource>
+        <directory>src/main/resources</directory>
+        <filtering>false</filtering>
+        <excludes>
+          <exclude>cs1302/tracer/version.properties</exclude>
+        </excludes>
       </resource>
       <!-- Include the project's own license under its artifact-specific metadata path. -->
       <resource>
@@ -323,6 +347,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>
           <version>${maven-assembly-plugin.version}</version>
+          <configuration>
+            <!-- Share distribution naming while retaining each descriptor's attached classifier. -->
+            <finalName>code-tracer</finalName>
+            <appendAssemblyId>true</appendAssemblyId>
+          </configuration>
         </plugin>
         <!-- Install project artifacts into the local Maven repository. -->
         <plugin>
@@ -475,6 +504,12 @@
                   <version>[${wrapper.maven.version},)</version>
                   <message>Use ./mvnw (Unix) or mvnw.cmd (Windows): this build requires Maven ${wrapper.maven.version} or later; the minimum version comes from .mvn/wrapper/maven-wrapper.properties.</message>
                 </requireMavenVersion>
+                <!-- Reject stale version overrides in both production and test dependencies. -->
+                <requireUpperBoundDeps>
+                  <excludedScopes>
+                    <excludedScope>provided</excludedScope>
+                  </excludedScopes>
+                </requireUpperBoundDeps>
                 <requireJavaVersion>
                   <version>[21,)</version>
                   <message>A full JDK 21 or later is required to build the tracer.</message>
@@ -522,11 +557,9 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <appendAssemblyId>true</appendAssemblyId>
               <descriptorRefs>
                 <descriptorRef>src</descriptorRef>
               </descriptorRefs>
-              <finalName>code-tracer</finalName>
               <formats>tar.xz</formats>
               <tarLongFileMode>posix</tarLongFileMode>
             </configuration>
@@ -540,10 +573,8 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <appendAssemblyId>true</appendAssemblyId>
               <archive>
                 <manifest>
-                  <addClasspath>true</addClasspath>
                   <mainClass>cs1302.tracer.App</mainClass>
                 </manifest>
                 <manifestEntries>
@@ -557,7 +588,6 @@
               <descriptors>
                 <descriptor>src/assembly/jar-with-dependencies.xml</descriptor>
               </descriptors>
-              <finalName>code-tracer</finalName>
             </configuration>
           </execution>
 
@@ -569,11 +599,9 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <appendAssemblyId>true</appendAssemblyId>
               <descriptors>
                 <descriptor>src/assembly/bin.xml</descriptor>
               </descriptors>
-              <finalName>code-tracer</finalName>
             </configuration>
           </execution>
 
@@ -723,9 +751,7 @@
                 <phase>package</phase>
                 <goals><goal>single</goal></goals>
                 <configuration>
-                  <appendAssemblyId>true</appendAssemblyId>
                   <descriptors><descriptor>src/assembly/bin-tar.xml</descriptor></descriptors>
-                  <finalName>code-tracer</finalName>
                 </configuration>
               </execution>
             </executions>

@@ -132,6 +132,27 @@ Child-process coverage and temporary script copies contribute to the same report
 test files and local tool environments are excluded from production measurement.
 Release creation depends on this job. Java hooks retain their existing behavior.
 
+### Packaging configuration and reproducibility
+
+Only `cs1302/tracer/version.properties` is filtered during resource copying.
+Other resources, including Checkstyle configurations, retain their literal bytes.
+The executable JAR bundles its runtime dependencies and has no external manifest
+`Class-Path`; its main class and automatic module name remain explicit.
+Assembly naming and classifier attachment defaults live in `pluginManagement`,
+while each execution owns its descriptor and lifecycle binding.
+
+Maven 3.10.0 supplies a stable `project.build.outputTimestamp` by default. Retain
+that inherited value unless the release process deliberately chooses a different
+stable timestamp. Compare independent builds with the same source, Maven, JDK,
+and operating system before claiming reproducibility. Java 21 and 25 compatibility
+does not imply byte-identical artifacts across those JDKs. Javadoc's copyright
+year intentionally follows the current UTC year; documentation is outside the
+binary archive reproducibility claim.
+
+The published POM identifies the Git repository and GitHub issue tracker. Its SCM
+`HEAD` tag describes the development checkout; release preparation should replace
+it with the actual release tag when publishing provenance-specific metadata.
+
 ### Dependency versions and upgrades
 
 `pom.xml` is authoritative for selected versions. Put every explicitly selected
@@ -147,6 +168,10 @@ top-level `pluginManagement`; active plugins and profiles inherit those versions
 Declare the Checkstyle engine dependency once in the managed Checkstyle plugin.
 Project release versions and Enforcer's Java compatibility range remain literal.
 Enforcer's Maven lower bound is derived at runtime from the wrapper distribution.
+Its `requireUpperBoundDeps` rule also checks production and test dependencies,
+rejecting a selected version below the highest requested transitive version.
+Only `provided` scope is excluded. This guards against stale overrides; it does
+not establish binary compatibility or inspect plugin-owned dependency graphs.
 
 Run the offline structural policy check from the repository root:
 

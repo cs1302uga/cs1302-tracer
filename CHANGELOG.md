@@ -37,6 +37,13 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Build configuration:** limit resource filtering to runtime version metadata,
+  remove external dependency paths from the self-contained executable JAR's
+  manifest, consolidate assembly naming defaults, and publish repository and issue
+  metadata. Enforcer now checks production and test dependency upper bounds to
+  reject stale version overrides. Artifact names, launchers, Java API, and trace
+  formats remain unchanged.
+
 - **Distribution formats:** add `code-tracer-bin.tar.xz` alongside the existing
   tar.gz and ZIP downloads. Both Unix tar formats contain the same launchers,
   executable JAR, license, permissions, and relative Bash symlink. Native Windows
