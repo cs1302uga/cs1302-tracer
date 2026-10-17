@@ -3,7 +3,7 @@
 Run three independent jobs with two workers and at most three admitted jobs:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar batch-trace \
+java -jar target/code-tracer.jar batch-trace \
   --workers 2 --max-in-flight 3 -i examples/concurrent-batch/jobs.ndjson
 ```
 

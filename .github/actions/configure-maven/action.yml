@@ -1,0 +1,20 @@
+name: Configure Maven repository mirror
+description: Merge the verified JVNet-to-Central mirror after setup-java creates settings.
+runs:
+  using: composite
+  steps:
+    # The repository uv shell wrapper supports WSL, not native Windows runners.
+    - uses: actions/setup-python@v7
+      if: runner.os == 'Windows'
+      with:
+        python-version-file: scripts/.python-version
+    - name: Configure native Windows Maven settings
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: python scripts/configure_maven.py
+    - name: Preserve settings and install the JVNet mirror
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        UVW_GIT_COMMIT: never
+      run: ./scripts/uv run --locked python scripts/configure_maven.py

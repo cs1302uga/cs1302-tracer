@@ -1,8 +1,42 @@
 # Repository support scripts
 
-These scripts validate tracer documentation, build the versioned documentation
-site and Javadoc, and prepare documentation releases. Run the examples below from
-the repository root unless stated otherwise.
+These scripts check Maven version ownership, validate tracer documentation, build
+the versioned documentation site and Javadoc, and prepare documentation releases.
+Run the examples below from the repository root unless stated otherwise.
+
+The Python test suite also exercises the Bash launcher under
+`src/main/scripts/code-tracer.sh`, including Java selection, relocation, argument
+boundaries, and error behavior. CI separately smoke-tests the packaged archive
+with real JDKs.
+
+On Windows with PowerShell 7.4+ and a full JDK on `PATH` (or selected with
+`JAVA_HOME`), run the Windows launcher checks from the repository root:
+
+```powershell
+Install-Module Pester -RequiredVersion 6.2.0 -Scope CurrentUser -Repository PSGallery -Force
+Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Repository PSGallery -Force
+Import-Module Pester -RequiredVersion 6.2.0
+Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
+Invoke-ScriptAnalyzer src/main/scripts/code-tracer.ps1
+Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1 -CI
+```
+
+Treat any analyzer diagnostic as a failure, as CI does. The Pester tests compile a
+Java probe in a temporary directory and verify actual subprocess behavior. On
+macOS/Linux, they exercise PowerShell and skip the eleven Command Prompt tests;
+only native Windows runs validate the batch launcher. Windows CI additionally
+extracts the packaged ZIP and runs real traces with both launchers on JDK 21/25.
+
+## Maven repository setup
+
+`./scripts/uv run --locked python scripts/configure_maven.py` merges the shared
+JVNet-to-Central mirror into user Maven settings. An optional path selects another
+settings file. Changed existing settings receive a backup beside the original;
+credentials and unrelated settings are retained. See the
+[development guide](../docs/contributing/development.md#legacy-jvnet-repository-workaround)
+for the verified dependency path, scope, and removal criteria. CI uses the same
+script after `setup-java`; native Windows runners use `setup-python` because the
+shell wrapper below supports Windows through WSL only.
 
 ## Setup and command wrappers
 
@@ -47,6 +81,7 @@ behavior.
 
 | Script | Purpose |
 | --- | --- |
+| [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
 | [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
 | [`docs_site.py`](docs_site.py) | Run `build`, `start`, or `api` with explicit preview/published release selection; generate Javadoc and the release manifest. |
 | [`build_javadoc.py`](build_javadoc.py) | Internal generation library for working-source and pinned historical Javadoc. Invoke through `docs_site.py api`. |

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component xmlns="http://maven.apache.org/ASSEMBLY/COMPONENT/1.1.3">
+  <files>
+    <file>
+      <source>${project.basedir}/src/main/scripts/code-tracer.sh</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>code-tracer.sh</destName>
+      <fileMode>0755</fileMode>
+      <filtered>false</filtered>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>${project.basedir}/src/main/scripts/code-tracer.ps1</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>code-tracer.ps1</destName>
+      <fileMode>0644</fileMode>
+      <filtered>false</filtered>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>${project.basedir}/src/main/scripts/code-tracer.cmd</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>code-tracer.cmd</destName>
+      <fileMode>0644</fileMode>
+      <filtered>false</filtered>
+      <lineEnding>dos</lineEnding>
+    </file>
+    <!-- Use the completed assembly directly; the convenience copy runs afterward. -->
+    <file>
+      <source>${project.build.directory}/code-tracer-jar-with-dependencies.jar</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>code-tracer.jar</destName>
+      <fileMode>0644</fileMode>
+    </file>
+    <file>
+      <source>${project.basedir}/LICENSE</source>
+      <outputDirectory>/</outputDirectory>
+      <fileMode>0644</fileMode>
+    </file>
+  </files>
+</component>

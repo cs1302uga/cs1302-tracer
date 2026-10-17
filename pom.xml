@@ -6,7 +6,7 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>4.1.0</version>
+  <version>4.2.0-SNAPSHOT</version>
 
   <name>cs1302-tracer</name>
   <inceptionYear>2025</inceptionYear>
@@ -41,120 +41,174 @@
   </licenses>
 
   <properties>
+    <!-- Encoding and compiler target -->
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Target Java 21 even when Maven runs on a newer JDK. -->
     <maven.compiler.release>21</maven.compiler.release>
+    <!-- Library and BOM versions -->
+    <apiguardian-api.version>1.1.2</apiguardian-api.version>
+    <asm.version>9.11</asm.version>
+    <assertj-core.version>3.27.7</assertj-core.version>
+    <byte-buddy.version>1.18.15</byte-buddy.version>
+    <checker-qual.version>4.3.1</checker-qual.version>
+    <error_prone_annotations.version>2.50.0</error_prone_annotations.version>
+    <gson.version>2.14.0</gson.version>
+    <guava.version>33.7.2-jre</guava.version>
     <javaparser.version>3.28.2</javaparser.version>
+    <javassist.version>3.33.0-GA</javassist.version>
+    <json-unit.version>6.3.0</json-unit.version>
+    <jspecify.version>1.0.1</jspecify.version>
+    <junit-bom.version>6.1.3</junit-bom.version>
     <picocli.version>4.7.7</picocli.version>
+
+    <!-- Build plugin and plugin dependency versions -->
     <checkstyle.version>14.3.0</checkstyle.version>
+    <build-helper-maven-plugin.version>3.6.2</build-helper-maven-plugin.version>
+    <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
+    <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
+    <maven-antrun-plugin.version>3.2.0</maven-antrun-plugin.version>
+    <maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
+    <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
+    <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
+    <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
+    <maven-deploy-plugin.version>3.2.0</maven-deploy-plugin.version>
+    <properties-maven-plugin.version>1.3.1</properties-maven-plugin.version>
+    <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <maven-install-plugin.version>3.2.0</maven-install-plugin.version>
+    <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
+    <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+    <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
+    <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
+    <maven-site-plugin.version>3.22.0</maven-site-plugin.version>
+    <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+
+    <!-- Keep the ordinary and executable JARs on the same automatic module name. -->
     <automatic.module.name>cs1302.tracer</automatic.module.name>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Align JUnit dependency versions through the BOM. -->
       <dependency>
         <groupId>org.junit</groupId>
         <artifactId>junit-bom</artifactId>
-        <version>6.1.3</version>
+        <version>${junit-bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
-      <!-- Test-library transitives; keep their inherited test scope. -->
-      <dependency>
-        <groupId>org.json</groupId>
-        <artifactId>json</artifactId>
-        <version>20260814</version>
-      </dependency>
+      <!-- Manage Byte Buddy's version without changing its inherited test scope. -->
       <dependency>
         <groupId>net.bytebuddy</groupId>
         <artifactId>byte-buddy</artifactId>
-        <version>1.18.15</version>
+        <version>${byte-buddy.version}</version>
       </dependency>
-      <!-- JavaParser support libraries, validated against trace compatibility fixtures. -->
+      <!-- Manage the Checker Framework qualifier annotations used by transitive dependencies. -->
+      <dependency>
+        <groupId>org.checkerframework</groupId>
+        <artifactId>checker-qual</artifactId>
+        <version>${checker-qual.version}</version>
+      </dependency>
+      <!-- Manage the utility library used by JavaParser's symbol solver. -->
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>33.7.2-jre</version>
+        <version>${guava.version}</version>
       </dependency>
+      <!-- Manage the bytecode inspection library used by JavaParser's symbol solver. -->
       <dependency>
         <groupId>org.javassist</groupId>
         <artifactId>javassist</artifactId>
-        <version>3.33.0-GA</version>
+        <version>${javassist.version}</version>
       </dependency>
-      <!-- Align annotations shared by Guava, Gson, and the test framework. -->
+      <!-- Align Error Prone annotations used by transitive dependencies. -->
       <dependency>
         <groupId>com.google.errorprone</groupId>
         <artifactId>error_prone_annotations</artifactId>
-        <version>2.50.0</version>
+        <version>${error_prone_annotations.version}</version>
       </dependency>
+      <!-- Align nullness annotations shared by runtime and test dependencies. -->
       <dependency>
         <groupId>org.jspecify</groupId>
         <artifactId>jspecify</artifactId>
-        <version>1.0.1</version>
+        <version>${jspecify.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
 
   <dependencies>
+    <!-- Mark API declarations with their supported or internal stability status. -->
     <dependency>
       <groupId>org.apiguardian</groupId>
       <artifactId>apiguardian-api</artifactId>
-      <version>1.1.2</version>
+      <version>${apiguardian-api.version}</version>
     </dependency>
+    <!-- Read executable source lines from class-file debug attributes without loading guest classes. -->
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
-      <version>9.11</version>
+      <version>${asm.version}</version>
     </dependency>
+    <!-- Provide the JUnit Jupiter test API and engine, with versions supplied by the BOM. -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- https://github.com/remkop/picocli -->
+    <!-- Keep the CLI library and its annotation processor on the same release. -->
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
       <version>${picocli.version}</version>
     </dependency>
-    <!-- https://github.com/javaparser/javaparser -->
+    <!-- Keep the JavaParser parser and symbol solver on the same release. -->
     <dependency>
       <groupId>com.github.javaparser</groupId>
       <artifactId>javaparser-core</artifactId>
       <version>${javaparser.version}</version>
     </dependency>
+    <!-- Resolve Java symbols and types using the same release as the parser. -->
     <dependency>
       <groupId>com.github.javaparser</groupId>
       <artifactId>javaparser-symbol-solver-core</artifactId>
       <version>${javaparser.version}</version>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/com.google.code.gson/gson -->
+    <!-- Serialize trace output and batch protocol messages as JSON. -->
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
-      <version>2.14.0</version>
+      <version>${gson.version}</version>
     </dependency>
-    <!-- https://github.com/skyscreamer/JSONassert -->
+    <!-- Keep both JsonUnit test APIs on the same release. -->
     <dependency>
-      <groupId>org.skyscreamer</groupId>
-      <artifactId>jsonassert</artifactId>
-      <version>2.0-rc1</version>
+      <groupId>net.javacrumbs.json-unit</groupId>
+      <artifactId>json-unit</artifactId>
+      <version>${json-unit.version}</version>
       <scope>test</scope>
     </dependency>
-    <!-- https://mvnrepository.com/artifact/org.assertj/assertj-core -->
+    <!-- Provide AssertJ JSON assertions using the same release as the core JsonUnit API. -->
+    <dependency>
+      <groupId>net.javacrumbs.json-unit</groupId>
+      <artifactId>json-unit-assertj</artifactId>
+      <version>${json-unit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Provide fluent assertions for tests, including the JsonUnit integration. -->
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>
-      <version>3.27.7</version>
+      <version>${assertj-core.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
 
   <build>
     <resources>
+      <!-- Substitute the project version into the runtime version.properties resource. -->
       <resource>
         <directory>src/main/resources</directory>
         <filtering>true</filtering>
       </resource>
+      <!-- Include the project's own license under its artifact-specific metadata path. -->
       <resource>
         <directory>${project.basedir}</directory>
         <targetPath>META-INF/cs1302-tracer</targetPath>
@@ -163,26 +217,31 @@
         </includes>
       </resource>
     </resources>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+    <!-- Centralize plugin versions and shared configuration; active plugins inherit these settings. -->
+    <pluginManagement>
       <plugins>
-        <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
+        <!-- Clean lifecycle -->
+        <!-- Remove generated build output during the clean lifecycle. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-clean-plugin</artifactId>
-          <version>3.5.0</version>
+          <version>${maven-clean-plugin.version}</version>
         </plugin>
-        <!-- default lifecycle, jar packaging: see https://maven.apache.org/ref/current/maven-core/default-bindings.html#Plugin_bindings_for_jar_packaging -->
+        <!-- Build and API documentation plugins -->
+        <!-- Copy and filter project resources into the build output. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-resources-plugin</artifactId>
-          <version>3.5.0</version>
+          <version>${maven-resources-plugin.version}</version>
         </plugin>
+        <!-- Compile production and test sources with the shared Java target and warning policy. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.16.0</version>
+          <version>${maven-compiler-plugin.version}</version>
           <configuration>
             <showWarnings>true</showWarnings>
+            <!-- Fail on enabled compiler warnings; exclude the processing and this-escape lint categories. -->
             <compilerArgs>
               <arg>-Werror</arg>
               <arg>-Xlint:all</arg>
@@ -194,13 +253,16 @@
             <execution>
               <id>default-compile</id>
               <configuration>
+                <!-- Generate Picocli metadata during production compilation using the matching processor version. -->
                 <annotationProcessorPaths>
+                  <!-- Run the Picocli annotation processor at the same version as the CLI library. -->
                   <path>
                     <groupId>info.picocli</groupId>
                     <artifactId>picocli-codegen</artifactId>
                     <version>${picocli.version}</version>
                   </path>
                 </annotationProcessorPaths>
+                <!-- Add processor options while retaining the shared compiler warning flags. -->
                 <compilerArgs combine.children="append">
                   <arg>-Aproject=${project.groupId}/${project.artifactId}</arg>
                 </compilerArgs>
@@ -208,17 +270,20 @@
             </execution>
           </executions>
         </plugin>
+        <!-- Generate the supported Java API reference with shared documentation settings. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.12.0</version>
+          <version>${maven-javadoc-plugin.version}</version>
           <configuration>
             <failOnError>true</failOnError>
+            <!-- Check Javadoc correctness while excluding missing-documentation diagnostics. -->
             <doclint>all,-missing</doclint>
             <overview>${project.basedir}/src/main/javadoc/overview.html</overview>
             <bottom><![CDATA[
               Copyright &#169; ${project.inceptionYear} - ${currentYear} Michael E. Cotterell and the University of Georgia. Released under the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/LICENSE" target="_blank">MIT License</a>.
             ]]></bottom>
+            <!-- Publish the supported API reference without internal implementation packages. -->
             <excludePackageNames>
               cs1302.tracer.internal:cs1302.tracer.internal.*
             </excludePackageNames>
@@ -228,15 +293,17 @@
             </links>
           </configuration>
         </plugin>
+        <!-- Run the Java test suite during the test phase. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>${maven-surefire-plugin.version}</version>
         </plugin>
+        <!-- Package the ordinary project JAR with its stable automatic module name. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
-          <version>3.5.1</version>
+          <version>${maven-jar-plugin.version}</version>
           <configuration>
             <archive>
               <manifestEntries>
@@ -245,37 +312,52 @@
             </archive>
           </configuration>
         </plugin>
+        <!-- Manage the file-copy step that provides the short executable JAR filename. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>${maven-antrun-plugin.version}</version>
+        </plugin>
+        <!-- Manage the plugin used to create source and executable distributions. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>
-          <version>3.8.0</version>
+          <version>${maven-assembly-plugin.version}</version>
         </plugin>
+        <!-- Install project artifacts into the local Maven repository. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-install-plugin</artifactId>
-          <version>3.2.0</version>
+          <version>${maven-install-plugin.version}</version>
         </plugin>
+        <!-- Publish project artifacts to the configured distribution repositories. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.2.0</version>
+          <version>${maven-deploy-plugin.version}</version>
         </plugin>
-        <!-- site lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#site_Lifecycle -->
+        <!-- Site generation and project reports -->
+        <!-- Manage Maven site generation when the site lifecycle is invoked. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-site-plugin</artifactId>
-          <version>3.22.0</version>
+          <version>${maven-site-plugin.version}</version>
         </plugin>
+        <!-- Provide project information reports for Maven site generation. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.9.0</version>
+          <version>${maven-project-info-reports-plugin.version}</version>
         </plugin>
+        <!-- Additional build tools -->
+        <!-- Manage the style-checking plugin and its separately selected engine dependency. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-checkstyle-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>${maven-checkstyle-plugin.version}</version>
+          <!-- Select the Checkstyle engine independently of the Maven plugin release. -->
           <dependencies>
+            <!-- Supply the selected Checkstyle engine to the Maven plugin. -->
             <dependency>
               <groupId>com.puppycrawl.tools</groupId>
               <artifactId>checkstyle</artifactId>
@@ -283,49 +365,84 @@
             </dependency>
           </dependencies>
         </plugin>
+        <!-- Manage the plugin used to generate third-party license notices. -->
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>license-maven-plugin</artifactId>
-          <version>2.7.1</version>
+          <version>${license-maven-plugin.version}</version>
         </plugin>
+        <!-- Manage the coverage agent, report generation, and coverage checks. -->
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.15</version>
+          <version>${jacoco-maven-plugin.version}</version>
+        </plugin>
+        <!-- Manage the plugin used to validate Maven and JDK requirements. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${maven-enforcer-plugin.version}</version>
+        </plugin>
+        <!-- Manage the helpers used to derive build properties. -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>${build-helper-maven-plugin.version}</version>
+        </plugin>
+        <!-- Manage the plugin used to load wrapper properties into the Maven project. -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>properties-maven-plugin</artifactId>
+          <version>${properties-maven-plugin.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
+      <!--
+        Keep these validate executions ordered: read the wrapper properties,
+        derive the Maven version, then enforce it as the minimum supported version.
+      -->
+      <!-- Load the wrapper properties before deriving the minimum Maven version. -->
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.6.3</version>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>properties-maven-plugin</artifactId>
         <executions>
           <execution>
-            <id>build-toolchain</id>
+            <id>read-wrapper-properties</id>
+            <phase>validate</phase>
             <goals>
-              <goal>enforce</goal>
+              <goal>read-project-properties</goal>
             </goals>
             <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.10.0,)</version>
-                  <message>Use ./mvnw (Maven 3.10.0 or later) to build this project.</message>
-                </requireMavenVersion>
-                <requireJavaVersion>
-                  <version>[21,)</version>
-                  <message>A full JDK 21 or later is required to build the tracer.</message>
-                </requireJavaVersion>
-              </rules>
+              <files>
+                <file>${project.basedir}/.mvn/wrapper/maven-wrapper.properties</file>
+              </files>
+              <keyPrefix>wrapper.</keyPrefix>
+              <quiet>false</quiet>
             </configuration>
           </execution>
         </executions>
       </plugin>
+      <!-- Derive the minimum Maven version and the Javadoc copyright year. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>3.6.2</version>
         <executions>
+          <execution>
+            <id>wrapper-maven-version</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>regex-property</goal>
+            </goals>
+            <configuration>
+              <name>wrapper.maven.version</name>
+              <value>${wrapper.distributionUrl}</value>
+              <regex>^.*/apache-maven-([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?)-bin\.(?:zip|tar\.gz)$</regex>
+              <replacement>$1</replacement>
+              <failIfNoMatch>true</failIfNoMatch>
+            </configuration>
+          </execution>
+          <!-- Supply the current year used by the Javadoc copyright footer. -->
           <execution>
             <id>copyright-year</id>
             <phase>validate</phase>
@@ -341,10 +458,38 @@
           </execution>
         </executions>
       </plugin>
+      <!-- Enforce the wrapper-derived Maven minimum and the supported JDK minimum. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>build-toolchain</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[${wrapper.maven.version},)</version>
+                  <message>Use ./mvnw (Unix) or mvnw.cmd (Windows): this build requires Maven ${wrapper.maven.version} or later; the minimum version comes from .mvn/wrapper/maven-wrapper.properties.</message>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[21,)</version>
+                  <message>A full JDK 21 or later is required to build the tracer.</message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Generate third-party license notices for inclusion in packaged artifacts. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
         <executions>
+          <!-- Generate packaged third-party notices for compile and runtime dependencies. -->
           <execution>
             <id>add-third-party</id>
             <phase>generate-resources</phase>
@@ -355,6 +500,7 @@
               <outputDirectory>${project.build.outputDirectory}/META-INF</outputDirectory>
               <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
               <includedScopes>compile,runtime</includedScopes>
+              <!-- Combine alternate names for the same license in the generated notices. -->
               <licenseMerges>
                 <licenseMerge>The Apache Software License, Version 2.0|Apache License, Version 2.0|Apache License 2.0|The Apache License, Version 2.0|Apache-2.0|Apache 2.0</licenseMerge>
               </licenseMerges>
@@ -362,23 +508,13 @@
           </execution>
         </executions>
       </plugin>
+      <!-- Create the source archive and executable JAR during packaging. -->
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <!-- <configuration> -->
-        <!--   <appendAssemblyId>false</appendAssemblyId> -->
-        <!--   <descriptorRefs> -->
-        <!--     <descriptorRef>bin</descriptorRef> -->
-        <!--     <descriptorRef>jar-with-dependencies</descriptorRef> -->
-        <!--     <descriptorRef>project</descriptorRef> -->
-        <!--     <descriptorRef>src</descriptorRef> -->
-        <!--   </descriptorRefs> -->
-        <!--   <finalName>code-tracer</finalName> -->
-        <!--   <formats>tar.xz</formats> -->
-        <!--   <tarLongFileMode>posix</tarLongFileMode> -->
-        <!-- </configuration> -->
 
         <executions>
 
+          <!-- Package the source distribution as a compressed archive. -->
           <execution>
             <id>assemble-src</id>
             <phase>package</phase>
@@ -396,6 +532,7 @@
             </configuration>
           </execution>
 
+          <!-- Package the CLI and its runtime dependencies in an executable JAR. -->
           <execution>
             <id>assemble-jar</id>
             <phase>package</phase>
@@ -413,8 +550,28 @@
                   <Automatic-Module-Name>${automatic.module.name}</Automatic-Module-Name>
                 </manifestEntries>
               </archive>
+              <!--
+                The custom descriptor excludes dependency module descriptors so they cannot
+                override the assembled JAR's automatic module identity.
+              -->
               <descriptors>
                 <descriptor>src/assembly/jar-with-dependencies.xml</descriptor>
+              </descriptors>
+              <finalName>code-tracer</finalName>
+            </configuration>
+          </execution>
+
+          <!-- Assemble the relocatable launcher distribution after the executable JAR exists. -->
+          <execution>
+            <id>assemble-bin</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <appendAssemblyId>true</appendAssemblyId>
+              <descriptors>
+                <descriptor>src/assembly/bin.xml</descriptor>
               </descriptors>
               <finalName>code-tracer</finalName>
             </configuration>
@@ -423,17 +580,70 @@
         </executions>
 
       </plugin>
+      <!-- Keep this copy after assembly; preserve the original file used by Maven's attached artifact. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <!-- Stage launcher files before either binary archive is assembled. -->
+          <execution>
+            <id>prepare-launchers</id>
+            <phase>prepare-package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <!-- Copy shell expressions literally and make the local launcher executable on Unix. -->
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.sh"
+                  tofile="${project.build.directory}/code-tracer.sh" overwrite="true" filtering="false" />
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.ps1"
+                  tofile="${project.build.directory}/code-tracer.ps1" overwrite="true" filtering="false" />
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.cmd"
+                  tofile="${project.build.directory}/code-tracer.cmd" overwrite="true" filtering="false" />
+                <!-- Normalize batch line endings even when packaging from a Unix checkout. -->
+                <fixcrlf srcdir="${project.build.directory}" includes="code-tracer.cmd" eol="crlf" />
+                <chmod file="${project.build.directory}/code-tracer.sh" perm="755" osfamily="unix" />
+                <!-- Replace only generated legacy launchers; incremental builds must not retain stale names. -->
+                <delete file="${project.build.directory}/code-tracer.bat" />
+                <delete file="${project.build.directory}/code-tracer" />
+                <copy file="${project.build.directory}/code-tracer.sh"
+                  tofile="${project.build.directory}/code-tracer" overwrite="true" />
+                <!-- Native Windows needs no symlink privileges; Unix uses a relocatable relative link. -->
+                <exec executable="ln" dir="${project.build.directory}" osfamily="unix" failonerror="true">
+                  <arg value="-sf" />
+                  <arg value="code-tracer.sh" />
+                  <arg value="code-tracer" />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-executable-jar</id>
+            <phase>package</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <copy file="${project.build.directory}/code-tracer-jar-with-dependencies.jar"
+                  tofile="${project.build.directory}/code-tracer.jar" overwrite="true" />
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Collect test coverage, generate reports, and enforce the normal coverage gate. -->
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.8.15</version>
         <executions>
+          <!-- Attach the coverage agent before tests run. -->
           <execution>
             <id>prepare-agent</id>
             <goals>
               <goal>prepare-agent</goal>
             </goals>
           </execution>
+          <!-- Generate the coverage report during the test phase. -->
           <execution>
             <id>report</id>
             <phase>test</phase>
@@ -441,6 +651,7 @@
               <goal>report</goal>
             </goals>
           </execution>
+          <!-- Require full line and branch coverage for the model and serializer packages. -->
           <execution>
             <id>check</id>
             <phase>test</phase>
@@ -473,18 +684,12 @@
           </execution>
         </executions>
       </plugin>
+      <!-- Enforce the repository Checkstyle rules during the build. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.6.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>${checkstyle.version}</version>
-          </dependency>
-        </dependencies>
         <executions>
+          <!-- Check style after production compilation and before test execution. -->
           <execution>
             <id>verify-style</id>
             <phase>process-classes</phase>
@@ -503,10 +708,37 @@
   </build>
 
   <profiles>
+    <!-- Tar distributions preserve Unix symlinks; native Windows builds the portable ZIP only. -->
+    <profile>
+      <id>unix-launcher-archive</id>
+      <activation><os><family>unix</family></os></activation>
+      <build>
+        <plugins>
+          <!-- Add the symlink-preserving archive after the executable JAR and portable ZIP. -->
+          <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>assemble-bin-tar</id>
+                <phase>package</phase>
+                <goals><goal>single</goal></goals>
+                <configuration>
+                  <appendAssemblyId>true</appendAssemblyId>
+                  <descriptors><descriptor>src/assembly/bin-tar.xml</descriptor></descriptors>
+                  <finalName>code-tracer</finalName>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!-- Extend the normal coverage gate to all production classes for pre-commit checks. -->
     <profile>
       <id>pre-commit-coverage</id>
       <build>
         <plugins>
+          <!-- Add the stricter coverage gate for all production classes in this profile. -->
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
@@ -544,6 +776,7 @@
     </profile>
   </profiles>
 
+  <!-- Publish release and snapshot artifacts to GitHub Packages using the github server credentials. -->
   <distributionManagement>
     <repository>
       <id>github</id>

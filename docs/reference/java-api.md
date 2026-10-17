@@ -8,7 +8,7 @@ Run with a full JDK 21 or later; CI exercises Java 21 and 25, and `.java-version
 selects the local development JDK. Submitted-program features depend on the active
 JDK and parser support.
 
-This documentation describes version `4.1.0`. Features marked 4.1.0 include
+This documentation describes development version `4.2.0-SNAPSHOT`. Features marked 4.1.0 include
 `SourceBundle`, `TraceClassPath`, the builders, and the primitive binary metadata
 overload.
 

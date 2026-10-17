@@ -34,6 +34,45 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Launcher configuration:** `CODE_TRACER_JAR_DIR` selects the directory containing
+  `code-tracer.jar` for Bash, PowerShell, and Command Prompt. Unset or empty values
+  preserve the adjacent-JAR default; relative paths use the caller's working
+  directory. Invalid explicit overrides fail without falling back.
+
+- **CLI packaging:** add Bash (`code-tracer.sh`, also available as `code-tracer`), PowerShell 7.4+ (`code-tracer.ps1`),
+  and standalone Command Prompt (`code-tracer.cmd`) launchers beside the executable
+  JAR in `target/`. Both `code-tracer-bin.tar.gz` and `code-tracer-bin.zip` bundle
+  all launchers, the JAR, and license. Unix builds produce a relative Bash symlink
+  in the tar archive; the ZIP uses a regular copy. Native Windows builds produce
+  the ZIP without requiring symlink privileges. Launchers honor `JAVA_HOME`, fall back to Java
+  on `PATH`, and preserve the caller's working directory and Java exit code.
+  Existing JAR invocation and Maven artifact identities remain supported.
+  Windows CI packages and checks both Windows launchers on JDK 21 and 25.
+
+- **Packaging:** provide `target/code-tracer.jar` as a convenience copy of the executable
+  assembly. Current commands and tooling use the short filename; the original assembly
+  path, Maven main artifact, and attached classifier remain available. Release uploads
+  select the short executable and ordinary library JAR without a wildcard rename.
+
+- **Build documentation:** document every POM dependency and plugin declaration and explain dependency roles,
+  compilation, resources, documentation, packaging, quality gates, and publishing.
+  Remove obsolete commented-out assembly settings without changing build behavior.
+
+- **Build tooling:** derive the minimum supported Maven version from
+  `.mvn/wrapper/maven-wrapper.properties`. Enforcer accepts that version or later;
+  `./mvnw` and `mvnw.cmd` continue to select the pinned wrapper version.
+
+- **Build repositories:** mirror the legacy JVNet releases repository to Maven Central
+  in local setup and all Maven CI jobs, avoiding its expired certificate while
+  preserving other repository routes and credential settings.
+
+- **Development version:** advance the Maven project to `4.2.0-SNAPSHOT`.
+- **Build tooling:** centralize explicitly selected Maven versions in properties,
+  consolidate plugin version ownership, and enforce the convention in Scripts quality CI.
+- **Tests and dependencies:** replace JSONassert with matching JsonUnit 6.3.0 APIs,
+  preserve partial-object/ordered-array assertions, and remove the unused JSON-java
+  override. Upgrade JavaParser's transitive Checker Qual annotations to 4.3.1.
+  Java API, CLI, and JSON/protocol contracts are unchanged.
 - **Release documentation:** record the 4.1.0 publication date and its squash-merged
   commit range.
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+  <id>bin</id>
+  <formats><format>zip</format></formats>
+  <includeBaseDirectory>true</includeBaseDirectory>
+  <baseDirectory>code-tracer</baseDirectory>
+  <!-- ZIP uses a regular copy, independent of symlink extraction support. -->
+  <files>
+    <file>
+      <source>${project.basedir}/src/main/scripts/code-tracer.sh</source>
+      <outputDirectory>/</outputDirectory>
+      <destName>code-tracer</destName>
+      <fileMode>0755</fileMode>
+      <filtered>false</filtered>
+      <lineEnding>unix</lineEnding>
+    </file>
+  </files>
+  <componentDescriptors>
+    <componentDescriptor>src/assembly/bin-common.xml</componentDescriptor>
+  </componentDescriptors>
+</assembly>

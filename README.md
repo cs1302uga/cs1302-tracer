@@ -21,18 +21,27 @@ cd cs1302-tracer
 ./mvnw -B -ntp clean package
 ```
 
-The executable is `target/code-tracer-jar-with-dependencies.jar`.
+The executable is `target/code-tracer.jar`. On Linux and macOS, packaging also
+creates `target/code-tracer.sh` and the relative symlink `target/code-tracer`;
+run `./target/code-tracer --help`.
+Windows users can run `target\code-tracer.cmd` in Command Prompt or
+`.\target\code-tracer.ps1` in PowerShell 7.4+. The portable
+`target/code-tracer-bin.tar.gz` (Unix builds) and `target/code-tracer-bin.zip`
+bundle all three launchers and the JAR. The tar preserves the Bash symlink; the
+ZIP supplies an identical regular copy for the extensionless name. See [installation](docs/guides/installation.md) for Java
+selection and relocation instructions, including `CODE_TRACER_JAR_DIR` for storing
+the executable JAR separately from the launchers.
 
 <!-- quickstart:start -->
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   -i examples/example0/Driver.java --all-breakpoints --format modern --pretty
 ```
 <!-- quickstart:end -->
 
 This prints a JSON trace of a record instance, including source text, execution
 steps, stack frames, and heap objects. `trace` is an explicit subcommand; run
-`java -jar target/code-tracer-jar-with-dependencies.jar --help` to list commands.
+`java -jar target/code-tracer.jar --help` to list commands.
 
 Trusted local examples can run directly. **The tracer does not sandbox programs.**
 Hosted student submissions require whole-job isolation as described in the
@@ -60,4 +69,4 @@ library JAR and traces a program using a recursive class-path pattern.
 
 First-party code and documentation are [MIT licensed](LICENSE).
 Dependency notices retain their original terms. Display bundled dependency notices
-with `java -jar target/code-tracer-jar-with-dependencies.jar show-licenses`.
+with `java -jar target/code-tracer.jar show-licenses`.

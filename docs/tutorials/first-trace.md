@@ -5,7 +5,7 @@ from the repository root:
 
 <!-- quickstart:start -->
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   -i examples/example0/Driver.java --all-breakpoints --format modern --pretty
 ```
 <!-- quickstart:end -->
@@ -21,7 +21,7 @@ Try `--format pytutor` to obtain Python Tutor tuples instead. See the
 To discover selectable breakpoints:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar list-breakpoints \
+java -jar target/code-tracer.jar list-breakpoints \
   -i examples/example0/Driver.java --json --pretty
 ```
 

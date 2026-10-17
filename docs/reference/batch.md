@@ -8,7 +8,7 @@ responses. Results default to submission order, even when workers finish out of
 order. Use `--completion-order` to emit each response when it finishes.
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar batch-trace \
+java -jar target/code-tracer.jar batch-trace \
   --workers 2 --max-in-flight 16 --max-jobs-per-worker 100 < jobs.ndjson
 ```
 

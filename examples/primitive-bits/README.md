@@ -4,7 +4,7 @@ Build the JAR, then capture the final state with binary metadata enabled:
 
 ```sh
 ./mvnw -B -ntp package
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i examples/primitive-bits/Main.java -f modern --include-primitive-bits
+java -jar target/code-tracer.jar trace -i examples/primitive-bits/Main.java -f modern --include-primitive-bits
 ```
 
 Use `-f pytutor` for the same metadata in Python Tutor attributes, or add `-a` to

@@ -51,7 +51,7 @@ that includes private declarations, then review the affected generated pages:
 ```sh
 ./mvnw -B -ntp package -DskipTests
 javadoc -quiet -private --release 21 -Xdoclint:all,-missing \
-  -classpath target/code-tracer-jar-with-dependencies.jar \
+  -classpath target/code-tracer.jar \
   -sourcepath src/main/java -subpackages cs1302.tracer \
   -overview src/main/javadoc/overview.html \
   -d target/internal-apidocs
@@ -152,7 +152,9 @@ retry of an older release cannot replace newer docs with an old checkout.
 
 GitHub releases created by the CI token do not need to trigger another release
 event: deployment uses `workflow_run` after CI / Release completes. The software
-release needs documentation validation, but does not depend on Pages deployment.
+release publishes the standalone executable JAR, ordinary library JAR, and
+tar.gz/ZIP archives containing the Bash, PowerShell, and batch launchers.
+It needs documentation validation, but does not depend on Pages deployment.
 For an outage, rerun Deploy documentation or dispatch it on `main`; do not recreate
 the tag or software release. Build artifacts are also downloadable from PR checks
 for local review; PRs do not deploy publicly.

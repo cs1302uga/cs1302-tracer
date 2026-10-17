@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
-JAR = ROOT / "target/code-tracer-jar-with-dependencies.jar"
+JAR = ROOT / "target/code-tracer.jar"
 
 
 def run(args: list[str], source: str | None = None, cwd: Path = ROOT, timeout: float = 40) -> str:

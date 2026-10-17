@@ -56,7 +56,7 @@ public class Main {
 Save it as `submission.txt` and pass it to `trace` through stdin:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace -a -f modern < submission.txt
+java -jar target/code-tracer.jar trace -a -f modern < submission.txt
 ```
 
 In `FIELDS` mode and multithread capture, include every required source in this
@@ -97,7 +97,7 @@ repeatable `--class-path`, `-classpath`, or `-cp` options. These are tracer opti
 after the `trace` or `list-breakpoints` subcommand:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace --input Main.java \
+java -jar target/code-tracer.jar trace --input Main.java \
   --class-path build/classes -cp 'lib/**/*.jar' --format modern
 ```
 
@@ -145,7 +145,7 @@ Use `--include-primitive-bits=true` or `--include-primitive-bits=false` to set i
 explicitly; other explicit values are usage errors (exit 2). For example:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace -i examples/primitive-bits/Main.java -a -f modern --include-primitive-bits
+java -jar target/code-tracer.jar trace -i examples/primitive-bits/Main.java -a -f modern --include-primitive-bits
 ```
 
 The option does not change inspection policy, capture selection, or exit statuses.

@@ -26,7 +26,7 @@ unlimited, and callers should supply their intended budgets explicitly.
 Hosted execution requires the separate [runner contract](RUNNER_CONTRACT.md).
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   --result-envelope --inspection FIELDS -a -f pytutor \
   --timeout-ms 5000 --max-snapshots 1000 --max-output-bytes 65536 \
   --max-heap-objects 1000 --max-elements 10000 --max-trace-bytes 33554432 \

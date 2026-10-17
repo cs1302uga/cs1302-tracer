@@ -5,7 +5,7 @@ An exception event and thread termination are followed by the survivor output. T
 Run from the repository root after building the JAR (JDK 21 or later):
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   -i examples/example39/Driver.java --multithread --format modern \
   --result-envelope --timeout-ms 15000 --max-snapshots 500 \
   --max-threads 16 --max-frames 512 --max-snapshot-bytes 8388608 \

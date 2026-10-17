@@ -104,7 +104,7 @@ def execute(case, jar, java):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--jar", type=Path,
-                        default=ROOT / "target/code-tracer-jar-with-dependencies.jar")
+                        default=ROOT / "target/code-tracer.jar")
     parser.add_argument("--java", default="java")
     parser.add_argument("--update", action="store_true",
                         help="explicitly replace expected fixtures; review the resulting diff")

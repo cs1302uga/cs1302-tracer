@@ -8,7 +8,7 @@ javac --release 21 -proc:none -d target/classpath-example/classes \
   examples/classpath/library/example/library/Answer.java
 jar --create --file target/classpath-example/lib/nested/answer.jar \
   -C target/classpath-example/classes .
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   --input examples/classpath/Main.java --format modern --all-breakpoints \
   --class-path 'target/classpath-example/lib/**/*.jar' --copy-class-path
 ```

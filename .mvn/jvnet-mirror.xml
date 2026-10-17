@@ -1,0 +1,6 @@
+<mirror>
+  <id>central-for-jvnet-releases</id>
+  <name>Resolve legacy JVNet releases from Maven Central</name>
+  <url>https://repo.maven.apache.org/maven2</url>
+  <mirrorOf>jvnet-nexus-releases</mirrorOf>
+</mirror>

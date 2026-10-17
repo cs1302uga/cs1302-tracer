@@ -4,7 +4,7 @@ cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null
 
 SCRIPT_DIR="$(pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-JAR_FILE="${ROOT_DIR}/target/code-tracer-jar-with-dependencies.jar"
+JAR_FILE="${ROOT_DIR}/target/code-tracer.jar"
 TRACE_FILE="stream.json"
 
 echo "==> Streaming multi-file packaged code via stdin into trace -a..."

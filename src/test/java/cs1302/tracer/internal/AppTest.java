@@ -1,5 +1,7 @@
 package cs1302.tracer.internal;
 
+import static net.javacrumbs.jsonunit.assertj.JsonAssertions.assertThatJson;
+import static net.javacrumbs.jsonunit.core.Option.IGNORING_EXTRA_FIELDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.github.javaparser.ast.CompilationUnit;
@@ -22,8 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.skyscreamer.jsonassert.JSONAssert;
-import org.skyscreamer.jsonassert.JSONCompareMode;
 import picocli.CommandLine;
 
 /** Tests for cs1302-tracer. */
@@ -358,7 +358,7 @@ public class AppTest {
                 ]
                 """;
 
-        JSONAssert.assertEquals(expectedOutput, output, JSONCompareMode.STRICT_ORDER);
+        assertThatJson(output).when(IGNORING_EXTRA_FIELDS).withTolerance(0).isEqualTo(expectedOutput);
     }
 
     /** Ensure that the traced program's standard output is captured. */
@@ -374,7 +374,8 @@ public class AppTest {
 
         String output = executeCommand(App.Trace::new, testProgram).get();
 
-        JSONAssert.assertEquals("{\"trace\":[{\"stdout\":\"Hello world!\\n\"}]}", output, JSONCompareMode.STRICT_ORDER);
+        assertThatJson(output).when(IGNORING_EXTRA_FIELDS).withTolerance(0)
+            .isEqualTo("{\"trace\":[{\"stdout\":\"Hello world!\\n\"}]}");
     }
 
     /** Ensure that method variables are detected during tracing and included in the serialization. */
@@ -428,7 +429,7 @@ public class AppTest {
                 }
                 """;
 
-        JSONAssert.assertEquals(expectedOutput, output, JSONCompareMode.STRICT_ORDER);
+        assertThatJson(output).when(IGNORING_EXTRA_FIELDS).withTolerance(0).isEqualTo(expectedOutput);
     }
 
     @Test

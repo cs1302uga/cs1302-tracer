@@ -12,7 +12,7 @@ fi
 TRACE_FILE="${INPUT_FILE}.json"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-JAR_FILE="${ROOT_DIR}/target/code-tracer-jar-with-dependencies.jar"
+JAR_FILE="${ROOT_DIR}/target/code-tracer.jar"
 
 # Build JAR if missing
 if [ ! -f "${JAR_FILE}" ]; then

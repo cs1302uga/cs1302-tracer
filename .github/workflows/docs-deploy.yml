@@ -39,6 +39,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - uses: ./.github/actions/configure-maven
       - uses: actions/setup-node@v6
         with:
           node-version: '22'

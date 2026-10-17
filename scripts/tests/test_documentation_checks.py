@@ -27,7 +27,7 @@ class DocumentationChecksTests(unittest.TestCase):
         self.root = Path(temporary.name)
         copy_scripts(self.root)
         (self.root / "target").mkdir()
-        (self.root / "target/code-tracer-jar-with-dependencies.jar").touch()
+        (self.root / "target/code-tracer.jar").touch()
         (self.root / "examples").mkdir()
         shutil.copy2(SCRIPTS.parent / "examples/verify.py", self.root / "examples/verify.py")
         (self.root / "docs/reference").mkdir(parents=True)
@@ -151,7 +151,7 @@ else:
         (self.root / "HACKING.md").write_text("[Missing](absent.md)\n")
         result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
         self.assertIn("HACKING.md: missing absent.md", result.stderr)
-        (self.root / "target/code-tracer-jar-with-dependencies.jar").unlink()
+        (self.root / "target/code-tracer.jar").unlink()
         result = invoke(self.root, "check_docs.py", env=self.env)
         self.assertIn("Build the JAR first", result.stderr)
 

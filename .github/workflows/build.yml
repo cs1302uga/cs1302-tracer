@@ -28,6 +28,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - uses: ./.github/actions/configure-maven
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
@@ -76,6 +77,8 @@ jobs:
           node-version: '22'
       - name: Install locked managed Python tooling
         run: ./scripts/uv sync --locked
+      - name: Check Maven version ownership
+        run: ./scripts/uv run --locked python scripts/check_pom.py
       - name: Lint, format, and type-check scripts
         run: |
           ./scripts/uv run --locked ruff check scripts
@@ -102,15 +105,61 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: maven
+      - uses: ./.github/actions/configure-maven
       - name: Build and test with Maven
         run: ./mvnw -B -ntp clean package
+      - name: Verify launcher distribution
+        shell: bash
+        run: |
+          unset CODE_TRACER_JAR_DIR
+          ./target/code-tracer --version
+          ./target/code-tracer --help
+          test "$(readlink target/code-tracer)" = code-tracer.sh
+          test ! -e target/code-tracer.bat
+          python3 - <<'PY'
+          import stat, tarfile, zipfile
+          from pathlib import Path
+          expected = {'code-tracer', 'code-tracer.sh', 'code-tracer.ps1', 'code-tracer.cmd', 'code-tracer.jar', 'LICENSE'}
+          with tarfile.open('target/code-tracer-bin.tar.gz') as tar, zipfile.ZipFile('target/code-tracer-bin.zip') as zip:
+              members = {Path(m.name).name: m for m in tar.getmembers() if not m.isdir()}
+              entries = {Path(m.filename).name: m for m in zip.infolist() if not m.is_dir()}
+              assert set(members) == set(entries) == expected
+              assert members['code-tracer'].issym() and members['code-tracer'].linkname == 'code-tracer.sh'
+              assert stat.S_ISREG(entries['code-tracer'].external_attr >> 16)
+              assert zip.read(entries['code-tracer']) == zip.read(entries['code-tracer.sh'])
+              for name in expected - {'code-tracer'}:
+                  assert tar.extractfile(members[name]).read() == zip.read(entries[name])
+              assert members['code-tracer.sh'].mode & 0o777 == 0o755
+              assert b'\n' not in zip.read(entries['code-tracer.cmd']).replace(b'\r\n', b'')
+          PY
+          smoke_root=$(mktemp -d)
+          trap 'rm -rf "$smoke_root"' EXIT
+          smoke_dir="$smoke_root/launcher smoke"
+          mkdir -p "$smoke_dir"
+          tar -xzf target/code-tracer-bin.tar.gz -C "$smoke_dir"
+          mv "$smoke_dir/code-tracer" "$smoke_dir/relocated application"
+          test "$(readlink "$smoke_dir/relocated application/code-tracer")" = code-tracer.sh
+          test -x "$smoke_dir/relocated application/code-tracer"
+          cmp target/code-tracer.jar "$smoke_dir/relocated application/code-tracer.jar"
+          (
+            cd "$smoke_dir"
+            printf '%s\n' 'public class Main { public static void main(String[] args) { System.out.println(42); } }' > Main.java
+            './relocated application/code-tracer.sh' --version
+            './relocated application/code-tracer' trace -i Main.java -a -f modern > trace.json
+            mkdir 'separate jars'
+            mv 'relocated application/code-tracer.jar' 'separate jars/'
+            CODE_TRACER_JAR_DIR='./separate jars/' './relocated application/code-tracer' trace -i Main.java -a -f modern > override.json
+            CODE_TRACER_JAR_DIR="$PWD/separate jars" './relocated application/code-tracer.sh' --version
+          )
+          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/trace.json"
+          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/override.json"
       - name: Verify trace compatibility
         run: |
           python3 -m unittest discover -s examples -p test_verify.py
           python3 examples/verify.py
 
   windows-wrapper:
-    name: Windows wrapper (Java ${{ matrix.java }})
+    name: Windows packaging and launchers (Java ${{ matrix.java }})
     runs-on: windows-latest
     timeout-minutes: 15
     strategy:
@@ -122,14 +171,73 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Bootstrap wrapper and compile
+      - uses: ./.github/actions/configure-maven
+      - name: Bootstrap wrapper and package
         shell: cmd
         env:
           MAVEN_USER_HOME: ${{ runner.temp }}/tracer-wrapper-smoke
         run: |
           call mvnw.cmd -B -ntp --version
           if errorlevel 1 exit /b 1
-          call mvnw.cmd -B -ntp -DskipTests -Djacoco.skip=true test-compile
+          call mvnw.cmd -B -ntp -DskipTests -Djacoco.skip=true package
+      - name: Analyze and test Windows launchers
+        shell: pwsh
+        run: |
+          Install-Module Pester -RequiredVersion 6.2.0 -Scope CurrentUser -Repository PSGallery -Force
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser -Repository PSGallery -Force
+          Import-Module Pester -RequiredVersion 6.2.0
+          Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
+          $diagnostics = @(Invoke-ScriptAnalyzer src/main/scripts/code-tracer.ps1)
+          if ($diagnostics.Count) { $diagnostics | Format-Table; throw 'PowerShell analysis failed' }
+          Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1 -CI
+      - name: Verify Windows launcher distribution
+        shell: pwsh
+        run: |
+          Remove-Item Env:CODE_TRACER_JAR_DIR -ErrorAction SilentlyContinue
+          $smokeRoot = Join-Path $env:RUNNER_TEMP 'launcher smoke'
+          New-Item -ItemType Directory -Path $smokeRoot -Force | Out-Null
+          Expand-Archive target/code-tracer-bin.zip -DestinationPath $smokeRoot -Force
+          $installed = Join-Path $smokeRoot 'code-tracer'
+          if (Test-Path target/code-tracer.bat) { throw 'Stale batch launcher remains' }
+          if (Test-Path "$installed/code-tracer.bat") { throw 'ZIP includes old batch launcher' }
+          if ((Get-FileHash "$installed/code-tracer").Hash -ne (Get-FileHash "$installed/code-tracer.sh").Hash) {
+            throw 'ZIP Bash alias differs from source launcher'
+          }
+          if ((Get-FileHash target/code-tracer.jar).Hash -ne (Get-FileHash "$installed/code-tracer.jar").Hash) {
+            throw 'Packaged JAR differs'
+          }
+          foreach ($extension in @('ps1', 'cmd')) {
+            & "./target/code-tracer.$extension" --version
+            if ($LASTEXITCODE -ne 0) { throw 'Version invocation failed' }
+            & "./target/code-tracer.$extension" --help
+            if ($LASTEXITCODE -ne 0) { throw 'Help invocation failed' }
+          }
+          Push-Location $smokeRoot
+          try {
+            'public class Main { public static void main(String[] args) { System.out.println(42); } }' |
+              Set-Content Main.java -Encoding utf8
+            foreach ($extension in @('ps1', 'cmd')) {
+              & "$installed/code-tracer.$extension" trace -i Main.java -a -f modern > "trace-$extension.json"
+              if ($LASTEXITCODE -ne 0) { throw 'Trace invocation failed' }
+              $trace = Get-Content "trace-$extension.json" -Raw | ConvertFrom-Json
+              if (-not $trace.steps.Count) { throw 'Trace contains no steps' }
+            }
+            New-Item -ItemType Directory -Path 'separate jars' | Out-Null
+            Move-Item "$installed/code-tracer.jar" 'separate jars/'
+            foreach ($extension in @('ps1', 'cmd')) {
+              foreach ($directory in @('./separate jars/', (Join-Path $smokeRoot 'separate jars'))) {
+                $env:CODE_TRACER_JAR_DIR = $directory
+                & "$installed/code-tracer.$extension" trace -i Main.java -a -f modern > "override-$extension.json"
+                if ($LASTEXITCODE -ne 0) { throw 'Separate JAR invocation failed' }
+                $trace = Get-Content "override-$extension.json" -Raw | ConvertFrom-Json
+                if (-not $trace.steps.Count) { throw 'Separate JAR trace contains no steps' }
+              }
+            }
+          } finally {
+            Remove-Item Env:CODE_TRACER_JAR_DIR -ErrorAction SilentlyContinue
+            Pop-Location
+            Remove-Item $smokeRoot -Recurse -Force
+          }
 
   release:
     permissions:
@@ -147,12 +255,14 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
+      - uses: ./.github/actions/configure-maven
       - name: Build with Maven
         run: ./mvnw -B -ntp clean package -DskipTests
-      - run: |
-          mv target/code-tracer*.jar target/code-tracer.jar
       - name: Create release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
-          files:
-            target/*.jar
+          files: |
+            target/code-tracer.jar
+            target/code-tracer-bin.tar.gz
+            target/code-tracer-bin.zip
+            target/cs1302-tracer-*.jar

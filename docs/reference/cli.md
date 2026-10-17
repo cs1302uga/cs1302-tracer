@@ -177,7 +177,7 @@ path list separated by `:` on Linux/macOS and `;` on Windows. Repeated and mixed
 aliases append entries in command-line order. For example, on Linux/macOS:
 
 ```sh
-java -jar target/code-tracer-jar-with-dependencies.jar trace \
+java -jar target/code-tracer.jar trace \
   --input Main.java --class-path build/classes -cp "lib/**/*.jar:vendor/helpers.jar"
 ```
 
