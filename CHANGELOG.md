@@ -43,6 +43,7 @@ No breaking changes.
   metadata. Enforcer now checks production and test dependency upper bounds to
   reject stale version overrides. Artifact names, launchers, Java API, and trace
   formats remain unchanged.
+  Implementation: [abde003](https://github.com/cs1302uga/cs1302-tracer/commit/abde003b58259e65ea4711553cb275e5640e273c).
 
 - **Distribution formats:** add `code-tracer-bin.tar.xz` alongside the existing
   tar.gz and ZIP downloads. Both Unix tar formats contain the same launchers,
