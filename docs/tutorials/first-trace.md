@@ -1,34 +1,67 @@
 # Your first trace
 
-After [building the project](../guides/installation.md), run this trusted example
-from the repository root:
+Create a Java program, capture its execution, and save the JSON result. The tracer
+produces data for a visualizer; it does not open an interactive visualization.
+First complete [installation](../guides/installation.md) with a full JDK 21 or later.
 
-<!-- quickstart:start -->
-```sh
-java -jar target/code-tracer.jar trace \
-  -i examples/example0/Driver.java --all-breakpoints --format modern --pretty
+## Choose your working directory
+
+Run the commands below in the directory containing `code-tracer.jar`:
+
+- Binary archive: enter the extracted `code-tracer` directory.
+- Standalone download: use the directory where you saved the JAR.
+- Source build: from the repository root, run `cd target` after packaging.
+
+All commands in this tutorial use direct Java invocation and work in Bash,
+PowerShell, and Command Prompt. Launchers are an alternative once this works.
+
+## Create a program
+
+Save this exact text as `Main.java` in that directory:
+
+<!-- first-source:start -->
+```java
+public class Main {
+    static class Box {
+        int value = 7;
+    }
+    public static void main(String[] args) {
+        Box box = new Box();
+        int answer = box.value;
+        System.out.println(answer);
+    }
+}
 ```
-<!-- quickstart:end -->
+<!-- first-source:end -->
 
-The program creates a `Person` record. The result contains its original source,
-`entryFile`, and a chronological `steps` array. Each step describes its source line,
-active call stack, and heap. An object reference connects a local variable to an
-entry in the heap; object IDs can differ between runs.
+This trusted example creates a `Box` object, copies its field into a local variable,
+and prints `7`. The tracer compiles it for you.
 
-Try `--format pytutor` to obtain Python Tutor tuples instead. See the
-[output reference](../reference/output.md) for both formats.
+## Run and save the trace
 
-To discover selectable breakpoints:
-
+<!-- first-command:start -->
 ```sh
-java -jar target/code-tracer.jar list-breakpoints \
-  -i examples/example0/Driver.java --json --pretty
+java -jar code-tracer.jar trace -i Main.java --all-breakpoints --format modern --pretty > trace.json
 ```
+<!-- first-command:end -->
 
-Replace `--all-breakpoints` with `--breakpoints LINE`, using a line from that output.
-By default, selected breakpoints retain their latest hit. Add
-`--accumulate-breakpoints` to retain repeated hits.
+Successful execution exits with status `0` and writes a JSON document to `trace.json`.
+Open that file in a text editor. Look for `format: "modern"`, `entryFile: "Main.java"`,
+and a nonempty `steps` array. The final captured `stdout` contains `7` followed by a
+newline. It is inside the JSON, so the program's `7` is not printed separately to
+your terminal. Tracer diagnostics go to stderr and remain visible with this command.
 
-The tracer executes the supplied program. Only use trusted programs directly on
-your workstation; integrations accepting untrusted submissions must implement the
-[runner contract](../RUNNER_CONTRACT.md).
+`--all-breakpoints` retains snapshots in execution order. Without it or selected
+breakpoints, the default is a main-exit snapshot. `--pretty` changes JSON formatting,
+not which states are captured. Ordinary tracing uses finite default budgets; see
+[limits and partial results](../BOUNDED_TRACING.md) before changing them.
+
+## Choose what to explore next
+
+- [Read a trace](read-a-trace.md): connect source lines, variables, and heap objects.
+- [Tracing programs](../guides/tracing.md): select breakpoints, provide input, and submit multiple files.
+- [Run batch jobs](batch-jobs.md): send several requests and inspect each result.
+- [Troubleshooting](../guides/troubleshooting.md): diagnose installation and tracing failures.
+
+The tracer executes the supplied program. Run trusted programs directly on your
+workstation; hosted untrusted submissions require the [runner contract](../RUNNER_CONTRACT.md).

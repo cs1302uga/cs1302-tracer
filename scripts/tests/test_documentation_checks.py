@@ -1,10 +1,12 @@
 """Check executable documentation contracts through public script interfaces."""
 
 import json
+import re
 import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from scripts import check_docs
@@ -45,13 +47,21 @@ class DocumentationChecksTests(unittest.TestCase):
             quickstart + "[Local](docs/reference/output.md) [Web](https://example.test)\n"
         )
         (self.root / "HACKING.md").write_text("[Fragment](#local) [Mail](mailto:docs@example.test)\n")
-        (self.root / "docs/tutorials/first-trace.md").write_text(quickstart)
+        for name in ("first-trace", "java-integration", "batch-jobs"):
+            shutil.copy2(SCRIPTS.parent / f"docs/tutorials/{name}.md", self.root / f"docs/tutorials/{name}.md")
+        # Links are tested separately; keep the tutorial example blocks without their prose.
+        for path in (self.root / "docs/tutorials").glob("*.md"):
+            text = path.read_text()
+            path.write_text("\n".join(re.findall(r"<!-- .*?:start -->.*?<!-- .*?:end -->", text, re.S)))
+        with zipfile.ZipFile(self.root / "target/code-tracer-bin.zip", "w") as archive:
+            archive.writestr("code-tracer/code-tracer.jar", "stand-in JAR")
         (self.root / "docs/reference/output.md").write_text(
             marked("source", "public class Main {}") + marked("modern", data) + marked("pytutor", data)
         )
         (self.root / "docs/reference/batch.md").write_text('```json\n{"id":"hello"}\n```\n')
         (self.root / "docs/BOUNDED_TRACING.md").write_text("Budgets")
         self.env = tool_environment(self.root)
+        executable(self.root / "bin/javac", "from pathlib import Path\nPath('TraceExample.class').touch()\n")
         executable(
             self.root / "bin/java",
             """
@@ -59,6 +69,18 @@ import json, sys
 from pathlib import Path
 if '--help' in sys.argv:
     print('Usage: tracer')
+elif 'TraceExample' in sys.argv:
+    assert Path('TraceExample.class').is_file()
+    print(json.dumps({'status': 'completed', 'complete': True, 'stdout': 'hello\\n', 'trace': {'steps': []}}))
+elif 'Main.java' in sys.argv:
+    print(json.dumps({'format': 'modern', 'entryFile': 'Main.java',
+        'sources': {'Main.java': Path('Main.java').read_text()},
+        'steps': [{'stdout': '7\\n', 'callStack': [{'locals': [
+            {'name': 'answer', 'value': 7}, {'name': 'box', 'value': {'ref': 5}}]}],
+            'heap': {'5': {'fields': [{'value': 7}]}}}]}))
+elif 'batch-trace' in sys.argv and Path('jobs.ndjson').exists():
+    print(json.dumps({'id': 'hello', 'result': {'status': 'completed', 'complete': True, 'stdout': '42\\n'}}))
+    print(json.dumps({'id': 'broken', 'result': {'status': 'failed', 'complete': False, 'diagnostics': ['error']}}))
 elif 'batch-trace' in sys.argv:
     print(json.dumps({'id': 'hello', 'result': {'status': 'completed'}}))
 else:
@@ -151,6 +173,9 @@ else:
         (self.root / "HACKING.md").write_text("[Missing](absent.md)\n")
         result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
         self.assertIn("HACKING.md: missing absent.md", result.stderr)
+        (self.root / "target/code-tracer-bin.zip").unlink()
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertIn("including the binary ZIP", result.stderr)
         (self.root / "target/code-tracer.jar").unlink()
         result = invoke(self.root, "check_docs.py", env=self.env)
         self.assertIn("Build the JAR first", result.stderr)
@@ -161,6 +186,20 @@ else:
         result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("batch: missing JSON code block", result.stderr)
+
+    def test_packaged_tutorial_detects_incorrect_output_and_compile_failure(self) -> None:
+        """Reject changed guest output and failures compiling the documented Java consumer."""
+        java = self.root / "bin/java"
+        original = java.read_text()
+        java.write_text(original.replace("'stdout': '7\\n'", "'stdout': '8\\n'"))
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("AssertionError", result.stderr)
+        java.write_text(original)
+        executable(self.root / "bin/javac", "import sys; sys.stderr.write('bad Java example'); sys.exit(1)")
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("bad Java example", result.stderr)
 
     def test_command_failure_preserves_exit_status_and_stderr(self) -> None:
         """Explain a failed documentation child process."""

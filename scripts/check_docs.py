@@ -10,6 +10,7 @@ import runpy
 import signal
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -122,9 +123,7 @@ def check_links() -> None:
 def check_examples() -> None:
     """Execute and verify documented tracing examples."""
     readme = (ROOT / "README.md").read_text()
-    tutorial = (ROOT / "docs/tutorials/first-trace.md").read_text()
     command = block(readme, "quickstart")
-    equal(block(tutorial, "quickstart"), command, "tutorial quickstart")
     # Run exactly the documented shell block in a fresh directory with only its inputs.
     with tempfile.TemporaryDirectory() as directory:
         work = Path(directory)
@@ -173,13 +172,49 @@ def check_examples() -> None:
     assert response["id"] == "hello" and response["result"]["status"] == "completed"
 
 
+def check_tutorials() -> None:
+    """Run reader workflows using only an extracted binary distribution and documented inputs."""
+    first = (ROOT / "docs/tutorials/first-trace.md").read_text()
+    java = (ROOT / "docs/tutorials/java-integration.md").read_text()
+    batch = (ROOT / "docs/tutorials/batch-jobs.md").read_text()
+    with tempfile.TemporaryDirectory(prefix="tracer docs ") as directory:
+        with zipfile.ZipFile(ROOT / "target/code-tracer-bin.zip") as archive:
+            archive.extractall(directory)
+        work = Path(directory) / "code-tracer"
+        (work / "Main.java").write_text(block(first, "first-source") + "\n", encoding="utf-8")
+        run(["sh", "-eu", "-c", block(first, "first-command")], cwd=work)
+        result = json.loads((work / "trace.json").read_text())
+        assert result["format"] == "modern" and result["entryFile"] == "Main.java"
+        assert result["sources"]["Main.java"] == (work / "Main.java").read_text()
+        step = result["steps"][-1]
+        assert step["stdout"] == "7\n"
+        locals_by_name = {item["name"]: item for item in step["callStack"][-1]["locals"]}
+        assert locals_by_name["answer"]["value"] == 7
+        identity = str(locals_by_name["box"]["value"]["ref"])
+        assert step["heap"][identity]["fields"][0]["value"] == 7
+
+        (work / "TraceExample.java").write_text(block(java, "java-source") + "\n", encoding="utf-8")
+        run(["sh", "-eu", "-c", block(java, "java-compile")], cwd=work)
+        outcome = json.loads(run(["sh", "-eu", "-c", block(java, "java-run")], cwd=work))
+        assert outcome["status"] == "completed" and outcome["complete"]
+        assert outcome["stdout"] == "hello\n" and outcome["trace"]
+
+        (work / "jobs.ndjson").write_text(block(batch, "batch-jobs") + "\n", encoding="utf-8")
+        run(["sh", "-eu", "-c", block(batch, "batch-command")], cwd=work)
+        responses = [json.loads(line) for line in (work / "results.ndjson").read_text().splitlines()]
+        assert [response["id"] for response in responses] == ["hello", "broken"]
+        good, bad = (response["result"] for response in responses)
+        assert good["status"] == "completed" and good["complete"] and good["stdout"] == "42\n"
+        assert bad["status"] == "failed" and not bad["complete"] and bad["diagnostics"]
+
+
 def main() -> None:
     """Run the command-line workflow."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--update-cli", action="store_true")
     args = parser.parse_args()
-    if not JAR.is_file():
-        raise SystemExit("Build the JAR first: ./mvnw -B -ntp package -DskipTests")
+    if not JAR.is_file() or not (ROOT / "target/code-tracer-bin.zip").is_file():
+        raise SystemExit("Build the JAR first (including the binary ZIP): ./mvnw -B -ntp package -DskipTests")
     generated = cli_reference()
     path = ROOT / "docs/reference/cli.md"
     reference = "" if args.update_cli and not path.exists() else path.read_text(encoding="utf-8", newline="")
@@ -190,7 +225,8 @@ def main() -> None:
         equal(generated, existing.replace("\r\n", "\n").replace("\r", "\n"), str(path.relative_to(ROOT)))
     check_links()
     check_examples()
-    print("Documentation links, CLI, quickstart, JSON examples, and batch request passed.")
+    check_tutorials()
+    print("Documentation links, CLI, quickstart, JSON examples, and batch request passed. Packaged tutorials passed.")
 
 
 if __name__ == "__main__":

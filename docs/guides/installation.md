@@ -5,6 +5,60 @@ CI tests JDK 21 and 25 on Ubuntu and macOS. JDK 25 is the local development defa
 The tracer targets Java 21 bytecode; submitted programs are compiled using the active
 JDK, so newer language/library features require a suitable runtime and parser support.
 
+## Choose an installation
+
+| Your task | Download or build | Next step |
+| --- | --- | --- |
+| Run on Linux or macOS | Binary tar.gz or tar.xz archive | Extract it and run the Bash launcher. |
+| Run on Windows | Binary ZIP archive | Extract it and use PowerShell 7.4+ or Command Prompt. |
+| Invoke Java directly | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
+| Develop or modify the tracer | Source checkout | Build with the included Maven wrapper. |
+
+Check `java -version` and `javac -version` before starting. Both should select the
+intended JDK. The launcher uses a nonempty `JAVA_HOME` in preference to `PATH`.
+Use the documentation version matching your downloaded release; `/next/` describes
+development builds, whose artifacts may differ from older releases.
+
+## Download a release
+
+Download `code-tracer.jar` from the desired
+[GitHub release](https://github.com/cs1302uga/cs1302-tracer/releases), then run
+`java -jar code-tracer.jar --help`. A full JDK is still required.
+Use documentation matching the downloaded version. The first-trace tutorial works from the extracted directory or beside the downloaded
+JAR; no source checkout is needed.
+
+Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and
+`code-tracer-bin.zip` provide
+all three launchers, the bundled executable JAR, and `LICENSE` in a `code-tracer/`
+directory. On Linux or macOS, extract the tar archive and run:
+
+```sh
+tar -xzf code-tracer-bin.tar.gz
+./code-tracer/code-tracer --help
+```
+
+Alternatively, extract the XZ-compressed archive with `tar -xJf code-tracer-bin.tar.xz`
+and run the same launcher command. Choose one tar archive; their contents are identical.
+
+Both tar formats preserve executable permissions on `code-tracer.sh` and include
+the relative symlink `code-tracer -> code-tracer.sh`. The ZIP includes a regular,
+identical copy at `code-tracer` so extraction does not depend on symlink support.
+Unix source builds produce all three archives; native Windows builds produce the ZIP.
+On Windows,
+extract the ZIP with File Explorer or PowerShell, then run the appropriate script:
+
+```powershell
+Expand-Archive .\code-tracer-bin.zip -DestinationPath .
+.\code-tracer\code-tracer.ps1 --help
+```
+
+From Command Prompt after extraction, run `code-tracer\code-tracer.cmd --help`.
+You can move the extracted directory as a unit. The standalone JAR remains
+available for direct Java invocation. Older releases may provide fewer artifacts;
+use the installation instructions for that release.
+
+Continue with [your first trace](../tutorials/first-trace.md); no checkout is needed.
+
 ## Build from source
 
 ```sh
@@ -25,7 +79,15 @@ java -jar target/code-tracer.jar --version
 java -jar target/code-tracer.jar --help
 ```
 
-## Bash launcher
+Continue with [your first trace](../tutorials/first-trace.md). That tutorial creates
+its own source file and explains which directory to use for each installation.
+
+## Advanced launcher configuration
+
+The following sections describe shell behavior and relocation. They are optional
+for a first run with the launcher and JAR kept together.
+
+### Bash launcher
 
 Packaging creates `target/code-tracer.sh`, an executable Bash 3.2+ launcher.
 On Linux and macOS, `target/code-tracer` is a relative symlink to it, so existing
@@ -50,7 +112,7 @@ Select a full JDK 21 or later; the launcher does not install Java. It forwards a
 arguments to the tracer and preserves standard streams and the Java exit status.
 It has no launcher-specific flags and does not interpret `JAVA_OPTS`.
 
-## Windows launchers
+### Windows launchers
 
 Packaging creates `target/code-tracer.ps1` for **PowerShell 7.4 or later** and
 `target/code-tracer.cmd` for Command Prompt. Both invoke Java directly; the batch
@@ -86,7 +148,7 @@ PowerShell script as blocked, review it and use `Unblock-File` on that file when
 permitted by your organization's policy. The batch launcher and direct
 `java -jar code-tracer.jar` invocation are also available.
 
-## Store the JAR separately
+### Store the JAR separately
 
 All three launchers accept **`CODE_TRACER_JAR_DIR`**, the directory containing
 `code-tracer.jar`. The filename remains fixed. This allows launchers on `PATH`
@@ -129,43 +191,3 @@ examples clear the session setting afterward. This variable selects only the JAR
 directory; `JAVA_HOME` still selects Java. Source paths, classpaths, standard
 streams, and Java's exit status retain their existing behavior. Direct
 `java -jar` invocation does not consult this launcher variable.
-
-## Download a release
-
-Download `code-tracer.jar` from the desired
-[GitHub release](https://github.com/cs1302uga/cs1302-tracer/releases), then run
-`java -jar code-tracer.jar --help`. A full JDK is still required.
-Use documentation matching the downloaded version. Source-build examples use the
-`target/` JAR path; substitute your downloaded JAR path when following them.
-
-Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and
-`code-tracer-bin.zip` provide
-all three launchers, the bundled executable JAR, and `LICENSE` in a `code-tracer/`
-directory. On Linux or macOS, extract the tar archive and run:
-
-```sh
-tar -xzf code-tracer-bin.tar.gz
-./code-tracer/code-tracer --help
-```
-
-Alternatively, extract the XZ-compressed archive with `tar -xJf code-tracer-bin.tar.xz`
-and run the same launcher command. Choose one tar archive; their contents are identical.
-
-Both tar formats preserve executable permissions on `code-tracer.sh` and include
-the relative symlink `code-tracer -> code-tracer.sh`. The ZIP includes a regular,
-identical copy at `code-tracer` so extraction does not depend on symlink support.
-Unix source builds produce all three archives; native Windows builds produce the ZIP.
-On Windows,
-extract the ZIP with File Explorer or PowerShell, then run the appropriate script:
-
-```powershell
-Expand-Archive .\code-tracer-bin.zip -DestinationPath .
-.\code-tracer\code-tracer.ps1 --help
-```
-
-From Command Prompt after extraction, run `code-tracer\code-tracer.cmd --help`.
-You can move the extracted directory as a unit. The standalone JAR remains
-available for direct Java invocation. Older releases may provide fewer artifacts;
-use the installation instructions for that release.
-
-Continue with the [first trace tutorial](../tutorials/first-trace.md).

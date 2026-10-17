@@ -37,6 +37,11 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Documentation:** add a download-compatible first trace, an output walkthrough,
+  and runnable Java and batch integration tutorials. Reorganize installation,
+  contributor onboarding, navigation, and migration guidance; verify tutorial
+  examples against packaged artifacts. Runtime and serialized contracts are unchanged.
+
 - **Source distribution:** include Maven wrapper scripts and configuration so the
   wrapper-derived Maven version check also works when building extracted sources.
   CI now packages the extracted source archive.

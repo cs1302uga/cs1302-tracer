@@ -10,24 +10,27 @@ A separate Windows job
 bootstraps the wrapper, packages the project, and checks both Windows launchers on Java 21 and 25;
 the full execution/fixture matrix remains Linux and macOS.
 
-To regenerate the scripts, use
-`./mvnw org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.10.0 -Dtype=only-script`.
-Review both scripts, retain the executable bit on `mvnw`, and retain or update
-`distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties` after verifying
-the distribution against the published checksum. Test bootstrap with an empty
-`MAVEN_USER_HOME` before adopting a new Maven distribution.
+## Everyday workflow
 
+Start with `./mvnw -B -ntp package` for tests, style, the normal coverage gate,
+and distributable artifacts. For a focused Java change, use:
 
-At `validate`, Properties Maven Plugin reads the wrapper properties, then
-Build Helper extracts the Maven version from `distributionUrl`, and Enforcer
-uses that version as an inclusive lower bound, with no upper bound. Keep those
-plugin executions in that order. Missing wrapper properties or an unrecognized
-distribution filename fail validation.
-The URL must end in `apache-maven-VERSION-bin.zip` or
-`apache-maven-VERSION-bin.tar.gz`. Updating the wrapper URL and checksum updates
-the requirement automatically; there is no second Maven version pin in the POM.
-Direct plugin goals do not automatically run `validate`; prepend `validate` when
-the toolchain check is required (for example, `./mvnw validate checkstyle:check`).
+```sh
+./mvnw -B -ntp -Djacoco.skip=true -Dtest=TestClass test
+```
+
+Replace `TestClass` with the relevant test class. A focused test run does not
+establish whole-project coverage. Before committing, use the
+[staged-file hooks](#pre-commit-lint-and-coverage-gates), which require 100% line and
+branch coverage across all production Java classes. The normal package gate
+covers the configured model and serializer packages.
+
+| Change | Additional validation |
+| --- | --- |
+| Capture, serializers, or example sources | [Compatibility fixtures](#compatibility-fixtures) after packaging |
+| Python support scripts | [Python quality gates](#python-script-quality) |
+| User-facing behavior or documentation | [Executable docs and rendered site](documentation.md#local-checks) |
+| Supported Java declarations | [Interface checks](#supported-java-interface-checks) and Javadoc review |
 
 ### Building the Project
 
@@ -42,47 +45,6 @@ serially; their temporary-directory checks can interfere across concurrent runs.
 # Build fat JAR with all dependencies bundled
 ./mvnw -B -ntp package -DskipTests
 ```
-
-Packaging produces `target/code-tracer.jar` for local CLI use and release downloads.
-It is a byte-for-byte copy of `target/code-tracer-jar-with-dependencies.jar`;
-the copy runs after assembly and refreshes the short filename on every package run.
-The original assembly remains attached with the `jar-with-dependencies` classifier,
-and the ordinary `cs1302-tracer-VERSION.jar` remains Maven's main artifact.
-Keep the copy execution after assembly so installation and deployment retain
-those artifact identities. The source archive includes `src/`, project metadata,
-and the Maven wrapper scripts and `.mvn/` configuration required by validation.
-CI extracts it and builds with its own `./mvnw` to verify that it is self-contained
-for Maven packaging.
-
-During `prepare-package`, AntRun copies `code-tracer.sh`, `code-tracer.ps1`, and
-`code-tracer.cmd` from `src/main/scripts/` without filtering. It removes the old
-generated `target/code-tracer.bat` and refreshes the extensionless `code-tracer`:
-a relative symlink to `code-tracer.sh` on Unix, or a regular copy on native Windows.
-Bash uses executable permissions, LF endings, and Bash 3.2-compatible syntax;
-PowerShell uses LF and requires 7.4+; Command Prompt uses CRLF and invokes Java
-directly. The `.cmd` copy normalizes CRLF during packaging.
-
-The ZIP assembly runs after `assemble-jar`. The `unix-launcher-archive` profile,
-automatically active on Unix, additionally assembles tar.gz and tar.xz archives
-with the prepared relative symlink. Native Windows creates only the ZIP and needs no symlink
-privileges for packaging. `src/assembly/bin-common.xml` supplies the shared JAR,
-named launchers, and license; `bin.xml` adds a regular extensionless Bash copy to
-the ZIP, and `bin-tar.xml` preserves the symlink without content transformations.
-All three archives attach with classifier `bin` and distinct types. The Linux
-release job publishes all three. None replaces a JAR artifact.
-
-Bash subprocess tests live in `scripts/tests/test_launcher.py`; PowerShell and
-batch subprocess tests live in `scripts/tests/WindowsLauncher.Tests.ps1` and use
-a small Java probe to inspect received arguments, working directory, streams,
-and exit status. Windows CI runs Pester 6.2.0 and PSScriptAnalyzer 1.25.0.
-The Java 21/25 Linux/macOS and Windows matrices extract their respective archives
-and execute real traces from paths containing spaces. Unix checks compare both
-tar formats against the ZIP contents and extract and execute each tar variant. Windows runs launcher
-checks rather than the full Java test/fixture suite. Tests isolate
-`CODE_TRACER_JAR_DIR` from the developer environment and cover absolute, relative,
-empty, literal, and invalid overrides. Archive smoke tests also move the JAR out
-of the launcher directory. See [installation](../guides/installation.md#store-the-jar-separately)
-for the environment-variable contract.
 
 Compilation treats warnings as errors. Checkstyle uses a 120-character line limit,
 requires explicit local types and qualified instance access where applicable, and
@@ -134,123 +96,6 @@ export COVERAGE_FILE="$PWD/.coverage"
 Child-process coverage and temporary script copies contribute to the same report;
 test files and local tool environments are excluded from production measurement.
 Release creation depends on this job. Java hooks retain their existing behavior.
-
-### Packaging configuration and reproducibility
-
-Only `cs1302/tracer/version.properties` is filtered during resource copying.
-Other resources, including Checkstyle configurations, retain their literal bytes.
-The executable JAR bundles its runtime dependencies and has no external manifest
-`Class-Path`; its main class and automatic module name remain explicit.
-Assembly naming and classifier attachment defaults live in `pluginManagement`,
-while each execution owns its descriptor and lifecycle binding.
-
-Maven 3.10.0 supplies a stable `project.build.outputTimestamp` by default. Retain
-that inherited value unless the release process deliberately chooses a different
-stable timestamp. Compare independent builds with the same source, Maven, JDK,
-and operating system before claiming reproducibility. Java 21 and 25 compatibility
-does not imply byte-identical artifacts across those JDKs. Javadoc's copyright
-year intentionally follows the current UTC year; documentation is outside the
-binary archive reproducibility claim.
-
-The published POM identifies the Git repository and GitHub issue tracker. Its SCM
-`HEAD` tag describes the development checkout; release preparation should replace
-it with the actual release tag when publishing provenance-specific metadata.
-
-### Dependency versions and upgrades
-
-`pom.xml` is authoritative for selected versions. Put every explicitly selected
-library, BOM, transitive override, annotation processor, and build-plugin version
-in a named `*.version` property. Group library/BOM properties separately from
-build tools. Use one property for artifacts released together: JavaParser's two
-libraries, Picocli and its processor, and JsonUnit's two test APIs. JUnit artifacts
-inherit from the JUnit BOM; do not add individual version pins to them.
-
-Keep direct dependencies in `dependencies`, and BOM imports and justified
-transitive overrides in `dependencyManagement`. Put all plugin versions in the
-top-level `pluginManagement`; active plugins and profiles inherit those versions.
-Declare the Checkstyle engine dependency once in the managed Checkstyle plugin.
-Project release versions and Enforcer's Java compatibility range remain literal.
-Enforcer's Maven lower bound is derived at runtime from the wrapper distribution.
-Its `requireUpperBoundDeps` rule also checks production and test dependencies,
-rejecting a selected version below the highest requested transitive version.
-Only `provided` scope is excluded. This guards against stale overrides; it does
-not establish binary compatibility or inspect plugin-owned dependency graphs.
-
-Run the offline structural policy check from the repository root:
-
-```sh
-./scripts/uv run --locked python scripts/check_pom.py
-```
-
-An optional positional POM path checks a different file. Exit status is 0 for a
-passing policy, 1 for violations, and 2 for an unreadable/malformed file or invalid
-arguments. The Scripts quality CI job runs this check before its quality gates.
-It checks version-property references, plugin ownership, the single Checkstyle
-engine declaration, and matching test-scoped JsonUnit declarations. It does not
-query releases or prove dependency compatibility; those require the upgrade audit
-and execution checks below.
-
-Choose the latest compatible stable releases while preserving Java 21 support.
-Do not adopt milestones, betas, release candidates, or alternate artifact variants
-as automatic upgrades. Review release notes and the resolved graph, including
-transitive dependencies. Reassess overrides when upgrading their owning libraries;
-do not add unused direct dependencies merely to control versions. Plugin-owned
-libraries are a separate graph: prefer upgrading the owning plugin to overriding
-its internals.
-
-The 2026-10-17 audit retained already-current stable direct dependencies and build
-plugins, replaced JSONassert with test-scoped JsonUnit 6.3.0, and upgraded the
-JavaParser transitive `checker-qual` from 3.55.1 to 4.3.1. This is a dated assessment,
-not a claim that those versions will remain latest. The qualifier JAR uses Java 11
-bytecode and does not install or run the Checker Framework annotation processor.
-
-The Guava, Javassist, Checker Qual, Error Prone annotations, JSpecify, and Byte
-Buddy overrides remain explicit. Byte Buddy stays test-only. JSONassert and its
-JSON-java override have been removed. JsonUnit uses the existing Gson parser;
-its APIs and additional transitives remain test-only. The migrated CLI assertions
-allow extra object fields, require array order and length, and compare numbers
-mathematically with zero tolerance. Focused negative checks protect those rules.
-
-For each upgrade, compare resolved dependencies and effective plugin configuration,
-run the focused checks and full coverage gate, verify committed trace fixtures on
-Java 21 and 25, and rebuild the docs/site. Do not refresh expected JSON to accommodate
-an unexplained behavior change. Check the automatic module name, bundled dependency
-descriptors, Picocli metadata, and third-party license notices after packaging.
-
-### Legacy JVNet repository workaround
-
-Checkstyle plugin 3.6.0 brings in `javax.xml.bind:jaxb-api:2.3.1` through its
-JDK 9+ profile. Its parent `jaxb-api-parent:2.3.1` inherits `net.java:jvnet-parent:5`,
-which declares `jvnet-nexus-releases` at `https://maven.java.net/content/repositories/releases/`.
-That endpoint presented an expired certificate during the 2026-10-17 audit.
-Checkstyle 3.6.0 was already the latest stable plugin release. The JAXB API and
-its Activation API 1.2.0 dependency, their parent POMs, and the complete Checkstyle
-plugin graph were verified available on Maven Central using an empty local cache.
-
-The shared `.mvn/jvnet-mirror.xml` redirects only repository ID
-`jvnet-nexus-releases` to `https://repo.maven.apache.org/maven2`.
-To apply it to local user settings, run from the repository root:
-
-```sh
-./scripts/uv run --locked python scripts/configure_maven.py
-```
-
-An optional settings-file path configures another file. The command merges the
-mirror into `~/.m2/settings.xml`, retaining credentials, profiles, and unrelated
-mirrors. Before changing an existing file it creates an owner-only
-`settings.xml.backup-*` beside it and prints that path; repeated runs with the
-same mirror leave the file unchanged. Conflicting mirrors with the same mirror
-ID or exact repository ID are replaced. Existing wildcard mirrors remain intact;
-Maven gives this exact repository-ID match precedence. On Unix, newly written
-settings and backups have mode 0600. Restore the printed backup to undo a change.
-
-Every Maven CI job invokes `.github/actions/configure-maven` after `setup-java`
-generates settings, including Windows packaging and documentation deployment.
-This merges the same definition into runner user settings. Installation-level
-settings and TLS certificate validation remain unchanged. Other contributors
-must run the local command themselves; Maven does not automatically load the
-checked-in mirror fragment. Reassess this workaround when upgrading Checkstyle;
-remove it once the resolved plugin graph no longer introduces the legacy repository.
 
 ### Running Example Traces
 
@@ -341,3 +186,184 @@ compile classpath. `TracerTest` exercises detached outcomes, failures, budgets,
 breakpoint discovery, and consecutive batch jobs through the supported interface.
 Runtime dependencies remain required for execution. Run these with
 `./mvnw -B -ntp -Djacoco.skip=true -Dtest=ApiExposureTest,TracerTest test`.
+
+## Distribution packaging
+
+Packaging produces `target/code-tracer.jar` for local CLI use and release downloads.
+It is a byte-for-byte copy of `target/code-tracer-jar-with-dependencies.jar`;
+the copy runs after assembly and refreshes the short filename on every package run.
+The original assembly remains attached with the `jar-with-dependencies` classifier,
+and the ordinary `cs1302-tracer-VERSION.jar` remains Maven's main artifact.
+Keep the copy execution after assembly so installation and deployment retain
+those artifact identities. The source archive includes `src/`, project metadata,
+and the Maven wrapper scripts and `.mvn/` configuration required by validation.
+CI extracts it and builds with its own `./mvnw` to verify that it is self-contained
+for Maven packaging.
+
+During `prepare-package`, AntRun copies `code-tracer.sh`, `code-tracer.ps1`, and
+`code-tracer.cmd` from `src/main/scripts/` without filtering. It removes the old
+generated `target/code-tracer.bat` and refreshes the extensionless `code-tracer`:
+a relative symlink to `code-tracer.sh` on Unix, or a regular copy on native Windows.
+Bash uses executable permissions, LF endings, and Bash 3.2-compatible syntax;
+PowerShell uses LF and requires 7.4+; Command Prompt uses CRLF and invokes Java
+directly. The `.cmd` copy normalizes CRLF during packaging.
+
+The ZIP assembly runs after `assemble-jar`. The `unix-launcher-archive` profile,
+automatically active on Unix, additionally assembles tar.gz and tar.xz archives
+with the prepared relative symlink. Native Windows creates only the ZIP and needs no symlink
+privileges for packaging. `src/assembly/bin-common.xml` supplies the shared JAR,
+named launchers, and license; `bin.xml` adds a regular extensionless Bash copy to
+the ZIP, and `bin-tar.xml` preserves the symlink without content transformations.
+All three archives attach with classifier `bin` and distinct types. The Linux
+release job publishes all three. None replaces a JAR artifact.
+
+Bash subprocess tests live in `scripts/tests/test_launcher.py`; PowerShell and
+batch subprocess tests live in `scripts/tests/WindowsLauncher.Tests.ps1` and use
+a small Java probe to inspect received arguments, working directory, streams,
+and exit status. Windows CI runs Pester 6.2.0 and PSScriptAnalyzer 1.25.0.
+The Java 21/25 Linux/macOS and Windows matrices extract their respective archives
+and execute real traces from paths containing spaces. Unix checks compare both
+tar formats against the ZIP contents and extract and execute each tar variant. Windows runs launcher
+checks rather than the full Java test/fixture suite. Tests isolate
+`CODE_TRACER_JAR_DIR` from the developer environment and cover absolute, relative,
+empty, literal, and invalid overrides. Archive smoke tests also move the JAR out
+of the launcher directory. See [installation](../guides/installation.md#store-the-jar-separately)
+for the environment-variable contract.
+
+## Maven wrapper maintenance
+
+To regenerate the scripts, use
+`./mvnw org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.10.0 -Dtype=only-script`.
+Review both scripts, retain the executable bit on `mvnw`, and retain or update
+`distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties` after verifying
+the distribution against the published checksum. Test bootstrap with an empty
+`MAVEN_USER_HOME` before adopting a new Maven distribution.
+
+
+At `validate`, Properties Maven Plugin reads the wrapper properties, then
+Build Helper extracts the Maven version from `distributionUrl`, and Enforcer
+uses that version as an inclusive lower bound, with no upper bound. Keep those
+plugin executions in that order. Missing wrapper properties or an unrecognized
+distribution filename fail validation.
+The URL must end in `apache-maven-VERSION-bin.zip` or
+`apache-maven-VERSION-bin.tar.gz`. Updating the wrapper URL and checksum updates
+the requirement automatically; there is no second Maven version pin in the POM.
+Direct plugin goals do not automatically run `validate`; prepend `validate` when
+the toolchain check is required (for example, `./mvnw validate checkstyle:check`).
+
+## Packaging configuration and reproducibility
+
+Only `cs1302/tracer/version.properties` is filtered during resource copying.
+Other resources, including Checkstyle configurations, retain their literal bytes.
+The executable JAR bundles its runtime dependencies and has no external manifest
+`Class-Path`; its main class and automatic module name remain explicit.
+Assembly naming and classifier attachment defaults live in `pluginManagement`,
+while each execution owns its descriptor and lifecycle binding.
+
+Maven 3.10.0 supplies a stable `project.build.outputTimestamp` by default. Retain
+that inherited value unless the release process deliberately chooses a different
+stable timestamp. Compare independent builds with the same source, Maven, JDK,
+and operating system before claiming reproducibility. Java 21 and 25 compatibility
+does not imply byte-identical artifacts across those JDKs. Javadoc's copyright
+year intentionally follows the current UTC year; documentation is outside the
+binary archive reproducibility claim.
+
+The published POM identifies the Git repository and GitHub issue tracker. Its SCM
+`HEAD` tag describes the development checkout; release preparation should replace
+it with the actual release tag when publishing provenance-specific metadata.
+
+## Dependency versions and upgrades
+
+`pom.xml` is authoritative for selected versions. Put every explicitly selected
+library, BOM, transitive override, annotation processor, and build-plugin version
+in a named `*.version` property. Group library/BOM properties separately from
+build tools. Use one property for artifacts released together: JavaParser's two
+libraries, Picocli and its processor, and JsonUnit's two test APIs. JUnit artifacts
+inherit from the JUnit BOM; do not add individual version pins to them.
+
+Keep direct dependencies in `dependencies`, and BOM imports and justified
+transitive overrides in `dependencyManagement`. Put all plugin versions in the
+top-level `pluginManagement`; active plugins and profiles inherit those versions.
+Declare the Checkstyle engine dependency once in the managed Checkstyle plugin.
+Project release versions and Enforcer's Java compatibility range remain literal.
+Enforcer's Maven lower bound is derived at runtime from the wrapper distribution.
+Its `requireUpperBoundDeps` rule also checks production and test dependencies,
+rejecting a selected version below the highest requested transitive version.
+Only `provided` scope is excluded. This guards against stale overrides; it does
+not establish binary compatibility or inspect plugin-owned dependency graphs.
+
+Run the offline structural policy check from the repository root:
+
+```sh
+./scripts/uv run --locked python scripts/check_pom.py
+```
+
+An optional positional POM path checks a different file. Exit status is 0 for a
+passing policy, 1 for violations, and 2 for an unreadable/malformed file or invalid
+arguments. The Scripts quality CI job runs this check before its quality gates.
+It checks version-property references, plugin ownership, the single Checkstyle
+engine declaration, and matching test-scoped JsonUnit declarations. It does not
+query releases or prove dependency compatibility; those require the upgrade audit
+and execution checks below.
+
+Choose the latest compatible stable releases while preserving Java 21 support.
+Do not adopt milestones, betas, release candidates, or alternate artifact variants
+as automatic upgrades. Review release notes and the resolved graph, including
+transitive dependencies. Reassess overrides when upgrading their owning libraries;
+do not add unused direct dependencies merely to control versions. Plugin-owned
+libraries are a separate graph: prefer upgrading the owning plugin to overriding
+its internals.
+
+The 2026-10-17 audit retained already-current stable direct dependencies and build
+plugins, replaced JSONassert with test-scoped JsonUnit 6.3.0, and upgraded the
+JavaParser transitive `checker-qual` from 3.55.1 to 4.3.1. This is a dated assessment,
+not a claim that those versions will remain latest. The qualifier JAR uses Java 11
+bytecode and does not install or run the Checker Framework annotation processor.
+
+The Guava, Javassist, Checker Qual, Error Prone annotations, JSpecify, and Byte
+Buddy overrides remain explicit. Byte Buddy stays test-only. JSONassert and its
+JSON-java override have been removed. JsonUnit uses the existing Gson parser;
+its APIs and additional transitives remain test-only. The migrated CLI assertions
+allow extra object fields, require array order and length, and compare numbers
+mathematically with zero tolerance. Focused negative checks protect those rules.
+
+For each upgrade, compare resolved dependencies and effective plugin configuration,
+run the focused checks and full coverage gate, verify committed trace fixtures on
+Java 21 and 25, and rebuild the docs/site. Do not refresh expected JSON to accommodate
+an unexplained behavior change. Check the automatic module name, bundled dependency
+descriptors, Picocli metadata, and third-party license notices after packaging.
+
+## Legacy JVNet repository workaround
+
+Checkstyle plugin 3.6.0 brings in `javax.xml.bind:jaxb-api:2.3.1` through its
+JDK 9+ profile. Its parent `jaxb-api-parent:2.3.1` inherits `net.java:jvnet-parent:5`,
+which declares `jvnet-nexus-releases` at `https://maven.java.net/content/repositories/releases/`.
+That endpoint presented an expired certificate during the 2026-10-17 audit.
+Checkstyle 3.6.0 was already the latest stable plugin release. The JAXB API and
+its Activation API 1.2.0 dependency, their parent POMs, and the complete Checkstyle
+plugin graph were verified available on Maven Central using an empty local cache.
+
+The shared `.mvn/jvnet-mirror.xml` redirects only repository ID
+`jvnet-nexus-releases` to `https://repo.maven.apache.org/maven2`.
+To apply it to local user settings, run from the repository root:
+
+```sh
+./scripts/uv run --locked python scripts/configure_maven.py
+```
+
+An optional settings-file path configures another file. The command merges the
+mirror into `~/.m2/settings.xml`, retaining credentials, profiles, and unrelated
+mirrors. Before changing an existing file it creates an owner-only
+`settings.xml.backup-*` beside it and prints that path; repeated runs with the
+same mirror leave the file unchanged. Conflicting mirrors with the same mirror
+ID or exact repository ID are replaced. Existing wildcard mirrors remain intact;
+Maven gives this exact repository-ID match precedence. On Unix, newly written
+settings and backups have mode 0600. Restore the printed backup to undo a change.
+
+Every Maven CI job invokes `.github/actions/configure-maven` after `setup-java`
+generates settings, including Windows packaging and documentation deployment.
+This merges the same definition into runner user settings. Installation-level
+settings and TLS certificate validation remain unchanged. Other contributors
+must run the local command themselves; Maven does not automatically load the
+checked-in mirror fragment. Reassess this workaround when upgrading Checkstyle;
+remove it once the resolved plugin graph no longer introduces the legacy repository.

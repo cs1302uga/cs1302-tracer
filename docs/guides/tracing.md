@@ -1,5 +1,10 @@
 # Tracing programs
 
+Start with [your first trace](../tutorials/first-trace.md) and
+[reading its output](../tutorials/read-a-trace.md). Choose the task below after
+that first successful run. Commands using `target/` or `examples/` assume a source
+checkout; with a downloaded JAR, substitute its path and your own Java file.
+
 `trace` is an explicit subcommand. It accepts a Java source file with `--input`, or
 reads source from standard input when the path is omitted. A directory is not an
 input file. Trusted file-based compilation can discover neighboring dependencies

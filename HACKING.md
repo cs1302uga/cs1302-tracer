@@ -18,7 +18,7 @@ Before running Maven `clean`, preserve any needed audit evidence under `target/`
 Run Java tests, trace fixture verification, and executable documentation checks
 serially because they share temporary-directory checks.
 
-- [Development guide](docs/contributing/development.md): local hooks, coverage, and example regeneration.
+- [Development guide](docs/contributing/development.md#everyday-workflow): choose checks for your change, then configure local hooks, coverage, and example regeneration.
 - [Architecture](docs/contributing/architecture.md): compilation, tracing, serialization, and lifecycle.
 - [Documentation maintenance](docs/contributing/documentation.md): checks, release snapshots, deployment, and retries.
 

@@ -95,7 +95,20 @@ for inspection; that file no longer selects the build mode.
 
 `check_docs.py` compares CLI help to the executable, runs the marked quickstart
 blocks, checks Markdown file destinations, compares both JSON examples after
-normalizing heap identities, and runs the documented batch request. Refresh help
+normalizing heap identities, and runs the documented batch request. It also extracts
+`target/code-tracer-bin.zip` into a temporary directory with spaces, executes the
+first-trace tutorial with its own source file, compiles and runs the complete Java
+tutorial, and checks both jobs from the batch tutorial. Package the project first;
+a JAR-only build is insufficient. These checks run the marked commands with real
+Java tools. Python unit tests substitute those external tools to test checker
+failures, and do not replace this integration run.
+
+Keep tutorial marker names stable when editing examples. The first-trace check
+asserts source identity, output, a local value, and its object-reference relationship
+without pinning heap IDs. Java and batch checks inspect completion and failure
+outcomes. The README quickstart remains a separate checkout-based example.
+
+Refresh help
 using `./scripts/uv run python scripts/check_docs.py --update-cli`; review the resulting diff.
 The CLI reference keeps generated help and budget links above
 `<!-- cli-reference:manual -->`. Maintain behavioral notes below that marker;

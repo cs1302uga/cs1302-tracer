@@ -1,5 +1,8 @@
 # JSON output reference
 
+For an annotated walkthrough, start with [Read a trace](../tutorials/read-a-trace.md).
+This reference defines field behavior and complete output examples.
+
 The tracer supports Python Tutor (`pytutor`, default) and modern (`modern`) JSON.
 These examples are complete output from the source below using `--all-breakpoints`.
 CI compares them with actual output after normalizing heap IDs.

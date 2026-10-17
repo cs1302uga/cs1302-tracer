@@ -21,17 +21,11 @@ cd cs1302-tracer
 ./mvnw -B -ntp clean package
 ```
 
-The executable is `target/code-tracer.jar`. On Linux and macOS, packaging also
-creates `target/code-tracer.sh` and the relative symlink `target/code-tracer`;
-run `./target/code-tracer --help`.
-Windows users can run `target\code-tracer.cmd` in Command Prompt or
-`.\target\code-tracer.ps1` in PowerShell 7.4+. The portable
-`target/code-tracer-bin.tar.gz` and `target/code-tracer-bin.tar.xz` (Unix builds),
-plus `target/code-tracer-bin.zip`, bundle all three launchers and the JAR.
-Both tar formats preserve the Bash symlink; the
-ZIP supplies an identical regular copy for the extensionless name. See [installation](docs/guides/installation.md) for Java
-selection and relocation instructions, including `CODE_TRACER_JAR_DIR` for storing
-the executable JAR separately from the launchers.
+For release downloads and shell-specific instructions, see [installation](docs/guides/installation.md).
+The executable from a source build is `target/code-tracer.jar`; the packaged
+launchers provide Bash, PowerShell, and Command Prompt entry points.
+Download users can follow [your first trace](docs/tutorials/first-trace.md) without
+cloning this repository. From this checkout, run:
 
 <!-- quickstart:start -->
 ```sh
@@ -62,6 +56,7 @@ library JAR and traces a program using a recursive class-path pattern.
 
 - [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and Javadoc, with development documentation under `/next/`.
 - [Installation](docs/guides/installation.md) and [first trace tutorial](docs/tutorials/first-trace.md).
+- [Read a trace](docs/tutorials/read-a-trace.md), [batch tutorial](docs/tutorials/batch-jobs.md), and [Java integration tutorial](docs/tutorials/java-integration.md).
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
 - [HACKING](HACKING.md) — contributor setup and quality gates.

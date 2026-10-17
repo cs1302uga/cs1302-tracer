@@ -8,14 +8,17 @@ Compile and trace Java programs to inspect their execution, stack frames, and he
 The tracer emits JSON for tools such as code visualizers; it does not display an
 interactive visualization itself.
 
-Start with [installation](guides/installation.md) and [your first trace](tutorials/first-trace.md).
-Use [tracing options](guides/tracing.md) to select snapshots and provide program input.
+## Choose your path
 
-For Java integrations, read [the supported interface and 4.0 migration guide](reference/java-api.md).
-For JSON integrations, read the [output reference](reference/output.md),
-[bounded result contract](BOUNDED_TRACING.md), and [runner contract](RUNNER_CONTRACT.md).
-For contributions, see [development](contributing/development.md) and
-[architecture](contributing/architecture.md).
+| You want to… | Start here | Then read |
+| --- | --- | --- |
+| Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md), [tracing options](guides/tracing.md) |
+| Consume JSON or process jobs | [Batch tutorial](tutorials/batch-jobs.md) | [JSON output](reference/output.md), [batch protocol](reference/batch.md), [bounded results](BOUNDED_TRACING.md) |
+| Embed tracing in Java | [Java tutorial](tutorials/java-integration.md) | [API reference guide](reference/java-api.md), [3.x migration](guides/java-api-migration.md) |
+| Contribute a change | [Development workflow](contributing/development.md) | [Architecture](contributing/architecture.md), [documentation maintenance](contributing/documentation.md) |
+
+The tracer executes guest programs. Use trusted programs locally; hosted untrusted
+submissions require the separate [runner contract](RUNNER_CONTRACT.md).
 
 The version menu distinguishes development documentation from released versions.
 Documentation snapshots start at 3.2.1; earlier releases are not backfilled.

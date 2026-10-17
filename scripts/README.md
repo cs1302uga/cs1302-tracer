@@ -2,6 +2,9 @@
 
 These scripts check Maven version ownership, validate tracer documentation, build
 the versioned documentation site and Javadoc, and prepare documentation releases.
+Executable documentation checks require `./mvnw -B -ntp package` first. In addition
+to CLI and reference examples, they extract the binary ZIP and run the first-trace,
+Java integration, and two-job batch tutorials using the installed JDK.
 Run the examples below from the repository root unless stated otherwise.
 
 The Python test suite also exercises the Bash launcher under

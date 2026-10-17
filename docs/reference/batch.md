@@ -1,5 +1,8 @@
 # Batch protocol
 
+For a two-job example with success and failure handling, see the
+[batch tutorial](../tutorials/batch-jobs.md).
+
 `batch-trace` reads one JSON request per line (NDJSON) and writes a response per
 job. Requests contain source text and may explicitly select binary dependencies
 on the tracer's host filesystem. Input is UTF-8 and blank
