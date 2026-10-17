@@ -41,6 +41,7 @@ No breaking changes.
   and runnable Java and batch integration tutorials. Reorganize installation,
   contributor onboarding, navigation, and migration guidance; verify tutorial
   examples against packaged artifacts. Runtime and serialized contracts are unchanged.
+  Implementation: [4ca34cd](https://github.com/cs1302uga/cs1302-tracer/commit/4ca34cdaa4447d5edc1ac66fc3a128ebc5a4cbc6).
 
 - **Source distribution:** include Maven wrapper scripts and configuration so the
   wrapper-derived Maven version check also works when building extracted sources.
