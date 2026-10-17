@@ -10,10 +10,33 @@ stack frames and heap objects as Python Tutor or modern JSON.
 
 For instructors running examples and developers integrating trace output into tools.
 
+## Run a release
+
+Use a **full stable JDK 21 or later**. Download `code-tracer.jar` from the
+[latest stable software release](https://github.com/cs1302uga/cs1302-tracer/releases/latest),
+then run this command in the directory containing the JAR:
+
+```sh
+java -jar code-tracer.jar --help
+```
+
+Continue with [your first trace](docs/tutorials/first-trace.md), which creates its
+own Java example and needs no source checkout. Use the documentation version
+matching your downloaded release; `/next/` describes development builds.
+The [installation guide](docs/guides/installation.md) explains JDK setup, available
+assets, and shell-specific launchers. Software releases have `vX.Y.Z` tags;
+separate `docs-*` publications contain historical guide archives.
+
+Trusted local examples can run directly. **The tracer does not sandbox programs.**
+Hosted student submissions require whole-job isolation as described in the
+[runner contract](docs/RUNNER_CONTRACT.md). Ordinary tracing has finite default
+budgets; omitted limits in envelope and batch jobs are unlimited.
+
 ## Build and run
 
-Use a **full JDK 21 or later**. CI tests JDK 21 and 25; guest programs using newer
-features need a matching JDK. The **Maven** wrapper downloads Maven automatically.
+Build from source to develop or modify the tracer. CI tests JDK 21 and 25; guest
+programs using newer features need a matching JDK. The **Maven** wrapper downloads
+Maven automatically:
 
 ```sh
 git clone https://github.com/cs1302uga/cs1302-tracer.git
@@ -21,11 +44,9 @@ cd cs1302-tracer
 ./mvnw -B -ntp clean package
 ```
 
-For release downloads and shell-specific instructions, see [installation](docs/guides/installation.md).
 The executable from a source build is `target/code-tracer.jar`; the packaged
 launchers provide **Bash**, **PowerShell**, and **Command Prompt** entry points.
-Download users can follow [your first trace](docs/tutorials/first-trace.md) without
-cloning this repository. From this checkout, run:
+From this checkout, run:
 
 <!-- quickstart:start -->
 ```sh
@@ -37,11 +58,6 @@ java -jar target/code-tracer.jar trace \
 This prints a JSON trace of a record instance, including source text, execution
 steps, stack frames, and heap objects. `trace` is an explicit subcommand; run
 `java -jar target/code-tracer.jar --help` to list commands.
-
-Trusted local examples can run directly. **The tracer does not sandbox programs.**
-Hosted student submissions require whole-job isolation as described in the
-[runner contract](docs/RUNNER_CONTRACT.md). Ordinary tracing has finite default
-budgets; omitted limits in envelope and batch jobs are unlimited.
 
 Programs may use configured binary directories and JARs through repeatable
 `--class-path`/`-cp` options, including quoted patterns such as `lib/**/*.jar`.
@@ -61,12 +77,9 @@ library JAR and traces a program using a recursive class-path pattern.
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
 - [HACKING](HACKING.md) — contributor setup and quality gates.
 
-Historical guide versions retain their existing URLs. The
-[documentation archive runbook](docs/contributing/documentation.md#archived-guide-applications)
-describes verified standalone guide archives and their staged rollout. The catalog
-pins all seven retained stable versions. Published deployment compiles development
-and the two newest stable guides; it restores older guides from those verified
-archives. Local Maven builds still default to all-version mode.
+Historical guide versions retain their existing URLs. Maintainers can follow
+[guide archive maintenance](docs/contributing/guide-archives.md) to publish or
+update those versions.
 
 ## License
 

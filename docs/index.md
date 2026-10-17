@@ -15,7 +15,9 @@ interactive visualization itself.
 | Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md), [tracing options](guides/tracing.md) |
 | Consume JSON or process jobs | [Batch tutorial](tutorials/batch-jobs.md) | [JSON output](reference/output.md), [batch protocol](reference/batch.md), [bounded results](BOUNDED_TRACING.md) |
 | Embed tracing in Java | [Java tutorial](tutorials/java-integration.md) | [API reference guide](reference/java-api.md), [3.x migration](guides/java-api-migration.md) |
+| Read API documentation without a network connection | [Offline API documentation](guides/offline-javadoc.md) | Download and verify a release bundle before going offline. |
 | Contribute a change | [Development workflow](contributing/development.md) | [Architecture](contributing/architecture.md), [documentation maintenance](contributing/documentation.md) |
+| Prepare or publish a release | [Release runbook](contributing/releases.md) | [Guide archives](contributing/guide-archives.md), [**Javadoc** artifacts](contributing/javadoc-artifacts.md) |
 
 The tracer executes guest programs. Use trusted programs locally; hosted untrusted
 submissions require the separate [runner contract](RUNNER_CONTRACT.md).

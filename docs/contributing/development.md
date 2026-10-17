@@ -14,7 +14,7 @@ Each Maven-running job in CI / Release logs the OS version and architecture,
 
 ## Release validation
 
-The [release runbook](documentation.md#prepare-a-stable-release) owns version
+The [release runbook](releases.md#prepare-a-stable-release) owns version
 selection, trusted SSH signing, isolated preparation, CI integration, and recovery.
 The pinned **Maven Release Plugin 3.3.1** changes the POM, creates the signed release
 tag, and advances the development version. Its full preparation profiles run Java
@@ -41,7 +41,7 @@ covers the configured model and serializer packages.
 | --- | --- |
 | Capture, serializers, or example sources | [Compatibility fixtures](#compatibility-fixtures) after packaging |
 | Python support scripts | [Python quality gates](#python-script-quality) |
-| User-facing behavior or documentation | [Executable docs and rendered site](documentation.md#local-checks) |
+| User-facing behavior or documentation | [Executable docs and rendered site](documentation-builds.md#local-checks) |
 | Supported Java declarations | [Interface checks](#supported-java-interface-checks) and **Javadoc** review |
 
 ### Test dependency logging
@@ -230,8 +230,9 @@ the distribution, which also supplies npm. Installations live under
 `target/frontend/`, and `website/package-lock.json` controls frontend dependencies.
 The profile runs its checks after the JAR and binary ZIP exist. It is inactive in
 ordinary builds and explicitly deactivated by nested Javadoc invocations.
-See [documentation maintenance](documentation.md#local-checks) for preview,
-published mode, live editing, and release rehearsal.
+See [documentation builds](documentation-builds.md#local-checks) for preview,
+published mode, and live editing, and the
+[release runbook](releases.md#release-rehearsal) for release rehearsal.
 
 ## Distribution packaging
 
@@ -263,7 +264,7 @@ identity, writes a SHA-256 companion, and creates and verifies a build-provenanc
 attestation before publishing all three files. The top-level
 `release.javadoc.schema=1` marker makes this asset mandatory for future published
 documentation's automatic selection. See
-[published Javadoc artifacts](documentation.md#published-javadoc-artifacts) for
+[published Javadoc artifacts](javadoc-artifacts.md#published-javadoc-artifacts) for
 the exact filenames, local checks, trust requirements, and legacy-release fallback.
 GitHub release publication does not deploy Maven artifacts.
 

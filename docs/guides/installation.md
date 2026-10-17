@@ -9,9 +9,9 @@ JDK, so newer language/library features require a suitable runtime and parser su
 
 | Your task | Download or build | Next step |
 | --- | --- | --- |
-| Run on Linux or macOS | Binary tar.gz or tar.xz archive | Extract it and run the **Bash** launcher. |
-| Run on Windows | Binary ZIP archive | Extract it and use **PowerShell 7.4+** or **Command Prompt**. |
-| Invoke Java directly | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
+| Run a downloaded release on any supported platform | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
+| Use a launcher on Linux or macOS | Binary tar.gz or tar.xz archive, when provided | Extract it and run the **Bash** launcher. |
+| Use a launcher on Windows | Binary ZIP archive, when provided | Extract it and use **PowerShell 7.4+** or **Command Prompt**. |
 | Develop or modify the tracer | Source checkout | Build with the included **Maven** wrapper. |
 
 Check `java --version` and `javac --version` before starting. Their complete release
@@ -25,11 +25,32 @@ development builds, whose artifacts may differ from older releases.
 
 ## Download a release
 
-Download `code-tracer.jar` from the desired
-[GitHub release](https://github.com/cs1302uga/cs1302-tracer/releases), then run
-`java -jar code-tracer.jar --help`. A full JDK is still required.
-Use documentation matching the downloaded version. The first-trace tutorial works from the extracted directory or beside the downloaded
-JAR; no source checkout is needed.
+Open the [latest stable software release](https://github.com/cs1302uga/cs1302-tracer/releases/latest),
+or select a particular version from the
+[release history](https://github.com/cs1302uga/cs1302-tracer/releases).
+Software releases use `vX.Y.Z` tags. Separate `docs-*` prereleases publish historical
+guide applications; use a software release when downloading the tracer itself.
+
+Choose an asset by its purpose. Availability depends on the release: older releases
+may provide only the executable and library JARs. Binary distributions and **Javadoc**
+bundles described here are produced by the current workflow and may be absent from
+your selected release.
+
+| Asset | Purpose |
+| --- | --- |
+| `code-tracer.jar` | Executable CLI with its runtime dependencies bundled. Start here for direct Java invocation. |
+| `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, or `code-tracer-bin.zip` | The executable JAR, shell launchers, and license in one directory. Choose one archive for your platform. |
+| `cs1302-tracer-VERSION.jar` | Library for [Java integration](../tutorials/java-integration.md). It requires its runtime dependencies; use Maven to resolve them. |
+| `cs1302-tracer-VERSION-javadoc.jar` | Javadoc HTML for offline API reading, with matching checksum and provenance companions when supplied by the current workflow. See [offline API documentation](offline-javadoc.md). |
+| `cs1302-tracer-VERSION-guides.zip` | Historical guide application from a separate `docs-*` publication. The [documentation site](https://cs1302uga.github.io/cs1302-tracer/) already serves these guides at their versioned URLs. |
+
+For the simplest installation, download `code-tracer.jar` and run
+`java -jar code-tracer.jar --help` in its directory. A full JDK is still required.
+Use documentation matching the downloaded version. The
+[first-trace tutorial](../tutorials/first-trace.md) works beside that JAR or from an
+extracted binary distribution; no source checkout is needed.
+
+### Binary distributions
 
 Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and
 `code-tracer-bin.zip` provide
@@ -67,12 +88,12 @@ Continue with [your first trace](../tutorials/first-trace.md); no checkout is ne
 
 Releases produced by the current workflow also include
 `cs1302-tracer-VERSION-javadoc.jar`, its `.jar.sha256` checksum, and its
-`.jar.sigstore.json` provenance bundle. These contain **Javadoc** for library
+`.jar.sigstore.json` provenance bundle. These contain Javadoc for library
 integration; they are separate from the executable and library JARs. Older
 releases may not provide them.
 
 Download the three matching files and follow the
-[release-artifact verification instructions](../contributing/documentation.md#published-javadoc-artifacts)
+[offline API documentation guide](offline-javadoc.md)
 to check their source identity and trusted build provenance. Extract the verified
 Javadoc JAR into an empty directory and open `index.html` in a browser. The HTML,
 navigation, and search are bundled; links to other projects can still need network

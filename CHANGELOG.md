@@ -54,6 +54,9 @@ Implementation: [e6b1d44](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1
 Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e810c99fd6e4f26ab852f6f5e687ff6046386)
 — Reviewed initial archive catalog, independently verified against published bytes.
 
+Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb)
+— Active guide deployment with verified historical archives and retained version routes.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -71,6 +74,13 @@ Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e
   are unchanged.
 
 ### Non-breaking changes
+
+- **Documentation:** lead the README with downloads and a self-contained first
+  trace, distinguish software and guide publications and their assets, and explain
+  offline API verification and extraction. Split maintainer instructions into
+  focused authoring, build, guide archive, Javadoc artifact, and release guides
+  while retaining the former runbook's section links. Published snapshots and
+  Java, CLI, and JSON/protocol behavior are unchanged by this reorganization.
 
 - **Contributor documentation:** clarify managed Python invocation through the
   repository's uv wrapper, correct the 4.0.0 CLI regeneration command, and label
