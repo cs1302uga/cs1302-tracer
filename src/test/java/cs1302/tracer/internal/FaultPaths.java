@@ -10,10 +10,28 @@ import java.nio.file.spi.FileSystemProvider;
 import java.net.URI;
 import java.util.*;
 
-/** Real paths with deterministic deletion failures, independent of user permissions. */
-final class FaultPaths {
-    static Path refusingDeletion(Path real) {
+/** Real paths with deterministic filesystem failures, independent of user permissions. */
+public final class FaultPaths {
+    public static Path refusingDeletion(Path real) {
         var provider = new Provider(real.getFileSystem().provider());
+        return provider.wrap(real);
+    }
+
+    public static Path refusingReads(Path real) {
+        var provider = new Provider(real.getFileSystem().provider());
+        provider.refuseRead = true;
+        return provider.wrap(real);
+    }
+
+    public static Path withUnknownUrlProtocol(Path real) {
+        var provider = new Provider(real.getFileSystem().provider());
+        provider.unknownUrl = true;
+        return provider.wrap(real);
+    }
+
+    public static Path vanishingAfterAttributes(Path real) {
+        var provider = new Provider(real.getFileSystem().provider());
+        provider.vanish = true;
         return provider.wrap(real);
     }
 
@@ -21,6 +39,9 @@ final class FaultPaths {
         private final FileSystemProvider delegate;
         private final Map<Path, Path> originals = new IdentityHashMap<>();
         private final FileSystem fs;
+        private boolean refuseRead;
+        private boolean unknownUrl;
+        private boolean vanish;
 
         Provider(FileSystemProvider delegate) {
             this.delegate = delegate;
@@ -98,6 +119,8 @@ final class FaultPaths {
                             return self == args[0];
                         if (method.getName().equals("hashCode"))
                             return System.identityHashCode(self);
+                        if (method.getName().equals("toUri") && unknownUrl)
+                            return URI.create("unregistered-protocol:/binary.class");
                         Object[] actual = args == null ? null : args.clone();
                         if (actual != null)
                             for (int i = 0; i < actual.length; i++) {
@@ -138,6 +161,7 @@ final class FaultPaths {
         @Override
         public SeekableByteChannel newByteChannel(Path p, Set<? extends OpenOption> o, FileAttribute<?>... a)
                 throws IOException {
+            if (refuseRead) throw new AccessDeniedException(unwrap(p).toString());
             return delegate.newByteChannel(unwrap(p), o, a);
         }
 
@@ -217,7 +241,12 @@ final class FaultPaths {
         @Override
         public <A extends BasicFileAttributes> A readAttributes(Path p, Class<A> type, LinkOption... options)
                 throws IOException {
-            return delegate.readAttributes(unwrap(p), type, options);
+            A attributes = delegate.readAttributes(unwrap(p), type, options);
+            if (vanish) {
+                vanish = false;
+                delegate.delete(unwrap(p));
+            }
+            return attributes;
         }
 
         @Override

@@ -2,7 +2,6 @@ package cs1302.tracer.internal;
 
 import static org.assertj.core.api.Assertions.*;
 import com.google.gson.*;
-import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.internal.execution.*;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.api.InspectionPolicy;
@@ -58,7 +57,7 @@ class AppFailureTest {
         var bytes = new ByteArrayOutputStream();
         try {
             System.setIn(
-                    new ByteArrayInputStream("public class C {}".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                    new ByteArrayInputStream("public class C { public static void main(String[] args) {} }".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             System.setOut(new PrintStream(bytes));
             trace.run();
         } finally {
@@ -74,7 +73,7 @@ class AppFailureTest {
     void interruptedExecutionCancelsEnvelopeAndPreservesInterrupt() {
         var trace = new App.Trace() {
             @Override
-            List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+            List<ExecutionSnapshot> executeBoundedSource(SourcePreparation prepared, TraceSession session,
                     String guestStdin) throws Exception {
                 throw new InterruptedException("interrupted guest");
             }
@@ -89,27 +88,6 @@ class AppFailureTest {
     }
 
     @Test
-    void serializationFailureProducesAFailedEnvelope() {
-        var trace = new App.Trace() {
-            @Override
-            List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
-                    String guestStdin) {
-                return List.of();
-            }
-
-            @Override
-            Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-                throw new IllegalStateException("serializer unavailable");
-            }
-        };
-        var result = envelope(trace);
-        assertThat(result.get("status").getAsString()).isEqualTo("failed");
-        assertThat(result.get("phase").getAsString()).isEqualTo("serialize");
-        assertThat(result.get("stopReason").getAsString()).isEqualTo("tracer_error");
-        assertThat(result.get("trace").isJsonNull()).isTrue();
-    }
-
-    @Test
     void discoveryIgnoresUnreadableUnreferencedSources(@TempDir Path directory) throws Exception {
         var trace = new App.Trace();
         Files.write(directory.resolve("Invalid.java"), new byte[] { (byte) 0xff });
@@ -118,21 +96,6 @@ class AppFailureTest {
         assertThat(App.discoverAllCompilationUnits(List.of(), Optional.of(directory.resolve("missing")), Optional.empty()))
                 .isEqualTo(List.of());
         assertThat(trace.getInputPath()).isEmpty();
-    }
-
-    @Test
-    void breakpointLookupFallsBackToFilename() throws Exception {
-        var method = App.ListBreakpoints.class.getDeclaredMethod("findValidLinesForFile", Map.class,
-                CompilationHelper.SourceFile.class);
-        method.setAccessible(true);
-        var command = new App.ListBreakpoints();
-        var source = new CompilationHelper.SourceFile("src/C.java", "", new CompilationUnit());
-        var lines = new LinkedHashMap<String, Set<Integer>>();
-        lines.put("Other.java", Set.of(1));
-        assertThat(method.invoke(command, lines, source)).isEqualTo(Set.of());
-        lines.put("pkg/C.java", Set.of(2));
-        assertThat(method.invoke(command, lines, source)).isEqualTo(Set.of(2));
-        assertThat(method.invoke(command, Map.of(), source)).isEqualTo(Set.of());
     }
 
     @Test

@@ -245,4 +245,5 @@ public final class InputObservation {
         Field field = object.referenceType().fieldByName(name);
         return field == null ? null : object.getValue(field);
     } // field
+
 } // InputObservation

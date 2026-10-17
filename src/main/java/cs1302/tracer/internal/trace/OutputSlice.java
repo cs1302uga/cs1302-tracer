@@ -9,7 +9,9 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * Represents an immutable slice of captured output bytes without requiring premature copying.
+ * Represents a fixed range of captured output bytes without requiring premature copying.
+ * Array factories detach caller bytes; a drainer-backed slice must be materialized or detached through
+ * {@link JobOutput.Finished} before its drainer is reset for another job.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class OutputSlice {
@@ -47,7 +49,7 @@ public final class OutputSlice {
     } // empty
 
     /**
-     * Wraps an entire byte array as an OutputSlice.
+     * Copies an entire byte array into an OutputSlice.
      *
      * @param bytes Direct byte array, or null.
      * @return OutputSlice instance.
@@ -60,7 +62,7 @@ public final class OutputSlice {
     } // from
 
     /**
-     * Creates an OutputSlice representing a subrange of a byte array.
+     * Copies a subrange of a byte array into an OutputSlice.
      *
      * @param bytes Direct byte array, or null.
      * @param offset Starting byte index.
@@ -77,7 +79,7 @@ public final class OutputSlice {
     } // from
 
     /**
-     * Wraps a shared immutable byte array without defensive copying.
+     * Wraps a shared byte array without defensive copying. The caller must never mutate the retained array.
      *
      * @param bytes Direct shared byte array, or null.
      * @param offset Starting byte index.
@@ -328,7 +330,7 @@ public final class OutputSlice {
      * Helper returning normalized reference for self-comparison.
      *
      * @param other Target slice.
-     * @return Same slice if identical.
+     * @return This slice if identical, otherwise null.
      */
     private OutputSlice normalSlice(OutputSlice other) {
         return this == other ? this : null;
@@ -354,4 +356,5 @@ public final class OutputSlice {
     public String toString() {
         return asUtf8String();
     } // toString
+
 } // OutputSlice

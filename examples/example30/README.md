@@ -5,7 +5,7 @@ This example demonstrates the heap layout and visualization of non-numeric primi
 ## Concepts Illustrated
 
 - **Non-Numeric Autoboxing**: Automatic conversion from boolean and character primitive literals to their corresponding `java.lang.Boolean` and `java.lang.Character` wrapper objects.
-- **Heap Object Representation**: Each boxed wrapper on the heap forms an `INSTANCE` object box labeled with its wrapper type (`Boolean` or `Character`) containing a single field `value` with the corresponding primitive type label (`boolean` or `char`).
+- **Heap Object Representation**: Trusted Python Tutor output represents each wrapper as an `INSTANCE` tuple with a `value` field and `boolean` or `char` type metadata. Modern output uses `kind: "box"` with the wrapper type and primitive `value`. `FIELDS` inspection instead exposes the wrapper's captured fields.
 - **Object Reference Array (`Object[]`)**: An array of `Object` references pointing to instances of `Boolean` and `Character`, illustrating polymorphic reference containment.
 
 ## Files

@@ -73,7 +73,29 @@ class ReleaseSelectionTests(unittest.TestCase):
         self.assertEqual(plan["versions"][0]["docsUrl"], "/cs1302-tracer/next/")
         self.assertEqual(plan["versions"][1]["javadocUrl"], "/cs1302-tracer/api/2.0.0/index.html")
         self.assertIsNone(plan["versions"][1]["sourceCommit"])
+        self.assertEqual(plan["versions"][1]["banner"], "unreleased")
         self.assertEqual(plan["versions"][2]["sourceCommit"], self.git("rev-parse", "v1.0.0^{commit}"))
+        self.assertEqual(plan["versions"][2]["banner"], "none")
+
+    def test_preview_allows_matching_snapshot_maven_version_for_pending_release(self) -> None:
+        """A matching Maven SNAPSHOT may preview its pending stable documentation."""
+        (self.root / "pom.xml").write_text("<project><version>2.0.0-SNAPSHOT</version></project>")
+        project = docs_release.Project(self.root)
+        plan = project.plan("preview")
+        self.assertEqual(project.project_version(), "2.0.0-SNAPSHOT")
+        self.assertEqual([v["name"] for v in plan["versions"]], ["current", "2.0.0", "1.0.0"])
+        self.assertEqual(plan["latestVersion"], "2.0.0")
+        self.assertIsNone(plan["versions"][1]["sourceCommit"])
+        self.assertEqual(plan["versions"][1]["banner"], "unreleased")
+        self.assertEqual(plan["versions"][2]["sourceCommit"], self.git("rev-parse", "v1.0.0^{commit}"))
+
+    def test_preview_rejects_other_snapshot_targets_and_prerelease_versions(self) -> None:
+        """Only the matching stable target or its exact SNAPSHOT spelling may fall back."""
+        for version in ("2.1.0-SNAPSHOT", "2.0.0-rc.1", "2.0.0-snapshot", "2.0.0-SNAPSHOT-SNAPSHOT"):
+            with self.subTest(version=version):
+                (self.root / "pom.xml").write_text(f"<project><version>{version}</version></project>")
+                with self.assertRaisesRegex(ValueError, "Missing release tag for 2.0.0"):
+                    docs_release.Project(self.root).plan("preview")
 
     def test_preview_requires_tagged_sources_for_older_snapshots(self) -> None:
         """Preview requires tagged sources for older snapshots."""
@@ -98,8 +120,11 @@ class ReleaseSelectionTests(unittest.TestCase):
 
     def test_published_current_version_cannot_fall_back_to_working_sources(self) -> None:
         """Published current version cannot fall back to working sources."""
-        with self.assertRaisesRegex(ValueError, "Missing release tag for 2.0.0"):
-            docs_release.Project(self.root).plan("published", releases=[{"tag_name": "v2.0.0"}])
+        for version in ("2.0.0", "2.0.0-SNAPSHOT"):
+            with self.subTest(version=version):
+                (self.root / "pom.xml").write_text(f"<project><version>{version}</version></project>")
+                with self.assertRaisesRegex(ValueError, "Missing release tag for 2.0.0"):
+                    docs_release.Project(self.root).plan("published", releases=[{"tag_name": "v2.0.0"}])
 
     def test_conflicting_prefixed_and_unprefixed_tags_are_rejected(self) -> None:
         """Conflicting prefixed and unprefixed tags are rejected."""
@@ -112,6 +137,17 @@ class ReleaseSelectionTests(unittest.TestCase):
         self.git("tag", "v2.0.0")
         with self.assertRaisesRegex(ValueError, "2.0.0 contains Maven version 1.0.0"):
             docs_release.Project(self.root).plan("preview")
+
+    def test_tagged_snapshot_maven_version_is_rejected_in_both_modes(self) -> None:
+        """A stable release tag never accepts a SNAPSHOT Maven version in its source."""
+        self.commit_version("2.0.0-SNAPSHOT", "v2.0.0")
+        for mode in ("preview", "published"):
+            releases: list[docs_release.ReleaseRecord] | None = (
+                [{"tag_name": "v2.0.0"}] if mode == "published" else None
+            )
+            with self.subTest(mode=mode):
+                with self.assertRaisesRegex(ValueError, "2.0.0 contains Maven version 2.0.0-SNAPSHOT"):
+                    docs_release.Project(self.root).plan(mode, releases)
 
     def test_publishing_a_new_release_retains_older_versions_on_retry(self) -> None:
         """Publishing a new release retains older versions on retry."""

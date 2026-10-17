@@ -39,7 +39,25 @@ class ApiExposureTest {
                 API.Status expected = name.startsWith("cs1302.tracer.internal.")
                         ? API.Status.INTERNAL : API.Status.STABLE;
                 assertThat(annotation.status()).as(name).isEqualTo(expected);
-                assertThat(annotation.since()).as(name).isEqualTo("4.0.0");
+                boolean introducedIn41 = name.endsWith("$Builder")
+                        || name.equals("cs1302.tracer.api.SourceBundle")
+                        || name.startsWith("cs1302.tracer.api.TraceClassPath")
+                        || name.startsWith("cs1302.tracer.internal.classpath.")
+                        || name.equals("cs1302.tracer.internal.execution.ClassPathOptions")
+                        || name.equals("cs1302.tracer.internal.execution.TraceCompletion")
+                        || name.equals("cs1302.tracer.internal.execution.TraceCompletion$Envelope")
+                        || name.startsWith("cs1302.tracer.internal.batch.BatchClassPathEntry")
+                        || name.equals("cs1302.tracer.internal.guest.GuestClassLoader")
+                        || name.equals("cs1302.tracer.internal.guest.GuestSystemClassLoader")
+                        || name.equals("cs1302.tracer.internal.guest.GuestClassPath")
+                        || name.equals("cs1302.tracer.internal.SourceNames")
+                        || name.equals("cs1302.tracer.internal.SourceGlob")
+                        || name.equals("cs1302.tracer.internal.SubmittedSources")
+                        || name.equals("cs1302.tracer.internal.SubmittedSources$File")
+                        || name.equals("cs1302.tracer.internal.CompilationHelper$ParsedSources")
+                        || name.equals("cs1302.tracer.internal.FileSelection")
+                        || name.equals("cs1302.tracer.internal.FileSelection$Match");
+                assertThat(annotation.since()).as(name).isEqualTo(introducedIn41 ? "4.1.0" : "4.0.0");
             }
         }
     }
@@ -49,20 +67,66 @@ class ApiExposureTest {
         Path consumer = directory.resolve("Consumer.java");
         Files.writeString(consumer, """
                 import cs1302.tracer.api.*;
+                import java.io.InputStream;
+                import java.io.OutputStream;
                 import java.io.Writer;
+                import java.nio.file.Path;
                 class Consumer {
+
                     void use(String source, Writer writer) throws Exception {
                         TraceRequest request = new TraceRequest(source);
                         TraceOutcome outcome = Tracer.trace(request);
                         outcome.writeJson(writer);
+                        TraceLimits.Builder limits = TraceLimits.builder().timeoutMillis(5000);
+                        TraceRequest.Builder requests = request.toBuilder().limits(limits.build());
+                        TraceRequest built = TraceRequest.builder(source).limits(limits.build()).build();
+                        TraceOutcome.Builder outcomes = outcome.toBuilder();
+                        outcomes.build().writeJson(writer);
+                        TraceOutcome.builder().json(outcome.json()).build().writeJson(writer);
+                        limits = built.limits().toBuilder();
+                        requests.build();
                         BreakpointDiscovery discovery = Tracer.discoverBreakpoints(source);
+                        TraceClassPath dependencies = TraceClassPath.builder()
+                            .addPath(Path.of("classes")).addGlob(Path.of("lib"), "**/*.jar")
+                            .copy(true).followLinks(false).build();
+                        dependencies.toBuilder().build().entries();
+                        Tracer.trace(request, dependencies);
+                        Tracer.trace(request, dependencies, true);
+                        Tracer.discoverBreakpoints(source, dependencies);
                         for (BreakpointLocation location : discovery.breakpoints()) {
                             System.out.println(location.sourcePath() + ":" + location.line());
                         }
                         try (BatchTracer batch = new BatchTracer(1, 100, 16, false)) {
                             batch.processStream(System.in, writer);
                         }
+                        BatchTracer.Builder batches = BatchTracer.builder().workers(1)
+                            .maxJobsPerWorker(100).maxInFlight(16);
+                        try (BatchTracer batch = batches.build()) {
+                            batch.processStream(System.in, writer);
+                        }
+                        SourceBundle.Builder sources = SourceBundle.builder()
+                            .addSource("Main.java", source)
+                            .addInferredSource("class Helper {}")
+                            .addFile("Other.java", Path.of("Other.java"))
+                            .addInferredFile(Path.of("More.java"))
+                            .addFiles(Path.of("src"), "demo/**/*.java")
+                            .addFiles(Path.of("src"), "support/*.java", true)
+                            .addInferredFiles(Path.of("templates"), "**/*.txt")
+                            .addInferredFiles(Path.of("templates"), "more/*.txt", true);
+                        SourceBundle bundle = sources.build().toBuilder().build();
+                        TraceRequest.builder(bundle.source()).build();
+                        try (InputStream input = bundle.openStream()) {
+                            input.readAllBytes();
+                        }
+                        bundle.writeUtf8(OutputStream.nullOutputStream());
                     }
+
+                    void nullStringCallsRemainUnambiguous() {
+                        new TraceRequest(null);
+                        TraceRequest.builder(null);
+                        Tracer.discoverBreakpoints(null);
+                    }
+
                 }
                 """);
         String classes = Path.of(Tracer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();

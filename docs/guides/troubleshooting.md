@@ -7,7 +7,7 @@
 | No trace when running the JAR | Include the `trace` subcommand. Root `--help` lists commands. |
 | Breakpoint never appears | Use `list-breakpoints`; verify the source file and executable line. A selected line might not execute. |
 | Exit code 3 and no JSON | An ordinary trace hit a budget. Tune the relevant limit or use `--result-envelope` with explicit budgets to receive partial results. |
-| Inspection option rejected | `FIELDS` inspection requires `--result-envelope`. |
+| Inspection option rejected | Explicit `--inspection FIELDS` requires `--result-envelope`. `--multithread --format modern` selects field-only inspection automatically. |
 | Guest cannot read expected input | Pass `--stdin` or `--stdin-file`. Source supplied through the tracer's stdin is not guest input. |
 | Different object IDs across runs | IDs are references within a result, not stable identifiers. Preserve aliasing when comparing traces. |
 | Different collection shape under `FIELDS` | Raw-field inspection intentionally differs from trusted helper-based presentation. |

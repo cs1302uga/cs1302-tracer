@@ -15,6 +15,7 @@ import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,6 +41,9 @@ public final class GuestHarness {
 
     /** Dispatch parameter: target classpath set by host debugger. */
     public static volatile String nextClassPath = null;
+
+    /** Dispatch parameter: prepared-path descriptor, or null for an output-only job. */
+    public static volatile String nextDependencies = null;
 
     /** Dispatch parameter: target main entry class name set by host debugger. */
     public static volatile String nextMainClass = null;
@@ -126,7 +130,8 @@ public final class GuestHarness {
     } // onJobCompleted
 
     /**
-     * Finds and invokes the entry point on the specified class matching Java main method rules.
+     * Finds and invokes a main-method candidate, constructing a receiver for an instance method and supplying
+     * an empty argument array when required.
      *
      * @param targetClass The loaded class containing the main method.
      * @throws Exception If resolution, instantiation, or invocation fails.
@@ -151,7 +156,8 @@ public final class GuestHarness {
     } // invokeMain
 
     /**
-     * Finds the entry point main method on the target class or its superclasses.
+     * Finds the first recognized main-method candidate on the target class or its superclasses.
+     * Classes are searched from the target upward; methods within a class follow reflection enumeration order.
      *
      * @param targetClass Target class to search.
      * @return Discovered main Method, or null if none found.
@@ -168,7 +174,8 @@ public final class GuestHarness {
     } // findMainMethod
 
     /**
-     * Determines whether the specified method matches Java main method entry rules.
+     * Recognizes methods named {@code main} returning {@code void} with no parameters or one
+     * {@code String[]} parameter. Access and {@code static} modifiers are not checked here.
      *
      * @param m Method to inspect.
      * @return True if method matches main signature.
@@ -198,7 +205,9 @@ public final class GuestHarness {
             File cpFile = new File(cp);
             URL[] urls = new URL[] { cpFile.toURI().toURL() };
             ThreadGroup jobGroup = new ThreadGroup("student-job-group");
-            try (URLClassLoader loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())) {
+            try (URLClassLoader loader = nextDependencies == null
+                    ? new URLClassLoader(urls, ClassLoader.getPlatformClassLoader())
+                    : new GuestClassLoader(GuestClassPath.read(Path.of(nextDependencies)))) {
                 Thread jobThread = new Thread(jobGroup, () -> {
                     try {
                         Class<?> mainClass = Class.forName(mc, true, loader);
@@ -374,6 +383,7 @@ public final class GuestHarness {
     static void cleanState() {
         Thread.interrupted();
         nextClassPath = null;
+        nextDependencies = null;
         nextMainClass = null;
         nextStdin = null;
         VIRTUAL_IN.reset("");
@@ -397,6 +407,7 @@ public final class GuestHarness {
      * Filter stream preventing target student code from closing persistent system streams.
      */
     static final class UnclosableOutputStream extends FilterOutputStream {
+
         private final AtomicLong counter;
 
         /**
@@ -435,6 +446,7 @@ public final class GuestHarness {
         public void close() throws IOException {
             flush();
         } // close
+
     } // UnclosableOutputStream
 
     /**
@@ -512,5 +524,7 @@ public final class GuestHarness {
         public synchronized int available() {
             return Math.max(0, buffer.length - pos);
         } // available
+
     } // VirtualInputStream
+
 } // GuestHarness

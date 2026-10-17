@@ -14,7 +14,8 @@ cd cs1302-tracer
 ```
 
 The wrapper downloads the configured Maven distribution. Windows users can use
-`mvnw.cmd`; the documented shell scripts and CI matrix target Unix-like systems.
+`mvnw.cmd`. CI checks wrapper bootstrap and compilation on Windows; the full test
+matrix and documented shell scripts target Ubuntu and macOS.
 
 The standalone JAR is `target/code-tracer-jar-with-dependencies.jar`:
 

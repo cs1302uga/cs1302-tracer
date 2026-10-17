@@ -1,13 +1,18 @@
 # Simple expression inference integration
 
-The production candidate adds the simple-expression subset from the assessment.
+This report records the integration released in **3.2.3**. Its candidate,
+measurements, and verification counts refer to that release preparation; they are
+historical evidence, not validation of the current checkout. For the current
+supported behavior, see the [output reference](../../docs/reference/output.md#generic-method-variable-types).
+
+The production candidate added the simple-expression subset from the assessment.
 For a single unbounded method type parameter with one direct `T` formal, it derives
 an exact concrete type from a supported source expression. It reuses existing
 caller attribution, declaring identities, snapshot-local contexts, and formatting.
 
 The other structural-matching experiments remain test-only. Explicit type
 arguments and inference from variables, fields, casts, and array accesses keep
-the existing path. The release preparation targets 3.2.3 and adds its documentation
+the existing path. The release preparation targeted 3.2.3 and added its documentation
 snapshot while retaining earlier release snapshots.
 
 ## Scope and failure policy
@@ -99,12 +104,19 @@ parameterized counterparts.
 ```
 
 The cost probe is opt-in by class name, so normal CI does not pay for repeated
-performance sampling. It writes `target/simple-expression-cost.json`. To repeat
-the baseline comparison, extract `git archive v3.2.2` into a temporary directory,
-copy only `SimpleExpressionCostProbe.java` into its test package, and run the same
-cost-probe command there on the same JDK. Run the two measurements sequentially.
+performance sampling. It writes `target/simple-expression-cost.json`. The commands
+above also select the corresponding tests in the current checkout, but a new run
+does not reproduce the pinned candidate merely by using the same class names.
 
-## Current correctness results
+To repeat the historical comparison, extract `git archive v3.2.2` and
+`git archive v3.2.3` into separate temporary directories. Use the probe from
+`v3.2.3:src/test/java/cs1302/tracer/trace/SimpleExpressionCostProbe.java` in both;
+copy that file into the same test-package path in the baseline tree. Run the
+cost-probe command in both trees on the same JDK, sequentially. Do not copy the
+current probe into the old baseline: its imports use the internal packages
+introduced in 4.0.
+
+## 3.2.3 correctness results
 
 The final candidate passes 91 focused tests on JDK 21.0.12.1 and 25.0.4.1,
 plus the separately selected cost probe on JDK 25. The 26-program original corpus
@@ -120,7 +132,7 @@ thread isolation, and persistent batch tests cover the newly integrated path.
 No incorrect specializations were observed in this finite corpus; the deferred
 cases and conservative guards remain part of the contract.
 
-## Final verification
+## 3.2.3 final verification
 
 - Clean JDK 25 build with an isolated temporary directory: 698 tests passed, no failures/errors/skips, Checkstyle clean,
   and both normal and strict all-production coverage gates passed.
@@ -133,7 +145,7 @@ cases and conservative guards remain part of the contract.
 - Experimental classes are absent from the executable JAR. Versioned release
   documentation is retained; 3.2.3 has a new documentation snapshot.
 
-The strict `pre-commit-coverage` profile now passes with 100% production line and
+At release preparation, the strict `pre-commit-coverage` profile passed with 100% production line and
 branch coverage. Boundary tests exercise nested receiver forms, unsupported
 expressions, mismatched formals, lost solver metadata, anonymous declarations,
 and traversal limits (including cyclic owner metadata). Two impossible empty

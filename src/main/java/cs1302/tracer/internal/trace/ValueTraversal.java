@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 /** Iterative traversal of inline values; guest heap references remain leaves. */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class ValueTraversal {
+
     /** Maximum inline value path length, including its root and leaf. */
     public static final int MAX_DEPTH = 32;
 
@@ -117,4 +118,5 @@ public final class ValueTraversal {
 
     /** Pending traversal state. */
     private record Frame(TraceValue value, Iterator<? extends TraceValue> children) {}
+
 } // ValueTraversal

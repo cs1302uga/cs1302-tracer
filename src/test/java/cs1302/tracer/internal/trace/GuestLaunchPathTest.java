@@ -1,6 +1,7 @@
 package cs1302.tracer.internal.trace;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import cs1302.tracer.internal.CompilationHelper;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,6 +18,24 @@ class GuestLaunchPathTest {
         assertThat(java.lang.reflect.Modifier.isPrivate(constructor.getModifiers())).isTrue();
         constructor.setAccessible(true);
         constructor.newInstance();
+    }
+
+    @Test
+    void malformedImplementationLocationReportsAnIoFailure() throws Exception {
+        java.net.URL location = java.net.URL.of(java.net.URI.create("fixture:/valid"), new java.net.URLStreamHandler() {
+            @Override
+            protected java.net.URLConnection openConnection(java.net.URL url) {
+                throw new AssertionError("A code-source location must not be opened");
+            }
+
+            @Override
+            protected String toExternalForm(java.net.URL url) {
+                return "file:/invalid location";
+            }
+        });
+        assertThatThrownBy(() -> GuestLauncher.loaderLocation(location))
+            .isInstanceOf(java.io.IOException.class).hasMessageContaining("Invalid guest loader location")
+            .hasCauseInstanceOf(java.net.URISyntaxException.class);
     }
 
     @Test

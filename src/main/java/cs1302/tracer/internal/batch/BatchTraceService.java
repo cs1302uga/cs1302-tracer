@@ -7,7 +7,7 @@ import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.NestingException;
 import cs1302.tracer.api.TraceFormat;
-import cs1302.tracer.internal.serialize.PyTutorSerializer;
+import cs1302.tracer.internal.serialize.TraceRendering;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,7 +34,7 @@ import java.util.function.Function;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class BatchTraceService implements AutoCloseable {
 
-    /** Maximum allowed characters in a single NDJSON input record (16 MB). */
+    /** Maximum allowed UTF-16 code units in a single NDJSON input record (16 * 1024 * 1024). */
     public static final int MAX_RECORD_CHARS = 16 * 1024 * 1024;
 
     private final int workerCount;
@@ -90,7 +90,7 @@ public final class BatchTraceService implements AutoCloseable {
         this.executor = Executors.newFixedThreadPool(this.workerCount);
         this.workerPool = new LinkedBlockingQueue<>();
         this.allWorkers = new ArrayList<>();
-        this.gson = PyTutorSerializer.getGson(false);
+        this.gson = new Gson();
         this.runner = runner == null ? this::executeJob : runner;
 
         for (int i = 0; i < this.workerCount; i++) {
@@ -189,7 +189,7 @@ public final class BatchTraceService implements AutoCloseable {
     } // processStream
 
     /**
-     * Submits a single raw JSON line for execution and writes its response when done.
+     * Submits a single raw JSON line for execution; the stream-processing caller writes the response.
      *
      * @param jsonLine Raw JSON request line.
      * @return Future completing when the response is ready.
@@ -270,7 +270,7 @@ public final class BatchTraceService implements AutoCloseable {
      * @param writer Output writer.
      */
     private synchronized void writeResponse(BatchJobResponse response, PrintWriter writer) {
-        String json = gson.toJson(response);
+        String json = TraceRendering.batch(response);
         writer.println(json);
         writer.flush();
     } // writeResponse
@@ -298,4 +298,5 @@ public final class BatchTraceService implements AutoCloseable {
             } // for
         } // try
     } // close
+
 }

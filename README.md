@@ -37,11 +37,20 @@ steps, stack frames, and heap objects. `trace` is an explicit subcommand; run
 Trusted local examples can run directly. **The tracer does not sandbox programs.**
 Hosted student submissions require whole-job isolation as described in the
 [runner contract](docs/RUNNER_CONTRACT.md). Ordinary tracing has finite default
-budgets; envelope and batch jobs require explicit limits.
+budgets; omitted limits in envelope and batch jobs are unlimited.
+
+Programs may use configured binary directories and JARs through repeatable
+`--class-path`/`-cp` options, including quoted patterns such as `lib/**/*.jar`.
+Java integrations use `TraceClassPath`; batch requests configure dependencies per
+job. See [binary dependencies](docs/reference/java-api.md#binary-dependencies) and
+the [tracing guide](docs/guides/tracing.md#add-binary-dependencies) for ordering,
+manifest handling, optional copying, and resource ownership.
+The [binary dependency example](examples/classpath/README.md) builds a small
+library JAR and traces a program using a recursive class-path pattern.
 
 ## Documentation
 
-- [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — development docs initially; versioned releases after the first documented release.
+- [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and Javadoc, with development documentation under `/next/`.
 - [Installation](docs/guides/installation.md) and [first trace tutorial](docs/tutorials/first-trace.md).
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).

@@ -47,7 +47,7 @@ public record Trace(@SerializedName("code") String code, @SerializedName("format
      * @param breakpoints Breakpoint output.
      * @param metadata Parsed source metadata.
      */
-    private Trace(String code, String format, String stdin, List<Step> steps, Map<Integer, Object> breakpoints,
+    public Trace(String code, String format, String stdin, List<Step> steps, Map<Integer, Object> breakpoints,
             SourceMetadata metadata) {
         this(code, format, stdin, steps, breakpoints, metadata.sources(), metadata.entryFile());
     } // Trace
@@ -93,4 +93,5 @@ public record Trace(@SerializedName("code") String code, @SerializedName("format
     public Trace(String code, Map<Integer, Object> breakpoints) {
         this(code, "", breakpoints);
     } // Trace
+
 } // Trace

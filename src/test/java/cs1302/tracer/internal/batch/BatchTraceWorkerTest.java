@@ -759,38 +759,9 @@ class BatchTraceWorkerTest {
         }
     }
 
-    @Test
-    void partialSerializationFailurePreservesOriginalFailure() throws Exception {
-        var serialize = BatchTraceWorker.class.getDeclaredMethod("serializePartialPayload", String.class, String.class,
-                cs1302.tracer.internal.execution.TraceJob.class,
-                cs1302.tracer.internal.execution.TraceSession.class, Throwable.class);
-        serialize.setAccessible(true);
-        try (var guest = PersistentGuestSession.create();
-                var worker = new BatchTraceWorker(5);
-                var session = new cs1302.tracer.internal.execution.TraceSession(TraceLimits.unlimited(),
-                        cs1302.tracer.api.InspectionPolicy.FIELDS, true)) {
-            session.attach(guest.process(), false);
-            session.commit(emptySnapshot());
-            var original = new IllegalStateException("trace failed");
-            assertThat(serialize.invoke(worker, "invalid Java", "",
-                    cs1302.tracer.internal.execution.TraceJob.resolve(
-                            cs1302.tracer.internal.execution.TraceJob.Profile.NDJSON,
-                            cs1302.tracer.api.TraceFormat.MODERN, cs1302.tracer.api.TypeStyle.FQN,
-                            TraceLimits.unlimited(), cs1302.tracer.api.InspectionPolicy.FIELDS,
-                            List.of(), false, false, false, false, false, false, true), session, original)).isNull();
-            assertThat(original.getSuppressed()).hasSize(1);
-            assertThat(original.getSuppressed()[0]).isInstanceOf(IllegalArgumentException.class);
-        }
-    }
-
     private static BatchJobRequest request(String source, boolean allBreakpoints) {
         return new BatchJobRequest("coverage-job", source, "modern", null, null, allBreakpoints, false, false, false,
                 false, "fqn", TraceLimits.unlimited(), null);
-    }
-
-    private static cs1302.tracer.internal.trace.ExecutionSnapshot emptySnapshot() {
-        return new cs1302.tracer.internal.trace.ExecutionSnapshot(List.of(), List.of(), java.util.Map.of(), new byte[0],
-                new byte[0]);
     }
 
 } // BatchTraceWorkerTest

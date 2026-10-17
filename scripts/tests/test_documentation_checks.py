@@ -84,6 +84,68 @@ else:
         self.assertIn("-Usage: obsolete", result.stderr)
         self.assertIn("+Usage: tracer", result.stderr)
 
+    def test_manual_cli_section_survives_help_updates_and_stays_link_checked(self) -> None:
+        """Preserve authored bytes through regeneration while checking help drift and manual links."""
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        path = self.root / "docs/reference/cli.md"
+        generated = path.read_bytes()
+        manual = (
+            b"\r\n<!-- cli-reference:manual -->\r\n\r\n## Binary dependencies\r\n"
+            b"[Budgets](../BOUNDED_TRACING.md)\nKeep this spacing.  \r\n"
+            b"\n<!-- cli-reference:manual -->\nThis second marker remains authored text.\n"
+        )
+        path.write_bytes(generated.replace(b"\n", b"\r\n") + manual)
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        java = self.root / "bin/java"
+        java.write_text(java.read_text().replace("Usage: tracer", "Usage: changed"))
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("-Usage: tracer", result.stderr)
+        self.assertIn("+Usage: changed", result.stderr)
+
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(path.read_bytes(), generated.replace(b"Usage: tracer", b"Usage: changed") + manual)
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        path.write_bytes(path.read_bytes() + b"[Missing](absent.md)\n")
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("docs/reference/cli.md: missing absent.md", result.stderr)
+
+    def test_only_standalone_manual_markers_separate_the_generated_reference(self) -> None:
+        """Reject unmarked prose and misleading inline markers instead of hiding generated drift."""
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        path = self.root / "docs/reference/cli.md"
+        generated = path.read_text()
+        for suffix in (
+            "\nUnmarked authored text\n",
+            "\ninline <!-- cli-reference:manual -->\n",
+            "\n<!-- cli-reference:manual --> trailing text\n",
+            "\n <!-- cli-reference:manual -->\n",
+        ):
+            with self.subTest(suffix=suffix):
+                path.write_text(generated + suffix)
+                result = invoke(self.root, "check_docs.py", env=self.env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("--- docs/reference/cli.md", result.stderr)
+
+        # A misplaced exact boundary must not hide generated help behind the manual section.
+        path.write_text("# CLI reference\n\n<!-- cli-reference:manual -->\n" + generated)
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("+Usage: tracer", result.stderr)
+
+        # A final standalone marker with no authored content or final newline is also valid.
+        path.write_text(generated + "\n<!-- cli-reference:manual -->")
+        result = invoke(self.root, "check_docs.py", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_missing_links_and_build_are_reported(self) -> None:
         """Identify broken local destinations and explain how to obtain the executable."""
         (self.root / "HACKING.md").write_text("[Missing](absent.md)\n")

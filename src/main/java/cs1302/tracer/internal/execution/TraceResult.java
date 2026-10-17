@@ -79,4 +79,5 @@ public record TraceResult(int schemaVersion, String format, String status, Strin
         return new TraceResult(1, format, "stopped", reason, "trace", false, null,
                 limits != null ? limits : TraceLimits.unlimited(), Collections.emptyMap(), List.of(diagnostic), "", "");
     } // stopped
+
 } // TraceResult

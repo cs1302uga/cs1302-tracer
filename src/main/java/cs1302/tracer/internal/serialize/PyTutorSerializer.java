@@ -2,6 +2,9 @@ package cs1302.tracer.internal.serialize;
 
 import org.apiguardian.api.API;
 
+import cs1302.tracer.internal.SubmittedSources;
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.internal.model.SourceMetadata;
@@ -36,10 +39,23 @@ import java.util.stream.Collectors;
  * @param inlineStrings True if strings should be inlined as literals.
  * @param removeMethodThis True if this references for method calls should be excluded.
  * @param typeStyle The type qualification style (FQN or SIMPLE).
+ * @param includePrimitiveBits Whether to include primitive binary metadata.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
-        TypeStyle typeStyle) {
+        TypeStyle typeStyle, boolean includePrimitiveBits) {
+
+    /**
+     * Constructs a serializer without primitive binary metadata.
+     * @param removeMainArgs Omit main arguments.
+     * @param inlineStrings Inline strings.
+     * @param removeMethodThis Omit receiver references.
+     * @param typeStyle Type-label style.
+     */
+    public PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
+            TypeStyle typeStyle) {
+        this(removeMainArgs, inlineStrings, removeMethodThis, typeStyle, false);
+    } // PyTutorSerializer
 
     /**
      * Constructs a PyTutorSerializer defaulting to fully qualified type names.
@@ -52,9 +68,12 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         this(removeMainArgs, inlineStrings, removeMethodThis, TypeStyle.FQN);
     } // PyTutorSerializer
 
-    private static final Gson GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson GSON = new GsonBuilder().registerTypeAdapterFactory(new BinaryMetadataAdapterFactory())
+            .serializeNulls().disableHtmlEscaping().create();
 
-    private static final Gson PRETTY_GSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().setPrettyPrinting()
+    private static final Gson PRETTY_GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new BinaryMetadataAdapterFactory())
+            .serializeNulls().disableHtmlEscaping().setPrettyPrinting()
             .create();
 
     /**
@@ -100,6 +119,17 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
     } // createTrace
 
     /**
+     * Creates a single-snapshot trace from prepared source identity before converting its step.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @return Python Tutor trace with existing metadata-validation precedence.
+     */
+    public PyTutorTrace createTrace(SubmittedSources source, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(source.code(), stdin, snapshot, source.metadata());
+    } // createTrace
+
+    /**
      * Create a snapshot trace using source metadata shared by one breakpoint output.
      *
      * @param javaSource The original source code.
@@ -134,8 +164,32 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
      * @return The structured PyTutorTrace model.
      */
     public PyTutorTrace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, stdin, snapshots, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a chronological trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @return Python Tutor trace whose metadata is projected after step conversion.
+     */
+    public PyTutorTrace createTrace(SubmittedSources source, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(source.code(), stdin, snapshots, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares sequence conversion while deferring source validation until all steps are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @param metadata Raw or prepared metadata projection, evaluated only at the existing point.
+     * @return Python Tutor sequence root.
+     */
+    private PyTutorTrace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots,
+            Supplier<SourceMetadata> metadata) {
         List<TraceStep> steps = snapshots.stream().map(s -> createTraceStep(s, true)).toList();
-        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "");
+        return new PyTutorTrace(javaSource, stdin == null ? "" : stdin, steps, "", metadata.get());
     } // createTrace
 
     /**
@@ -170,7 +224,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         for (Field f : snapshot.statics()) {
             serializedStatics.put(f.identifier(), serializeTraceValue(f.value(), snapshot.heap()));
             orderedStatics.add(f.identifier());
-            globalsAttrs.put(f.identifier(), Map.of("type", typeStyle.format(f.typeName()), "final", f.isFinal()));
+            globalsAttrs.put(f.identifier(), fieldAttributes(f));
         } // for
 
         Map<Long, String> declaredTypes = collectDeclaredTypes(snapshot);
@@ -190,9 +244,22 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         String stderr = decodeOutput(snapshot.stderr());
         String stepFile = isMultiFile ? snapshot.sourcePath().orElse(null) : null;
 
-        return new TraceStep(stdout, stderr, "step_line", currentMethod, currentLine, serializedStack,
-                serializedStatics, globalsAttrs, orderedStatics, serializedHeap, heapAttrs, stepFile,
-                snapshot.stdinConsumed(), snapshot.stdinOffset());
+        return TraceStep.builder()
+                .stdout(stdout)
+                .stderr(stderr)
+                .event("step_line")
+                .funcName(currentMethod)
+                .line(currentLine)
+                .stackToRender(serializedStack)
+                .globals(serializedStatics)
+                .globalsAttrs(globalsAttrs)
+                .orderedGlobals(orderedStatics)
+                .heap(serializedHeap)
+                .heapAttrs(heapAttrs)
+                .file(stepFile)
+                .stdinConsumed(snapshot.stdinConsumed())
+                .stdinOffset(snapshot.stdinOffset())
+                .build();
     } // createTraceStep
 
     /**
@@ -279,7 +346,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
      * @return Map of heap attributes.
      */
     private Map<String, Object> buildHeapAttrs(Map<Long, TraceValue> heap, Map<Long, String> declaredTypes) {
-        Map<String, Object> heapAttrs = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> heapAttrs = new LinkedHashMap<>();
         for (Entry<Long, TraceValue> e : heap.entrySet()) {
             String key = e.getKey().toString();
             Long id = e.getKey();
@@ -320,9 +387,49 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
                 // do nothing
             } // default
             } // switch
+            if (includePrimitiveBits) {
+                Map<String, Object> attributes = new LinkedHashMap<>(heapAttrs.getOrDefault(key, Map.of()));
+                addHeapBinary(attributes, val);
+                heapAttrs.put(key, attributes);
+            } // if
         } // for
-        return heapAttrs;
+        return new LinkedHashMap<>(heapAttrs);
     } // buildHeapAttrs
+
+    /**
+     * Adds descriptors aligned with the existing heap payload.
+     * @param attributes Existing attributes to extend.
+     * @param val Captured heap payload.
+     */
+    private void addHeapBinary(Map<String, Object> attributes, TraceValue val) {
+        switch (val) {
+        case TraceValue.Primitive primitive -> attributes.put("binary", PrimitiveBits.of(primitive, true));
+        case TraceValue.Object object -> attributes.put("fieldBinary", object.fields().stream()
+                .map(field -> PrimitiveBits.of(field.value(), true)).toList());
+        case TraceValue.List list ->
+            attributes.put("elementBinary", PrimitiveBits.elements(list.value(), true));
+        case TraceValue.Collection col ->
+            attributes.put("elementBinary", PrimitiveBits.elements(col.value(), true));
+        default -> {
+            // Nonprimitive payloads retain their existing metadata.
+        } // default
+        } // switch
+    } // addHeapBinary
+
+    /**
+     * Builds variable attributes without adding absent metadata properties.
+     * @param field Captured field or local.
+     * @return Type, final flag, and optional binary descriptor.
+     */
+    private Map<String, Object> fieldAttributes(Field field) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        attributes.put("type", typeStyle.format(field.typeName()));
+        attributes.put("final", field.isFinal());
+        if (includePrimitiveBits && field.value() instanceof TraceValue.Primitive) {
+            attributes.put("binary", PrimitiveBits.of(field.value(), true));
+        } // if
+        return attributes;
+    } // fieldAttributes
 
     /**
      * Decodes raw bytes to string.
@@ -406,8 +513,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
                 continue;
             } // if
             orderedVarnames.add(field.identifier());
-            localsAttrs.put(field.identifier(),
-                    Map.of("type", typeStyle.format(field.typeName()), "final", field.isFinal()));
+            localsAttrs.put(field.identifier(), fieldAttributes(field));
             encodedLocals.put(field.identifier(), serializeTraceValue(field.value(), heap));
         } // for
 
@@ -726,4 +832,5 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
         default -> null;
         }; // switch
     } // getSimpleTypeName
+
 } // PyTutorSerializer

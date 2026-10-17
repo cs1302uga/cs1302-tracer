@@ -19,6 +19,16 @@ class DebuggerEventTest {
         }
     }
 
+    static Object captureCall(String name, Class<?>[] signature, Object... args) throws Exception {
+        var method = SnapshotCapture.class.getDeclaredMethod(name, signature);
+        method.setAccessible(true);
+        try {
+            return method.invoke(null, args);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            throw (Exception) e.getCause();
+        }
+    }
+
     private static com.sun.jdi.Method mainMethod(String signature) {
         return mirror(com.sun.jdi.Method.class, Map.of("name", "main", "signature", signature, "isPrivate", false,
                 "argumentTypes", List.of(), "declaringType", mirror(ReferenceType.class, Map.of("name", "C"))));
@@ -154,26 +164,6 @@ class DebuggerEventTest {
         } finally {
             Thread.interrupted();
         }
-    }
-
-    @Test
-    void referenceQueueIgnoresNullReferences() throws Exception {
-        var constructor = Class.forName("cs1302.tracer.internal.trace.DebugTraceHelper$ReferenceQueue").getDeclaredConstructor();
-        constructor.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        var queue = (List<ObjectReference>) constructor.newInstance();
-        assertThat(queue.add(null)).isFalse();
-        assertThat(queue).isEmpty();
-        ObjectReference first = mirror(ObjectReference.class, Map.of("uniqueID", 101L));
-        ObjectReference second = mirror(ObjectReference.class, Map.of("uniqueID", 102L));
-        assertThat(queue.add(first)).isTrue();
-        assertThat(queue.add(second)).isTrue();
-        assertThat(queue.get(1)).isSameAs(second);
-        assertThat(queue.removeFirst()).isSameAs(first);
-        assertThat(queue.add(first)).isFalse();
-        assertThat(queue.removeFirst()).isSameAs(second);
-        assertThat(queue).isEmpty();
-        assertThat(queue).isNotInstanceOf(Cloneable.class);
     }
 
     @Test

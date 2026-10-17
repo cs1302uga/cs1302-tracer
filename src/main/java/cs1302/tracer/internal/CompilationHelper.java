@@ -1,6 +1,8 @@
 package cs1302.tracer.internal;
 
 import org.apiguardian.api.API;
+import cs1302.tracer.api.TraceClassPath;
+import cs1302.tracer.internal.classpath.PreparedClassPath;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -13,7 +15,6 @@ import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
-import com.github.javaparser.ast.nodeTypes.modifiers.NodeWithPublicModifier;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,6 +40,7 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 
 /**
@@ -74,6 +76,51 @@ public class CompilationHelper {
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record SourceFile(String relativePath, String content, CompilationUnit ast) {} // SourceFile
 
+    /** Compiler-owned parsed files correlated with their detached submitted-source description. */
+    @API(status = API.Status.INTERNAL, since = "4.1.0")
+    public static final class ParsedSources {
+
+        private final List<SourceFile> files;
+        private final SubmittedSources submitted;
+
+        /**
+         * Constructs one correlated result without exposing a separately supplied description.
+         * @param code Original complete source input.
+         * @param files Files parsed from that input.
+         */
+        private ParsedSources(String code, List<SourceFile> files) {
+            this.files = List.copyOf(files);
+            this.submitted = new SubmittedSources(code, this.files);
+        } // ParsedSources
+
+        /**
+         * Returns compiler-owned ASTs, which callers must not mutate while preparation uses them.
+         * @return Ordered parsed submitted files.
+         */
+        public List<SourceFile> files() {
+            return this.files;
+        } // files
+
+        /**
+         * Returns the detached immutable text and source identities from this parse.
+         * @return Submitted-source interpretation, safe after compilation resources close.
+         */
+        public SubmittedSources submitted() {
+            return this.submitted;
+        } // submitted
+
+    } // ParsedSources
+
+    /**
+     * Parses once and retains correlated compiler input and detached source identity.
+     * Debug-path ambiguity remains deferred until rendering requests metadata.
+     * @param rawInput Original single-file or delimited source input.
+     * @return Parsed submitted files and their resource-independent description.
+     */
+    public static ParsedSources parseSources(String rawInput) {
+        return new ParsedSources(rawInput, parseMultiFileStream(rawInput));
+    } // parseSources
+
     /**
      * Parse a single-file or multi-file Java stream demarcated by comment delimiters.
      *
@@ -103,7 +150,7 @@ public class CompilationHelper {
                         .getProblems().stream().map(Object::toString).collect(Collectors.joining(", ", "[", "]")));
             } // if
             CompilationUnit cu = parseResult.getResult().get();
-            String relPath = findTopLevelDeclarationBinaryName(cu).replace('.', File.separatorChar) + ".java";
+            String relPath = SourceNames.requirePublicBinaryName(cu).replace('.', File.separatorChar) + ".java";
             return List.of(new SourceFile(relPath, rawInput, cu));
         } // if
 
@@ -166,10 +213,11 @@ public class CompilationHelper {
     } // normalizePath
 
     /**
-     * Find the entry point source file containing the main method among multiple files.
+     * Finds the first source file containing a main-method candidate, falling back to the first file.
      *
      * @param sourceFiles The list of source files to search.
-     * @return The source file containing {@code public static void main(String[] args)}.
+     * @return The first file matching {@link #isMainMethod(MethodDeclaration)}, or the first supplied file.
+     * @throws IllegalArgumentException If the source list is null or empty.
      */
     public static SourceFile findEntryPoint(List<SourceFile> sourceFiles) {
         if (sourceFiles == null || sourceFiles.isEmpty()) {
@@ -272,10 +320,11 @@ public class CompilationHelper {
     } // compile
 
     /**
-     * Compile a Java program with an optional source root for resolving dependencies.
+     * Compile a Java program with an optional root for discovering additional Java sources.
+     * This root does not implicitly add precompiled binary dependencies.
      *
      * @param javaSource The Java program to compile.
-     * @param sourceRoot The optional source root directory containing package dependencies.
+     * @param sourceRoot The optional directory containing package-relative Java sources.
      * @return The CompilationResult for this compilation.
      * @throws IOException If an I/O error occurs.
      * @throws IllegalArgumentException If the Java program failed to compile.
@@ -289,23 +338,42 @@ public class CompilationHelper {
      *
      * @param <T> Prepared result type.
      * @param sourceFiles Parsed submitted sources.
-     * @param sourceRoot Dependency search root.
+     * @param sourceRoot Additional Java source search root.
      * @param finish Preparation that receives the compiled files.
      * @return The prepared result.
      * @throws IOException On compilation I/O failure.
      */
     static <T> T compile(List<SourceFile> sourceFiles, Optional<Path> sourceRoot,
             Function<CompilationResult, T> finish) throws IOException {
+        try (PreparedClassPath dependencies = PreparedClassPath.prepare(TraceClassPath.empty())) {
+            return compile(sourceFiles, sourceRoot, dependencies, finish);
+        } // try
+    } // compile
+
+    /**
+     * Compiles against prepared binary views without resolving manifests again.
+     * @param <T> Prepared result type.
+     * @param sourceFiles Submitted sources.
+     * @param sourceRoot Optional source-discovery root.
+     * @param dependencies Correlated guest paths and host views, borrowed for compilation.
+     * @param finish Ownership transfer after successful compilation.
+     * @return Prepared result.
+     * @throws IOException On compilation I/O failure.
+     */
+    static <T> T compile(List<SourceFile> sourceFiles, Optional<Path> sourceRoot, PreparedClassPath dependencies,
+            Function<CompilationResult, T> finish) throws IOException {
         boolean previewEnabled = detectPreviewUsage(sourceFiles.stream().map(SourceFile::ast).toList());
         Path workingDir = Files.createTempDirectory("code-tracer");
         try {
             List<File> files = writeSourceFiles(workingDir, sourceFiles);
-            Set<String> classes = compileFiles(workingDir, files, sourceRoot, previewEnabled);
+            Set<String> classes = compileFiles(workingDir, files, sourceRoot, previewEnabled,
+                    dependencies.binaryRoots());
             SourceFile entryPoint = findEntryPoint(sourceFiles);
             MethodDeclaration mainMethod = findMain(entryPoint.ast());
             String mainClass = String.join(".", getAncestorFqn(entryPoint.ast(), mainMethod));
             return finish.apply(new CompilationResult(workingDir, classes, mainClass,
-                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir), previewEnabled));
+                    sourceRoot.isPresent() ? sourceRoot : Optional.of(workingDir), previewEnabled,
+                    dependencies.entries()));
         } catch (IOException | RuntimeException | Error failure) {
             cleanupAfterFailure(workingDir, failure);
             throw failure;
@@ -331,18 +399,24 @@ public class CompilationHelper {
      *
      * @param workingDir Output directory.
      * @param files Source files.
-     * @param sourceRoot Optional dependency root.
+     * @param sourceRoot Optional Java source search root.
      * @param previewEnabled Whether preview features are enabled.
+     * @param binaryRoots Prepared dependency directories.
      * @return Compiled binary names.
      * @throws IOException On file manager failure.
      */
     private static Set<String> compileFiles(Path workingDir, List<File> files, Optional<Path> sourceRoot,
-            boolean previewEnabled) throws IOException {
+            boolean previewEnabled, List<Path> binaryRoots) throws IOException {
         Set<String> classes = new HashSet<>();
         JavaCompiler compiler = Objects.requireNonNull(ToolProvider.getSystemJavaCompiler(),
                 "Could not get Java compiler");
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         try (StandardJavaFileManager standard = compiler.getStandardFileManager(diagnostics, null, null)) {
+            List<Path> classPath = new ArrayList<>();
+            classPath.add(workingDir);
+            classPath.addAll(binaryRoots);
+            standard.setLocationFromPaths(StandardLocation.CLASS_PATH, classPath);
+            standard.setLocationFromPaths(StandardLocation.ANNOTATION_PROCESSOR_PATH, List.of());
             JavaFileManager forwarding = new ForwardingJavaFileManager<>(standard) {
                 @Override
                 public JavaFileObject getJavaFileForOutput(Location location, String className, Kind kind,
@@ -405,6 +479,7 @@ public class CompilationHelper {
             boolean previewEnabled) {
         List<String> compilerOptions = new ArrayList<>();
         compilerOptions.add("-g");
+        compilerOptions.add("-proc:none");
         if (previewEnabled) {
             compilerOptions.add("--enable-preview");
             compilerOptions.add("-source");
@@ -418,17 +493,15 @@ public class CompilationHelper {
             sourcePathStr += File.pathSeparator + sourceRoot.get().toAbsolutePath().toString();
         } // if
         compilerOptions.add(sourcePathStr);
-        compilerOptions.add("-classpath");
-        compilerOptions.add(sourcePathStr);
         return compilerOptions;
     } // buildCompilerOptions
 
     /**
-     * Checks whether the given compilation units use preview language or library features such as java.lang.IO or
-     * instance main methods.
+     * Checks whether any compilation unit matches the source heuristic for enabling preview flags.
+     * See {@link #detectPreviewUsage(CompilationUnit)} for the recognized patterns.
      *
      * @param compilationUnits List of compilation units to inspect.
-     * @return True if preview features are detected, false otherwise.
+     * @return True if a source pattern requests preview flags, or false for null or unmatched input.
      */
     public static boolean detectPreviewUsage(List<CompilationUnit> compilationUnits) {
         if (compilationUnits == null) {
@@ -443,10 +516,13 @@ public class CompilationHelper {
     } // detectPreviewUsage
 
     /**
-     * Checks whether a single compilation unit uses preview language or library features.
+     * Checks source patterns that request compiler and guest preview flags: imports or scoped calls involving
+     * {@code java.lang.IO}, {@code java.io.IO}, or {@code IO}, and non-public or non-static methods named
+     * {@code main}. This syntactic heuristic does not resolve symbols or establish whether the running JDK
+     * still treats a matching feature as preview.
      *
      * @param cu The compilation unit to inspect.
-     * @return True if preview features are detected.
+     * @return True if a recognized source pattern is present, or false for null or unmatched input.
      */
     public static boolean detectPreviewUsage(CompilationUnit cu) {
         if (cu == null) {
@@ -495,39 +571,6 @@ public class CompilationHelper {
     } // deleteWorkingDirectory
 
     /**
-     * Find the binary name of the single top-level declaration in a compilation unit.
-     *
-     * @param compilationUnit The compilation unit to search in.
-     * @return The binary name of the compilation unit's top-level declaration.
-     * @throws IllegalArgumentException If top-level count is not 1.
-     */
-    private static String findTopLevelDeclarationBinaryName(CompilationUnit compilationUnit) {
-        List<Node> topLevelNodes = new ArrayList<>();
-        new Node.DirectChildrenIterator(compilationUnit).forEachRemaining(topLevelNodes::add);
-        List<TypeDeclaration<?>> topLevelPublicDeclarations = topLevelNodes.stream()
-                .filter(n -> n instanceof TypeDeclaration).map(n -> (TypeDeclaration<?>) n)
-                .filter(NodeWithPublicModifier::isPublic).collect(Collectors.toList());
-
-        if (topLevelPublicDeclarations.size() != 1) {
-            String lines = "["
-                    + String.join(", ",
-                            topLevelPublicDeclarations.stream().filter(m -> m.getBegin().isPresent())
-                                    .map(m -> m.getBegin().get().line).map(Object::toString).toArray(String[]::new))
-                    + "]";
-            throw new IllegalArgumentException(String.format(
-                    "Java source code must have exactly one public top-level type "
-                            + "declaration. Found %d such declarations on lines %s.",
-                    topLevelPublicDeclarations.size(), lines));
-        } // if
-
-        TypeDeclaration<?> fileClass = topLevelPublicDeclarations.get(0);
-        List<String> fqn = getAncestorFqn(compilationUnit, fileClass);
-        fqn.add(fileClass.getNameAsString());
-
-        return String.join(".", fqn);
-    } // findTopLevelDeclarationBinaryName
-
-    /**
      * Get the FQN of a declaration's direct ancestor in a compilation unit as a list.
      *
      * @param compilationUnit The declaration's compilation unit.
@@ -553,10 +596,13 @@ public class CompilationHelper {
     } // getAncestorFqn
 
     /**
-     * Check whether a method declaration matches standard main method signature.
+     * Checks whether a declaration is a main-method candidate: named {@code main}, returning {@code void},
+     * and accepting no parameters, one {@code String[]} parameter, or one {@code String...} parameter.
+     * Both {@code String} and {@code java.lang.String} spellings are accepted. Access and {@code static}
+     * modifiers are not checked here; this is source selection, not a complete launchability check.
      *
      * @param m The method declaration to check.
-     * @return True if the method is a main method.
+     * @return True if the declaration matches a supported candidate shape.
      */
     public static boolean isMainMethod(MethodDeclaration m) {
         boolean isNamedMain = m.getNameAsString().equals("main");
@@ -601,10 +647,37 @@ public class CompilationHelper {
      * @param mainClass Binary name of the class that contains the main method.
      * @param sourceRoot The source root used during compilation, if any.
      * @param previewEnabled True if preview features were enabled during compilation.
+     * @param dependencies Prepared binary dependencies, owned by the enclosing preparation.
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public record CompilationResult(Path classPath, Set<String> compiledClassNames, String mainClass,
-            Optional<Path> sourceRoot, boolean previewEnabled) implements AutoCloseable {
+            Optional<Path> sourceRoot, boolean previewEnabled, List<Path> dependencies) implements AutoCloseable {
+
+        /**
+         * Detaches the effective dependency path list.
+         * @param classPath Owned class output directory.
+         * @param compiledClassNames Compiled binary names.
+         * @param mainClass Main entry class.
+         * @param sourceRoot Optional source root.
+         * @param previewEnabled Preview compilation status.
+         * @param dependencies Prepared binary dependency paths.
+         */
+        public CompilationResult {
+            dependencies = List.copyOf(dependencies);
+        } // CompilationResult
+
+        /**
+         * Constructs a result without binary dependencies.
+         * @param classPath Class output path.
+         * @param compiledClassNames Compiled binary names.
+         * @param mainClass Main class.
+         * @param sourceRoot Optional source root.
+         * @param previewEnabled Preview status.
+         */
+        public CompilationResult(Path classPath, Set<String> compiledClassNames, String mainClass,
+                Optional<Path> sourceRoot, boolean previewEnabled) {
+            this(classPath, compiledClassNames, mainClass, sourceRoot, previewEnabled, List.of());
+        } // CompilationResult
 
         /**
          * Constructs a CompilationResult with an explicit source root.
@@ -638,5 +711,7 @@ public class CompilationHelper {
                 throw new java.io.UncheckedIOException("Unable to clean compilation files", failure);
             } // try
         } // close
+
     } // CompilationResult
+
 } // CompilationHelper

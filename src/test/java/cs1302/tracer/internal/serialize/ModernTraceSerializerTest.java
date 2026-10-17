@@ -56,7 +56,7 @@ public class ModernTraceSerializerTest {
         Field fShort = new Field(false, "short", "s", new TraceValue.Primitive.Short((short) 16));
         Field fInt = new Field(false, "int", "i", new TraceValue.Primitive.Integer(32));
         Field fLong = new Field(false, "long", "l", new TraceValue.Primitive.Long(64L));
-        Field fBool = new Field(false, "boolean", "bool", new TraceValue.Primitive.Boolean(true));
+        Field fBool = new Field(false, "boolean", "bool", TraceValue.Primitive.Boolean.TRUE);
         Field fNull = new Field(false, "Object", "n", new TraceValue.Null());
 
         StackSnapshot frame = new StackSnapshot("main", 10, List.of(fFloat, fDouble, fDoubleInf, fDoubleNegInf,

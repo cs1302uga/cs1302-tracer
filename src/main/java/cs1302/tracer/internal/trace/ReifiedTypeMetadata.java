@@ -23,6 +23,7 @@ import java.util.Objects;
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public final class ReifiedTypeMetadata {
+
     private final AstTypeResolver resolver;
     private final Map<Long, String> objectTypes = new HashMap<>();
     private final List<FrameBindings> contexts = new ArrayList<>();
@@ -139,6 +140,7 @@ public final class ReifiedTypeMetadata {
      */
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     public final class FrameBindings {
+
         private final List<StackFrame> frames;
         private final Set<Long> receiverIds = new HashSet<>();
         private final Map<StackFrame, Map<String, String>> lexical = new HashMap<>();
@@ -222,6 +224,7 @@ public final class ReifiedTypeMetadata {
             } // while
             return lexical.get(target);
         } // bindings
+
     } // FrameBindings
 
     /**

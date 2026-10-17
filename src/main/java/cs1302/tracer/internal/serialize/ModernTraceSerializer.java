@@ -2,9 +2,13 @@ package cs1302.tracer.internal.serialize;
 
 import org.apiguardian.api.API;
 
+import cs1302.tracer.internal.SubmittedSources;
+import java.util.function.Supplier;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import cs1302.tracer.api.TypeStyle;
+import cs1302.tracer.internal.model.SourceMetadata;
 import cs1302.tracer.internal.model.modern.HeapObject;
 import cs1302.tracer.internal.model.modern.Reference;
 import cs1302.tracer.internal.model.modern.StackFrame;
@@ -32,13 +36,16 @@ import java.util.Map.Entry;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public class ModernTraceSerializer {
 
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Gson COMPACT_GSON = new GsonBuilder().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new BinaryMetadataAdapterFactory()).setPrettyPrinting().create();
+    private static final Gson COMPACT_GSON = new GsonBuilder()
+            .registerTypeAdapterFactory(new BinaryMetadataAdapterFactory()).create();
 
     private final boolean removeMainArgs;
     private final boolean inlineStrings;
     private final boolean removeMethodThis;
     private final TypeStyle typeStyle;
+    private final boolean includePrimitiveBits;
 
     /**
      * Constructs a ModernTraceSerializer with the specified formatting options and TypeStyle.
@@ -47,13 +54,27 @@ public class ModernTraceSerializer {
      * @param inlineStrings Whether strings should be inlined.
      * @param removeMethodThis Whether this references should be omitted from method frames.
      * @param typeStyle The type qualification style (FQN or SIMPLE).
+     * @param includePrimitiveBits Whether to include primitive binary metadata.
      */
     public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
-            TypeStyle typeStyle) {
+            TypeStyle typeStyle, boolean includePrimitiveBits) {
+        this.includePrimitiveBits = includePrimitiveBits;
         this.removeMainArgs = removeMainArgs;
         this.inlineStrings = inlineStrings;
         this.removeMethodThis = removeMethodThis;
         this.typeStyle = typeStyle;
+    } // ModernTraceSerializer
+
+    /**
+     * Constructs a serializer without primitive binary metadata.
+     * @param removeMainArgs Omit main arguments.
+     * @param inlineStrings Inline strings.
+     * @param removeMethodThis Omit receiver references.
+     * @param typeStyle Type-label style.
+     */
+    public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis,
+            TypeStyle typeStyle) {
+        this(removeMainArgs, inlineStrings, removeMethodThis, typeStyle, false);
     } // ModernTraceSerializer
 
     /**
@@ -106,8 +127,32 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(javaSource, stdin, snapshot, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a single-snapshot trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @return Modern trace whose metadata is projected after step conversion.
+     */
+    public Trace createTrace(SubmittedSources source, String stdin, ExecutionSnapshot snapshot) {
+        return createTrace(source.code(), stdin, snapshot, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares single-step conversion while retaining metadata validation after the step.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshot Captured state.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern single-snapshot sequence root.
+     */
+    private Trace createTrace(String javaSource, String stdin, ExecutionSnapshot snapshot,
+            Supplier<SourceMetadata> metadata) {
         Step step = createStep(snapshot, 1, true);
-        return new Trace(javaSource, stdin, List.of(step));
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, List.of(step), null, metadata.get());
     } // createTrace
 
     /**
@@ -130,11 +175,35 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(javaSource, stdin, snapshots, () -> SourceMetadata.from(javaSource));
+    } // createTrace
+
+    /**
+     * Creates a chronological trace without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @return Modern trace whose metadata is projected after step conversion.
+     */
+    public Trace createTrace(SubmittedSources source, String stdin, List<ExecutionSnapshot> snapshots) {
+        return createTrace(source.code(), stdin, snapshots, source::metadata);
+    } // createTrace
+
+    /**
+     * Shares sequence conversion while deferring metadata until all steps are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param snapshots Captured states.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern sequence root.
+     */
+    private Trace createTrace(String javaSource, String stdin, List<ExecutionSnapshot> snapshots,
+            Supplier<SourceMetadata> metadata) {
         List<Step> steps = new ArrayList<>();
         for (int i = 0; i < snapshots.size(); i++) {
             steps.add(createStep(snapshots.get(i), i + 1, true));
         } // for
-        return new Trace(javaSource, stdin, steps);
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, steps, null, metadata.get());
     } // createTrace
 
     /**
@@ -157,6 +226,30 @@ public class ModernTraceSerializer {
      * @return The generated modern Trace object.
      */
     public Trace createBreakpointsTrace(String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots) {
+        return createBreakpointsTrace(javaSource, stdin, breakpointSnapshots, () -> SourceMetadata.from(javaSource));
+    } // createBreakpointsTrace
+
+    /**
+     * Creates breakpoint output without reparsing prepared sources.
+     * @param source Detached submitted text and identities.
+     * @param stdin Standard input.
+     * @param breakpointSnapshots Existing grouped captured states.
+     * @return Modern breakpoint root whose metadata is projected after conversion.
+     */
+    public Trace createBreakpointsTrace(SubmittedSources source, String stdin, Map<Integer, ?> breakpointSnapshots) {
+        return createBreakpointsTrace(source.code(), stdin, breakpointSnapshots, source::metadata);
+    } // createBreakpointsTrace
+
+    /**
+     * Shares grouped conversion while deferring metadata until all entries are converted.
+     * @param javaSource Original complete source input.
+     * @param stdin Standard input.
+     * @param breakpointSnapshots Existing grouped captured states.
+     * @param metadata Raw or prepared metadata projection.
+     * @return Modern breakpoint root.
+     */
+    private Trace createBreakpointsTrace(String javaSource, String stdin, Map<Integer, ?> breakpointSnapshots,
+            Supplier<SourceMetadata> metadata) {
         Map<Integer, Object> converted = new LinkedHashMap<>();
         for (Entry<Integer, ?> entry : breakpointSnapshots.entrySet()) {
             if (entry.getValue() instanceof ExecutionSnapshot single) {
@@ -171,7 +264,7 @@ public class ModernTraceSerializer {
                 converted.put(entry.getKey(), steps);
             } // if
         } // for
-        return new Trace(javaSource, stdin, converted);
+        return new Trace(javaSource, "modern", stdin == null ? "" : stdin, null, converted, metadata.get());
     } // createBreakpointsTrace
 
     /**
@@ -191,7 +284,7 @@ public class ModernTraceSerializer {
         List<Variable> statics = new ArrayList<>();
         for (Field f : snapshot.statics()) {
             statics.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
-                    f.isFinal()));
+                    f.isFinal(), PrimitiveBits.of(f.value(), includePrimitiveBits)));
         } // for
 
         List<StackFrame> callStack = new ArrayList<>();
@@ -213,9 +306,22 @@ public class ModernTraceSerializer {
         String stderr = decodeOutput(snapshot.stderr());
 
         List<Step.ThreadState> threads = serializeThreads(snapshot, isMultiFile);
-        return new Step(stepNumber, currentLine, stepFile, snapshot.event() == null ? "step_line" : snapshot.event(),
-                currentMethod, callStack, statics, heap, stdout, stderr, snapshot.stdinConsumed(),
-                snapshot.stdinOffset(), threads, snapshot.triggeringThreadId());
+        return Step.builder()
+                .step(stepNumber)
+                .line(currentLine)
+                .file(stepFile)
+                .event(snapshot.event() == null ? "step_line" : snapshot.event())
+                .method(currentMethod)
+                .callStack(callStack)
+                .statics(statics)
+                .heap(heap)
+                .stdout(stdout)
+                .stderr(stderr)
+                .stdinConsumed(snapshot.stdinConsumed())
+                .stdinOffset(snapshot.stdinOffset())
+                .threads(threads)
+                .triggeringThreadId(snapshot.triggeringThreadId())
+                .build();
     } // createStep
 
     /**
@@ -278,7 +384,8 @@ public class ModernTraceSerializer {
                 continue;
             } // if
             locals.add(new Variable(field.identifier(), typeStyle.format(field.typeName()),
-                    serializeValue(field.value()), field.isFinal()));
+                    serializeValue(field.value()), field.isFinal(),
+                    PrimitiveBits.of(field.value(), includePrimitiveBits)));
         } // for
 
         String frameFile = isMultiFile ? frame.sourcePath().orElse(null) : null;
@@ -334,7 +441,7 @@ public class ModernTraceSerializer {
             List<Variable> fields = new ArrayList<>();
             for (Field f : obj.fields()) {
                 fields.add(new Variable(f.identifier(), typeStyle.format(f.typeName()), serializeValue(f.value()),
-                        f.isFinal()));
+                        f.isFinal(), PrimitiveBits.of(f.value(), includePrimitiveBits)));
             } // for
             String typeLabel = typeStyle.format(obj.classFqn());
             if (obj.enumConstant().isPresent()) {
@@ -346,25 +453,30 @@ public class ModernTraceSerializer {
         case TraceValue.Lambda lambda -> HeapObject.ofLambda(id, "lambda", lambda.implementation());
         case TraceValue.List list -> {
             List<Object> elements = list.value().stream().map(this::serializeValue).toList();
-            yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements);
+            yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements)
+                    .withBinary(null, PrimitiveBits.elements(list.value(), includePrimitiveBits));
         } // case
         case TraceValue.Collection col -> {
             List<Object> elements = col.value().stream().map(this::serializeValue).toList();
-            yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements);
+            yield HeapObject.ofArray(id, typeStyle.format(col.typeName()), elements)
+                    .withBinary(null, PrimitiveBits.elements(col.value(), includePrimitiveBits));
         } // case
         case TraceValue.Map map -> {
             List<Variable> entries = new ArrayList<>();
             for (Entry<? extends TraceValue, ? extends TraceValue> entry : map.value().entrySet()) {
                 Object k = serializeValue(entry.getKey());
                 Object v = serializeValue(entry.getValue());
-                entries.add(new Variable(String.valueOf(k), "entry", v, false));
+                entries.add(new Variable(String.valueOf(k), "entry", v, false,
+                        PrimitiveBits.of(entry.getValue(), includePrimitiveBits)));
             } // for
             yield HeapObject.ofObject(id, typeStyle.format(map.typeName()), entries);
         } // case
         case TraceValue.Primitive prim ->
-            HeapObject.ofBox(id, typeStyle.format(prim.toWrapperObject().getClass().getName()), serializeValue(prim));
+            HeapObject.ofBox(id, typeStyle.format(prim.toWrapperObject().getClass().getName()), serializeValue(prim))
+                .withBinary(PrimitiveBits.of(prim, includePrimitiveBits), null);
         case TraceValue.Color col -> HeapObject.ofColor(id, typeStyle.format(col.classFqn()), col.hex());
         default -> HeapObject.ofObject(id, "Object", List.of());
         }; // switch
     } // serializeHeapObject
+
 } // ModernTraceSerializer

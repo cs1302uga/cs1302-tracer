@@ -27,10 +27,35 @@ The earlier security review identified three failures and added regression cover
   10,000 references and a cycle. Captured guest object links normally use references
   to concrete heap values, so this also hardens internal snapshot conversion.
 
-The private heap traversal queue uses composition rather than inheriting
-`LinkedList`'s cloning contract. Its tests cover FIFO removal and deduplication
-across removed references. Legacy batch dispatch explicitly requires its prepared
+`HeapInspection` owns the private heap traversal queue through composition rather
+than inheriting `LinkedList`'s cloning contract. Tests cross its inspection interface
+to check FIFO traversal, aliases and cycles, deduplication after dequeue, and budget
+failure without publishing a partial snapshot. `TraceValue` holds captured values
+without JDI inspection. Legacy batch dispatch explicitly requires its prepared
 persistent session. Unused private parameters and redundant boxing were removed.
+
+## Binary dependency boundaries
+
+`TraceClassPath`, the CLI class-path options, and per-job batch selections
+intentionally allow caller-selected local binary directories and JARs. Preparation
+follows available local manifest references relative to their original JARs; these
+references can name paths outside a selected root. Opt-in symbolic-link following
+can also reach outside targets. Hosted callers must control those paths under the
+runner contract; glob roots and copying do not establish filesystem confinement.
+
+Guest compilation explicitly disables annotation processing and uses an empty
+processor path. Dependency bytecode supplies type evidence without loading its
+classes into the host tracer. Compiler and guest lookup use the prepared order;
+copied JAR manifests cannot silently reopen original dependencies. Runtime JAR
+verification, package sealing, and multi-release selection remain active.
+
+Regression tests cover copied manifest closures after original files disappear,
+signed and tampered JARs, sealing, resource and service lookup, and consecutive
+jobs using different dependencies. Resource URL construction escapes literal `!`
+characters in archive paths without changing their code-source identity. Cleanup
+tests verify that cleanup attempts every owned reader and that later close failures do
+not hide the original failure. Source budgets still exclude binary dependencies;
+whole-job isolation and preparation limits belong to the runner.
 
 ## Nesting boundaries
 
@@ -83,7 +108,7 @@ service wrapping the tracer. Revisit them if input ownership or execution change
 
 | Alert | Disposition and evidence |
 |---|---|
-| User-selected file paths | `--input` and `--stdin-file` intentionally read paths chosen by the CLI caller. Adjacent source discovery is documented. Hosted access must be constrained by the runner. This is distinct from streamed source destinations, which already reject escaping or duplicate paths. |
+| User-selected file paths | Source inputs, stdin files, source-bundle files, and binary class-path entries intentionally read caller-selected paths. Adjacent source discovery, local manifest references, and optional link following are documented. Hosted access must be constrained by the runner. This is distinct from streamed source destinations, which reject escaping or duplicate paths. |
 | JDI command concatenation | JDI requires an options string. The shared launcher quotes the classpath using its configured tokenizer; it does not invoke a shell. A structural concatenation alert can remain even though the quoted-path regression passes. |
 | Recursive serializers | Inline value conversion and reference-chain sampling use iterative traversal. Snapshot accounting and both serializer entry points reject inline identity cycles and paths longer than 32 values before reaching Gson. Heap references remain leaves; shared inline values on separate paths are allowed. |
 | Recursive type traversal | AST type resolution and substitution use child-before-parent work lists; concrete invocation-type inference uses bounded recursion with a shared 384-node budget. AST depth and type-fragment checks precede recursive JavaParser helpers. Tests retain 255 array dimensions and 32 nested generic levels. Full source parsing, symbol resolution, and compilation still require runner resource isolation. |
@@ -103,6 +128,11 @@ October 2026 audit are recorded in [its report](../reviews/current-repository-au
 alongside the default remote sources. Retain the Picocli annotation and JDI launch
 models with the scan artifacts and validate that the models match actual source
 and sink locations.
+Include public source-bundle and binary dependency selection APIs in that review.
+Validate model loading and traversal propagation with explicit diagnostics; if
+filesystem visitor callbacks require a flow summary, retain the baseline and
+modeled results. A traversal summary does not sanitize a path or establish that
+every manifest, copy, and loader path has been analyzed.
 
 Keep generated databases, logs, reproducers, and SARIF in an ignored analysis
 directory. The October 2026 audit used `static_analysis_codeql_2/` at the repository

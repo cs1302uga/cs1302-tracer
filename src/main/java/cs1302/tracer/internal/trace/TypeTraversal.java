@@ -10,6 +10,7 @@ import java.util.List;
 
 /** Bounded iterative traversal before invoking recursive JavaParser type helpers. */
 final class TypeTraversal {
+
     /** Allows legal 255-dimensional arrays with room for their component type. */
     static final int MAX_DEPTH = 384;
     /** Allows 64 generic wrappers plus a leaf type and its name node. */
@@ -75,4 +76,5 @@ final class TypeTraversal {
 
     /** Pending AST node and its path length. */
     private record Frame(Node node, int depth, int nonArrayDepth) {}
+
 } // TypeTraversal

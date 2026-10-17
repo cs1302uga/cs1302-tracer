@@ -1,12 +1,12 @@
 # Example 15: Reference Aliasing & Mutability
 
-This example demonstrates pointer aliasing where multiple reference variables point to the same object on the heap.
+This example demonstrates reference aliasing, where multiple reference variables refer to the same object on the heap.
 
 ## Concepts Illustrated
 
-- **Reference Aliasing**: `Person friend = alice;` creates a second pointer to the single `Person` object.
-- **Heap Mutation**: Mutating `friend` (via `friend.haveBirthday()`) updates the object visible through `alice`.
-- **Array Mutation**: Modifying array indices in place.
+- **Reference Aliasing**: `Person friend = alice;` copies the reference value, so both variables refer to the same `Person` object.
+- **Heap Mutation**: Calling `friend.haveBirthday()` updates that object's `age`, which is also observable through `alice`.
+- **Array Mutation**: Assigning `scores[0] = 100` changes an array component.
 
 ## Files
 

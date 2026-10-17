@@ -8,6 +8,7 @@ import java.io.StringReader;
 
 /** Streaming depth check before Gson constructs a request object. */
 final class JsonNesting {
+
     /** Maximum number of simultaneously open JSON arrays and objects. */
     static final int MAX_DEPTH = 64;
 
@@ -51,4 +52,5 @@ final class JsonNesting {
             } // while
         } // try
     } // validate
+
 } // JsonNesting

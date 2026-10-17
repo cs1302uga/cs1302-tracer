@@ -66,7 +66,7 @@ release and deployment workflow.
 
 ```sh
 ./mvnw -B -ntp package -DskipTests
-npm --prefix website ci
+./scripts/uv run npm --prefix website ci
 git fetch --tags
 ./scripts/uv run python scripts/check_docs.py
 ./scripts/uv run python scripts/docs_release.py check
@@ -83,9 +83,9 @@ JSON array of GitHub release records. The build owns `website/build`; output/sit
 configuration overrides are rejected. `start` accepts `--host`, `--port`/`-p`, and
 `--no-open`; `start` and `build` accept `--no-minify`.
 
-The website's npm scripts invoke `python3` directly. Run them through
-`./scripts/uv run npm --prefix website ...` when you want the managed Python
-environment. CI uses this wrapper form with `--locked` for documentation builds
+The website's npm scripts invoke `python3` from their inherited environment.
+Use `./scripts/uv run npm --prefix website ...` to select the required managed
+Python runtime. CI uses this wrapper form with `--locked` for documentation builds
 and script checks. Generating the local site does not publish it.
 
 ## Tests and development tools

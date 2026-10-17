@@ -19,7 +19,14 @@ public final class App {
         return cs1302.tracer.internal.App.execute(args);
     } // execute
 
+    /**
+     * Executes the command line and terminates the JVM with the resulting exit status.
+     *
+     * @param args Command-line arguments.
+     * @throws Exception If command-line startup fails.
+     */
     public static void main(String[] args) throws Exception {
         cs1302.tracer.internal.App.main(args);
     } // main
+
 } // App

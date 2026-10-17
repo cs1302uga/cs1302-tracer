@@ -9,8 +9,9 @@ import java.io.InputStream;
 import java.nio.charset.Charset;
 
 /**
- * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides synchronization barriers to
- * ensure all emitted bytes are captured before inspection.
+ * Asynchronously drains an {@link InputStream} into an in-memory byte buffer and provides bounded waits for
+ * output inspection. Quiet-period waits are heuristic; byte-count waits stop when their target or timeout is
+ * reached. The guest execution owner establishes completion before finalizing a job's output.
  */
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public class StreamDrainer implements AutoCloseable {
@@ -107,7 +108,7 @@ public class StreamDrainer implements AutoCloseable {
     } // detachSession
 
     /**
-     * Resets the accumulated byte buffer in the sink.
+     * Resets the accumulated buffer; retained output slices must be detached before this call.
      */
     public void reset() {
         synchronized (sink) {
@@ -127,7 +128,7 @@ public class StreamDrainer implements AutoCloseable {
      * Synchronizes the stream with adaptive quiet-period polling without contending on the underlying input stream
      * lock.
      *
-     * <p>If bytes have recently been read or arrive after the flush, this method waits until no new bytes arrive for
+     * <p>If bytes have recently been read or arrive during the wait, this method waits until no new bytes arrive for
      * {@code quietPeriodMillis}, or until {@code maxWaitMillis} elapses. If no bytes arrive after a micro-wait, it
      * returns immediately.
      *
@@ -260,6 +261,7 @@ public class StreamDrainer implements AutoCloseable {
     @API(status = API.Status.INTERNAL, since = "4.0.0")
     @FunctionalInterface
     public interface ByteConsumer {
+
         /**
          * Consumes a single byte.
          *
@@ -267,6 +269,7 @@ public class StreamDrainer implements AutoCloseable {
          * @throws IOException On I/O failure.
          */
         void accept(byte b) throws IOException;
+
     } // ByteConsumer
 
     /**
@@ -449,5 +452,7 @@ public class StreamDrainer implements AutoCloseable {
         byte byteAt(int index) {
             return buf[index];
         } // byteAt
+
     } // AccessibleByteArrayOutputStream
+
 }

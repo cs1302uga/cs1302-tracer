@@ -16,7 +16,7 @@ from changes to structure. Consumers should tolerate unknown additive fields.
 Every commit reachable in each consecutive release range is linked, including
 merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
-The checkout is not shallow, all 42 published release tags match origin, and no
+The checkout is not shallow, all 43 published release tags match origin, and no
 published release tag is missing. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
@@ -26,9 +26,120 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v3.2.5](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...1d7408f0a08fa698e113dbfc534bad8ba9505181) · History reviewed through [`1d7408f`](https://github.com/cs1302uga/cs1302-tracer/commit/1d7408f0a08fa698e113dbfc534bad8ba9505181).
+[Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
+Maven version: **4.1.0**; the **4.1.0** documentation snapshot remains
+prepared but unpublished. Earlier 4.1.0 work was implemented in
+[`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
+— primitive binary metadata, rendering/capture ownership, and release preparation.
+Builders, source bundles, binary class-path support, and the subsequent architecture
+and documentation updates were implemented in
+[`db9f770`](https://github.com/cs1302uga/cs1302-tracer/commit/db9f7702eac9d32623f7831cef482f550274c8cb).
 
-The Maven version is prepared as 4.0.0; it is not a published release.
+### Breaking changes
+
+- **Guest compilation (Java API, CLI, and batch):** disable annotation processing
+  explicitly. Programs that relied on automatically discovered processors must now
+  supply generated declarations as source files. Annotation types remain usable.
+  Supported existing Java signatures, the `TraceRequest` record shape, trace JSON
+  schemas, and result-envelope versions remain unchanged.
+- **Source-path discovery:** neighboring source directories are no longer also
+  treated as implicit binary dependency roots. Java source discovery still works;
+  configure the directory explicitly as a class-path entry when relying on
+  precompiled neighboring classes.
+
+### Non-breaking changes
+
+- **CLI:** preserve Windows drive-relative class-path glob roots when a literal
+  filename stem precedes the first glob character, including `C:library-*.jar`.
+  Keep the drive prefix in the native search root for `*`, `?`, character classes,
+  and brace alternatives instead of leaving it in an unmatchable relative glob.
+- **Contributor documentation:** define submitted source identity, logical and debug
+  source paths, and reachable-heap inspection in the shared glossary.
+- **Internal architecture:** retain detached submitted-source identity across
+  preparation, rendering, recovery, and breakpoint listing; preserve deferred
+  metadata validation and caller-specific path rules. Concentrate snapshot-local
+  heap identity and JDI inspection outside captured value records. Supported Java,
+  CLI, JSON/protocol, guest reuse, and tracing budget behavior remain unchanged.
+- **Java API, CLI, and batch:** add per-job binary directory/JAR dependencies through
+  immutable `TraceClassPath` configuration and tracing/discovery overloads, repeatable
+  `--class-path`/`-classpath`/`-cp` options, and optional batch request fields. Support
+  native path lists, immediate JAR wildcards, recursive globs, deterministic ordering,
+  and local manifest dependencies. Optional copying captures the available transitive
+  dependency set before compilation while preserving JAR contents and signatures.
+  Dependencies are shared by compilation, type analysis, and execution without adding
+  library source-line breakpoints or changing serialized output formats.
+- **Java API:** add immutable `SourceBundle` with a reusable builder and copy builder
+  for ordered, delimited source input. Accept explicitly named text or infer names
+  from source declarations, and capture strictly decoded UTF-8 files when added.
+  Expose source text, independent UTF-8 input streams, and output that leaves caller
+  streams open. Reject duplicate paths and delimiter collisions; preserve source
+  text except for a necessary newline before a following file delimiter. This adds
+  no tracing overload, compilation guarantee, CLI syntax, or JSON/protocol change.
+- **Java API:** add atomic glob-based `SourceBundle.Builder.addFiles` and
+  `addInferredFiles` overloads with immediate UTF-8 capture and deterministic
+  root-relative ordering. Portable patterns include `demo/**/*.java`, matching
+  immediate and nested files. Discovered symbolic links are skipped by default;
+  an explicit option follows them, including targets outside the root, and fails
+  on encountered broken links or cycles. Aliases remain separate matches, and
+  invalid matches or duplicate logical paths reject the entire addition.
+- **Release preparation:** set Maven version `4.1.0`. Documentation preview
+  accepts the matching prepared 4.1.0 snapshot with working Javadoc and an unreleased
+  banner. Published documentation still requires exact stable release tags.
+- **Contributor style:** require a blank line immediately inside each brace of
+  nonempty class and interface bodies, including enums, records, annotation
+  interfaces, and nested or local declarations. Empty bodies remain exempt.
+- **Documentation:** clarify capture selection, resource accounting, builder and
+  snapshot ownership, batch failures, and nullable manually constructed outcomes.
+  Correct stale examples and Javadoc, use the managed Python wrapper in contributor
+  commands and generated CLI guidance, and document validation of internal Javadoc.
+- **Documentation tooling:** preserve authored CLI behavior notes when regenerating
+  executable help, while checking the generated prefix for exact agreement.
+- **Java API:** add nested builders for `TraceRequest`, `TraceLimits`, `TraceOutcome`,
+  and `BatchTracer`, with copy builders for the three value records. Existing
+  constructors and record shapes remain available. Request and limit defaults stay
+  unchanged; batch construction requires explicit resource settings. Each batch
+  build owns a separate closeable processor. Outcome builders preserve supplied JSON
+  verbatim and do not synchronize it with manually edited metadata.
+- **Internal construction:** add builders for modern `Step`, Python Tutor `TraceStep`,
+  and `BatchJobRequest`. Builders detach immediate collections while preserving each
+  model's null and ordering semantics; nested values may remain shared. Existing
+  constructors, caller-profile interpretation, rendering policy, and wire output
+  remain unchanged.
+- **Internal values:** add shared `TraceValue.Primitive.Boolean.TRUE` and `FALSE`
+  constants and reuse them when capturing JDI booleans. Direct construction and
+  serialized boolean values remain unchanged.
+- **CLI and JSON/protocol:** add opt-in `--include-primitive-bits` and batch
+  `includePrimitiveBits`. Both serializers retain existing literals and add typed,
+  fixed-width binary descriptors for primitives in locals, fields, arrays, and
+  boxed payloads. Defaults, capture accounting, and envelope version are unchanged;
+  enabled output is larger. Floating-point bits describe values received through
+  JDI; boolean bits are a logical encoding, not a JVM storage-size claim.
+- **Java API:** add `Tracer.trace(TraceRequest, boolean includePrimitiveBits)`.
+  The original overload defaults the option to false. Request records, constructors,
+  and record patterns remain compatible. See the
+  [Java integration guide](docs/reference/java-api.md).
+- **Internal architecture:** centralize ordinary, envelope, and batch JSON rendering;
+  isolate complete snapshot capture from guest event loops. Preserve supported Java,
+  CLI, JSON/protocol, session budgets, and guest reuse behavior. Test rendering through
+  final JSON and type prepasses through completed captures.
+- **Internal architecture:** give prepared class paths sole ownership of dependency
+  files and archive views, share source/dependency file traversal, and centralize
+  envelope CLI and Java/NDJSON completion rules. Preserve path identity, capture
+  timing, cleanup order, caller-specific failure reporting, and supported Java,
+  CLI, and JSON/protocol behavior.
+- Add a runnable binary-metadata example and document placement, encodings,
+  per-job settings, and serialization costs. Keep published documentation snapshots
+  unchanged; development docs and the pending 4.1.0 snapshot describe the extension.
+- **Documentation:** distinguish normative encoding specifications from informative
+  explanations in a central primitive-binary reference, linked from guides, examples,
+  and Javadoc. Clarify tracer-defined conventions alongside Java SE 21, IEEE 754-2019,
+  and Unicode 15.0 references; Java API, CLI, and JSON/protocol behavior is unchanged.
+- **Contributor documentation:** correct invalid parameter tags on the internal
+  lambda heap-object factory so its Javadoc can be generated directly.
+
+## 4.0.0 — 2026-10-16
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.0.0) · [Compare v3.2.5...v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v3.2.5...v4.0.0)
 
 ### Breaking changes
 
@@ -140,6 +251,15 @@ The Maven version is prepared as 4.0.0; it is not a published release.
 - Bootstrap this changelog from published release and Git history.
 
 ### Commits
+
+- [`586522a`](https://github.com/cs1302uga/cs1302-tracer/commit/586522a00e347ca44a333f0470a1e4f127e9a4cc) — Prepare 4.0.0: supported Java API, trace-job ownership, and verified tooling (#17).
+
+### Development history
+
+The published `v3.2.5..v4.0.0` range contains only the squash commit `586522a`.
+The following original development commits informed the curated summaries and
+are retained as historical evidence; they are not separate commits in that
+published range.
 
 - [`0e82ee0`](https://github.com/cs1302uga/cs1302-tracer/commit/0e82ee0f2f95c8a7f62e70c75bbcaf12d2c1155e) Baseline type metadata and job output ownership refactors
 - [`923d40d`](https://github.com/cs1302uga/cs1302-tracer/commit/923d40dea4eb033c54c2d7952ae5fae8e527d373) Cover frozen stderr through the public job output interface

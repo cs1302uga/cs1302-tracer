@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-/** Same end-to-end workload can run unchanged against the pinned release. */
+/** Current form of the workload; the 3.2.3 version supports the historical 3.2.2 comparison. */
 class SimpleExpressionCostProbe {
     @Test
     void boundedRepeatedInvocations() throws Exception {

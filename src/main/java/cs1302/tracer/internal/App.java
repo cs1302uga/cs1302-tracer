@@ -9,19 +9,18 @@ import com.github.javaparser.ast.CompilationUnit;
 import cs1302.tracer.internal.CompilationHelper.CompilationResult;
 import cs1302.tracer.api.BatchTracer;
 import cs1302.tracer.internal.execution.JobOptions;
+import cs1302.tracer.internal.execution.ClassPathOptions;
 import cs1302.tracer.internal.execution.TraceJob;
+import cs1302.tracer.internal.execution.TraceCompletion;
 import cs1302.tracer.api.TraceLimits;
 import cs1302.tracer.internal.execution.TraceSession;
 import cs1302.tracer.internal.execution.TraceResult;
 import cs1302.tracer.api.InspectionPolicy;
 import cs1302.tracer.internal.model.BreakpointEntry;
-import cs1302.tracer.internal.model.SourceMetadata;
 import cs1302.tracer.api.TraceFormat;
 import cs1302.tracer.api.TypeStyle;
-import cs1302.tracer.internal.model.pytutor.PyTutorTrace;
-import cs1302.tracer.internal.serialize.ModernTraceSerializer;
 import cs1302.tracer.internal.serialize.PyTutorSerializer;
-import cs1302.tracer.internal.serialize.TraceOutcomes;
+import cs1302.tracer.internal.serialize.TraceRendering;
 import cs1302.tracer.internal.trace.BreakpointSpec;
 import cs1302.tracer.internal.trace.DebugTraceHelper;
 import cs1302.tracer.internal.trace.TraceDispatch;
@@ -35,8 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +41,6 @@ import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Help.Ansi;
@@ -64,12 +60,7 @@ import picocli.CommandLine.Option;
         mixinStandardHelpOptions = true, versionProvider = App.PropertiesVersionProvider.class)
 public class App {
 
-    /**
-     * Constructs a new {@code App} command-line application instance.
-     *
-     * <p>Normative Reference: The Picocli command-line parsing specification requires a public zero-argument
-     * constructor for command dispatch and instantiation.</p>
-     */
+    /** Constructs a new {@code App} command-line application instance. */
     public App() {} // App
 
     /** Provides version string resolved from Maven resource filtering at build time. */
@@ -93,6 +84,7 @@ public class App {
             } // try
             return new String[] { version };
         } // getVersion
+
     } // PropertiesVersionProvider
 
     static Consumer<Integer> systemExitHandler = System::exit;
@@ -147,6 +139,9 @@ public class App {
     /** Base class that holds common CLI parameters. */
     @Command
     abstract static class CommandBase implements Runnable {
+
+        @picocli.CommandLine.Mixin
+        ClassPathOptions dependencies = new ClassPathOptions();
 
         @Option(names = { "--verbose", "-v" }, description = "Output messages about what the tracer is doing.")
         boolean verbose = false;
@@ -211,11 +206,12 @@ public class App {
          * @param source The Java source code to parse.
          * @param sourceRoot The root directory where source files for the program are located.
          * @return The parsed Java source code.
-         * @throws ParseProblemException If parsing failed.
+         * @throws IllegalArgumentException If parsing failed.
          */
         protected CompilationUnit parseSource(String source, Optional<Path> sourceRoot) {
             return App.parseSource(source, sourceRoot);
         } // parseSource
+
     } // CommandBase
 
     /** Run a trace. */
@@ -232,6 +228,12 @@ public class App {
 
         @Option(names = { "--inline-strings", "-s" }, description = "If provided, strings are inlined into fields.")
         boolean inlineStrings = false;
+
+        @Option(names = "--include-primitive-bits",
+                description = "Include fixed-width primitive binary metadata alongside values (default: false). "
+                        + "Optional flag; no value required. Works with both formats and all capture modes; "
+                        + "does not require an envelope. Increases serialized payload size.")
+        boolean includePrimitiveBits = false;
 
         @Option(names = { "--remove-method-this" },
                 description = "Don't include the value of this for methods in the output.")
@@ -293,7 +295,8 @@ public class App {
                 selected = job.limits();
                 resolvedJob = TraceJob.resolve(job.profile(), format, typeStyle, selected, job.inspection,
                         job.breakpoints, allBreakpoints, accumulateBreakpoints, job.multithread,
-                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash);
+                        removeMainArgs, inlineStrings, removeMethodThis, job.evalEnumHash, includePrimitiveBits,
+                        dependencies.resolve());
                 resolvedJob.validateThreadFormat(true);
                 resolvedJob.capture().selection();
                 if (job.envelope) {
@@ -318,7 +321,7 @@ public class App {
                     boolean stopped = result.status().equals("stopped");
                     System.err.println(stopped ? "Trace stopped: " + result.stopReason()
                             + ". Increase the limit or use --unlimited; use --result-envelope" + " for partial traces."
-                            : "Unable to generate trace!");
+                            : "Unable to generate trace! " + cause.getMessage());
                     if (verbose) {
                         cause.printStackTrace();
                     } // if
@@ -341,15 +344,11 @@ public class App {
             session.enforce(Math.max(1, files), selected.sourceFiles(), "source_file_limit");
             session.phase("compile");
             try (SourcePreparation prepared = SourcePreparation.prepare(
-                    source, getInputPath(), resolvedJob.discovery())) {
+                    source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
                 session.phase("trace");
                 TraceDispatch.Capture captured = TraceDispatch.dedicated().capture(prepared,
                         resolvedJob.capture().selection(), guestStdin);
-                if (format == TraceFormat.MODERN) {
-                    runModernTrace(source, captured, guestStdin);
-                } else {
-                    runPyTutorTrace(source, captured, guestStdin);
-                } // if
+                emitTrace(TraceRendering.ordinary(prepared.submitted(), guestStdin, resolvedJob, captured, pretty));
             } // try
         } // runOrdinary
 
@@ -365,13 +364,19 @@ public class App {
                 if (resolvedJob.multithread()) {
                     session.enableMultithread();
                 } // if
-                String source = "";
+                SubmittedSources submitted = null;
                 Throwable failure = null;
                 List<ExecutionSnapshot> snapshots = null;
                 try {
-                    source = readBoundedSource(session, limits);
+                    String source = readBoundedSource(session, limits);
                     session.phase("compile");
-                    snapshots = executeBoundedSource(source, session, limits, guestStdin);
+                    long files = SourceDelimiters.scan(source).size();
+                    session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
+                    try (SourcePreparation prepared = SourcePreparation.prepare(
+                            source, getInputPath(), resolvedJob.discovery(), resolvedJob.dependencies())) {
+                        submitted = prepared.submitted();
+                        snapshots = executeBoundedSource(prepared, session, guestStdin);
+                    } // try
                 } catch (Exception caught) {
                     failure = caught;
                     if (caught instanceof InterruptedException) {
@@ -379,18 +384,11 @@ public class App {
                         Thread.currentThread().interrupt();
                     } // if
                 } // try
-                if (snapshots == null && session.traceAvailable()) {
-                    snapshots = session.snapshots();
-                } // if
-                Object payload = null;
-                try {
-                    payload = snapshots == null ? null : boundedPayload(source, snapshots, guestStdin);
-                } catch (RuntimeException serializationFailure) {
-                    failure = serializationFailure;
-                    session.phase("serialize");
-                } // try
-                TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT), payload, failure);
-                System.out.println(TraceOutcomes.freeze(result, pretty).json());
+                TraceCompletion.Envelope completed = TraceCompletion.envelope(
+                        submitted, guestStdin, resolvedJob, session, snapshots, failure);
+                TraceResult result = session.result(format.name().toLowerCase(java.util.Locale.ROOT),
+                        completed.payload(), completed.failure());
+                System.out.println(TraceRendering.freeze(result, pretty).json());
                 if (!result.complete()) {
                     exitHandler.accept(result.status().equals("stopped") ? 3 : 1);
                 } // if
@@ -424,142 +422,20 @@ public class App {
         } // readBoundedSource
 
         /**
-         * Compiles a job and captures its selected trace.
-         *
-         * @param source Source stream.
+         * Captures a prepared job while its caller retains source ownership and detached recovery identity.
+         * @param prepared Compiled job and source evidence.
          * @param session Active session.
-         * @param limits Validated limits.
          * @param guestStdin Standard input string for guest process.
          * @return Completed snapshots.
-         * @throws Exception On compilation or tracing failure.
+         * @throws Exception On tracing failure.
          */
-        List<ExecutionSnapshot> executeBoundedSource(String source, TraceSession session, TraceLimits limits,
+        List<ExecutionSnapshot> executeBoundedSource(SourcePreparation prepared, TraceSession session,
                 String guestStdin) throws Exception {
-            long files = SourceDelimiters.scan(source).size();
-            session.enforce(Math.max(1, files), limits.sourceFiles(), "source_file_limit");
-            try (SourcePreparation prepared = SourcePreparation.prepare(
-                    source, getInputPath(), resolvedJob.discovery())) {
-                session.phase("trace");
-                TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
-                session.finishOutput();
-                return session.snapshots();
-            } // try
+            session.phase("trace");
+            TraceDispatch.dedicated().capture(prepared, resolvedJob.capture().selection(), guestStdin);
+            session.finishOutput();
+            return session.snapshots();
         } // executeBoundedSource
-
-        /**
-         * Creates an unchanged trace-format root inside the result envelope.
-         *
-         * @param source Source text.
-         * @param snapshots Completed states in capture order.
-         * @param guestStdin Standard input string for guest process.
-         * @return Serializer model.
-         */
-        Object boundedPayload(String source, List<ExecutionSnapshot> snapshots, String guestStdin) {
-            if (resolvedJob.format() == TraceFormat.MODERN) {
-                return new ModernTraceSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
-                        resolvedJob.removeMethodThis(), resolvedJob.typeStyle())
-                        .createTrace(source, guestStdin, snapshots);
-            } // if
-            return new PyTutorSerializer(resolvedJob.removeMainArgs(), resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle()).createTrace(source,
-                    guestStdin, snapshots);
-        } // boundedPayload
-
-        /**
-         * Runs and outputs modern JSON trace.
-         *
-         * @param source Source string.
-         * @param captured Captured execution states.
-         * @param guestStdin Standard input string for guest process.
-         * @throws Exception On tracing error.
-         */
-        private void runModernTrace(String source, TraceDispatch.Capture captured,
-                String guestStdin) throws Exception {
-            ModernTraceSerializer serializer = new ModernTraceSerializer(resolvedJob.removeMainArgs(),
-                    resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
-
-            if (captured instanceof TraceDispatch.Chronological chronological) {
-                cs1302.tracer.internal.model.modern.Trace trace = serializer.createTrace(source, guestStdin,
-                        chronological.snapshots());
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else if (captured instanceof TraceDispatch.FinalState finalState) {
-                ExecutionSnapshot snapshot = finalState.snapshot();
-                cs1302.tracer.internal.model.modern.Trace trace = serializer.createTrace(source, guestStdin, snapshot);
-                emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-            } else {
-                TraceDispatch.Breakpoints selected = (TraceDispatch.Breakpoints) captured;
-                Map<Integer, List<ExecutionSnapshot>> snapshots = selected.snapshots();
-                if (selected.accumulated()) {
-                    cs1302.tracer.internal.model.modern.Trace trace = serializer.createBreakpointsTrace(
-                            source, guestStdin,
-                            snapshots);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-                } else {
-                    Map<Integer, Object> latestSnapshots = new LinkedHashMap<>();
-                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
-                        List<ExecutionSnapshot> list = e.getValue();
-                        if (list.size() == 1) {
-                            latestSnapshots.put(e.getKey(), list.get(0));
-                        } else {
-                            latestSnapshots.put(e.getKey(), list);
-                        } // if
-                    } // for
-                    cs1302.tracer.internal.model.modern.Trace trace = serializer.createBreakpointsTrace(
-                            source, guestStdin,
-                            latestSnapshots);
-                    emitTrace(ModernTraceSerializer.getGson().toJson(trace));
-                } // if
-            } // if
-        } // runModernTrace
-
-        /**
-         * Runs and outputs PyTutor JSON trace.
-         *
-         * @param source Source string.
-         * @param captured Captured execution states.
-         * @param guestStdin Standard input string for guest process.
-         * @throws Exception On tracing error.
-         */
-        private void runPyTutorTrace(String source, TraceDispatch.Capture captured,
-                String guestStdin) throws Exception {
-            PyTutorSerializer serializer = new PyTutorSerializer(resolvedJob.removeMainArgs(),
-                    resolvedJob.inlineStrings(),
-                    resolvedJob.removeMethodThis(), resolvedJob.typeStyle());
-
-            if (captured instanceof TraceDispatch.Chronological chronological) {
-                PyTutorTrace trace = serializer.createTrace(source, guestStdin,
-                        chronological.snapshots());
-                emitTrace(PyTutorSerializer.getGson(pretty).toJson(trace));
-            } else if (captured instanceof TraceDispatch.FinalState finalState) {
-                ExecutionSnapshot snapshot = finalState.snapshot();
-                String pyTutorSnapshot = serializer.serialize(source, guestStdin, snapshot, pretty);
-                emitTrace(pyTutorSnapshot);
-            } else {
-                SourceMetadata metadata = SourceMetadata.from(source);
-                TraceDispatch.Breakpoints selected = (TraceDispatch.Breakpoints) captured;
-                Map<Integer, List<ExecutionSnapshot>> snapshots = selected.snapshots();
-                if (selected.accumulated()) {
-                    Map<Integer, List<PyTutorTrace>> pyTutorSnapshots = snapshots.entrySet().stream()
-                            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().stream()
-                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList()));
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
-                } else {
-                    Map<Integer, Object> pyTutorSnapshots = new LinkedHashMap<>();
-                    for (Map.Entry<Integer, List<ExecutionSnapshot>> e : snapshots.entrySet()) {
-                        List<ExecutionSnapshot> list = e.getValue();
-                        if (list.size() == 1) {
-                            pyTutorSnapshots.put(e.getKey(),
-                                    serializer.createTrace(source, guestStdin, list.get(0), metadata));
-                        } else {
-                            pyTutorSnapshots.put(e.getKey(), list.stream()
-                                    .map(s -> serializer.createTrace(source, guestStdin, s, metadata)).toList());
-                        } // if
-                    } // for
-                    emitTrace(PyTutorSerializer.getGson(pretty).toJson(pyTutorSnapshots));
-                } // if
-            } // if
-        } // runPyTutorTrace
 
         /**
          * Publishes ordinary JSON only after confirming that no limit stopped the job.
@@ -570,6 +446,7 @@ public class App {
             TraceSession.current().check();
             System.out.println(json);
         } // emitTrace
+
     } // Trace
 
     /** Run batch traces over NDJSON. */
@@ -621,6 +498,7 @@ public class App {
                 exitHandler.accept(1);
             } // try
         } // run
+
     } // BatchTrace
 
     /** List the breakpoint lines available for a compiled Java program. */
@@ -636,12 +514,11 @@ public class App {
             String source = readInputFile();
 
             try {
-                List<CompilationHelper.SourceFile> sourceFiles = CompilationHelper.parseMultiFileStream(source);
-                CompilationHelper.SourceFile entryFile = CompilationHelper.findEntryPoint(sourceFiles);
-                CompilationUnit preCu = entryFile.ast();
-                Optional<Path> sourceRoot = CompilationHelper.findSourceRoot(preCu, getInputPath());
-
-                try (CompilationResult compilationResult = CompilationHelper.compile(source, sourceRoot)) {
+                CompilationHelper.ParsedSources parsed = CompilationHelper.parseSources(source);
+                try (SourcePreparation prepared = SourcePreparation.prepareParsed(parsed, getInputPath(),
+                        SourcePreparation.Discovery.NEIGHBORS, dependencies.resolve())) {
+                    CompilationResult compilationResult = prepared.compilation();
+                    List<SubmittedSources.File> sourceFiles = prepared.submitted().files();
                     if (sourceFiles.size() > 1) {
                         Map<String, Set<Integer>> breakpointsByFile = DebugTraceHelper
                                 .getValidBreakpointLinesByFile(compilationResult);
@@ -653,7 +530,7 @@ public class App {
                     } // if
                 } // try
             } catch (Throwable cause) {
-                System.err.println("Unable to list breakpoints!");
+                System.err.println("Unable to list breakpoints! " + cause.getMessage());
                 if (verbose) {
                     cause.printStackTrace();
                 } // if
@@ -667,13 +544,13 @@ public class App {
          * @param sourceFiles Input source files.
          * @param breakpointsByFile Valid line mappings by file path.
          */
-        private void listMultiFileBreakpoints(List<CompilationHelper.SourceFile> sourceFiles,
+        private void listMultiFileBreakpoints(List<SubmittedSources.File> sourceFiles,
                 Map<String, Set<Integer>> breakpointsByFile) {
             if (outputJson) {
                 List<BreakpointEntry> output = new ArrayList<>();
-                for (CompilationHelper.SourceFile sf : sourceFiles) {
-                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
-                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                for (SubmittedSources.File sf : sourceFiles) {
+                    String normPath = sf.logicalPath();
+                    Set<Integer> validLines = sf.listingLines(breakpointsByFile);
                     String[] fileLines = sf.content().split("\n");
                     for (int i = 0; i < fileLines.length; i++) {
                         int lineNum = i + 1;
@@ -685,10 +562,10 @@ public class App {
             } else {
                 StringBuilder sb = new StringBuilder();
                 for (int f = 0; f < sourceFiles.size(); f++) {
-                    CompilationHelper.SourceFile sf = sourceFiles.get(f);
-                    String normPath = sf.relativePath().replace(File.separatorChar, '/');
+                    SubmittedSources.File sf = sourceFiles.get(f);
+                    String normPath = sf.logicalPath();
                     sb.append("// --- ").append(normPath).append(" ---\n");
-                    Set<Integer> validLines = findValidLinesForFile(breakpointsByFile, sf);
+                    Set<Integer> validLines = sf.listingLines(breakpointsByFile);
                     String[] fileLines = sf.content().split("\n");
                     int digitLength = ((int) Math.log10(Math.max(1, fileLines.length))) + 1;
                     for (int i = 0; i < fileLines.length; i++) {
@@ -706,29 +583,6 @@ public class App {
                 System.out.println(sb.toString());
             } // if
         } // listMultiFileBreakpoints
-
-        /**
-         * Resolves valid breakpoint line numbers for a source file.
-         *
-         * @param breakpointsByFile File line map.
-         * @param sf SourceFile.
-         * @return Set of valid line numbers.
-         */
-        private Set<Integer> findValidLinesForFile(Map<String, Set<Integer>> breakpointsByFile,
-                CompilationHelper.SourceFile sf) {
-            String normPath = sf.relativePath().replace(File.separatorChar, '/');
-            Set<Integer> valid = breakpointsByFile.getOrDefault(normPath,
-                    breakpointsByFile.getOrDefault(sf.relativePath(), Collections.emptySet()));
-            if (valid.isEmpty()) {
-                String simpleName = Path.of(sf.relativePath()).getFileName().toString();
-                for (Map.Entry<String, Set<Integer>> entry : breakpointsByFile.entrySet()) {
-                    if (entry.getKey().endsWith(simpleName)) {
-                        return entry.getValue();
-                    } // if
-                } // for
-            } // if
-            return valid;
-        } // findValidLinesForFile
 
         /**
          * Formats and prints breakpoints for single-file input.
@@ -764,6 +618,7 @@ public class App {
                 System.out.println(sb.toString());
             } // if
         } // listSingleFileBreakpoints
+
     } // ListBreakpoints
 
     /** Print dependency licenses to console. */
@@ -775,5 +630,7 @@ public class App {
         public void run() {
             System.out.println(LicenseHelper.getLicenseText());
         } // run
+
     } // ShowLicenses
+
 } // App

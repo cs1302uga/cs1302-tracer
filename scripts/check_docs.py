@@ -47,7 +47,8 @@ def trace(*args: str, source: str | None = None) -> str:
 def cli_reference() -> str:
     """Render CLI reference text from executable help."""
     text = (
-        "# CLI reference\n\nGenerated from the executable by `python3 scripts/check_docs.py --update-cli`.\n"
+        "# CLI reference\n\nGenerated from the executable by "
+        "`./scripts/uv run python scripts/check_docs.py --update-cli`.\n"
         "Do not edit help blocks by hand. `trace` is an explicit subcommand.\n\n"
     )
     for command in ["", "trace", "batch-trace", "list-breakpoints", "show-licenses"]:
@@ -68,6 +69,14 @@ def cli_reference() -> str:
         "omitted limits. Zero disables a limit. See [bounded tracing](../BOUNDED_TRACING.md)\n"
         "for default values, inspection policies, exit codes, and partial results.\n"
     )
+
+
+def cli_sections(reference: str) -> tuple[str, str]:
+    """Separate generated text from a marked manual suffix, preserving its separator and line endings."""
+    boundary = re.search(r"\r?\n<!-- cli-reference:manual -->(?=\r?\n|$)", reference)
+    if boundary is None:
+        return reference, ""
+    return reference[: boundary.start()], reference[boundary.start() :]
 
 
 def equal(actual: str, expected: str, name: str) -> None:
@@ -173,10 +182,12 @@ def main() -> None:
         raise SystemExit("Build the JAR first: ./mvnw -B -ntp package -DskipTests")
     generated = cli_reference()
     path = ROOT / "docs/reference/cli.md"
+    reference = "" if args.update_cli and not path.exists() else path.read_text(encoding="utf-8", newline="")
+    existing, manual = cli_sections(reference)
     if args.update_cli:
-        path.write_text(generated)
+        path.write_text(generated + manual, encoding="utf-8", newline="")
     else:
-        equal(generated, path.read_text(), str(path.relative_to(ROOT)))
+        equal(generated, existing.replace("\r\n", "\n").replace("\r", "\n"), str(path.relative_to(ROOT)))
     check_links()
     check_examples()
     print("Documentation links, CLI, quickstart, JSON examples, and batch request passed.")
