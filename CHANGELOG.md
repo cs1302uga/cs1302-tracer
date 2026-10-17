@@ -28,6 +28,9 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 [Changes since v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...HEAD).
 
+Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae)
+— Maven configuration, dependency updates, and portable launcher distributions.
+
 ### Breaking changes
 
 No breaking changes.
