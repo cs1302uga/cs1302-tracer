@@ -37,6 +37,13 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Source distribution:** include Maven wrapper scripts and configuration so the
+  wrapper-derived Maven version check also works when building extracted sources.
+  CI now packages the extracted source archive.
+
+- **Bash launcher:** ignore shell `CDPATH` during internal path resolution so
+  relative launcher paths and symlinks still locate their adjacent JAR.
+
 - **Build configuration:** limit resource filtering to runtime version metadata,
   remove external dependency paths from the self-contained executable JAR's
   manifest, consolidate assembly naming defaults, and publish repository and issue

@@ -557,10 +557,9 @@
               <goal>single</goal>
             </goals>
             <configuration>
-              <descriptorRefs>
-                <descriptorRef>src</descriptorRef>
-              </descriptorRefs>
-              <formats>tar.xz</formats>
+              <descriptors>
+                <descriptor>src/assembly/src.xml</descriptor>
+              </descriptors>
               <tarLongFileMode>posix</tarLongFileMode>
             </configuration>
           </execution>

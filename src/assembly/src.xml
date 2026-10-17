@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+  <id>src</id>
+  <formats><format>tar.xz</format></formats>
+  <fileSets>
+    <!-- Retain source metadata and the wrapper configuration required during validate. -->
+    <fileSet>
+      <directory>${project.basedir}</directory>
+      <includes>
+        <include>README*</include>
+        <include>LICENSE*</include>
+        <include>NOTICE*</include>
+        <include>pom.xml</include>
+        <include>mvnw.cmd</include>
+        <include>.mvn/jvm.config</include>
+        <include>.mvn/maven.config</include>
+        <include>.mvn/jvnet-mirror.xml</include>
+        <include>.mvn/wrapper/maven-wrapper.properties</include>
+      </includes>
+      <useDefaultExcludes>true</useDefaultExcludes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/src</directory>
+      <useDefaultExcludes>true</useDefaultExcludes>
+    </fileSet>
+  </fileSets>
+  <files>
+    <!-- Allow extracted source distributions to bootstrap Maven on Unix. -->
+    <file>
+      <source>${project.basedir}/mvnw</source>
+      <outputDirectory>/</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
+    </file>
+  </files>
+</assembly>

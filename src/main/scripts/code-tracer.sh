@@ -11,14 +11,14 @@ while [[ -L "$launcher" ]]; do
         printf '%s\n' 'code-tracer: too many launcher symbolic links.' >&2
         exit 1
     fi
-    script_dir=$(cd -P -- "$(dirname -- "$launcher")" && pwd)
+    script_dir=$(CDPATH='' cd -P -- "$(dirname -- "$launcher")" && pwd)
     launcher=$(readlink -- "$launcher")
     if [[ "$launcher" != /* ]]; then
         launcher=$script_dir/$launcher
     fi
     links=$((links + 1))
 done
-script_dir=$(cd -P -- "$(dirname -- "$launcher")" && pwd)
+script_dir=$(CDPATH='' cd -P -- "$(dirname -- "$launcher")" && pwd)
 # A nonempty override is authoritative; relative paths retain the caller's base.
 jar=${CODE_TRACER_JAR_DIR:-$script_dir}/code-tracer.jar
 if [[ ! -f "$jar" || ! -r "$jar" ]]; then

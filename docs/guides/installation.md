@@ -41,7 +41,8 @@ You can also invoke `./target/code-tracer.sh` directly. The launcher finds
 `code-tracer.jar` beside its resolved script path by default. Keep the `.sh` file, JAR, and
 extensionless link together when relocating them; a symlink to the launcher can be placed
 on `PATH`. Relative source paths and classpaths are resolved from the caller's
-working directory, which the launcher preserves.
+working directory, which the launcher preserves. Internal launcher-directory
+resolution ignores `CDPATH`.
 
 If `JAVA_HOME` is nonempty, the launcher uses `$JAVA_HOME/bin/java` and reports an
 error if that executable is unavailable. Otherwise it uses `java` from `PATH`.

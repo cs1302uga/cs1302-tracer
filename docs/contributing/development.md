@@ -49,7 +49,10 @@ the copy runs after assembly and refreshes the short filename on every package r
 The original assembly remains attached with the `jar-with-dependencies` classifier,
 and the ordinary `cs1302-tracer-VERSION.jar` remains Maven's main artifact.
 Keep the copy execution after assembly so installation and deployment retain
-those artifact identities. The source archive is unchanged.
+those artifact identities. The source archive includes `src/`, project metadata,
+and the Maven wrapper scripts and `.mvn/` configuration required by validation.
+CI extracts it and builds with its own `./mvnw` to verify that it is self-contained
+for Maven packaging.
 
 During `prepare-package`, AntRun copies `code-tracer.sh`, `code-tracer.ps1`, and
 `code-tracer.cmd` from `src/main/scripts/` without filtering. It removes the old

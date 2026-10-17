@@ -62,6 +62,24 @@ class LauncherTests(unittest.TestCase):
         self.assertIn(str(self.install / "code-tracer.jar").encode(), result.stdout)
         self.assertIn(str(self.cwd).encode(), result.stdout)
 
+    def test_relative_launcher_ignores_cdpath(self) -> None:
+        """Resolve direct and symlinked relative launchers independently of shell CDPATH."""
+        alternate = self.root / "alternate"
+        (alternate / self.install.name).mkdir(parents=True)
+        for name in ("code-tracer.sh", "code-tracer"):
+            with self.subTest(name=name):
+                result = subprocess.run(
+                    [str(Path(self.install.name) / name)],
+                    cwd=self.root,
+                    env={**self.env, "CDPATH": str(alternate)},
+                    capture_output=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.returncode, 23, result.stderr)
+                fields = result.stdout.decode().split("\0")
+                self.assertEqual(fields[1], str(self.root))
+                self.assertEqual(fields[3], str(self.install / "code-tracer.jar"))
+
     def test_java_home_precedence_and_invalid_home(self) -> None:
         """Honor JAVA_HOME even with a different Java on PATH, and reject an invalid explicit home."""
         tools = self.root / "tools"
