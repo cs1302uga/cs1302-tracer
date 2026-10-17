@@ -137,7 +137,8 @@ Download `code-tracer.jar` from the desired
 Use documentation matching the downloaded version. Source-build examples use the
 `target/` JAR path; substitute your downloaded JAR path when following them.
 
-Releases that include `code-tracer-bin.tar.gz` and `code-tracer-bin.zip` provide
+Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and
+`code-tracer-bin.zip` provide
 all three launchers, the bundled executable JAR, and `LICENSE` in a `code-tracer/`
 directory. On Linux or macOS, extract the tar archive and run:
 
@@ -146,10 +147,13 @@ tar -xzf code-tracer-bin.tar.gz
 ./code-tracer/code-tracer --help
 ```
 
-The tar archive preserves executable permissions on `code-tracer.sh` and includes
+Alternatively, extract the XZ-compressed archive with `tar -xJf code-tracer-bin.tar.xz`
+and run the same launcher command. Choose one tar archive; their contents are identical.
+
+Both tar formats preserve executable permissions on `code-tracer.sh` and include
 the relative symlink `code-tracer -> code-tracer.sh`. The ZIP includes a regular,
 identical copy at `code-tracer` so extraction does not depend on symlink support.
-Unix source builds produce both archives; native Windows builds produce the ZIP.
+Unix source builds produce all three archives; native Windows builds produce the ZIP.
 On Windows,
 extract the ZIP with File Explorer or PowerShell, then run the appropriate script:
 

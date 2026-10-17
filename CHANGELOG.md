@@ -37,6 +37,11 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Distribution formats:** add `code-tracer-bin.tar.xz` alongside the existing
+  tar.gz and ZIP downloads. Both Unix tar formats contain the same launchers,
+  executable JAR, license, permissions, and relative Bash symlink. Native Windows
+  source builds continue to produce the ZIP.
+
 - **Launcher configuration:** `CODE_TRACER_JAR_DIR` selects the directory containing
   `code-tracer.jar` for Bash, PowerShell, and Command Prompt. Unset or empty values
   preserve the adjacent-JAR default; relative paths use the caller's working

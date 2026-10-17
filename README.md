@@ -26,8 +26,9 @@ creates `target/code-tracer.sh` and the relative symlink `target/code-tracer`;
 run `./target/code-tracer --help`.
 Windows users can run `target\code-tracer.cmd` in Command Prompt or
 `.\target\code-tracer.ps1` in PowerShell 7.4+. The portable
-`target/code-tracer-bin.tar.gz` (Unix builds) and `target/code-tracer-bin.zip`
-bundle all three launchers and the JAR. The tar preserves the Bash symlink; the
+`target/code-tracer-bin.tar.gz` and `target/code-tracer-bin.tar.xz` (Unix builds),
+plus `target/code-tracer-bin.zip`, bundle all three launchers and the JAR.
+Both tar formats preserve the Bash symlink; the
 ZIP supplies an identical regular copy for the extensionless name. See [installation](docs/guides/installation.md) for Java
 selection and relocation instructions, including `CODE_TRACER_JAR_DIR` for storing
 the executable JAR separately from the launchers.

@@ -585,7 +585,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
         <executions>
-          <!-- Stage launcher files before either binary archive is assembled. -->
+          <!-- Stage launcher files before the binary archives are assembled. -->
           <execution>
             <id>prepare-launchers</id>
             <phase>prepare-package</phase>
@@ -714,7 +714,7 @@
       <activation><os><family>unix</family></os></activation>
       <build>
         <plugins>
-          <!-- Add the symlink-preserving archive after the executable JAR and portable ZIP. -->
+          <!-- Add the symlink-preserving archives after the executable JAR and portable ZIP. -->
           <plugin>
             <artifactId>maven-assembly-plugin</artifactId>
             <executions>

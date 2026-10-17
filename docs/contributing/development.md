@@ -60,20 +60,21 @@ PowerShell uses LF and requires 7.4+; Command Prompt uses CRLF and invokes Java
 directly. The `.cmd` copy normalizes CRLF during packaging.
 
 The ZIP assembly runs after `assemble-jar`. The `unix-launcher-archive` profile,
-automatically active on Unix, additionally assembles the tar.gz with the prepared
-relative symlink. Native Windows creates only the ZIP and needs no symlink
+automatically active on Unix, additionally assembles tar.gz and tar.xz archives
+with the prepared relative symlink. Native Windows creates only the ZIP and needs no symlink
 privileges for packaging. `src/assembly/bin-common.xml` supplies the shared JAR,
 named launchers, and license; `bin.xml` adds a regular extensionless Bash copy to
 the ZIP, and `bin-tar.xml` preserves the symlink without content transformations.
-Both archives attach with classifier `bin` and distinct types. The Linux release
-job publishes both. Neither archive replaces a JAR artifact.
+All three archives attach with classifier `bin` and distinct types. The Linux
+release job publishes all three. None replaces a JAR artifact.
 
 Bash subprocess tests live in `scripts/tests/test_launcher.py`; PowerShell and
 batch subprocess tests live in `scripts/tests/WindowsLauncher.Tests.ps1` and use
 a small Java probe to inspect received arguments, working directory, streams,
 and exit status. Windows CI runs Pester 6.2.0 and PSScriptAnalyzer 1.25.0.
 The Java 21/25 Linux/macOS and Windows matrices extract their respective archives
-and execute real traces from paths containing spaces. Windows runs launcher
+and execute real traces from paths containing spaces. Unix checks compare both
+tar formats against the ZIP contents and extract and execute each tar variant. Windows runs launcher
 checks rather than the full Java test/fixture suite. Tests isolate
 `CODE_TRACER_JAR_DIR` from the developer environment and cover absolute, relative,
 empty, literal, and invalid overrides. Archive smoke tests also move the JAR out

@@ -120,39 +120,45 @@ jobs:
           import stat, tarfile, zipfile
           from pathlib import Path
           expected = {'code-tracer', 'code-tracer.sh', 'code-tracer.ps1', 'code-tracer.cmd', 'code-tracer.jar', 'LICENSE'}
-          with tarfile.open('target/code-tracer-bin.tar.gz') as tar, zipfile.ZipFile('target/code-tracer-bin.zip') as zip:
-              members = {Path(m.name).name: m for m in tar.getmembers() if not m.isdir()}
+          with zipfile.ZipFile('target/code-tracer-bin.zip') as zip:
               entries = {Path(m.filename).name: m for m in zip.infolist() if not m.is_dir()}
-              assert set(members) == set(entries) == expected
-              assert members['code-tracer'].issym() and members['code-tracer'].linkname == 'code-tracer.sh'
+              assert set(entries) == expected
               assert stat.S_ISREG(entries['code-tracer'].external_attr >> 16)
               assert zip.read(entries['code-tracer']) == zip.read(entries['code-tracer.sh'])
-              for name in expected - {'code-tracer'}:
-                  assert tar.extractfile(members[name]).read() == zip.read(entries[name])
-              assert members['code-tracer.sh'].mode & 0o777 == 0o755
               assert b'\n' not in zip.read(entries['code-tracer.cmd']).replace(b'\r\n', b'')
+              for extension in ('tar.gz', 'tar.xz'):
+                  with tarfile.open(f'target/code-tracer-bin.{extension}') as tar:
+                      members = {Path(m.name).name: m for m in tar.getmembers() if not m.isdir()}
+                      assert set(members) == expected
+                      assert members['code-tracer'].issym() and members['code-tracer'].linkname == 'code-tracer.sh'
+                      for name in expected - {'code-tracer'}:
+                          assert members[name].isfile()
+                          assert members[name].mode & 0o777 == (0o755 if name == 'code-tracer.sh' else 0o644)
+                          assert tar.extractfile(members[name]).read() == zip.read(entries[name])
           PY
           smoke_root=$(mktemp -d)
           trap 'rm -rf "$smoke_root"' EXIT
-          smoke_dir="$smoke_root/launcher smoke"
-          mkdir -p "$smoke_dir"
-          tar -xzf target/code-tracer-bin.tar.gz -C "$smoke_dir"
-          mv "$smoke_dir/code-tracer" "$smoke_dir/relocated application"
-          test "$(readlink "$smoke_dir/relocated application/code-tracer")" = code-tracer.sh
-          test -x "$smoke_dir/relocated application/code-tracer"
-          cmp target/code-tracer.jar "$smoke_dir/relocated application/code-tracer.jar"
-          (
-            cd "$smoke_dir"
-            printf '%s\n' 'public class Main { public static void main(String[] args) { System.out.println(42); } }' > Main.java
-            './relocated application/code-tracer.sh' --version
-            './relocated application/code-tracer' trace -i Main.java -a -f modern > trace.json
-            mkdir 'separate jars'
-            mv 'relocated application/code-tracer.jar' 'separate jars/'
-            CODE_TRACER_JAR_DIR='./separate jars/' './relocated application/code-tracer' trace -i Main.java -a -f modern > override.json
-            CODE_TRACER_JAR_DIR="$PWD/separate jars" './relocated application/code-tracer.sh' --version
-          )
-          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/trace.json"
-          python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/override.json"
+          for extension in tar.gz tar.xz; do
+            smoke_dir="$smoke_root/$extension launcher smoke"
+            mkdir -p "$smoke_dir"
+            tar -xf "target/code-tracer-bin.$extension" -C "$smoke_dir"
+            mv "$smoke_dir/code-tracer" "$smoke_dir/relocated application"
+            test "$(readlink "$smoke_dir/relocated application/code-tracer")" = code-tracer.sh
+            test -x "$smoke_dir/relocated application/code-tracer"
+            cmp target/code-tracer.jar "$smoke_dir/relocated application/code-tracer.jar"
+            (
+              cd "$smoke_dir"
+              printf '%s\n' 'public class Main { public static void main(String[] args) { System.out.println(42); } }' > Main.java
+              './relocated application/code-tracer.sh' --version
+              './relocated application/code-tracer' trace -i Main.java -a -f modern > trace.json
+              mkdir 'separate jars'
+              mv 'relocated application/code-tracer.jar' 'separate jars/'
+              CODE_TRACER_JAR_DIR='./separate jars/' './relocated application/code-tracer' trace -i Main.java -a -f modern > override.json
+              CODE_TRACER_JAR_DIR="$PWD/separate jars" './relocated application/code-tracer.sh' --version
+            )
+            python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/trace.json"
+            python3 -c 'import json, sys; assert json.load(open(sys.argv[1]))["steps"]' "$smoke_dir/override.json"
+          done
       - name: Verify trace compatibility
         run: |
           python3 -m unittest discover -s examples -p test_verify.py
@@ -264,5 +270,6 @@ jobs:
           files: |
             target/code-tracer.jar
             target/code-tracer-bin.tar.gz
+            target/code-tracer-bin.tar.xz
             target/code-tracer-bin.zip
             target/cs1302-tracer-*.jar

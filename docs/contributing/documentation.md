@@ -153,7 +153,7 @@ retry of an older release cannot replace newer docs with an old checkout.
 GitHub releases created by the CI token do not need to trigger another release
 event: deployment uses `workflow_run` after CI / Release completes. The software
 release publishes the standalone executable JAR, ordinary library JAR, and
-tar.gz/ZIP archives containing the Bash, PowerShell, and batch launchers.
+tar.gz, tar.xz, and ZIP archives containing the Bash, PowerShell, and batch launchers.
 It needs documentation validation, but does not depend on Pages deployment.
 For an outage, rerun Deploy documentation or dispatch it on `main`; do not recreate
 the tag or software release. Build artifacts are also downloadable from PR checks
