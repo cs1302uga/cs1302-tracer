@@ -17,6 +17,7 @@ public final class ClassPathOptions {
             description = "Binary dependency path or platform-separated path list (: on Unix, ; on Windows). "
                     + "Repeat to append in order. Empty components mean the working directory; default: no entries. "
                     + "Quote patterns: lib/* selects immediate JARs; lib/**/*.jar also searches descendants. "
+                    + "Windows drive-relative globs retain their drive prefix. "
                     + "Matches are sorted; missing entries and patterns without matches fail preparation.")
     private List<String> pathLists = new ArrayList<>();
 
@@ -73,7 +74,7 @@ public final class ClassPathOptions {
             separator = Math.max(separator, selection.lastIndexOf('\\', patternStart));
         } // if
         int prefixLength = separator + 1;
-        if (nativeSeparator == '\\' && prefixLength == 0 && patternStart == 2 && selection.charAt(1) == ':') {
+        if (nativeSeparator == '\\' && prefixLength == 0 && patternStart >= 2 && selection.charAt(1) == ':') {
             prefixLength = 2;
         } // if
         Path root = Path.of(selection.substring(0, prefixLength));

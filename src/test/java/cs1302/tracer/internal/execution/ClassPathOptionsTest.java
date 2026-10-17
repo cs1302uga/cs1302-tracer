@@ -7,6 +7,8 @@ import cs1302.tracer.api.TraceClassPath;
 import java.io.File;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import picocli.CommandLine;
 
 /** Native CLI syntax preserves ordered selections and never accesses the filesystem. */
@@ -73,6 +75,14 @@ class ClassPathOptionsTest {
                 new TraceClassPath.GlobEntry(Path.of("C:"), "*.jar"),
                 new TraceClassPath.GlobEntry(Path.of(""), "ab*.jar"),
                 new TraceClassPath.GlobEntry(Path.of(""), "*.jar"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "library-*.jar", "library-?.jar", "library-[ab].jar", "library-{one,two}.jar" })
+    void driveRelativePatternsPreserveTheDriveBeforeLiteralStems(String glob) {
+        TraceClassPath.Builder builder = TraceClassPath.builder();
+        ClassPathOptions.addSelection(builder, "C:" + glob, '\\');
+        assertThat(builder.build().entries()).containsExactly(new TraceClassPath.GlobEntry(Path.of("C:"), glob));
     }
 
     @Test

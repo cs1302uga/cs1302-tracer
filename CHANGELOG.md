@@ -49,6 +49,10 @@ and documentation updates were implemented in
 
 ### Non-breaking changes
 
+- **CLI:** preserve Windows drive-relative class-path glob roots when a literal
+  filename stem precedes the first glob character, including `C:library-*.jar`.
+  Keep the drive prefix in the native search root for `*`, `?`, character classes,
+  and brace alternatives instead of leaving it in an unmatchable relative glob.
 - **Contributor documentation:** define submitted source identity, logical and debug
   source paths, and reachable-heap inspection in the shared glossary.
 - **Internal architecture:** retain detached submitted-source identity across

@@ -47,8 +47,9 @@ Generate an execution trace for a Java program.
                                on Windows). Repeat to append in order. Empty components mean the
                                working directory; default: no entries. Quote patterns: lib/*
                                selects immediate JARs; lib/**/*.jar also searches descendants.
-                               Matches are sorted; missing entries and patterns without matches
-                               fail preparation.
+                               Windows drive-relative globs retain their drive prefix. Matches are
+                               sorted; missing entries and patterns without matches fail
+                               preparation.
       --eval-enum-hash       Evaluate lazy enum hash codes when capturing snapshots.
   -f, --format=<format>      Output trace format: pytutor, modern (default: pytutor).
       --follow-class-path-links
@@ -135,8 +136,9 @@ List the breakpoints available in the provided source file.
                           Binary dependency path or platform-separated path list (: on Unix, ; on
                             Windows). Repeat to append in order. Empty components mean the working
                             directory; default: no entries. Quote patterns: lib/* selects immediate
-                            JARs; lib/**/*.jar also searches descendants. Matches are sorted;
-                            missing entries and patterns without matches fail preparation.
+                            JARs; lib/**/*.jar also searches descendants. Windows drive-relative
+                            globs retain their drive prefix. Matches are sorted; missing entries
+                            and patterns without matches fail preparation.
       --follow-class-path-links
                           Follow symbolic links during class-path glob discovery and directory
                             copying, including outside targets (default: false). Broken links and
@@ -194,8 +196,14 @@ Other patterns use the portable glob grammar documented for
 [`SourceBundle`](java-api.md#bundle-source-files), including `?`, character classes,
 and brace alternatives. The literal native prefix supplies the search root; the
 remaining glob uses `/` separators, with native Windows separators accepted by
-the CLI adapter. Root and path resolution use the tracer process working directory,
-not the input source file's directory.
+the CLI adapter. Relative roots and paths use native filesystem resolution in the
+tracer process, independently of the input source file's directory.
+
+Windows drive-relative patterns keep the drive prefix in their search root:
+`C:library-*.jar` uses root `C:` and glob `library-*.jar`. The same rule applies
+before `?`, character classes, and brace alternatives, including when a literal
+filename stem precedes the first glob character. These paths remain drive-relative;
+use `C:/library/*.jar` for an absolute drive-rooted pattern.
 
 Each pattern's matches are sorted by case-sensitive, locale-independent relative
 path at that pattern's position. Overlapping selections retain the first occurrence
