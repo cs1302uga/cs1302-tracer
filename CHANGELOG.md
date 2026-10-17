@@ -41,6 +41,7 @@ No breaking changes.
   tar.gz and ZIP downloads. Both Unix tar formats contain the same launchers,
   executable JAR, license, permissions, and relative Bash symlink. Native Windows
   source builds continue to produce the ZIP.
+  Implementation: [23f6949](https://github.com/cs1302uga/cs1302-tracer/commit/23f6949d285c58534727a98aa973f2c447ca38e3).
 
 - **Launcher configuration:** `CODE_TRACER_JAR_DIR` selects the directory containing
   `code-tracer.jar` for Bash, PowerShell, and Command Prompt. Unset or empty values
