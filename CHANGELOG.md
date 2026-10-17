@@ -65,6 +65,10 @@ complete version navigation, and a staged archive publication and backfill workf
 
 ### Non-breaking changes
 
+- **Contributor documentation:** clarify managed Python invocation through the
+  repository's uv wrapper, correct the 4.0.0 CLI regeneration command, and label
+  3.2.x Python instructions as historical because those checkouts lack the wrapper.
+
 - **Historical guide archives:** add independently rendered, verified guide ZIPs,
   a separate attested documentation publisher, and a reviewed archive catalog.
   Optional active mode compiles development, the two newest stable guides, and one

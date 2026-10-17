@@ -1,5 +1,10 @@
 # Bounded tracing and result schema v1
 
+> **Historical Python tooling:** the 3.2.2 checkout predates the repository's
+> `scripts/uv` wrapper. Its commands below use `python3` from your environment.
+> For a current checkout, use `./scripts/uv run python3` from the repository root;
+> see the [current Python tooling guide](https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/contributing/development.md#python-script-quality).
+
 Ordinary instructor invocations now use finite budgets while preserving successful
 Python Tutor and modern JSON shapes. A limit stop writes no JSON to stdout, prints
 its reason to stderr, and exits with code 3. Use `--result-envelope` for explicit

@@ -69,6 +69,10 @@ run the command. From inside `scripts/`, use `./uv run python docs_release.py ch
 instead of `./scripts/uv run python scripts/docs_release.py check`.
 
 Use `./scripts/uv run` for project commands and `./scripts/uvx` for isolated tools.
+For Python commands, use `./scripts/uv run python3 SCRIPT [ARGS...]` from the
+repository root. The `python` spelling in existing wrapped examples selects the
+same managed interpreter. Invoke either spelling through the wrapper so the
+command uses the scripts project's Python version and dependencies.
 Invoking `./scripts/uvw.sh` directly selects uv. Without the wrapper, the equivalent
 root-level command form is `uv run --project scripts --managed-python ARGS...`.
 See [`pyproject.toml`](pyproject.toml) and [`uv.lock`](uv.lock) for dependencies.

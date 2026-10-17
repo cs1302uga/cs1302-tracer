@@ -1,5 +1,10 @@
 # Development and quality gates
 
+> **Historical Python tooling:** the 3.2.5 checkout predates the repository's
+> `scripts/uv` wrapper. Its commands below use `python3` from your environment.
+> For a current checkout, use `./scripts/uv run python3` from the repository root;
+> see the [current Python tooling guide](https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/contributing/development.md#python-script-quality).
+
 Run commands from the repository root. Use a full JDK; CI tests Java 21 and 25 on Linux and macOS. `.java-version` selects JDK 25 locally. The tracer is compiled for Java 21; guest features depend on the active JDK.
 
 

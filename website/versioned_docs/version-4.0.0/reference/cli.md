@@ -1,6 +1,6 @@
 # CLI reference
 
-Generated from the executable by `python3 scripts/check_docs.py --update-cli`.
+Regenerate this reference from the executable with `./scripts/uv run python3 scripts/check_docs.py --update-cli`.
 Do not edit help blocks by hand. `trace` is an explicit subcommand.
 
 ## Root command

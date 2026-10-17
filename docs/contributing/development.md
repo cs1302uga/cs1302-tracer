@@ -98,6 +98,14 @@ The **JaCoCo** check enforces **100% line coverage** and **100% branch coverage*
 
 ### Python script quality
 
+Run repository Python commands through `./scripts/uv run python3` from the
+repository root, for example `./scripts/uv run python3 scripts/check_docs.py`.
+This selects the project's managed interpreter and dependencies. Examples using
+`./scripts/uv run python` select the same managed interpreter; neither form needs
+a system Python installation. From inside `scripts/`, use `./uv run python3` and
+paths relative to that directory. See the [wrapper guide](https://github.com/cs1302uga/cs1302-tracer/blob/main/scripts/README.md#setup-and-command-wrappers)
+for bootstrap requirements and supported platforms.
+
 The dedicated Scripts quality CI job uses the checked-in **uv** wrapper, managed
 Python 3.15, and locked dependencies. It requires **Ruff** lint/format checks, **ty**, and
 100% line and branch coverage for every production Python script under `scripts/`.

@@ -1,5 +1,10 @@
 # Documentation maintenance and releases
 
+> **Historical Python tooling:** the 3.2.3 checkout predates the repository's
+> `scripts/uv` wrapper. Its commands below use `python3` from your environment.
+> For a current checkout, use `./scripts/uv run python3` from the repository root;
+> see the [current Python tooling guide](https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/contributing/development.md#python-script-quality).
+
 README is the project introduction and quickstart; HACKING is the contributor
 entry point. Detailed content lives in `docs/` and is rendered directly by
 Docusaurus. Keep examples and links useful when reading Markdown on GitHub too.

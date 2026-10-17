@@ -770,6 +770,11 @@ for local review; PRs do not deploy publicly.
 
 Release snapshots are retained in Git. Correct an older release's documentation by
 editing its snapshot in a reviewed PR; do not describe unreleased behavior there.
+Python commands must match the checkout they document: current guides use
+`./scripts/uv run python3` (or the equivalent wrapped `python`), while the 3.2.x
+checkouts predate that wrapper and retain their direct `python3` instructions
+with a historical-tooling notice. Preserve historical audit evidence when updating
+command guidance.
 For a broken site deployment, revert the responsible docs/configuration change on
 `main` and dispatch deployment again. Removing an unpinned software release changes
 its eligibility for public version selection while retaining its source snapshot.
