@@ -27,7 +27,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 ## Unreleased
 
 [Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
-Development version: **4.1.0-SNAPSHOT**; the **4.1.0** documentation snapshot remains
+Maven version: **4.1.0**; the **4.1.0** documentation snapshot remains
 prepared but unpublished. Earlier 4.1.0 work was implemented in
 [`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
 — primitive binary metadata, rendering/capture ownership, and release preparation.
@@ -82,7 +82,7 @@ and documentation updates were implemented in
   an explicit option follows them, including targets outside the root, and fails
   on encountered broken links or cycles. Aliases remain separate matches, and
   invalid matches or duplicate logical paths reject the entire addition.
-- **Development tooling:** use Maven version `4.1.0-SNAPSHOT`. Documentation preview
+- **Release preparation:** set Maven version `4.1.0`. Documentation preview
   accepts the matching prepared 4.1.0 snapshot with working Javadoc and an unreleased
   banner. Published documentation still requires exact stable release tags.
 - **Contributor style:** require a blank line immediately inside each brace of

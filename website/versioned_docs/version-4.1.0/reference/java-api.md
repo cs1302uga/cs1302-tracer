@@ -8,9 +8,9 @@ Run with a full JDK 21 or later; CI exercises Java 21 and 25, and `.java-version
 selects the local development JDK. Submitted-program features depend on the active
 JDK and parser support.
 
-This development documentation describes `4.1.0-SNAPSHOT`. Features marked 4.1.0,
-including `SourceBundle`, `TraceClassPath`, the builders, and primitive binary metadata overload, are prepared for
-the unpublished 4.1.0 release.
+This documentation describes version `4.1.0`. Features marked 4.1.0 include
+`SourceBundle`, `TraceClassPath`, the builders, and the primitive binary metadata
+overload.
 
 Public signatures use project-owned types and ordinary Java types. API Guardian's
 `@API` annotation is the sole third-party metadata exception. Callers do
