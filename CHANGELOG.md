@@ -31,6 +31,9 @@ Development version: **4.1.0-SNAPSHOT**; the **4.1.0** documentation snapshot re
 prepared but unpublished. Earlier 4.1.0 work was implemented in
 [`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
 — primitive binary metadata, rendering/capture ownership, and release preparation.
+Builders, source bundles, binary class-path support, and the subsequent architecture
+and documentation updates were implemented in
+[`db9f770`](https://github.com/cs1302uga/cs1302-tracer/commit/db9f7702eac9d32623f7831cef482f550274c8cb).
 
 ### Breaking changes
 
