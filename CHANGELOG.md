@@ -2,7 +2,7 @@
 
 Published releases are listed newest first. Publication dates are UTC dates from
 [GitHub release records](https://github.com/cs1302uga/cs1302-tracer/releases), verified
-on 2026-10-16. Version bumps without a published release are included in the next
+on 2026-10-17. Version bumps without a published release are included in the next
 published range, not presented as separate releases.
 
 This history was reconstructed from release records, tagged source/documentation
@@ -16,7 +16,7 @@ from changes to structure. Consumers should tolerate unknown additive fields.
 Every commit reachable in each consecutive release range is linked, including
 merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
-The checkout is not shallow, all 43 published release tags match origin, and no
+The checkout is not shallow, all 44 published release tags match origin, and no
 published release tag is missing. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
@@ -26,14 +26,20 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v4.0.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...HEAD).
-Maven version: **4.1.0**; the **4.1.0** documentation snapshot remains
-prepared but unpublished. Earlier 4.1.0 work was implemented in
-[`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08)
-— primitive binary metadata, rendering/capture ownership, and release preparation.
-Builders, source bundles, binary class-path support, and the subsequent architecture
-and documentation updates were implemented in
-[`db9f770`](https://github.com/cs1302uga/cs1302-tracer/commit/db9f7702eac9d32623f7831cef482f550274c8cb).
+[Changes since v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...HEAD).
+
+### Breaking changes
+
+No breaking changes.
+
+### Non-breaking changes
+
+- **Release documentation:** record the 4.1.0 publication date and its squash-merged
+  commit range.
+
+## 4.1.0 — 2026-10-17
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.1.0) · [Compare v4.0.0...v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.0.0...v4.1.0)
 
 ### Breaking changes
 
@@ -83,8 +89,8 @@ and documentation updates were implemented in
   on encountered broken links or cycles. Aliases remain separate matches, and
   invalid matches or duplicate logical paths reject the entire addition.
 - **Release preparation:** set Maven version `4.1.0`. Documentation preview
-  accepts the matching prepared 4.1.0 snapshot with working Javadoc and an unreleased
-  banner. Published documentation still requires exact stable release tags.
+  accepts matching prepared, untagged snapshots with working Javadoc and an
+  unreleased banner. Published documentation still requires exact stable release tags.
 - **Contributor style:** require a blank line immediately inside each brace of
   nonempty class and interface bodies, including enums, records, annotation
   interfaces, and nested or local declarations. Empty bodies remain exempt.
@@ -129,13 +135,26 @@ and documentation updates were implemented in
   CLI, and JSON/protocol behavior.
 - Add a runnable binary-metadata example and document placement, encodings,
   per-job settings, and serialization costs. Keep published documentation snapshots
-  unchanged; development docs and the pending 4.1.0 snapshot describe the extension.
+  unchanged; development docs and the 4.1.0 snapshot describe the extension.
 - **Documentation:** distinguish normative encoding specifications from informative
   explanations in a central primitive-binary reference, linked from guides, examples,
   and Javadoc. Clarify tracer-defined conventions alongside Java SE 21, IEEE 754-2019,
   and Unicode 15.0 references; Java API, CLI, and JSON/protocol behavior is unchanged.
 - **Contributor documentation:** correct invalid parameter tags on the internal
   lambda heap-object factory so its Javadoc can be generated directly.
+
+### Commits
+
+- [`9119b20`](https://github.com/cs1302uga/cs1302-tracer/commit/9119b20d592016c60d0ff87467b8100d6f8fa662) — Add primitive binary metadata, dependency class paths, and source bundles (#18).
+
+### Development history
+
+The published `v4.0.0..v4.1.0` range contains only the squash commit `9119b20`.
+The following original implementation commits are retained as development
+provenance; they are not separate commits in that published range.
+
+- [`95ea40c`](https://github.com/cs1302uga/cs1302-tracer/commit/95ea40cdafe376e36d8e2422c4ea9fb40c54ab08) — Primitive binary metadata, rendering/capture ownership, and release preparation.
+- [`db9f770`](https://github.com/cs1302uga/cs1302-tracer/commit/db9f7702eac9d32623f7831cef482f550274c8cb) — Builders, source bundles, binary class-path support, and architecture/documentation updates.
 
 ## 4.0.0 — 2026-10-16
 
