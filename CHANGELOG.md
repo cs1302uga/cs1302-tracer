@@ -40,9 +40,11 @@ No breaking changes.
 - **Source distribution:** include Maven wrapper scripts and configuration so the
   wrapper-derived Maven version check also works when building extracted sources.
   CI now packages the extracted source archive.
+  Implementation: [d7ef76c](https://github.com/cs1302uga/cs1302-tracer/commit/d7ef76c084f4467e71e36929c50e305635ad0f26).
 
 - **Bash launcher:** ignore shell `CDPATH` during internal path resolution so
   relative launcher paths and symlinks still locate their adjacent JAR.
+  Implementation: [d7ef76c](https://github.com/cs1302uga/cs1302-tracer/commit/d7ef76c084f4467e71e36929c50e305635ad0f26).
 
 - **Build configuration:** limit resource filtering to runtime version metadata,
   remove external dependency paths from the self-contained executable JAR's
