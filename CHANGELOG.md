@@ -2,9 +2,9 @@
 
 Published software releases are listed newest first. Publication dates are UTC dates from
 [GitHub release records](https://github.com/cs1302uga/cs1302-tracer/releases), verified
-for historical entries through 4.1.0 on 2026-10-17; the 4.2.0 entry was verified
-on 2026-10-18. Version bumps without a published release are included in the next
-published range, not presented as separate releases.
+for historical entries through 4.1.0 on 2026-10-17; the 4.2.0 and 4.2.1 entries
+were verified on 2026-10-18. Version bumps without a published release are included
+in the next published range, not presented as separate releases.
 
 This history was reconstructed from release records, tagged source/documentation
 diffs, and Git commits. Most historical release bodies are empty. Compatibility
@@ -19,7 +19,8 @@ merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
 The historical audit through 4.1.0 found a non-shallow checkout, all 44 published
 software-release tags matching origin, and no missing published software-release tag.
-The 4.2.0 entry was reconciled separately against its actual tag and release metadata.
+The 4.2.0 and 4.2.1 entries were reconciled separately against their actual tags
+and release metadata.
 Separate `docs-*` prereleases publish
 documentation artifacts and are not software-version entries. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
@@ -30,7 +31,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v4.2.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.0...HEAD).
+[Changes since v4.2.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.1...HEAD).
 
 ### Breaking changes
 
@@ -39,32 +40,70 @@ requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
-- **Binary lambda object labels:** display a supported functional-interface view
-  with a `λ` marker, such as `Comparator<Person>λ`, instead of an
-  opaque hidden implementation name. Retain object identities, existing JSON
-  shapes, source-reconstructed lambda bodies, and conservative labels for unknown
-  or conflicting type evidence. Finalize headings after heap traversal so field
-  observations can refine a lambda first encountered through an `Object` alias.
-- **Generic heap type labels (CLI, Java API, and batch):** use prepared binary
-  declarations to compose superclass and interface type arguments across multiple
-  hierarchy levels. Resolve inherited and hidden instance fields against their
-  declaring owner, including null generic fields. No library source or debug-table
-  rebuild is required. Unknown arguments retain raw or wildcard labels rather
-  than fabricated types. Existing JSON schemas and supported API signatures are
-  unchanged; regenerate cached traces and images for corrected labels.
-- **Development version:** advance the Maven project to `4.2.1-SNAPSHOT` after the
-  4.2.0 release. Tracing behavior, the supported Java API, and JSON/batch protocol
+- **Development version:** advance the Maven project to `4.2.2-SNAPSHOT` after the
+  4.2.1 release. Tracing behavior, the supported Java API, and JSON/batch protocol
   are unchanged.
-  Implementation: [debe2cb](https://github.com/cs1302uga/cs1302-tracer/commit/debe2cb9988f5c7ff98d10304d8b5d0ae56b8c3f).
 - **Development documentation:** align the current Java integration references and
-  CLI version-report example with `4.2.1-SNAPSHOT`. Preserve the published 4.2.0
-  guide snapshot.
-
+  CLI version-report example with `4.2.2-SNAPSHOT`. Preserve the published 4.2.1
+  guide snapshot and earlier published documentation.
 
 ### Commits
 
-- [`211cdf3`](https://github.com/cs1302uga/cs1302-tracer/commit/211cdf30f2bd50106d97c78b6c934d520850cbd3) Finalize the 4.2.0 release history and current development references (#31).
+- [`0531d34`](https://github.com/cs1302uga/cs1302-tracer/commit/0531d34079c914eaf43aee16d66bc9ebdbbd5953) Prepare the next development iteration, 4.2.2-SNAPSHOT.
+
+## 4.2.1 — 2026-10-18
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.2.1) · [Compare v4.2.0...v4.2.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.0...v4.2.1)
+
+Implementation: [b0f8ac3](https://github.com/cs1302uga/cs1302-tracer/commit/b0f8ac313ad802c577e3beef694363e96ae047f9)
+— Correct binary generic and lambda heap labels without requiring library sources
+or local-variable debug tables.
+
+### Breaking changes
+
+No breaking changes. Supported Java API signatures, CLI arguments, JSON/batch
+schemas, and documented runtime requirements are unchanged. Existing type-label
+values can change to correct or more informative labels; regenerate cached traces
+and images to obtain those corrections.
+
+### Non-breaking changes
+
+- **Generic heap type labels (CLI, Java API, and batch):** compose superclass and
+  interface type arguments through multiple hierarchy levels, including renamed
+  or reordered parameters. Resolve inherited and hidden instance fields against
+  their declaring owners, including null generic fields and fully concrete field
+  declarations on nongeneric classes. Read prepared class-file declarations and
+  signatures without executing guest methods, requiring dependency sources, or
+  rebuilding a library with `javac -g`. Preserve legal dollar characters and exact
+  binary declaration identities; canonical display aliases are used only when
+  they resolve to that same declaration. Missing, unsupported, partial, and
+  conflicting evidence retains conservative raw, wildcard, or erased labels
+  rather than fabricated concrete arguments.
+- **Binary lambda heap labels:** use a proven declared functional-interface view
+  with a `λ` marker, such as `Comparator<Person>λ`, in both JSON formats' existing
+  type fields. Object identity and captured fields remain intact; visualizers may
+  retain their existing identity suffix, such as `Comparator<Person>λ@91`.
+  Finalize headings after reachable-heap traversal so later field evidence can
+  refine an object first observed through `Object`. Marker interfaces supply no
+  functional view. Raw aliases plus one consistent parameterization retain the
+  known arguments; conflicting parameterizations retain the raw interface, and
+  incompatible functional views retain the generated runtime label. Lambda bodies
+  reconstructed from source and ordinary named implementation labels remain
+  unchanged.
+- **Development and documentation maintenance:** the previous next-development
+  transition selected `4.2.1-SNAPSHOT`; current integration/version-report guidance
+  followed that development version while retaining the published 4.2.0 guide.
+  The 4.2.0 release-history entry was reconciled with actual published metadata.
+- **Release preparation:** the signed release workflow set the stable Maven
+  version and SCM tag to `4.2.1` and `v4.2.1`. The matching 4.2.1 guide and verified
+  release assets are published.
+
+### Commits
+
 - [`debe2cb`](https://github.com/cs1302uga/cs1302-tracer/commit/debe2cb9988f5c7ff98d10304d8b5d0ae56b8c3f) Prepare the next development iteration, 4.2.1-SNAPSHOT.
+- [`211cdf3`](https://github.com/cs1302uga/cs1302-tracer/commit/211cdf30f2bd50106d97c78b6c934d520850cbd3) Finalize the 4.2.0 release history and current development references (#31).
+- [`b0f8ac3`](https://github.com/cs1302uga/cs1302-tracer/commit/b0f8ac313ad802c577e3beef694363e96ae047f9) Preserve binary generic metadata and lambda labels (#32).
+- [`c4bb0f0`](https://github.com/cs1302uga/cs1302-tracer/commit/c4bb0f0181657cf2cf8f43bee5a32bdc0844200c) Prepare the signed 4.2.1 release.
 
 ## 4.2.0 — 2026-10-18
 
