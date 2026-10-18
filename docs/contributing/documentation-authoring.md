@@ -51,7 +51,7 @@ The installation guide's marked JDK inspection, selection, tool-verification, an
 installation-checkpoint snippets have shell-specific checks. `check_docs.py` runs
 the **Bash** snippets; a separate **Pester** suite runs the native PowerShell and
 Command Prompt snippets in Windows CI with JDK 21 and 25. The suite is
-[`WindowsDocumentation.Tests.ps1`](../../scripts/tests/WindowsDocumentation.Tests.ps1).
+[`WindowsDocumentation.Tests.ps1`](https://github.com/cs1302uga/cs1302-tracer/blob/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf/scripts/tests/WindowsDocumentation.Tests.ps1).
 Keep those markers and their validation in agreement when changing the recipes.
 This Windows coverage applies to the JDK recovery snippets; other native Windows
 tutorial and recipe commands still need separate review and validation when changed.
