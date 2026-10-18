@@ -5,7 +5,7 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>4.2.1</version>
+  <version>4.2.2-SNAPSHOT</version>
 
   <name>cs1302-tracer</name>
   <description>Compiles Java programs, traces execution through JDI, and emits Python Tutor or modern JSON.</description>
