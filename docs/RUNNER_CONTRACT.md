@@ -19,7 +19,9 @@ Both a disposable container/VM backend and direct Linux execution must provide:
    access only to required runtime files, submitted sources, and approved binary dependencies. Do not expose
    host credentials, application state, container-management sockets, or other jobs.
 3. Enforced CPU, memory, process/thread, disk, and output/artifact limits for the
-   entire job and its descendants, including the tracer and compiler.
+   entire job and its descendants: the tracer JVM, which parses and compiles
+   source in-process; the guest JVM launched through JDI; and the CLI's short-lived
+   Java/compiler version-probe processes.
 4. A whole-job deadline independent of Tracer's threads and guest debugger state.
    Bound queue time, input transport, compilation, execution, and result handling
    according to the service's lifecycle policy.
@@ -29,6 +31,11 @@ Both a disposable container/VM backend and direct Linux execution must provide:
    outside the containment unit.
 6. Reliable termination of the entire containment unit on timeout, cancellation,
    crash, disconnect, or service shutdown, followed by workspace/artifact cleanup.
+   Killing only the tracer PID can leave its guest JVM running after reparenting.
+   Terminate the enforced containment unit, such as the job's cgroup, container,
+   or VM, and verify that no job descendants remain before releasing the workspace.
+   Process-group teardown is sufficient only when the backend prevents descendants
+   from escaping into another group or session.
 7. Resource admission control so many individually bounded jobs cannot exhaust
    the server. Enforce per-user and service-wide concurrency/queue budgets.
 

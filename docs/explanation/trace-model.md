@@ -73,7 +73,14 @@ location, or a chronological sequence of selected visits. When the example
 completes, chronological capture also retains the final main-exit state.
 
 With no selected breakpoints or chronological option, ordinary tracing captures
-the main-exit state. It cannot show all intermediate assignments. With a selected
+the main-exit state when main returns normally. A directly thrown uncaught
+exception in submitted code can supply the terminal state at the throwing line
+instead. If the process ends through `System.exit` or an uncaught exception thrown
+inside JDK code, default ordinary capture can fail without producing JSON because
+no main-exit snapshot exists. Use chronological or selected-location capture to
+retain the available states; see the
+[CLI capture limitations](../reference/cli.md#capture-when-main-does-not-return).
+The default view cannot show all intermediate assignments. With a selected
 location and default retention, an earlier hit can be replaced by a later hit.
 These are different views of an execution, not evidence that the program ran
 differently. [Trace a loop](../tutorials/trace-a-loop.md) demonstrates all three
@@ -86,15 +93,25 @@ each capture carries the output observed up to that point. For a completed run,
 the final capture contains the final output. Concatenating those fields from every
 snapshot would repeat text already present in earlier prefixes.
 
-Ordinary selected-breakpoint output attaches final output to the last retained
-hit at each selected location, including when hits are accumulated. Its source
-location and locals still describe that retained stop, even when the streams
-include text printed afterward. Read output according to the selected mode rather
-than assuming every field describes one instantaneous observation.
+Ordinary CLI selected-breakpoint output attaches final output to the last retained
+hit in each bare line-number bucket, including when hits are accumulated. If
+multiple source files share that selected line number, only the bucket's last hit
+receives the final output; another file's retained hit can keep an earlier prefix.
+Source locations and locals still describe their recorded stops, even when the
+streams include text printed afterward. Read output according to the selected mode
+rather than assuming every field describes one instantaneous observation. The
+[output reference](../reference/output.md#input-and-output-observations) distinguishes
+this ordinary CLI projection from envelope and Java/batch behavior.
 
-The tracer's own diagnostics are separate: they go to the tracer process's stderr,
-outside the JSON trace. Redirecting its stdout saves the JSON result while leaving
-those diagnostics visible in the terminal.
+For ordinary output, the tracer writes its own diagnostics to its process's stderr,
+outside the JSON trace. Redirecting stdout saves that JSON while leaving ordinary
+failure diagnostics visible in the terminal. With `--result-envelope`, job
+diagnostics instead appear in the envelope's `diagnostics` array on stdout;
+the tracer's terminal stderr can be empty even when the envelope reports failure.
+Preflight and argument errors still use terminal stderr, and an unreadable
+`--stdin-file` can fail before any envelope exists. Read both channels according to
+the [CLI exit-status contract](../reference/cli.md#exit-statuses) and
+[envelope contract](../BOUNDED_TRACING.md#envelope).
 
 ## Captured evidence has limits
 
@@ -104,6 +121,16 @@ completed. Result envelopes report completion and diagnostics alongside an
 optional trace payload; ordinary traces have their own output and exit-code
 contract. Use the [result-contract reference](../reference/output.md#result-contracts)
 and [bounded tracing](../BOUNDED_TRACING.md) when interpreting incomplete results.
+
+Single-stack exception snapshots still use the event label `step_line`; a second
+snapshot at the throwing source line need not be a second execution of that
+statement. An `exception` event label is available only in multithread capture.
+Inspect captured guest stderr and structured result metadata instead of relying
+on event names alone. Single-stack Java/batch jobs currently can report
+`completed` and `complete: true` when an uncaught exception originates inside JDK
+or binary-dependency code; its stack trace remains in guest stderr. The
+[uncaught-exception reference](../reference/output.md#uncaught-exceptions)
+explains these mode-specific limits.
 
 Capturing state also does not isolate guest execution. The program still runs;
 hosted untrusted submissions require the separate protections described in the

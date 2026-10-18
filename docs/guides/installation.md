@@ -28,8 +28,9 @@ An invalid `JAVA_HOME` does not fall back to `PATH`. In contrast, typing bare
 `java` in a shell does not automatically use `JAVA_HOME`.
 
 Run the commands for your shell to inspect both settings. These commands report
-what is configured; they do not change it. Missing commands or an unset
-`JAVA_HOME` are reasons to complete the selection step below.
+what is configured; they do not change it. Missing or mismatched tools, or an
+invalid explicit JDK selection, are reasons to complete the selection step below.
+An unset `JAVA_HOME` is acceptable when the PATH-only probes and checkpoint pass.
 
 Bash — Linux or macOS:
 
@@ -73,6 +74,36 @@ the root of a JDK application bundle may end in `Contents/Home`.
 If you do not have a full JDK, install one using your course or organization's
 instructions before continuing.
 
+If the bare `java` command already selects your intended JDK, ask that runtime
+for its root. Copy only the path after `java.home =` from the output:
+
+```sh
+# Bash on Linux or macOS
+java -XshowSettings:properties -version 2>&1 | sed -n '/java.home =/p'
+```
+
+```powershell
+# PowerShell on Windows
+java -XshowSettings:properties -version 2>&1 | Select-String 'java.home ='
+```
+
+```bat
+rem Command Prompt on Windows
+java -XshowSettings:properties -version 2>&1 | findstr /C:"java.home ="
+```
+
+On macOS, `/usr/libexec/java_home -V` can also list registered JDK roots. A JDK
+installed by a package manager or version manager may not appear in that list;
+the running Java command's `java.home` identifies its selected runtime. Confirm
+that the chosen root also contains the compiler before selecting it below.
+
+You may keep a PATH-only setup when `JAVA_HOME` is unset and bare `java --version`
+and `javac --version` already report the same complete stable release, 21 or later.
+In that case, skip the assignments below and the explicit `JAVA_HOME` probes in
+the next section. Use the bare version commands and the PATH-only installation
+checkpoint described below. An invalid nonempty `JAVA_HOME` must still be corrected
+or unset; a working `PATH` does not override it.
+
 Replace the example JDK path below with that directory, keeping the quotes.
 The commands select the JDK and put its `bin` directory before the existing
 `PATH`. They affect this terminal session and programs started from it; they do
@@ -112,7 +143,7 @@ set "PATH=%JAVA_HOME%\bin;%PATH%"
 
 ## Verify the selected tools
 
-Run the matching block in the same terminal. The explicit paths check the JDK
+After setting `JAVA_HOME`, run the matching block in the same terminal. The explicit paths check the JDK
 selected by `JAVA_HOME`; the remaining commands show what the bare commands used
 in the tutorials resolve to. PowerShell's `&` invokes the quoted executable path.
 
@@ -275,9 +306,9 @@ source file and explains which directory to use for each installation.
 
 ## Verify your installation
 
-Use the same terminal where you selected the JDK. Work in the directory containing
+Use the same terminal where you selected or verified the JDK. Work in the directory containing
 `code-tracer.jar`: the download directory, the extracted `code-tracer` directory,
-or `target` after a source build. Run the block for your shell:
+or `target` after a source build. With `JAVA_HOME` set, run the block for your shell:
 
 Bash:
 
@@ -306,16 +337,24 @@ java -jar code-tracer.jar --version
 ```
 <!-- jdk-tracer-cmd:end -->
 
-Both commands must succeed and report the same tracer version, source commit,
-and Java runtime details. The first confirms that the explicitly selected JDK
+Both commands must succeed and report the same tracer version. Development builds
+also report the source commit and Java runtime details; those must agree too.
+The 4.1.0 release prints only its tracer version, so use the separate `java` and
+`javac` probes above to verify the JDK. The first command confirms that the explicitly selected JDK
 can run the tracer; the second confirms that the shorter tutorial command works.
 If either fails, preserve its stderr diagnostic and follow
 [startup troubleshooting](troubleshooting.md#the-tracer-does-not-start).
 A failure mentioning a different running JDK means the direct invocation and
 environment selection still disagree.
 
-You are ready for [your first trace](../tutorials/first-trace.md) when both commands
-succeed. Keep using this terminal so the session's JDK selection stays in effect.
+For a PATH-only setup with `JAVA_HOME` unset, run only
+`java -jar code-tracer.jar --version`. It must succeed. When the report includes
+Java runtime details, they must match the release verified by the bare `java`
+and `javac` commands. For 4.1.0's version-only output, keep those separate tool
+probes as the JDK check. The explicit `JAVA_HOME` command is unnecessary in this setup.
+
+You are ready for [your first trace](../tutorials/first-trace.md) when the applicable
+checkpoint succeeds. Keep using this terminal so the session's JDK selection stays in effect.
 
 ## Advanced launcher configuration
 

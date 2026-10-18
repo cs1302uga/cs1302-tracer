@@ -14,12 +14,35 @@ read by the traced program.
 
 | Task | Recipe |
 | --- | --- |
+| Check whether a teaching program can be traced | [Program requirements](#program-requirements) |
 | Capture the final state or a sequence of states | [Choose snapshots](#choose-snapshots) |
 | Compare repeated hits at a loop line | [Trace a loop](../tutorials/trace-a-loop.md) |
 | Give the program input | [Supply program input](#supply-program-input) |
 | Submit a program with several source files | [Submit multiple files](#submit-multiple-files) |
 | Use precompiled classes or a dependency JAR | [Add binary dependencies](#add-binary-dependencies) |
 | Change output presentation or keep a partial result | [Choose presentation and budgets](#choose-presentation-and-budgets) |
+
+## Program requirements
+
+For ordinary single-file input without delimiters, include exactly one public
+top-level type. The tracer derives the temporary source filename from that type;
+the original filename does not replace this requirement. To submit explicitly
+named files, use the [delimited bundle](#submit-multiple-files). Compact source
+files such as a file containing only `void main() { ... }` are not supported.
+
+The entry file is the first submitted file containing a recognized main-method
+candidate. That file must contain exactly one candidate, including candidates
+inside nested types; helper files do not need a main method. A candidate returns
+`void`, is named `main`, and accepts no parameters, one `String[]` parameter, or
+one `String...` parameter. Source selection does not check access or `static`
+modifiers, so recognition alone does not guarantee that the active JDK can launch
+it. Use `public static void main(String[] args)` for the CLI examples across the
+tested JDKs.
+
+The traced `String[] args` is empty. There is no tracer option for passing program
+arguments, and arguments after `--` are not forwarded to the guest. Adapt an
+argument-driven example to read [guest standard input](#supply-program-input), or
+supply its demonstration values in the source.
 
 ## Choose snapshots
 
@@ -59,6 +82,17 @@ statement's effect.
 The final-state command omits breakpoint options, so it selects main exit. Envelope
 mode places that capture inside a sequence root.
 
+This default capture expects a main-exit snapshot. There are current limitations
+when main ends through `System.exit`, including status zero, or an uncaught
+exception thrown inside JDK code: ordinary default capture can exit `1`, report an
+internal missing-snapshot error, and leave the JSON file empty. Use chronological
+capture (`--all-breakpoints`) or selected executable locations to retain the
+states reached before termination. A directly thrown exception in submitted code
+can instead supply a terminal exception snapshot in place of normal main exit.
+See [capture when main does not return](../reference/cli.md#capture-when-main-does-not-return)
+and [uncaught exceptions](../reference/output.md#uncaught-exceptions) for the
+differences between trace generation and guest success.
+
 To select particular stops, use `list-breakpoints` to discover executable lines;
 blank lines and declarations need not have a location. The
 [loop tutorial](../tutorials/trace-a-loop.md) compares the following choices:
@@ -66,7 +100,7 @@ blank lines and declarations need not have a location. The
 | Selection | Retained snapshots |
 | --- | --- |
 | `--all-breakpoints` | Encountered stops in execution order. |
-| `--breakpoints "12,Helper.java:5"` | Latest hit at each selected line, optionally qualified by file. |
+| `--breakpoints "12,Helper.java:5"` | Latest hit for each selected file/line; bare line-number result keys can group multiple files. |
 | `--breakpoints=-1` | Main exit. |
 | `--breakpoints 4 --accumulate-breakpoints` | Repeated hits at the selected line. Accumulation alone does not select loop lines. |
 | `--breakpoints 4 --all-breakpoints` | Source-line stops restricted to the selection, retained chronologically. |
@@ -113,7 +147,11 @@ from `Greeting.java`; the guest's input comes from `input.txt`. For a short lite
 input, replace `--stdin-file input.txt` with `--stdin "Ada"`; do not supply both options.
 Omitted guest input is an empty stream, so reads reach end-of-input instead of
 prompting the tracer's terminal. Guest output is inside the JSON; tracer
-diagnostics remain on terminal stderr.
+diagnostics for this ordinary command remain on terminal stderr. For example,
+running `Greeting.java` without guest input makes `Scanner.nextLine()` throw
+`NoSuchElementException`. Keep `--all-breakpoints` when inspecting that failure;
+the default main-exit limitation described above can otherwise prevent JSON output.
+With `--result-envelope`, read job diagnostics inside the JSON envelope instead.
 
 ## Submit multiple files
 
@@ -160,9 +198,23 @@ The final captured `stdout` is `42` followed by a newline. `sources` contains
 selects the first file with a recognized main-method candidate. File-qualified breakpoint line numbers
 start at each file's first content line, excluding the delimiter.
 
-Trusted file-based compilation can discover neighboring source dependencies from
-the inferred source root. In `FIELDS` mode and multithread capture, include every
-required source in the submitted bundle; neighboring discovery is disabled.
+Under the default `TRUSTED` inspection policy, CLI compilation can discover
+neighboring sources when the entry file declares a package. With `--input`, its
+parent directories must match the package path; the directory above that path
+becomes the source root. For source read from stdin, the tracer looks for the
+package directory beneath its working directory, then `src/main/java`, then `src`.
+Default-package programs have no neighboring-source discovery: a helper beside
+`Main.java` is not automatically compiled, so include it in the bundle.
+
+Discovered dependencies can affect compilation and tracing without appearing in
+the submitted `sources` map. To avoid unintentionally compiling matching files
+from the working directory, submit all required source and use
+`--result-envelope --inspection FIELDS`, or run trusted stdin examples from a
+directory without matching package folders. `FIELDS` means field-only inspection;
+it also disables neighboring discovery. Multithread capture selects that same
+source-discovery policy. See [CLI source discovery](../reference/cli.md#source-input-and-discovery)
+and [inspection policies](../BOUNDED_TRACING.md#inspection-policies) for the exact
+boundaries; none of these choices provides host isolation.
 For Java code that assembles bundles programmatically, use the
 [SourceBundle reference](../reference/java-api.md#bundle-source-files), including
 its ordering, validation, file-capture, and link-following rules.
@@ -265,9 +317,13 @@ presentation options change the representation, not the program's source.
 `--format modern` produces typed JSON objects; `--format pytutor` is the default.
 Ordinary modern JSON is always indented. `--pretty` indents Python Tutor output
 and result envelopes without changing capture selection.
-`--inline-strings`, `--remove-main-args`, `--remove-method-this`, and
-`--type-style simple` adjust the presentation; all three boolean options default
-to false, and the default type style is `fqn`.
+`--remove-main-args`, `--remove-method-this`, and `--type-style simple` adjust the
+presentation. `--inline-strings` applies only to Python Tutor output: it places
+string contents inline instead of using the default string-object representation.
+It has no effect on modern output, whose strings remain references to heap string
+objects. All three boolean options default to false; the default type style is
+`fqn`. The executable help currently omits the format qualification for
+`--inline-strings`; this paragraph describes its implemented behavior.
 
 Trusted inspection evaluates lazy enum hash codes by default. Use
 `--no-eval-enum-hash` to suppress that evaluation, or `--eval-enum-hash` to enable

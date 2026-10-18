@@ -20,9 +20,13 @@ then run this command in the directory containing the JAR:
 java -jar code-tracer.jar --help
 ```
 
-Continue with [your first trace](docs/tutorials/first-trace.md), which creates its
-own Java example and needs no source checkout. Use the documentation version
-matching your downloaded release; `/next/` describes development builds.
+Continue with [the current first-trace tutorial](docs/tutorials/first-trace.md),
+which creates its own Java example and needs no source checkout. README links
+lead to development documentation, also served under `/next/`. For release-matched
+guides, choose your downloaded version on the
+[documentation site](https://cs1302uga.github.io/cs1302-tracer/).
+The retained **4.1.0** first-trace tutorial uses an example from a source checkout;
+its setup differs from the current standalone lesson.
 The [installation guide](docs/guides/installation.md) explains JDK setup, available
 assets, and shell-specific launchers. Software releases have `vX.Y.Z` tags;
 separate `docs-*` publications contain historical guide archives.

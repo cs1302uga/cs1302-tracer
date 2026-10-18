@@ -53,8 +53,23 @@ when adding `--completion-order` and more workers. A transport error may abort
 processing before all requests receive responses; the [protocol reference](../reference/batch.md)
 defines those cases.
 
-Workers can reuse guest JVMs for single-stack jobs. Each job's source, output,
-observations, and retained snapshots belong to that job; reused workers do not
-provide OS isolation. Multithread jobs use dedicated guests. For hosted untrusted
-submissions, follow the [runner contract](../RUNNER_CONTRACT.md), including its
-one-disposable-tracer-process-per-job requirement.
+These checks establish the expected result for these two trusted examples.
+Single-stack batch execution currently has an
+[exception-recognition limitation](../reference/batch.md#uncaught-student-exceptions):
+an uncaught exception thrown inside a JDK or precompiled dependency method can
+appear only in guest stderr while the result still reports `completed` and
+`complete: true`. Preserve that output; stderr can also contain ordinary program
+messages and is not a machine-readable success classifier.
+
+Workers reuse guest JVMs for single-stack jobs. Job output, observations and
+retained snapshots start afresh, but some JDK-global state and filesystem effects
+can affect later jobs on the same worker. Use `--max-jobs-per-worker 1` when trusted
+jobs need fresh guest JVMs, and read the [reuse and lifetime rules](../reference/batch.md#guest-reuse-between-jobs)
+for reset scope, background threads and `System.exit` behavior. Multithread jobs
+use dedicated guests.
+
+The tracer is not a sandbox. Neither reused nor fresh guests isolate the whole
+operation: source parsing and compilation run in the tracer process. Run only
+trusted programs directly. Hosted untrusted submissions require one disposable
+tracer process per job under the [runner contract](../RUNNER_CONTRACT.md), even
+when guest recycling is set to one.

@@ -17,9 +17,9 @@ public class JobOptions {
     public boolean envelope;
     @Option(names = "--multithread", description = "Capture application threads in modern JSON.")
     public boolean multithread;
-    @Option(names = "--max-threads", description = "Live application threads; 0 is unlimited.")
+    @Option(names = "--max-threads", description = "Live application threads with --multithread; 0 is unlimited.")
     Long threads;
-    @Option(names = "--max-frames", description = "Total frames per snapshot; 0 is unlimited.")
+    @Option(names = "--max-frames", description = "Total frames per snapshot with --multithread; 0 is unlimited.")
     Long frames;
     @Option(names = "--max-snapshot-bytes", description = "Bytes per snapshot; 0 is unlimited.")
     Long snapshotBytes;

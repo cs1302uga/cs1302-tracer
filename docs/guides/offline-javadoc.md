@@ -24,12 +24,40 @@ Save the three files together in a new directory. You also need **GitHub CLI**
 (`gh`) with the verification options below, and a **JDK** with `jar` on your
 `PATH`. No source checkout or publishing privileges are required.
 
+Check the CLI before starting:
+
+```sh
+gh --version
+gh attestation verify --help
+```
+
+The recipe requires `--bundle`, `--hostname`, `--repo`, `--signer-workflow`,
+`--signer-digest`, `--source-digest`, `--source-ref`, `--deny-self-hosted-runners`,
+and `--predicate-type`. These options were checked with GitHub CLI 2.102.0;
+an earlier version works only if it supplies every required option. Upgrade the
+CLI if the subcommand or an option is missing. Keep the verification options;
+removing an unsupported check weakens the provenance policy.
+
+## Find the release commit
+
 In the commands below, replace `X.Y.Z` with the stable version without its `v`
 prefix. Replace `FULL_RELEASE_COMMIT_SHA` with the full 40-character lowercase
 commit SHA identified by that release's `vX.Y.Z` tag on GitHub. Use the commit the
 tag points to, not an annotated tag object's SHA. Confirm this expected identity
 from the project's release/tag history; do not copy it from the downloaded JAR
 or attestation as a substitute for choosing which release to trust.
+
+Resolve the selected tag to its commit with:
+
+```sh
+gh api repos/cs1302uga/cs1302-tracer/commits/vX.Y.Z --jq .sha
+```
+
+The output must be one 40-character lowercase hexadecimal commit SHA. Alternatively,
+open the selected release on GitHub, follow the commit link beside its tag, and
+copy the full commit SHA. For an annotated tag, the Git refs API and an unpeeled
+`git ls-remote` result identify the tag object, which is a different object from
+the commit. The commits API above resolves the tag to the required commit.
 
 ## Verify, then extract
 
