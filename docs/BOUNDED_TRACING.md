@@ -7,8 +7,9 @@ job status and completed partial snapshots. These settings do not isolate a prog
 
 Ordinary defaults are 10 seconds of tracing, 10,000 snapshots, 1 MiB of output per
 stream, 10,000 heap objects and 100,000 elements per snapshot, 64 MiB of accounted
-trace data, 1 MiB of submitted source, 128 streamed source files, 64 live
-application threads, 4,096 total frames per snapshot, and 8 MiB per snapshot. These are
+trace data, 1 MiB of submitted source, 128 streamed source files, and 8 MiB per
+snapshot. Multithread capture additionally uses defaults of 64 live application
+threads and 4,096 total frames per snapshot. These are
 configurable interactive-workload defaults, not measured process-memory ceilings.
 Source limits cover submitted input, not neighboring sources discovered on disk,
 binary dependencies, or copied resource trees. Dependency selection and copying
@@ -41,6 +42,34 @@ hosted job. In envelope mode, omitted budget options use zero (unlimited).
 Negative values, timeouts greater than `Long.MAX_VALUE / 1_000_000` milliseconds,
 and unsupported options are rejected before tracing.
 
+## Guest modes
+
+The guest is the JVM that executes submitted code. Its lifetime and default budget
+profile depend on the entry point:
+
+| Entry point | Guest lifetime | Budget defaults |
+| --- | --- | --- |
+| Ordinary CLI `trace` | A dedicated JVM for that invocation. | Finite instructor defaults listed above. |
+| CLI `trace --result-envelope` | A dedicated JVM for that invocation. | Omitted limits are unlimited. |
+| Java `Tracer.trace`, single-stack capture | The reusable guest harness, owned and closed by one API call. | `TraceRequest` convenience constructors and builders use finite instructor defaults; explicit requests supply their limits. |
+| `batch-trace` or `BatchTracer`, single-stack capture | A reusable JVM per worker, recycled after its configured completed-job count or when replacement is needed. | Omitted request limits are unlimited. |
+| Multithread capture through CLI, Java, or batch | A fresh dedicated JVM for each job. | The calling entry point's budget profile still applies. |
+
+A dedicated guest follows ordinary JVM lifetime: non-daemon application threads
+can keep it running after `main` returns. A reusable guest finishes a job when its
+entry point returns, interrupts lingering job threads, and treats unexpected guest
+termination, including `System.exit(0)`, as `guest_exit` unless an earlier reason
+takes precedence. The reusable harness resets selected process state, not every
+**JDK** global setting or filesystem effect. One completed job per worker avoids
+reuse between executed jobs; it does not provide host isolation. See the
+[batch lifecycle contract](reference/batch.md) for recycling and state boundaries.
+
+Single-stack reusable guests also have an
+[uncaught-exception recognition limitation](reference/output.md#uncaught-exceptions):
+exceptions thrown inside JDK or precompiled dependency code can leave completion
+metadata indicating success while their stack trace appears in guest stderr.
+This limitation does not change the dedicated CLI envelope's exception reporting.
+
 ## Limits
 
 | Option | Meaning |
@@ -57,9 +86,10 @@ and unsupported options are rejected before tracing.
 | `--max-snapshot-bytes` | Accounted bytes for one snapshot, using the same accounting as trace bytes. |
 | `--max-source-files` | Number of delimiter-defined source files, checked before parsing. Undelimited input counts as one file. |
 
-Usage equal to a cap is allowed. A job stops when it would exceed a cap. The first
-observed stop reason wins; concurrent deadline/output/cancellation events do not
-have a guaranteed ordering. To turn a cap off explicitly, set it to zero.
+Counted usage equal to a cap is allowed; an attempt to exceed it stops the job.
+A nonzero deadline instead expires when elapsed tracing time reaches its configured
+duration. The first observed stop reason wins; concurrent deadline/output/cancellation
+events do not have a guaranteed ordering. To turn a cap off explicitly, set it to zero.
 
 `traceBytes` is deterministic accounting, not a measurement of Java heap use. Each
 snapshot starts at 256 units; encountered objects charge 128 units; inspected
@@ -89,7 +119,7 @@ The independent watchdog can terminate the guest even while such a call blocks.
 `FIELDS` avoids these method invocations. Objects, including collections and
 wrappers, are inspected through fields; arrays, strings, and colors retain dedicated
 representations. Colors are read from fields without invoking `getRGB`.
-Collection internals vary by **JDK** and are not promised to match
+Collection internals vary by JDK and are not promised to match
 TRUSTED collection presentation. A diagnostic describes this policy in the result.
 Only bytes already emitted to the OS pipes can be captured: guest buffers are not
 flushed by calling into the program.
@@ -102,7 +132,9 @@ policy restricts inspection, not what guest code itself may do.
 
 ## Envelope
 
-The opt-in result contains:
+CLI `trace --result-envelope`, Java `TraceOutcome.json()`, and the `result` object
+in a batch response share this version 1 schema. Entry-point defaults and guest
+lifetimes remain [caller-specific](#guest-modes). The result contains:
 
 - `schemaVersion`: currently `1`.
 - `format`: `pytutor` or `modern`; batch request parse failures use `unknown`.
@@ -111,8 +143,12 @@ The opt-in result contains:
 - `phase`: usually `source`, `compile`, `trace`, or `serialize` at
   completion/failure. Batch request parsing can report `parse`; Java and batch
   configuration or guest-startup failures can report `validation` or `tracer`.
-- `complete`: true only for normal execution and capture completion.
-- `trace`: a normal format-specific root, or null if no usable payload was available.
+- `complete`: true when the tracer recorded completion without a stop or failure.
+  It does not establish successful guest behavior; the reusable-guest exception
+  limitation described above can leave it true after an uncaught exception.
+- `trace`: a format-specific sequence root, or null if no usable payload was
+  available. Modern envelope payloads preserve optional null properties that
+  ordinary modern CLI output omits; see the [serialization rules](reference/output.md#null-properties-in-modern-output).
 - `limits`: effective budgets, using the camelCase names from `TraceLimits`.
 - `counters`: available accounting, including captured/retained snapshots,
   accounted bytes, dropped unfinished snapshots, elapsed tracing milliseconds,
@@ -123,42 +159,100 @@ The opt-in result contains:
   for incomplete/invalid sequences. Available even if no snapshot completed.
 
 Envelope traces always use a root containing a sequence (`trace` for Python Tutor,
-`steps` for modern). Selected-breakpoint jobs retain the latest snapshot per line
-unless accumulation is requested; retained states appear in capture order. Existing
-non-envelope selected-breakpoint dictionary output is unchanged.
+`steps` for modern). Selected-breakpoint jobs retain the latest snapshot per
+`(file, line)` unless accumulation is requested; retained states appear in capture
+order. Existing non-envelope selected-breakpoint dictionary output still groups
+by bare line number, so one key can contain hits from multiple files. See
+[result contracts](reference/output.md#result-contracts).
 
-An empty sequence means capture ran without a completed snapshot. Null means
-no usable trace payload was available, for example after compilation failure,
-serializer failure, or a failed Java/batch capture that completed no snapshots.
-It does not prove that no guest was launched. Completed snapshots are committed
-atomically; an interrupted snapshot is discarded rather than returned with
-dangling references.
+Available counter keys include `snapshotsCaptured` (committed captures, including
+later replacements), `snapshotsRetained` (remaining history size), `retainedBytes`
+(accounted storage), and `droppedSnapshots` (zero or one unfinished snapshot
+discarded, rather than a count of replacements). `elapsedMillis` begins at the
+trace phase, excluding source preparation and reusable-guest startup. `stdoutBytes`
+and `stderrBytes` count retained guest bytes per stream; `guestExitCode` is available
+when an attached process has terminated. Early failures can have fewer counters.
 
-Stop codes:
+Payload availability depends on the caller and completion path, not final status
+alone:
 
-| Code | Meaning |
+| Caller and completion path | Payload when no snapshot was committed |
 | --- | --- |
-| `timeout`, `cancelled` | Deadline or caller cancellation. |
-| `snapshot_limit`, `output_limit`, `heap_limit`, `element_limit`, `trace_limit` | Tracing resource cap reached. |
-| `source_limit`, `source_file_limit` | Submission input cap reached. |
-| `compile_error` | Source read/parse/compile failure. Consult `phase` and diagnostics. |
-| `guest_exception` | Observed uncaught exception in the guest. |
-| `guest_exit` | Nonzero dedicated-guest exit, or unexpected reusable-guest termination, without an earlier recorded stop/failure. |
-| `tracer_error` | Recoverable internal tracing or serialization failure. |
-| `parse_error`, `validation_error` | Batch request parsing failure, or invalid Java/batch configuration. |
-| `interrupted` | Batch worker admission interrupted before execution. |
+| CLI envelope before a guest is attached, such as source or compile failure | Null. |
+| CLI envelope after a guest is attached | A format-specific root with an empty sequence, unless rendering fails. |
+| Java or batch capture returns normally and empty history is rendered | A format-specific root with an empty sequence, even if a later guest-liveness check records `guest_exit`. |
+| Java or batch recovers from a thrown preparation, capture, or rendering failure | Null; recovery requires nonempty retained history before rendering a partial payload. |
+| Java or batch rejects configuration or cannot start its guest | Null. |
+
+Serialization failure can also leave a null payload after capture. A worker can
+record `guest_exit` after rendering, so even a `failed` result can contain an empty
+sequence. Null therefore does not prove that no guest ran, and an empty sequence
+does not prove successful guest execution. Inspect `status`, `stopReason`, and
+available snapshot counters instead of inferring progress from null versus an
+empty sequence. Completed
+snapshots are committed atomically; an unfinished snapshot is discarded while
+previously committed snapshots remain available when rendering succeeds.
+
+Snapshot output is also caller-specific. CLI envelopes refresh trailing guest
+output only on the final retained snapshot overall, while Java/batch selected
+payloads refresh the latest retained hit at each `(file, line)` unless a
+`trace_limit` stop prevents that projection. Ordinary CLI selected output instead
+refreshes the final hit under each bare line-number key, which can combine hits
+from multiple files. Envelope
+`stdout` and `stderr` carry the available streams independently of that projection.
+See [input and output observations](reference/output.md#input-and-output-observations).
+
+## Stop codes
+
+The table lists the emitted codes and result statuses. Here **CLI** means a result
+from `trace --result-envelope`; Java means `Tracer.trace`; batch includes
+`batch-trace` and `BatchTracer`. Ordinary CLI tracing can report a controlled stop
+on stderr without an envelope. Thread-only entries require multithread capture.
+
+| Code | Status | Entry points | Meaning and configuration |
+| --- | --- | --- | --- |
+| `timeout` | `stopped` | CLI, Java, batch | Trace-phase deadline reached; `--timeout-ms` / `timeoutMillis`. |
+| `cancelled` | `stopped` | CLI, Java, batch | Tracing owner interrupted or internal cancellation requested. |
+| `snapshot_limit` | `stopped` | CLI, Java, batch | Completed-capture cap; `--max-snapshots` / `snapshots`. |
+| `output_limit` | `stopped` | CLI, Java, batch | Per-stream retained output cap; `--max-output-bytes` / `outputBytes`. |
+| `heap_limit` | `stopped` | CLI, Java, batch | Reachable objects per snapshot; `--max-heap-objects` / `heapObjects`. |
+| `element_limit` | `stopped` | CLI, Java, batch | Inspected elements per snapshot; `--max-elements` / `elements`. |
+| `trace_limit` | `stopped` | CLI, Java, batch | Accounted snapshot storage; `--max-trace-bytes` / `traceBytes`. |
+| `snapshot_byte_limit` | `stopped` | CLI, Java, batch | Accounted storage per snapshot in every capture mode; `--max-snapshot-bytes` / `snapshotBytes`. |
+| `source_limit` | `stopped` | CLI, Java, batch | Submitted source bytes; `--max-source-bytes` / `sourceBytes`. |
+| `source_file_limit` | `stopped` | CLI, Java, batch | Delimiter-defined source files; `--max-source-files` / `sourceFiles`. |
+| `thread_limit` | `stopped` | CLI, Java, batch; thread-only | Live application threads; `--max-threads` / `threads`. |
+| `frame_limit` | `stopped` | CLI, Java, batch; thread-only | Total frames before application filtering; `--max-frames` / `frames`. |
+| `unsupported_virtual_thread` | `stopped` | CLI, Java, batch; thread-only | Virtual-thread capture is unsupported; no budget removes this check. |
+| `value_nesting_limit` | `stopped` | CLI, Java, batch | Fixed inline-value nesting ceiling; see [representation nesting](#representation-nesting). |
+| `inline_value_cycle` | `stopped` | CLI, Java, batch | Cyclic inline value graph; ordinary guest heap-reference cycles remain supported. |
+| `type_nesting_limit` | `stopped` | CLI, Java, batch | Fixed type-helper safety boundary; see [representation nesting](#representation-nesting). |
+| `json_nesting_limit` | `stopped` | Batch | Request JSON nesting exceeds the fixed parse ceiling; the correlation ID is null. |
+| `compile_error` | `failed` | CLI, Java, batch | Source read, parse, or compilation failure, or dependency preparation failure such as a missing class-path entry or invalid JAR. Consult `phase` and diagnostics. |
+| `guest_exception` | `failed` | CLI, Java, batch | Observed uncaught guest exception, subject to the [reusable-guest recognition limitation](reference/output.md#uncaught-exceptions). |
+| `guest_exit` | `failed` | CLI, Java, batch | Nonzero dedicated-guest exit, or unexpected reusable-guest termination including exit zero, without an earlier recorded reason. |
+| `tracer_error` | `failed` | CLI, Java, batch | Tracing, guest startup, or serialization failure; also malformed Java/batch breakpoint text parsed after successful compilation in phase `trace`. |
+| `parse_error` | `failed` | Batch | Request decoding failure, including negative limits rejected while constructing the decoded request; the correlation ID is null. |
+| `validation_error` | `failed` | Java, batch | Configuration rejected during job validation, such as an incompatible format/capture combination. Deferred breakpoint syntax errors instead use `tracer_error`. |
+| `interrupted` | `stopped` | Batch | Worker admission interrupted before execution. |
 
 With `trace --result-envelope`, exit codes are 0 for completed jobs, 1 for failed
-jobs, 2 for invalid CLI configuration, and 3 for controlled stops. Invalid CLI
-configuration follows Picocli's stderr diagnostics and need not produce an
-envelope. Ordinary tracing also uses 1 for trace-generation failures, 2 for
+jobs, 2 for invalid CLI configuration, and 3 for controlled stops, including fixed
+representation checks. Invalid CLI configuration follows Picocli's stderr diagnostics
+and need not produce an envelope. Environment preflight and unreadable `--stdin-file`
+input can fail before the envelope session begins, returning 1 with no JSON; the
+latter currently prints a stack trace to stderr. Ordinary tracing also uses 1 for
+trace-generation failures, 2 for
 invalid configuration, and 3 for controlled stops, but retains its legacy output
 behavior: a captured guest exception can produce trace JSON with exit code 0.
-Use an envelope when callers must distinguish successful guest execution from
-successful trace generation. Guest stdout/stderr are data inside the envelope;
-tracer diagnostics must not be mixed into JSON stdout.
+Use a CLI envelope for observed guest-failure metadata rather than relying only
+on ordinary trace-generation success. The [guest-mode limitation](#guest-modes)
+still applies to single-stack Java and batch results. Guest stdout/stderr are data
+inside the envelope; tracer diagnostics must not be mixed into JSON stdout.
 The `batch-trace` process reports stream-processing success independently of each
 job's result; inspect every response as described in the [batch protocol](reference/batch.md).
+The [CLI exit-status lookup](reference/cli.md#exit-statuses) summarizes process
+statuses and cases where no envelope is produced.
 
 Library callers use `Tracer.trace(TraceRequest)` with `TraceLimits` and inspect the
 returned `TraceOutcome`; see [Java integration](reference/java-api.md). The supported
@@ -172,32 +266,13 @@ a fatal JVM error, or host failure. A kill may interrupt JSON writing. Reject
 incomplete artifacts and publish an authoritative runner failure result instead.
 Recovering checkpoints after a kill is deferred.
 
-## Verification
+## Multithread capture
 
-```sh
-./mvnw -B -ntp clean package
-./scripts/uv run python -m unittest discover -s examples -p test_verify.py
-./scripts/uv run python examples/verify.py
-```
-
-The committed regression fixtures live in `examples/regression/`; their manifest
-selects the source programs and capture options. **Git** history records fixture and
-source-line updates. Verification never overwrites fixtures. Regeneration is explicit:
-
-```sh
-./scripts/uv run python examples/verify.py --update
-```
-
-Review every regenerated diff. The normalizer changes heap IDs only, preserving
-reference sharing, cycles, values, source lines, step order, and output metadata.
-The existing `examples/test.sh FILE [OPTIONS...]` and `generate_all.sh` commands
-remain output-generation tools rather than regression verification commands.
-
-Thread capture adds `thread_limit`, `frame_limit`, `snapshot_byte_limit`, and
-`unsupported_virtual_thread` stop reasons. An unfinished snapshot is discarded;
-previously committed snapshots remain available in the envelope. Batch limit
-fields are `threads`, `frames`, and `snapshotBytes`; like other envelope limits,
-omitted fields or zero are unlimited.
+Thread capture adds `thread_limit`, `frame_limit`, and `unsupported_virtual_thread`.
+The separate `snapshot_byte_limit` applies to every capture mode. Batch fields
+`threads` and `frames` apply to multithread capture, while `snapshotBytes` applies
+to every job. Omitted batch limits or zero are unlimited. See the
+[stop-code table](#stop-codes) for statuses and matching options.
 
 Multithread capture always disables guest method invocation, including stream
 flush and collection accessors, even when the selected inspection policy is
@@ -212,3 +287,10 @@ not retained. Guest heap references are leaves for this check, so long reference
 chains and ordinary cyclic guest objects remain supported. Type helper depth
 rejections use `type_nesting_limit`. See [nesting boundaries](contributing/security-analysis.md#nesting-boundaries)
 for the exact checks and remaining source-parser isolation requirements.
+
+## Verification
+
+Contributor commands for checking and intentionally regenerating committed trace
+fixtures are maintained in the [development guide](contributing/development.md#compatibility-fixtures).
+Verification preserves source locations, event order, output, and reference
+relationships; changing expected fixtures is not a substitute for diagnosing a regression.

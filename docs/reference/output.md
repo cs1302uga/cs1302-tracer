@@ -13,8 +13,8 @@ describes successful `trace` commands; an error can leave ordinary stdout empty.
 
 | CLI selection | Modern JSON (`--format modern`) | Python Tutor JSON (`--format pytutor`, default) |
 | --- | --- | --- |
-| No capture options | A root object with `steps`, containing the final main-exit snapshot. | A root object with `trace`, containing the final main-exit snapshot. |
-| `--breakpoints 4` | A root object with `breakpoints`; `breakpoints["4"]` is the latest snapshot at that location. | A root dictionary; `["4"]` is a complete Python Tutor payload whose `trace` contains the latest snapshot. |
+| No capture options | A root object with `steps`, containing the final main-exit snapshot on normal return. | A root object with `trace`, containing the final main-exit snapshot on normal return. |
+| `--breakpoints 4` | A root object with `breakpoints`; `breakpoints["4"]` is one latest snapshot, or an array when more than one file has a retained hit at line 4. | A root dictionary; `["4"]` is one complete Python Tutor payload, or an array of payloads when more than one file has a retained hit at line 4. |
 | `--breakpoints 4 --accumulate-breakpoints` | `breakpoints["4"]` is an array of snapshots in hit order. | `["4"]` is an array of complete Python Tutor payloads, one per hit. |
 | `--all-breakpoints` | A root object with a chronological `steps` array. | A root object with a chronological `trace` array. |
 | `--all-breakpoints --breakpoints 4` | A chronological `steps` array for the selected location, plus the main-exit snapshot when reached. | A chronological `trace` array for the selected location, plus the main-exit snapshot when reached. |
@@ -25,14 +25,25 @@ with `list-breakpoints`; a selected line that is not reached has no hit to displ
 `--all-breakpoints` selects chronological presentation even when
 `--accumulate-breakpoints` is also supplied. Without an explicit `--breakpoints`
 selection, accumulation alone does not request all executable lines.
+Selected-breakpoint dictionary keys are unqualified line numbers, even when the
+request uses `FILE:LINE` selections. In latest mode, a shared line key retains one
+latest hit per file; inspect each snapshot's `file` to distinguish them. With
+accumulation, the array interleaves those files' hits in capture order for that
+line. Consumers must accept a single value or an array in latest mode. Use
+`--all-breakpoints` or `--result-envelope` for a uniform sequence instead.
+See [uncaught exceptions](#uncaught-exceptions) for final-state capture when the
+entry method does not return normally.
 
 The envelope separates trace-generation status from the payload; its `trace` can
 be `null` when unavailable. It also changes the budget profile: **omitted envelope
 limits are unlimited**, whereas ordinary tracing has finite defaults. Consult
 [bounded tracing](../BOUNDED_TRACING.md) for the full limits and partial-result
 contract and the [CLI exit-status lookup](cli.md#exit-statuses) before automating
-these commands. Java API outcomes and batch responses use their own envelope
-contracts; see the [Java reference](java-api.md) and [batch protocol](batch.md).
+these commands. CLI envelopes, Java API outcomes, and the `result` in each batch
+response share that version 1 result schema. The [Java reference](java-api.md)
+and [batch protocol](batch.md) define their entry-point defaults and transport
+wrappers. Serialization of optional properties also differs between ordinary and
+envelope output; see [null properties](#null-properties-in-modern-output).
 
 For a runnable comparison of latest, accumulated, and chronological captures, use
 [Trace a loop](../tutorials/trace-a-loop.md). For the relationship between captured
@@ -59,9 +70,21 @@ public class Main {
 Both formats include `code`, `sources`, and `entryFile`. `code` retains the supplied
 input; `sources` maps package-relative file paths to submitted source text, excluding
 multi-file delimiters. `entryFile` selects the initial file and is a key in `sources`.
-Map order does not choose the entry point. Step and frame `file` values select the
-corresponding source; line numbers are 1-based. Discovered dependencies outside the
-submitted bundle are not included in `sources`.
+Map order does not choose the entry point. A step or frame's `file` can be used to
+look up submitted text only when that key exists in `sources`. Single-stack
+capture includes **JDK** and binary-library frames between submitted frames; their
+debug paths, such as `java/util/Collections.java`, are not supplied source files.
+Frames can also lack debug source information. Consumers must handle frames
+without available source. The library frames and their line numbers depend on the
+JDK version and build. Multithread capture filters stacks to submitted application
+frames. Discovered dependencies outside the submitted bundle are not included in
+`sources`.
+
+Source-backed line numbers are 1-based. A multithread step whose triggering thread
+has no submitted frame uses `line: 0`, `method: ""`, and an empty top-level
+`callStack`; its `file` is absent in ordinary output and null in envelopes. Treat
+line zero as no source location, rather than indexing the last line of a file.
+Use `triggeringThreadId` and `threads` to interpret that lifecycle step.
 
 Logical submitted paths choose compilation destinations. Escaping or duplicate
 destinations are rejected during preparation. Rendered source identities instead
@@ -83,9 +106,51 @@ read or every custom reader's buffering. Each job starts with a fresh cursor.
 
 Snapshot `stdout` and `stderr` contain cumulative captured output. Chronological
 snapshots record progress; after execution, the final snapshot receives trailing
-output when budgets permit. Selected-breakpoint presentation also refreshes the
-latest retained hit at each location with final output. A result envelope carries
-the available guest streams even when no usable snapshot payload exists.
+output when budgets permit. Selected-breakpoint output refreshes earlier locations
+differently by caller:
+
+- Ordinary CLI output refreshes the last retained hit under each bare line-number
+  key. If multiple files share that key, only its final hit receives trailing
+  output; another file's latest hit can keep an earlier prefix.
+- Java/batch payloads refresh the latest retained hit at each `(file, line)`,
+  except after a `trace_limit` stop.
+- CLI `trace --result-envelope` refreshes only the final retained snapshot overall.
+  Earlier selected locations can retain their capture-time output prefixes.
+
+These rules also apply when selected hits are accumulated; earlier accumulated
+hits keep their captured prefixes. A result envelope carries the available guest
+streams independently of snapshot projection, even when no usable snapshot
+payload exists.
+
+## Uncaught exceptions
+
+Without multithread capture, both formats use `event: "step_line"` for ordinary
+source stops, main-exit snapshots, and terminal exception snapshots. A terminal
+snapshot at a submitted throw line can immediately follow a pre-statement snapshot
+at that same line; retain both rather than deduplicating by source location.
+The last snapshot receives the captured exception stack trace in guest `stderr`
+when output budgets permit. An ordinary trace can emit this JSON and exit zero,
+because its process status describes trace generation. If default final-state
+capture has no usable terminal snapshot, such as when an exception is thrown in
+JDK code or the guest exits before normal main return, ordinary tracing can fail
+without JSON; chronological capture can retain earlier stops.
+
+CLI `trace --result-envelope` records observed uncaught exceptions as
+`status: "failed"`, `stopReason: "guest_exception"`, and `complete: false`, with
+available partial snapshots and guest streams. Multithread modern output also
+emits `event: "exception"`; other threads can continue until guest termination or
+a stop. Consult the [shared stop-code table](../BOUNDED_TRACING.md#stop-codes) and
+[CLI exit statuses](cli.md#exit-statuses).
+
+Single-stack Java and batch execution uses a reusable guest and has a current
+exception-recognition limitation: an uncaught exception thrown inside JDK or
+precompiled dependency code can leave `status: "completed"`, `complete: true`,
+and no `guest_exception` reason, with the stack trace only in guest `stderr`.
+Exceptions thrown directly from submitted code are recognized. Completion
+metadata therefore does not prove successful guest execution in that mode.
+Stderr can also contain ordinary application messages; its presence or absence
+is not a stable machine classifier. See [guest modes](../BOUNDED_TRACING.md#guest-modes)
+and the [batch exception contract](batch.md#uncaught-student-exceptions).
 
 ## Floating-point special values
 
@@ -218,16 +283,17 @@ Output/input fields record captured streams and guest input consumption.
 `--multithread --format modern` adds `threads` and `triggeringThreadId` to every
 step, including steps where only one application thread exists. It implies
 chronological capture; `--breakpoints` can still restrict source-line stops.
-Without `--multithread`, the existing output shape is preserved. Python Tutor
-cannot represent this mode; the CLI, batch validation, and Python Tutor serializer
-reject it explicitly.
+Without `--multithread`, thread data is absent or null according to the
+[serialization rules](#null-properties-in-modern-output). Python Tutor cannot
+represent this mode; the CLI, batch validation, and Python Tutor serializer reject
+it explicitly.
 
 Each `threads` entry has `id`, `name`, `state`, and `callStack`. IDs are guest
 object identities, stable within one job and unrelated to a thread's name.
 Stacks contain submitted application frames, bottommost first. The top-level
 `callStack` remains the triggering thread's application stack. All stacks share
 one `heap` and one set of `statics`; the same reference ID means the same object.
-A thread waiting inside **JDK** code can have an empty application stack.
+A thread waiting inside JDK code can have an empty application stack.
 
 Events are `step_line`, `main_exit`, `exception`, `thread_start`, and
 `thread_death`. Death events include the terminating thread with `TERMINATED`
@@ -238,8 +304,13 @@ separate timed and untimed parking. JVM shutdown need not produce a death event
 for every daemon thread.
 
 Capture includes the entry thread's group and descendant groups, plus threads
-observed executing submitted code. JVM service threads are excluded. Platform
-threads and conventional executor pools are supported. Virtual-thread start
+observed executing submitted code. JVM service threads outside those groups are
+excluded. The launcher's `DestroyJavaVM` thread can belong to the admitted group
+and produce lifecycle steps even when the submitted program creates no threads;
+it is not a thread created by that program. Initial `thread_start` and other
+lifecycle steps can have [no source location](#shared-source-metadata), with line
+zero and an empty event stack. Platform threads and conventional executor pools
+are supported. Virtual-thread start
 stops capture with `unsupported_virtual_thread`, preserving prior complete
 snapshots in envelope output.
 
@@ -759,11 +830,28 @@ Completed partial snapshots receive metadata just like complete traces.
 
 Non-envelope selected-breakpoint output may be a dictionary of breakpoint results;
 do not assume every invocation has the chronological root shown above. Modern
-selected output can contain a `breakpoints` mapping. Envelope mode always carries
-a format-specific sequence root when a trace is available.
+selected output has a non-null `breakpoints` mapping. As described in
+[result contracts](#result-contracts), a line key can contain one value or multiple
+files' retained values. Envelope mode always carries a format-specific sequence
+root when a trace is available.
 
 `--result-envelope` adds versioned status, effective limits, counters, diagnostics,
 and bounded guest streams around the trace. `trace` may be null on failure.
-Envelope mode leaves omitted budgets unlimited. Read the full
+CLI envelope mode leaves omitted budgets unlimited; Java request convenience
+constructors use finite defaults, and omitted batch limits are unlimited. Read the full
 [bounded result contract](../BOUNDED_TRACING.md) for limits, exit codes, stop reasons,
 partial results, and the difference between empty and unavailable traces.
+
+### Null properties in modern output
+
+Ordinary modern CLI JSON omits properties whose values are unset. Modern payloads
+inside CLI envelopes, batch results, and Java outcome JSON preserve explicit nulls.
+Examples include root `breakpoints`; step `threads`, `triggeringThreadId`, or
+`file`; frame `this`; heap `fields`, `elements`, `value`, and `sam`; and a variable's
+`value` when the guest value is null. Unset primitive `binary` and `elementBinary`
+metadata remains omitted in every mode.
+
+Treat an absent optional property and a null value as equivalent. Detect a
+selected-breakpoint mapping or multithread data by its non-null value and expected
+type, rather than by key presence alone. The complete chronological examples above
+show ordinary CLI output with its omission policy.

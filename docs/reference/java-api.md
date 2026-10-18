@@ -84,6 +84,23 @@ An incompatible format becomes a validation failure when traced. Source and brea
 text are not parsed during request construction; breakpoint parsing follows successful
 compilation, so compilation diagnostics take precedence over malformed breakpoint text.
 
+Breakpoint entries accept a positive one-based line (`"12"`), a file-qualified
+line (`"demo/Helper.java:5"`), or the unqualified `"-1"` main-exit sentinel. Each
+list element may contain comma-separated specifications; surrounding whitespace,
+blank entries, and empty comma-separated segments are ignored. Null entries are
+rejected by the constructor. An effectively empty selection uses the capture
+mode's default. Malformed nonblank text, including a file-qualified `-1`, currently
+produces a `failed` outcome with `stopReason: "tracer_error"` in phase `trace`
+after successful compilation; it does not throw from request construction.
+
+File qualification uses the package-relative debug source path, such as
+`demo/Main.java`, rather than a `SourceBundle` logical path such as
+`src/demo/Main.java`. A filename suffix such as `Main.java` can match more than
+one submitted file. Use [discovery results](#discover-breakpoints) to construct
+`location.sourcePath() + ":" + location.line()` and to check that a selection
+matches executable code. A valid specification matching no executable location
+can return a completed outcome with an empty step sequence and no diagnostic.
+
 `InspectionPolicy.TRUSTED` can invoke guest methods for specialized collection,
 map, wrapper, and stream inspection. `FIELDS` reads ordinary objects through fields
 and avoids inspection-time method calls; arrays, strings, and `java.awt.Color` retain dedicated
@@ -92,6 +109,8 @@ qualified type labels; `SIMPLE` removes dotted prefixes for presentation without
 resolving Java types. Both settings also apply to the return and parameter types
 in [reconstructed lambda signatures](output.md#lambda-implementation-types),
 including generic arguments and arrays, while preserving the lambda body's text.
+`inlineStrings` applies only to Python Tutor output; modern output keeps string
+heap entries and ignores the setting.
 
 Use the overload `Tracer.trace(request, true)` to include
 [primitive binary metadata](output.md#optional-primitive-binary-metadata) in either
@@ -122,11 +141,28 @@ dependencies through [`TraceClassPath`](#binary-dependencies). The one-shot oper
 uses the same job execution implementation as batch tracing and closes its worker
 before returning. Its payload follows batch/result-envelope trace conventions;
 it does not reproduce ordinary CLI selected-breakpoint map presentation.
+Single-stack calls use the reusable guest harness for that operation; multithread
+calls use a dedicated guest. Thread lifetime, `System.exit(0)`, and guest reuse
+follow the [guest-mode contract](../BOUNDED_TRACING.md#guest-modes) and
+[batch guest rules](batch.md#guest-reuse-between-jobs).
 
-Expected compilation and execution failures become outcomes. `status`, `phase`,
-`stopReason`, and `diagnostics` explain failures or resource stops; `complete`
-indicates successful completion. `json()` returns the existing result envelope,
-while `traceJson()` returns its payload, or the JSON literal `null` when unavailable.
+Expected preparation failures, observed execution failures, and controlled stops
+become outcomes. `status`, `phase`, `stopReason`, and `diagnostics` describe what
+the tracer recorded; `complete: true` means no stop or failure was recorded.
+In single-stack calls, an uncaught exception thrown inside JDK or precompiled
+dependency code can currently appear only in captured `stderr`, while the outcome
+still reports `completed` and `complete: true`. The
+[uncaught-exception contract](batch.md#uncaught-student-exceptions) describes this
+recognition limitation. Guest stderr can also contain ordinary program messages;
+it is not a machine-readable success classifier.
+
+`json()` returns the shared [version 1 result envelope](../BOUNDED_TRACING.md#envelope).
+The accessors mirror its metadata, while `schemaVersion` and effective `limits`
+are available in the JSON. `traceJson()` returns only its format-specific sequence
+payload, or the JSON literal `null` when unavailable. See the
+[stop-code definitions](../BOUNDED_TRACING.md#stop-codes),
+[partial-result rules](../BOUNDED_TRACING.md#envelope), and
+[JSON payload reference](output.md) when consuming these strings.
 Both JSON strings are materialized before the operation returns. Metadata
 collections are immutable, and an outcome remains valid after guest cleanup and
 later jobs. `writeJson(Writer)` writes the envelope
@@ -446,8 +482,9 @@ limits and an excessively large timeout are rejected at `build()` by the same
 validation as direct construction.
 The timeout starts at the trace phase, excluding source preparation and reusable
 guest startup; it is not a whole-job deadline. Thread and frame ceilings apply to
-multithread capture. The element budget counts cumulative inspected items, including
-frames, locals, and string storage units. Retained-byte accounting does not bound
+multithread capture. The element budget counts cumulative inspected items within
+each snapshot, including fields, array slots, frames, locals, and string storage
+units; repeated inspection can count more than once. Retained-byte accounting does not bound
 process memory or final serialized JSON size. See [bounded tracing](../BOUNDED_TRACING.md#limits)
 for the complete budget and accounting semantics.
 
@@ -488,9 +525,16 @@ reads executable line tables without running guest code. The returned
 source path and line, or preparation diagnostics. Locations use package-relative
 paths and one-based lines. A preparation failure has diagnostics and no locations.
 Temporary compilation resources are released before the operation returns.
+Use `location.sourcePath() + ":" + location.line()` for a file-qualified request
+breakpoint; these paths can differ from bundle logical paths as explained
+[above](#trace-a-submitted-program).
 Use `Tracer.discoverBreakpoints(source, dependencies)` for
 [binary dependencies](#binary-dependencies). Dependency line tables are not
 included, and this overload also releases selected dependency resources before returning.
+
+Discovery parses and compiles in the calling JVM without configurable source
+budgets. Not launching a guest does not make untrusted input safe: isolate the
+entire parsing/compilation operation under the [runner contract](../RUNNER_CONTRACT.md).
 
 ## Process a batch stream
 
@@ -521,9 +565,30 @@ try-with-resources. Stream processing flushes responses but leaves caller-owned
 streams open. Blank input lines are ignored, and successful processing returns after
 EOF and all admitted responses. A processor can handle consecutive streams;
 call `processStream` sequentially and never use a closed processor.
-The [batch protocol](batch.md) preserves existing defaults and per-job result
-formats; optional class-path selections belong to each request, allowing consecutive
-jobs to use different dependencies. The CLI `batch-trace` command uses this same public operation.
+The [batch protocol](batch.md) determines the NDJSON request defaults, rather than
+`TraceRequest` defaults. Omitted `limits`, and fields omitted from a partial
+`limits` object, are zero (unlimited); inspection defaults to `TRUSTED`. For
+example, `{"limits":{"timeoutMillis":5000}}` bounds tracing time only, whereas
+`TraceLimits.builder().timeoutMillis(5000).build()` retains every other finite
+instructor budget. Supply all eleven intended [JSON limit fields](batch.md#request-limits)
+and compare admitted jobs' echoed `result.limits` with the intended budgets.
+Optional class-path selections belong to each request. The CLI `batch-trace`
+command uses this same public operation.
+
+Single-stack workers can reuse a guest JVM across jobs. See
+[guest reuse](batch.md#guest-reuse-between-jobs) for restored state, persistent
+JDK-global state, thread interruption and `System.exit` behavior. Set
+`maxJobsPerWorker(1)` when trusted jobs require fresh guest JVMs; filesystem
+effects and host-process state remain separate. Neither fresh guests nor class
+loaders isolate hostile source parsing, compilation or execution. Hosted untrusted
+submissions require one disposable tracer/embedding process per job under the
+[runner contract](../RUNNER_CONTRACT.md).
+
+Inspect every response's status, completion, reason and captured output; the
+[single-stack exception-recognition limitation](batch.md#uncaught-student-exceptions)
+also applies here. A normal `processStream` return establishes stream-processing
+success, not successful guest execution. See the
+[shared envelope](../BOUNDED_TRACING.md#envelope) for per-job results.
 
 ## Migrate Java integrations from 3.x
 
