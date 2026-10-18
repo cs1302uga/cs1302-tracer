@@ -57,6 +57,10 @@ Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e
 Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb)
 — Active guide deployment with verified historical archives and retained version routes.
 
+Implementation: [61ab6bd](https://github.com/cs1302uga/cs1302-tracer/commit/61ab6bdabbfdf983b1ff70dec8746541214c47ec)
+— Download-first documentation, verified offline API guidance, and focused
+maintainer guides with preserved section links.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -74,6 +78,13 @@ Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c
   are unchanged.
 
 ### Non-breaking changes
+
+- **CLI learning materials:** add a loop tutorial and a trace-model explanation,
+  annotate the first trace's local values and heap relationships, and supply
+  standalone recipes for input, multiple sources, binary dependencies, and partial
+  results. Document result shapes, defaults, and exit statuses together, and check
+  the runnable lessons against real tracer output. These documentation and checker
+  improvements do not change Java, CLI, or JSON/protocol behavior or published guides.
 
 - **Documentation:** lead the README with downloads and a self-contained first
   trace, distinguish software and guide publications and their assets, and explain

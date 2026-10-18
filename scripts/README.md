@@ -89,7 +89,7 @@ behavior.
 | Script | Purpose |
 | --- | --- |
 | [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
-| [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
+| [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable help, JSON examples, tutorials, and CLI recipes. Requires the packaged tracer JAR and binary ZIP. Checks local/heap relationships, capture modes, input, sources, dependencies, presentation, and partial results. `--update-cli` refreshes the CLI reference. |
 | [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published selection, Javadoc artifact/source and cache controls, and stage timings. |
 | [`build_javadoc.py`](build_javadoc.py) | Select verified release Javadoc or tagged-source output and generate development API pages. Invoke through `docs_site.py api`. |
 | [`javadoc_cache.py`](javadoc_cache.py) | Internal historical-output cache with build-input fingerprints and complete-file integrity checks. Configure it through `docs_site.py`. |

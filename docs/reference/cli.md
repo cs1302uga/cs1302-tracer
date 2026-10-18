@@ -169,6 +169,44 @@ for default values, inspection policies, exit codes, and partial results.
 
 <!-- cli-reference:manual -->
 
+## Trace defaults at a glance
+
+These defaults apply to the ordinary `trace` command. Explicit options can change
+both the retained snapshots and the JSON root shape.
+
+| Setting | Default | Change it with |
+| --- | --- | --- |
+| Source | Read source text from the tracer's standard input. | `--input Main.java` (alias `-i`). |
+| Guest input | Empty input. | `--stdin TEXT` or `--stdin-file FILE`; choose one. |
+| Capture | Final main-exit state. | `--all-breakpoints` (`-a`) for chronological capture, or `--breakpoints` (`-b`) for selected locations. |
+| Repeated selected hits | Retain the latest hit at each location. | `--accumulate-breakpoints` to retain hits grouped by location. |
+| JSON format | `pytutor`. | `--format modern` (`-f modern`). |
+| Type names | Fully qualified (`fqn`). | `--type-style simple`. |
+| Layout | Compact Python Tutor JSON; ordinary modern JSON is always indented. | `--pretty` (`-p`) indents Python Tutor output and result envelopes. |
+| Binary dependencies | None; the host `CLASSPATH` is not imported. | Repeatable `--class-path`, `-classpath`, or `-cp`. |
+| Budgets | Finite instructor defaults. | Explicit `--max-*` options or `--timeout-ms`; `--result-envelope` switches omitted limits to unlimited. |
+
+See [result contracts](output.md#result-contracts) for the exact JSON root shapes,
+[bounded tracing](../BOUNDED_TRACING.md) for numeric defaults, and
+[tracing recipes](../guides/tracing.md) for complete commands and source files.
+
+## Exit statuses
+
+For a single `trace` invocation, check both the process status and, when requested,
+the result envelope. Capture stderr separately from JSON stdout.
+
+| Status | Meaning | Next action |
+| --- | --- | --- |
+| `0` | Trace generation completed. An ordinary trace can still record an exception thrown by the guest program. | Inspect the trace's events and guest output; exit status alone does not establish that the submitted program behaved correctly. |
+| `1` | Environment preflight or trace generation failed. | Read stderr. With an envelope, also inspect `status`, `phase`, and `diagnostics` if an envelope was produced. |
+| `2` | Invalid command arguments or configuration. | Read stderr and compare the invocation with `trace --help`. |
+| `3` | A tracing limit caused a controlled stop. | With `--result-envelope`, inspect the stopped result and any retained prefix. Ordinary mode emits a diagnostic without partial JSON. |
+
+Preflight runs before command work and can prevent an envelope from being produced.
+The [bounded result contract](../BOUNDED_TRACING.md) defines completion, failure,
+stop reasons, and unavailable versus empty payloads. Batch clients should use the
+[batch protocol's per-job statuses](batch.md), not this single-command table.
+
 ## JDK environment preflight
 
 Every CLI invocation first validates its Java environment, including `--help`,

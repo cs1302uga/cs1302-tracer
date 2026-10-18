@@ -72,7 +72,8 @@ library JAR and traces a program using a recursive class-path pattern.
 
 - [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and **Javadoc**, with development documentation under `/next/`.
 - [Installation](docs/guides/installation.md) and [first trace tutorial](docs/tutorials/first-trace.md).
-- [Read a trace](docs/tutorials/read-a-trace.md), [batch tutorial](docs/tutorials/batch-jobs.md), and [Java integration tutorial](docs/tutorials/java-integration.md).
+- [Read a trace](docs/tutorials/read-a-trace.md), [trace a loop](docs/tutorials/trace-a-loop.md), and [understand the trace model](docs/explanation/trace-model.md).
+- [Trace your own program](docs/guides/tracing.md), [process batch jobs](docs/tutorials/batch-jobs.md), or [integrate with Java](docs/tutorials/java-integration.md).
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
 - [HACKING](HACKING.md) — contributor setup and quality gates.

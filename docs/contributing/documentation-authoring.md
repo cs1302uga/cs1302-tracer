@@ -19,6 +19,12 @@ external-tool stand-ins in the Python suite do not replace that integration chec
 ## Choose the right page
 
 Keep installation and first-use guidance in the consumer guides and tutorials.
+Tutorials teach one concrete outcome through a complete example and checkpoints.
+How-to guides provide self-contained recipes for readers who already know their
+task; specify required files, working directory, shell, command, and expected
+result. References define options and result contracts, while explanations connect
+concepts such as snapshots, references, and heap objects. Link between these page
+types instead of making each page teach, explain, and catalogue everything.
 Put contributor workflows in the development and documentation guides. Use the
 [documentation index](documentation.md) to find build, archive, artifact, and
 release procedures instead of copying those procedures into multiple pages.
@@ -36,14 +42,22 @@ normalizing heap identities, and runs the documented batch request. It also extr
 `target/code-tracer-bin.zip` into a temporary directory with spaces, executes the
 first-trace tutorial with its own source file, compiles and runs the complete Java
 tutorial, and checks both jobs from the batch tutorial. Package the project first;
-a JAR-only build is insufficient. These checks run the marked commands with real
-Java tools. Python unit tests substitute those external tools to test checker
-failures, and do not replace this integration run.
+a JAR-only build is insufficient. These checks run the marked POSIX-shell commands
+with real Java tools. They do not execute native **PowerShell** or **Command Prompt**
+alternatives; review and validate those separately when changing them. Python unit
+tests substitute external tools to test checker failures and do not replace the
+integration run.
 
-Keep tutorial marker names stable when editing examples. The first-trace check
-asserts source identity, output, a local value, and its object-reference relationship
-without pinning heap IDs. Java and batch checks inspect completion and failure
-outcomes. The README quickstart remains a separate checkout-based example.
+Keep tutorial and recipe marker names stable when editing examples. The reading
+check compares marked JSON excerpts with actual locals and fields, follows the
+local-to-heap reference, and checks the assignment's before/after state and
+cumulative output without pinning heap IDs or snapshot indices. The loop check
+executes discovery, latest-hit, accumulated, and chronological commands and checks
+the documented loop values. The tracing recipes cover final and chronological
+capture, guest input, multiple source files, compiled dependencies, presentation,
+and a controlled budget stop with a partial envelope. Java and batch checks inspect
+completion and failure outcomes. The README quickstart remains a separate
+checkout-based example.
 
 Refresh help using `./scripts/uv run python scripts/check_docs.py --update-cli`;
 review the resulting diff.

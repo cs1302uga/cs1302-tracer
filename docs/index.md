@@ -12,7 +12,9 @@ interactive visualization itself.
 
 | You want to… | Start here | Then read |
 | --- | --- | --- |
-| Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md), [tracing options](guides/tracing.md) |
+| Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md) |
+| Teach or inspect repeated execution | [Trace a loop](tutorials/trace-a-loop.md) | [How a trace represents execution](explanation/trace-model.md) |
+| Trace your own program | [Tracing recipes](guides/tracing.md) | [Troubleshooting](guides/troubleshooting.md), [CLI defaults and exit statuses](reference/cli.md#trace-defaults-at-a-glance) |
 | Consume JSON or process jobs | [Batch tutorial](tutorials/batch-jobs.md) | [JSON output](reference/output.md), [batch protocol](reference/batch.md), [bounded results](BOUNDED_TRACING.md) |
 | Embed tracing in Java | [Java tutorial](tutorials/java-integration.md) | [API reference guide](reference/java-api.md), [3.x migration](guides/java-api-migration.md) |
 | Read API documentation without a network connection | [Offline API documentation](guides/offline-javadoc.md) | Download and verify a release bundle before going offline. |
