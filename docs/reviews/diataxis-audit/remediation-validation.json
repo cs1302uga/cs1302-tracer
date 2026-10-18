@@ -1,0 +1,143 @@
+{
+  "recorded_at": "2026-10-18T13:03:24.108479+00:00",
+  "validated_source_commit": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad",
+  "source_paths_sha256": {
+    "README.md": "b1e93dbd2a88f245a6f6c98eebe050c705cb68c2dd2b9d6e4fb3bf932c42bc46",
+    "docs/BOUNDED_TRACING.md": "b2c729d3b338722f57ccba2cdfbb2ec1083837e32117058882a693277ee2da1d",
+    "docs/RUNNER_CONTRACT.md": "c9229e22ec6287079fc79af40b7dc05ab0306b3e9f9318f8f832a74e01b52716",
+    "docs/explanation/trace-model.md": "64ef3961cf13fb8e9cf5c89e63690d101187eea7596219d4fa3f3e499e343104",
+    "docs/guides/installation.md": "fa76f9a8b925533c227319a12ce85608f32518f162e1934b2e8555a86cb756f5",
+    "docs/guides/java-api-migration.md": "2091db2eb28962dd57fa00bca5c25bc80f299c8b32b91c995bb52803f85aee46",
+    "docs/guides/offline-javadoc.md": "7e0310f7cf9b667e7d1bb2556c730d33d60305b12ac6a2d83ec8f7fab9b204b5",
+    "docs/guides/tracing.md": "232ed90ee8011fb1db2814e1b9e8fa56d9a40e393f404b695f999da68a5b2857",
+    "docs/guides/troubleshooting.md": "180136ff799dcc0a2ffe77862e4028ce75d29d1a03bf412972da7e9e300f7209",
+    "docs/reference/batch.md": "baa93cd24d8c5fc417806d7b2b59b1dae667e7be34c2c1353909efb657c188f2",
+    "docs/reference/cli.md": "bbd319b26539a03cff4b8cc0045ad8f20fa97ca17847bf3fdf294cf85e9f6ebc",
+    "docs/reference/java-api.md": "b02ca4ae5c58efa5e2720646c8403fcd3338423856bfdb72e5ba75b12b9a6747",
+    "docs/reference/output.md": "d39338c71702ecfb3425a2d029931676cb905ceab7042f6044d63455ed04cd31",
+    "docs/tutorials/batch-jobs.md": "05b6edf786a02c09ce2ed634a5ba5a45d2e74d17860dc98f8c977ea4e7e21fa7",
+    "docs/tutorials/java-integration.md": "df2e1b7a623fe85f34307cfcf7f58874b7aa421033a2357efeca769cf9ba47f0",
+    "src/main/java/cs1302/tracer/internal/execution/JobOptions.java": "84bb321eab08adb07d31d3b8f75e19ac78b31406d22ba504ce145b28a5920879"
+  },
+  "environment": {
+    "platform": "Darwin arm64",
+    "java": "openjdk 25.0.4.1 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 25.0.4.1)\nOpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)",
+    "javac": "javac 25.0.4.1"
+  },
+  "commands": [
+    {
+      "command": "./mvnw -B -ntp -Ppre-commit-coverage package",
+      "status": "passed",
+      "tests": 1248,
+      "coverage": {
+        "INSTRUCTION": {
+          "missed": 0,
+          "covered": 32384
+        },
+        "BRANCH": {
+          "missed": 0,
+          "covered": 3684
+        },
+        "LINE": {
+          "missed": 0,
+          "covered": 6484
+        },
+        "COMPLEXITY": {
+          "missed": 0,
+          "covered": 3094
+        },
+        "METHOD": {
+          "missed": 0,
+          "covered": 1187
+        },
+        "CLASS": {
+          "missed": 0,
+          "covered": 185
+        }
+      }
+    },
+    {
+      "command": "./scripts/uv run --locked python scripts/check_docs.py --update-cli",
+      "status": "passed",
+      "note": "Regenerated the two authorized help descriptions and ran executable documentation checks."
+    },
+    {
+      "command": "./mvnw -B -ntp -Pdocsite -DskipTests install",
+      "status": "passed",
+      "rendered_pages": 1280,
+      "note": "Reused fresh strict Java coverage; reran executable docs serially, dependency inventory, release metadata, current plus seven historical API versions, Docusaurus, and rendered links. Installed regular library/POM locally."
+    }
+  ],
+  "consumer": {
+    "commands": [
+      {
+        "argv": [
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/mvnw",
+          "-B",
+          "-ntp",
+          "-f",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4/pom.xml",
+          "package",
+          "dependency:copy-dependencies",
+          "-DincludeScope=runtime"
+        ],
+        "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4",
+        "exit": 0
+      },
+      {
+        "argv": [
+          "java",
+          "-cp",
+          "target/classes:target/dependency/*",
+          "TraceExample"
+        ],
+        "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4",
+        "exit": 0
+      }
+    ],
+    "status": "completed",
+    "guest_stdout": "hello\n",
+    "runtime_jars": [
+      "apiguardian-api-1.1.2.jar",
+      "asm-9.11.1.jar",
+      "checker-qual-3.55.1.jar",
+      "cs1302-tracer-4.2.0-SNAPSHOT.jar",
+      "error_prone_annotations-2.48.0.jar",
+      "failureaccess-1.0.3.jar",
+      "gson-2.14.0.jar",
+      "guava-33.6.0-jre.jar",
+      "j2objc-annotations-3.1.jar",
+      "javaparser-core-3.28.2.jar",
+      "javaparser-symbol-solver-core-3.28.2.jar",
+      "javassist-3.31.0-GA.jar",
+      "jspecify-1.0.0.jar",
+      "listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar",
+      "picocli-4.7.7.jar"
+    ],
+    "registry_availability_claimed": false,
+    "native_windows_execution": false
+  },
+  "consumer_inputs": {
+    "pom.xml": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>example</groupId>\n  <artifactId>tracer-consumer</artifactId>\n  <version>1.0-SNAPSHOT</version>\n  <properties>\n    <maven.compiler.release>21</maven.compiler.release>\n    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n  </properties>\n  <dependencies>\n    <!-- Use the regular tracer library and its transitive dependencies. -->\n    <dependency>\n      <groupId>cs1302uga</groupId>\n      <artifactId>cs1302-tracer</artifactId>\n      <version>4.2.0-SNAPSHOT</version>\n    </dependency>\n  </dependencies>\n  <build>\n    <plugins>\n      <!-- Compile the consumer against the Java 21 API. -->\n      <plugin>\n        <groupId>org.apache.maven.plugins</groupId>\n        <artifactId>maven-compiler-plugin</artifactId>\n        <version>3.16.0</version>\n      </plugin>\n      <!-- Copy runtime JARs for the explicit launch classpath. -->\n      <plugin>\n        <groupId>org.apache.maven.plugins</groupId>\n        <artifactId>maven-dependency-plugin</artifactId>\n        <version>3.11.0</version>\n      </plugin>\n    </plugins>\n  </build>\n</project>\n",
+    "src/main/java/TraceExample.java": "import cs1302.tracer.api.TraceOutcome;\nimport cs1302.tracer.api.TraceRequest;\nimport cs1302.tracer.api.Tracer;\n\npublic class TraceExample {\n    public static void main(String[] args) {\n        String source = \"\"\"\n            public class Main {\n                public static void main(String[] args) {\n                    System.out.println(\"hello\");\n                }\n            }\n            \"\"\";\n        TraceOutcome outcome = Tracer.trace(new TraceRequest(source));\n        System.err.print(outcome.stderr());\n        if (!outcome.complete() || !\"completed\".equals(outcome.status())) {\n            throw new IllegalStateException(outcome.json());\n        }\n        System.out.println(outcome.json());\n    }\n}\n"
+  },
+  "contract_probes": "contract-probes.json",
+  "rendered_review": {
+    "desktop": "Reviewed bounded stop-code table, installation, CLI reference and complete Maven consumer lesson at 1280/1440 CSS-pixel widths.",
+    "narrow": "At 390 CSS pixels the bounded reference stays within the page width and long tables scroll horizontally inside their containers."
+  },
+  "independent_review": "No new actionable factual findings in the final static review of the 16-file correction diff. Existing probe/consumer evidence checked. F27-1 executable-help residual and unselected work excluded.",
+  "limits": [
+    "Native Windows commands received static review only; no fresh Windows or JDK 21 runtime run.",
+    "No fresh CodeQL scan, hosted sandbox certification, registry availability verification or deployment is claimed.",
+    "Published snapshots, runtime logic, output formats, hook implementation and CI/release gates are unchanged."
+  ],
+  "additional_site_fix": {
+    "path": "website/src/theme/MDXComponents/A/index.js",
+    "sha256": "1489c90c4098af922c68cda6a13b991d36df52141d53105b4d163c71ad421649",
+    "commit_scope": "Containing bookkeeping commit; separate from the 16 source paths at validated_source_commit.",
+    "change": "Delegate anchor rendering to the original theme; generated root-relative /assets/files/ URLs use pathname:// to avoid route trailing slashes. Other links and props retain the original behavior.",
+    "validation": "Production site build and rendered links passed. Browser checks verified all11 JSON evidence downloads return HTTP200 and match source bytes; normal route and DX anchor navigation remain valid.",
+    "coverage_scope": "The strict line/branch coverage totals above are for Java production code; they do not measure this site wrapper."
+  }
+}

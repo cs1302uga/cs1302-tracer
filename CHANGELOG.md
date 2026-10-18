@@ -59,6 +59,17 @@ requirements, and JSON/batch schemas are unchanged.
   presentation options and improve the generated API examples and cross-references.
   These comment corrections preserve Java API signatures, CLI behavior, and
   JSON/batch protocol formats; the documented runtime limitations remain.
+- **User and integration documentation:** correct selected-output shapes, null and
+  empty payloads, exception reporting, exit statuses, source selection and
+  discovery, all stop codes, batch request parsing, and reusable-guest state.
+  Add a complete Maven consumer recipe and improve JDK selection, offline API
+  verification, and whole-job teardown guidance. Clarify that frame/thread CLI
+  budgets apply only to multithread capture. Preserve Java API signatures, CLI
+  arguments and defaults, and JSON/batch formats; documented runtime limitations
+  remain. The historical audit and separate remediation record retain remaining
+  findings rather than presenting documentation corrections as runtime fixes.
+  Keep generated file-download URLs free of route trailing slashes so the site's
+  JSON evidence downloads remain accessible.
 
 ### Commits
 
@@ -168,6 +179,15 @@ tables and fresh metadata checks.
 
 Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Verified JDK selection and first-run recovery documentation.
+
+Implementation: [88afe52](https://github.com/cs1302uga/cs1302-tracer/commit/88afe52b041ec6798a592fa04bee0c2038e91657)
+— Supported Java API Javadoc contracts, package summaries, and overview examples.
+
+Implementation: [0e760d7](https://github.com/cs1302uga/cs1302-tracer/commit/0e760d7cab637c413f6eada784addbc592557390),
+[1827fce](https://github.com/cs1302uga/cs1302-tracer/commit/1827fcea19936810a00cef52a7f8cb292ac57304), and
+[6ffe3a6](https://github.com/cs1302uga/cs1302-tracer/commit/6ffe3a6efc4b525c547d064f107d3e9246bcf9ad)
+— Reviewed documentation audit, corrected result and integration contracts, and
+verified CLI, installation, offline API, and Maven consumer workflows.
 
 ### Breaking changes
 

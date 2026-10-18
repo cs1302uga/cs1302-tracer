@@ -1,0 +1,1778 @@
+{
+  "metadata": {
+    "recorded_at": "2026-10-18T13:03:24.084226+00:00",
+    "baseline_commit": "0e760d7cab637c413f6eada784addbc592557390",
+    "baseline_sha256": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
+    "implementation_commits": {
+      "javadoc": "88afe52b041ec6798a592fa04bee0c2038e91657",
+      "baseline": "0e760d7cab637c413f6eada784addbc592557390",
+      "references": "1827fcea19936810a00cef52a7f8cb292ac57304",
+      "workflows": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad"
+    },
+    "policy": "The original 135 candidates, evidence, priorities, reviewer votes and dispositions remain frozen. These separate statuses describe documentation remediation, not runtime repairs or publication.",
+    "selected": {
+      "total": 46,
+      "documentation_corrected": 45,
+      "partial": 1
+    },
+    "incidental": {
+      "documentation_corrected": 6,
+      "partial": 10
+    },
+    "active_baseline_status_counts": {
+      "pending": 68,
+      "documentation-corrected": 51,
+      "partially-corrected": 11
+    },
+    "remaining_active_documentation_findings": 79,
+    "scope_boundary": "F27-1 retains unqualified executable/generated inline-strings help. Authored prose and Javadoc are corrected. Only the two approved JobOptions frame/thread help descriptions changed in Java.",
+    "next_decision": "Select remaining existing-page corrections or approve outlines for new pages, page splits and navigation changes. No such restructuring is implemented here."
+  },
+  "findings": [
+    {
+      "id": "F1-1",
+      "dx_id": "DX-001",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "merged",
+      "remediation_status": "baseline-merged"
+    },
+    {
+      "id": "F1-2",
+      "dx_id": "DX-002",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F1-3",
+      "dx_id": "DX-003",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F2-1",
+      "dx_id": "DX-004",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected existing-page instructions and checked their consistency.",
+          "references": [
+            "README.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F2-2",
+      "dx_id": "DX-005",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F2-3",
+      "dx_id": "DX-006",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F4-1",
+      "dx_id": "DX-007",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected existing-page instructions and checked their consistency.",
+          "references": [
+            "docs/guides/installation.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F4-2",
+      "dx_id": "DX-008",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F4-4",
+      "dx_id": "DX-009",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F4-5",
+      "dx_id": "DX-010",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F5-1",
+      "dx_id": "DX-011",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F6-1",
+      "dx_id": "DX-012",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F6-3",
+      "dx_id": "DX-013",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F7-1",
+      "dx_id": "DX-014",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F8-1",
+      "dx_id": "DX-015",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F8-2",
+      "dx_id": "DX-016",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F9-1",
+      "dx_id": "DX-017",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documents default main-exit missing-snapshot behavior for JDK-thrown exceptions, the chronological/selected alternative, and the Greeting end-of-input failure.",
+          "references": [
+            "docs/guides/tracing.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Underlying default capture defect remains; docs describe the observed limitation without changing TraceDispatch."
+        }
+      ]
+    },
+    {
+      "id": "F9-2",
+      "dx_id": "DX-018",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Replaces file-only discovery claim with packaged-entry conditions, input-path suffix matching, stdin cwd/src/main/java/src roots, default-package exclusion, submitted sources versus discovered dependencies, and FIELDS/multithread boundaries.",
+          "references": [
+            "docs/guides/tracing.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Host source discovery behavior remains unchanged; field-only mode is not isolation."
+        }
+      ]
+    },
+    {
+      "id": "F9-4",
+      "dx_id": "DX-019",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F9-6",
+      "dx_id": "DX-020",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F9-7",
+      "dx_id": "DX-021",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F9-8",
+      "dx_id": "DX-022",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F9-9",
+      "dx_id": "DX-023",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F10-1",
+      "dx_id": "DX-024",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Explain that fresh/reused guests do not isolate parsing/compilation in the host; require disposable tracer/embedding processes for hosted untrusted submissions; discovery has no configurable source budgets.",
+          "references": [
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F10-2",
+      "dx_id": "DX-025",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F10-4",
+      "dx_id": "DX-026",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F11-4",
+      "dx_id": "DX-027",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "The tutorial no longer claims API Guardian is required for successful manual compilation; it accurately recommends it to avoid annotation warnings and distinguishes runtime dependencies.",
+        "residual": null,
+        "references": [
+          "docs/tutorials/java-integration.md"
+        ]
+      }
+    },
+    {
+      "id": "F12-1",
+      "dx_id": "DX-028",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Defines exit 3 as any controlled stop; links complete stop-code controls; distinguishes tunable budgets from unsupported virtual threads and fixed nesting/cycle checks that --unlimited cannot disable.",
+          "references": [
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Ordinary runtime stop diagnostic still generically suggests increasing a limit; no unauthorized runtime wording was changed."
+        }
+      ]
+    },
+    {
+      "id": "F12-2",
+      "dx_id": "DX-029",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Separates chronological prefixes from ordinary selected-breakpoint final-output projection. Only the final hit in each bare line-number map bucket is refreshed for ordinary dedicated CLI output; earlier accumulated hits and another file's retained hit at that same line can keep prefixes. Links caller-specific Java/batch and envelope projection rules.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/troubleshooting.md"
+          ],
+          "runtime_or_scope_residual": "The original finding's suggested every-hit wording was overbroad. Current text follows DebugTraceHelper.syncTrailingStreamOutput(Map):576-591. SnapshotRetention.targetedSnapshots projects per(file,line) for Java/batch and does not describe the ordinary CLI map path."
+        }
+      ]
+    },
+    {
+      "id": "F12-4",
+      "dx_id": "DX-030",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "Troubleshooting now has a specific silent trace-wait row with --input/source-stream remedies and distinguishes source stdin from guest stdin. The core missing troubleshooting entry is supplied.",
+        "residual": null,
+        "references": [
+          "docs/guides/troubleshooting.md",
+          "docs/reference/cli.md"
+        ]
+      }
+    },
+    {
+      "id": "F12-5",
+      "dx_id": "DX-031",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F12-6",
+      "dx_id": "DX-032",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F13-1",
+      "dx_id": "DX-033",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Scopes terminal diagnostics to ordinary output; identifies envelope diagnostics on stdout JSON and early preflight/argument/stdin-file exceptions.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "stderr is not asserted always empty in envelope mode; failures before envelope creation remain possible."
+        }
+      ]
+    },
+    {
+      "id": "F13-3",
+      "dx_id": "DX-034",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The output reference now normatively identifies a null guest variable value among properties omitted in ordinary modern CLI output and preserved as null in envelopes.",
+        "residual": "The explanatory model still covers only primitive values and object references, without distinguishing a present null local from an absent not-yet-declared local. Python Tutor null representation also needs an explicit corresponding explanation. Keep the finding pending.",
+        "references": [
+          "docs/explanation/trace-model.md",
+          "docs/reference/output.md"
+        ]
+      }
+    },
+    {
+      "id": "F13-4",
+      "dx_id": "DX-035",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F13-5",
+      "dx_id": "DX-036",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F14-2",
+      "dx_id": "DX-037",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Adds Source input and discovery to the existing manual suffix, links exact program requirements, and replaces the vague caller-specific discovery sentence in Binary dependencies.",
+          "references": [
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "No new page or navigation structure was introduced; source discovery and whole-job isolation remain separate."
+        }
+      ]
+    },
+    {
+      "id": "F14-3",
+      "dx_id": "DX-038",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documents System.exit(0) default ordinary failure, chronological/selected capture alternatives, and the distinct default-envelope empty-sequence outcome.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/tracing.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Missing final-state snapshot behavior remains unchanged."
+        }
+      ]
+    },
+    {
+      "id": "F14-4",
+      "dx_id": "DX-039",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The manual CLI reference now explicitly identifies default TRUSTED inspection and describes FIELDS/submitted-only and multithread source-policy interactions, in addition to the corrected thread/frame scope.",
+        "residual": "The requested comprehensive option-interaction/default table is absent. Enum-hash default/last-switch precedence, accumulation interactions and explicit validation rules remain incomplete. Do not close based on the newly added source-discovery prose.",
+        "references": [
+          "docs/reference/cli.md"
+        ]
+      }
+    },
+    {
+      "id": "F14-6",
+      "dx_id": "DX-040",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F14-7",
+      "dx_id": "DX-041",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F14-8",
+      "dx_id": "DX-042",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F15-1",
+      "dx_id": "DX-043",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected latest selected-breakpoint object-or-array values, bare line-number keys, per-file latest retention, accumulated interleaving, and uniform-sequence alternatives.",
+          "references": [
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F15-2",
+      "dx_id": "DX-044",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documented no-source multithread steps: line zero, empty method/callStack, absent or null file, and triggeringThreadId/threads interpretation.",
+          "references": [
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F15-5",
+      "dx_id": "DX-045",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Qualified thread filtering to include the observed launcher DestroyJavaVM lifecycle rather than claiming all JVM service threads are excluded.",
+          "references": [
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F15-7",
+      "dx_id": "DX-046",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F15-8",
+      "dx_id": "DX-047",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F15-9",
+      "dx_id": "DX-048",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F15-10",
+      "dx_id": "DX-049",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F16-1",
+      "dx_id": "DX-050",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documented ordinary modern omission versus envelope/batch/Java explicit null serialization and value-based shape detection; linked this from shared envelope trace field.",
+          "references": [
+            "docs/BOUNDED_TRACING.md",
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F16-3",
+      "dx_id": "DX-051",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The closing selected-breakpoint section is clearer: non-null modern mapping, multiple-file values, authoritative result-contract link and caller-specific budget defaults are now explicit.",
+        "residual": "It still repeats the root/budget contract far below the primary table and remains the destination of guide links. The duplication/findability consolidation requested by this finding has not happened.",
+        "references": [
+          "docs/reference/output.md"
+        ]
+      }
+    },
+    {
+      "id": "F16-4",
+      "dx_id": "DX-052",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F17-1",
+      "dx_id": "DX-053",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "State exact case-sensitive inspection tokens, silent unknown-string fallback to TRUSTED, contrasting case-insensitive format/typeStyle and the fact TRUSTED can invoke guest methods.",
+          "references": [
+            "docs/reference/batch.md"
+          ],
+          "runtime_or_scope_residual": "Unrecognized inspection strings still silently default to TRUSTED; no parser behavior changed."
+        }
+      ]
+    },
+    {
+      "id": "F17-3",
+      "dx_id": "DX-054",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Tabulate parse/validation/admitted/transport failure correlation; explain null IDs even when text contains id, ordered ordinal handling and inability to correlate arbitrary null IDs in completion order.",
+          "references": [
+            "docs/reference/batch.md"
+          ],
+          "runtime_or_scope_residual": "Parse failures still lose IDs; transport aborts may produce no record."
+        }
+      ]
+    },
+    {
+      "id": "F17-4",
+      "dx_id": "DX-055",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "A response-failure table now covers transport ceilings/I/O aborts and explains that some records have no guaranteed response, adding part of the previously missing abort behavior.",
+        "residual": "The protocol still lacks a complete batch-trace process exit lookup for per-job failures (0), invalid worker settings/unreadable input/I/O (1), malformed options (2), and late admitted responses. Existing tutorial success wording is not a full CLI contract.",
+        "references": [
+          "docs/reference/batch.md"
+        ]
+      }
+    },
+    {
+      "id": "F17-7",
+      "dx_id": "DX-056",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F18-2",
+      "dx_id": "DX-057",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "The Java reference itself now defines positive LINE, FILE:LINE, unqualified -1, comma-separated elements, blank handling, null rejection, effective-empty defaults and late failed/tracer_error/trace classification. It also maps discovered locations to file-qualified strings.",
+        "residual": null,
+        "references": [
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F18-5",
+      "dx_id": "DX-058",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F19-1",
+      "dx_id": "DX-059",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Explain that fresh/reused guests do not isolate parsing/compilation in the host; require disposable tracer/embedding processes for hosted untrusted submissions; discovery has no configurable source budgets.",
+          "references": [
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F19-2",
+      "dx_id": "DX-060",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Define typed breakpoint syntax, debug/logical path distinction, filename suffix ambiguity, discovered-location reuse and silent no-match empty results.",
+          "references": [
+            "docs/reference/java-api.md"
+          ],
+          "runtime_or_scope_residual": "Valid unmatched selections still can return completed/empty output with no diagnostic."
+        }
+      ]
+    },
+    {
+      "id": "F19-3",
+      "dx_id": "DX-061",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending",
+      "review": {
+        "reason": "The new general tracing requirements and existing Javadoc explain entry-point selection, but the Java Markdown discovery section still does not state or link its exactly-one-main-candidate preparation prerequisite.",
+        "residual": "Keep this unselected finding pending. General source requirements elsewhere do not establish a clear discovery precondition on this reader path.",
+        "references": [
+          "docs/guides/tracing.md",
+          "docs/reference/java-api.md",
+          "src/main/java/cs1302/tracer/api/Tracer.java"
+        ]
+      }
+    },
+    {
+      "id": "F19-4",
+      "dx_id": "DX-062",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F19-5",
+      "dx_id": "DX-063",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "The budget paragraph now explicitly scopes cumulative fields, array slots, frames, locals and string units within each snapshot, including repeated inspection.",
+        "residual": null,
+        "references": [
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F19-6",
+      "dx_id": "DX-064",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F20-1",
+      "dx_id": "DX-065",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F20-2",
+      "dx_id": "DX-066",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F20-3",
+      "dx_id": "DX-067",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F21-1",
+      "dx_id": "DX-068",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected existing-page instructions and checked their consistency.",
+          "references": [
+            "docs/guides/offline-javadoc.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F21-2",
+      "dx_id": "DX-069",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected existing-page instructions and checked their consistency.",
+          "references": [
+            "docs/guides/offline-javadoc.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F21-3",
+      "dx_id": "DX-070",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F22-1",
+      "dx_id": "DX-071",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Made snapshot_byte_limit general to every capture mode and separated thread/frame-only fields.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F22-3",
+      "dx_id": "DX-072",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Replaced universal null-versus-empty inference with a caller/completion-path table. CLI attachment permits empty history; Java/batch normal rendering can return an empty sequence even when a later liveness check records guest_exit, while thrown-failure recovery requires nonempty retained history or yields null. Final status alone does not determine payload availability.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F22-5",
+      "dx_id": "DX-073",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The envelope reference now names all eight counters and gives snapshot/accounting/time/output-byte semantics plus guestExitCode availability when an attached process has terminated.",
+        "residual": "It does not explicitly explain empty parse-result counters, full per-key presence rules, or that guestExitCode can represent tracer-forced termination rather than a guest-originated crash. Retain this narrower residual reference task.",
+        "references": [
+          "docs/BOUNDED_TRACING.md"
+        ]
+      }
+    },
+    {
+      "id": "F23-1",
+      "dx_id": "DX-074",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected existing-page instructions and checked their consistency.",
+          "references": [
+            "docs/RUNNER_CONTRACT.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F23-2",
+      "dx_id": "DX-075",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F23-3",
+      "dx_id": "DX-076",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F23-4",
+      "dx_id": "DX-077",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F23-5",
+      "dx_id": "DX-078",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F23-6",
+      "dx_id": "DX-079",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The Java reference now explicitly requires a disposable tracer/embedding process per hosted untrusted job and explains host parsing/compilation isolation, removing ambiguity on that reader path.",
+        "residual": "The runner Job interface itself still uses CLI terminology and omits Java equivalents for inspection, explicit budgets and outcome artifacts. Its API-facing integration mapping remains pending.",
+        "references": [
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F23-7",
+      "dx_id": "DX-080",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F24-1",
+      "dx_id": "DX-081",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Replace unchanged-Java-default claim with explicit finite budgets and expected-failure/stop outcomes, null-precondition exceptions and single-stack failure recognition caveat.",
+          "references": [
+            "docs/guides/java-api-migration.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F24-2",
+      "dx_id": "DX-082",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "SourcePreparation has been removed from the previous 3.x integration column; the cell correctly names CompilationHelper and App.parseSource. No SourcePreparation claim remains on the page.",
+        "residual": null,
+        "references": [
+          "docs/guides/java-api-migration.md"
+        ]
+      }
+    },
+    {
+      "id": "F24-3",
+      "dx_id": "DX-083",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Separate bare traceJson payload from json/writeJson envelope and warn selected breakpoints now produce one sequence rather than a 3.x line-keyed map.",
+          "references": [
+            "docs/guides/java-api-migration.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F24-4",
+      "dx_id": "DX-084",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Separate bare traceJson payload from json/writeJson envelope and warn selected breakpoints now produce one sequence rather than a 3.x line-keyed map.",
+          "references": [
+            "docs/guides/java-api-migration.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F24-5",
+      "dx_id": "DX-085",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Cover TraceSession/current/cancel and PersistentGuestSession migration, with no supported cancellation handle replacement; give explicit four-argument BatchTracer mapping for the old two-argument scheduler defaults.",
+          "references": [
+            "docs/guides/java-api-migration.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F24-6",
+      "dx_id": "DX-086",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The migration guide now directly links Java request defaults, shared envelope/output contracts and batch/guest lifecycle rules instead of only linking the runner.",
+        "residual": "A direct runnable Java tutorial and dependency-setup route are still absent from the migration guide. Its new Java reference and output-contract links do work; retain only the remaining navigation work.",
+        "references": [
+          "docs/guides/java-api-migration.md"
+        ]
+      }
+    },
+    {
+      "id": "F24-7",
+      "dx_id": "DX-087",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F25-1",
+      "dx_id": "DX-088",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F25-2",
+      "dx_id": "DX-089",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "deferred-contributor-scope",
+      "remediation_status": "baseline-deferred-contributor-scope"
+    },
+    {
+      "id": "F25-3",
+      "dx_id": "DX-090",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F26-1",
+      "dx_id": "DX-091",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Document reusable/dedicated modes via shared definitions; list restored state and persistent globals, fresh-guest option and filesystem caveat; explain per-thread interruption/join and conditional termination plus System.exit(0) guest_exit behavior.",
+          "references": [
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md"
+          ],
+          "runtime_or_scope_residual": "Lifetime/reuse/global-state behavior is unchanged; a fresh guest does not undo filesystem state."
+        }
+      ]
+    },
+    {
+      "id": "F26-2",
+      "dx_id": "DX-092",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Document reusable/dedicated modes via shared definitions; list restored state and persistent globals, fresh-guest option and filesystem caveat; explain per-thread interruption/join and conditional termination plus System.exit(0) guest_exit behavior.",
+          "references": [
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md"
+          ],
+          "runtime_or_scope_residual": "Lifetime/reuse/global-state behavior is unchanged; a fresh guest does not undo filesystem state."
+        }
+      ]
+    },
+    {
+      "id": "F26-3",
+      "dx_id": "DX-093",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "List all eleven exact JSON budget keys, units and CLI equivalents; explain ignored misspellings, omitted/partial unlimited limits, echoed effective limits, and negative-limit parse_error/null-id results. Complete reference example with all eleven budgets.",
+          "references": [
+            "docs/reference/batch.md"
+          ],
+          "runtime_or_scope_residual": "Unknown keys are still ignored, and negative limits still fail before ID retention."
+        }
+      ]
+    },
+    {
+      "id": "F26-5",
+      "dx_id": "DX-094",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "closed-already-documented",
+      "remediation_status": "baseline-closed-already-documented"
+    },
+    {
+      "id": "F27-1",
+      "dx_id": "DX-095",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "corrections": [
+        {
+          "change": "Explicitly scopes --inline-strings to Python Tutor, preserves modern reference/string-object behavior, and identifies the executable help's remaining format omission.",
+          "references": [
+            "docs/guides/tracing.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "internal/App.java's --inline-strings annotation is outside the authorized Java exception, so it remains unchanged. Markdown explicitly qualifies its behavior; no serializer changes."
+        },
+        {
+          "change": "Qualify inlineStrings as Python Tutor-only in batch field table and Java reference; leave generated CLI help/runtime unchanged for other owners.",
+          "references": [
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md"
+          ],
+          "runtime_or_scope_residual": "Modern output still ignores inlineStrings."
+        }
+      ],
+      "review": {
+        "reason": "API Javadoc and authored tracing/CLI/batch/Java reference prose now correctly say inlineStrings affects Python Tutor only. Executable/generated help intentionally still says strings are inlined without format qualification.",
+        "residual": "Do not mark the whole original help-plus-prose finding resolved. A remaining description-only executable help correction and generated reference refresh need the relevant authorization; this pass did not change runtime modern string behavior.",
+        "references": [
+          "docs/guides/tracing.md",
+          "docs/reference/batch.md",
+          "docs/reference/cli.md",
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F27-2",
+      "dx_id": "DX-096",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Explains single-stack step_line exception snapshots, repeated terminal source lines, multithread-only exception event labels, ordinary trace success versus guest failure, submitted-code fallback capture, and links the normative output subsection.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/tracing.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "No recommendation treats event names, status, or nonempty stderr alone as a complete exception detector across all guest modes."
+        },
+        {
+          "change": "Correct batch terminal-event prose to step_line in both single-stack formats and defer full event/output rules to the shared output reference.",
+          "references": [
+            "docs/reference/batch.md"
+          ],
+          "runtime_or_scope_residual": null
+        },
+        {
+          "change": "Added shared uncaught-exception subsection: single-stack step_line including terminal snapshots, duplicate throw-line states, ordinary exit-zero versus unavailable-terminal behavior, dedicated envelope status, and multithread exception events.",
+          "references": [
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F27-3",
+      "dx_id": "DX-097",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Adds source parse/compile errors, filename-only missing-file errors, public-type/entry-method rules, stdin source waiting, unreadable guest input file, and exit 1 troubleshooting.",
+          "references": [
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Actual parser/compiler diagnostics and early raw stack traces are documented, not rewritten."
+        }
+      ]
+    },
+    {
+      "id": "F27-4",
+      "dx_id": "DX-098",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Adds program requirements: one public top-level type for undelimited input; first candidate-containing file is entry; exactly one recognized main candidate in that file; helper files need no main; accepted candidate shapes versus actual CLI launchability; empty args; compact source exclusion.",
+          "references": [
+            "docs/guides/tracing.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Corrects the original finding's inaccurate each-file-needs-main suggestion. Source selection ignores access/static, so conventional public static String[] main is recommended rather than promising all recognized forms launch on all supported JDKs."
+        }
+      ]
+    },
+    {
+      "id": "F27-6",
+      "dx_id": "DX-099",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F27-8",
+      "dx_id": "DX-100",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F27-9",
+      "dx_id": "DX-101",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F28-1",
+      "dx_id": "DX-102",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Describe malformed breakpoint text as late failed/tracer_error/trace after successful compilation in Java and batch references.",
+          "references": [
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md"
+          ],
+          "runtime_or_scope_residual": "Classification and validation timing remain unchanged."
+        },
+        {
+          "change": "Qualified tracer_error to include Java/batch malformed breakpoint text parsed after successful compilation in phase trace, separately from early validation_error.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F28-2",
+      "dx_id": "DX-103",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Give a local source-checkout installation route and a complete independent Maven consumer POM/layout/build/run/checkpoint, with matching metadata and no unverified registry-availability claim.",
+          "references": [
+            "docs/tutorials/java-integration.md"
+          ],
+          "runtime_or_scope_residual": "Package-registry artifact availability is unverified; source install is the documented route."
+        }
+      ]
+    },
+    {
+      "id": "F28-4",
+      "dx_id": "DX-104",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Contrast NDJSON unlimited omitted/partial limits and TRUSTED default with finite TraceRequest/TraceLimits.builder defaults; point to exact keys and effective response limits.",
+          "references": [
+            "docs/guides/java-api-migration.md",
+            "docs/reference/java-api.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F28-5",
+      "dx_id": "DX-105",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Link Java tutorial/reference and migration to shared envelope, stop-code and payload contracts, separating envelope and payload accessors.",
+          "references": [
+            "docs/guides/java-api-migration.md",
+            "docs/reference/java-api.md",
+            "docs/tutorials/java-integration.md"
+          ],
+          "runtime_or_scope_residual": null
+        },
+        {
+          "change": "Replaced separate-envelope-contract wording with one shared version 1 schema, entry-point-specific transports/defaults, and direct reference routes.",
+          "references": [
+            "docs/BOUNDED_TRACING.md",
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F28-6",
+      "dx_id": "DX-106",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F28-7",
+      "dx_id": "DX-107",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F28-8",
+      "dx_id": "DX-108",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "Markdown now contains the guest-mode entry-point table, detailed batch reuse/reset contract and one-shot Java ownership/cleanup links; lifecycle facts are substantially easier to find.",
+        "residual": "There is still no coherent embedder explanation page/section covering the full host/guest model, and no supported concurrent Tracer.trace contract has been chosen. New pages and invented concurrency guarantees remain outside this pass.",
+        "references": [
+          "docs/BOUNDED_TRACING.md",
+          "docs/reference/batch.md",
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F29-3",
+      "dx_id": "DX-109",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F29-4",
+      "dx_id": "DX-110",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F29-5",
+      "dx_id": "DX-111",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F29-6",
+      "dx_id": "DX-112",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F29-7",
+      "dx_id": "DX-113",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F29-12",
+      "dx_id": "DX-114",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F30-1",
+      "dx_id": "DX-115",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Makes CLI Exit statuses the single process-status table; distinguishes ordinary generation failure, envelope failed jobs with partial payloads, controlled non-budget stops, and empty stdout from a structured failure.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Bounded reference agent links its prose to this table. No runtime exit codes changed."
+        }
+      ]
+    },
+    {
+      "id": "F30-2",
+      "dx_id": "DX-116",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Changes only descriptions of --max-threads and --max-frames to say with --multithread; manual suffix states single-stack ignores these budgets and snapshot bytes applies in both modes.",
+          "references": [
+            "docs/reference/cli.md",
+            "src/main/java/cs1302/tracer/internal/execution/JobOptions.java"
+          ],
+          "runtime_or_scope_residual": "The packaged executable and generated help now contain both approved descriptions. No option names, defaults, validation or runtime behavior changed."
+        },
+        {
+          "change": "Qualified the opening 64-thread and 4096-frame defaults as multithread-only; single-stack defaults no longer imply these caps are enforced there.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F30-3",
+      "dx_id": "DX-117",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Document reusable/dedicated modes via shared definitions; list restored state and persistent globals, fresh-guest option and filesystem caveat; explain per-thread interruption/join and conditional termination plus System.exit(0) guest_exit behavior.",
+          "references": [
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md"
+          ],
+          "runtime_or_scope_residual": "Lifetime/reuse/global-state behavior is unchanged; a fresh guest does not undo filesystem state."
+        },
+        {
+          "change": "Added complete caller/default-budget/dedicated-versus-reusable map plus lifetime, exit-zero, reset/recycling, and exception-classification boundaries.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F30-4",
+      "dx_id": "DX-118",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Consolidated all 24 emitted stop codes into status/entry-point/configuration table, including general snapshot-byte cap, representation checks, parse outcomes, dependency failures, and code-to-budget mappings. Moved thread contract above representation nesting and retained Verification anchor as a link to contributor fixture workflow.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F30-6",
+      "dx_id": "DX-119",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F30-7",
+      "dx_id": "DX-120",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F30-8",
+      "dx_id": "DX-121",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "review": {
+        "reason": "Output and bounded references now explicitly say CLI envelopes, Java outcomes and batch result objects share one v1 schema, with caller defaults/transport and ordinary payload shapes distinguished. The result-contracts heading and existing anchor are retained.",
+        "residual": null,
+        "references": [
+          "docs/BOUNDED_TRACING.md",
+          "docs/reference/output.md"
+        ]
+      }
+    },
+    {
+      "id": "F30-9",
+      "dx_id": "DX-122",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The batch reference example now supplies all eleven finite budgets, and the Java reference explicitly contrasts finite TraceRequest/builder settings with unlimited omitted or partial NDJSON limits.",
+        "residual": "The repeated authored and generated omitted-limit policy statements have not been consolidated. The centralization/duplication part remains pending.",
+        "references": [
+          "docs/reference/batch.md",
+          "docs/reference/java-api.md"
+        ]
+      }
+    },
+    {
+      "id": "F30-11",
+      "dx_id": "DX-123",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F31-2",
+      "dx_id": "DX-124",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Corrected file/source lookup assumption: single-stack JDK/dependency frames may lack supplied source; consumers must handle missing source; multithread filtering and JDK-version differences stated.",
+          "references": [
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "F31-3",
+      "dx_id": "DX-125",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F31-4",
+      "dx_id": "DX-126",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "F31-6",
+      "dx_id": "DX-127",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "partially-corrected",
+      "review": {
+        "reason": "The batch terminal-exception paragraph no longer labels Python Tutor output legacy; it accurately states single-stack step_line behavior in both formats.",
+        "residual": "No guide-level format-choice comparison, compatibility/renderer policy or recommendation was added. The main missing explanation remains pending; this is only removal of one misleading label.",
+        "references": [
+          "docs/reference/batch.md"
+        ]
+      }
+    },
+    {
+      "id": "F31-7",
+      "dx_id": "DX-128",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "FU1-1",
+      "dx_id": "DX-129",
+      "selected": true,
+      "baseline_priority": "S1",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Cross-page descriptions state that single-stack Java/NDJSON JDK or binary-dependency exceptions can still report completed/true with the stack trace only in guest stderr; CLI envelope and submitted-code behavior are distinguished.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "The implementation's exception classification defect remains and is not represented as repaired by documentation."
+        },
+        {
+          "change": "Qualify single-stack uncaught JDK/binary exception completion claims in all five assigned pages; preserve captured stderr without treating its text as a reliable success classifier. Forward stderr in the trusted Java example.",
+          "references": [
+            "docs/guides/java-api-migration.md",
+            "docs/reference/batch.md",
+            "docs/reference/java-api.md",
+            "docs/tutorials/batch-jobs.md",
+            "docs/tutorials/java-integration.md"
+          ],
+          "runtime_or_scope_residual": "Runtime recognition defect remains: guest exceptions from JDK/dependency throw locations can leave successful metadata."
+        },
+        {
+          "change": "Aligned shared reference completion semantics with persistent single-stack JDK/dependency exception-recognition limitation and explicitly rejected stderr as a machine success/failure classifier.",
+          "references": [
+            "docs/BOUNDED_TRACING.md",
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "FU1-2",
+      "dx_id": "DX-130",
+      "selected": false,
+      "baseline_priority": "S2",
+      "baseline_disposition": "merged",
+      "remediation_status": "baseline-merged"
+    },
+    {
+      "id": "FU2-1",
+      "dx_id": "DX-131",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documents unreadable --stdin-file failure before envelope creation, exit 1/empty stdout/raw terminal stack trace, and its contrast with a missing --input file's structured source-phase compile_error envelope.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/guides/troubleshooting.md",
+            "docs/reference/cli.md"
+          ],
+          "runtime_or_scope_residual": "Early guest-input I/O behavior is unchanged; automation is instructed to handle both empty stdout and structured failed results."
+        }
+      ]
+    },
+    {
+      "id": "FU2-2",
+      "dx_id": "DX-132",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "FU2-3",
+      "dx_id": "DX-133",
+      "selected": true,
+      "baseline_priority": "S2",
+      "baseline_disposition": "active",
+      "remediation_status": "documentation-corrected",
+      "corrections": [
+        {
+          "change": "Documented three precise output projections: ordinary CLI refreshes last hit per bare line-number bucket (which can mix files), Java/batch refresh latest hit per (file,line) except after trace_limit, and CLI envelope refreshes only final overall snapshot.",
+          "references": [
+            "docs/BOUNDED_TRACING.md",
+            "docs/reference/output.md"
+          ],
+          "runtime_or_scope_residual": null
+        }
+      ]
+    },
+    {
+      "id": "FU3-1",
+      "dx_id": "DX-134",
+      "selected": false,
+      "baseline_priority": "S3",
+      "baseline_disposition": "active",
+      "remediation_status": "pending"
+    },
+    {
+      "id": "FU3-2",
+      "dx_id": "DX-135",
+      "selected": false,
+      "baseline_priority": "S4",
+      "baseline_disposition": "merged",
+      "remediation_status": "baseline-merged"
+    }
+  ],
+  "remaining_runtime_issues": [
+    "Persistent single-stack execution can still report completed/complete=true for an uncaught exception thrown inside JDK or precompiled dependency code; this pass documents the defect.",
+    "CLI envelopes still skip final-output projection onto earlier selected locations; this pass documents the caller difference.",
+    "Ordinary default final-state capture can still fail without JSON when no usable main-exit/terminal snapshot exists.",
+    "Unreadable --stdin-file still fails before envelope creation with a raw stack trace and exit 1.",
+    "Java/batch malformed breakpoint strings are still parsed after compilation and reported as tracer_error in phase trace."
+  ]
+}
