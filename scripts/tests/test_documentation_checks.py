@@ -160,9 +160,10 @@ class DocumentationChecksTests(unittest.TestCase):
         (self.root / "HACKING.md").write_text("[Fragment](#local) [Mail](mailto:docs@example.test)\n")
         for name in ("first-trace", "read-a-trace", "trace-a-loop", "java-integration", "batch-jobs"):
             shutil.copy2(SCRIPTS.parent / f"docs/tutorials/{name}.md", self.root / f"docs/tutorials/{name}.md")
-        shutil.copy2(SCRIPTS.parent / "docs/guides/tracing.md", self.root / "docs/guides/tracing.md")
+        for name in ("tracing", "installation"):
+            shutil.copy2(SCRIPTS.parent / f"docs/guides/{name}.md", self.root / f"docs/guides/{name}.md")
         # Links are tested separately; keep the tutorial example blocks without their prose.
-        for path in [*(self.root / "docs/tutorials").glob("*.md"), self.root / "docs/guides/tracing.md"]:
+        for path in [*(self.root / "docs/tutorials").glob("*.md"), *(self.root / "docs/guides").glob("*.md")]:
             text = path.read_text()
             path.write_text("\n".join(re.findall(r"<!-- .*?:start -->.*?<!-- .*?:end -->", text, re.S)))
         with zipfile.ZipFile(self.root / "target/code-tracer-bin.zip", "w") as archive:
@@ -179,7 +180,9 @@ class DocumentationChecksTests(unittest.TestCase):
             """
 import sys
 from pathlib import Path
-if 'Helper.java' in sys.argv:
+if '--version' in sys.argv:
+    print('javac 25.0.1')
+elif 'Helper.java' in sys.argv:
     assert sys.argv[1:] == ['-d', 'classes', 'Helper.java']
     assert 'package teaching;' in Path('Helper.java').read_text()
     Path('classes/teaching').mkdir()
@@ -204,7 +207,23 @@ Path('helper.jar').touch()
 import json, os, re, sys
 from pathlib import Path
 results = json.loads((Path(__file__).resolve().parents[1] / 'tutorial-results.json').read_text())
-if '--help' in sys.argv:
+if '-XshowSettings:properties' in sys.argv:
+    if not os.environ.get('MISSING_JAVA_HOME'):
+        home = os.environ.get('DISCOVERED_JAVA_HOME', str(Path(__file__).resolve().parents[1]))
+        print('    java.home = ' + home, file=sys.stderr)
+elif '--version' in sys.argv:
+    root = Path(__file__).resolve().parents[1]
+    with (root / 'jdk-commands.jsonl').open('a') as stream:
+        stream.write(json.dumps({'args': sys.argv, 'java_home': os.environ.get('JAVA_HOME'),
+                                 'resolved_home': str(Path(os.environ['JAVA_HOME']).resolve()),
+                                 'path': os.environ['PATH'], 'cwd': str(Path.cwd())}) + '\\n')
+    if '-jar' in sys.argv:
+        assert sys.argv[1:] == ['-jar', 'code-tracer.jar', '--version']
+        assert Path('code-tracer.jar').is_file()
+        print('unexpected output' if os.environ.get('BAD_TRACER_VERSION') else 'code-tracer 4.2.0-SNAPSHOT (abc123)')
+    elif not os.environ.get('EMPTY_JAVA_VERSION'):
+        print('openjdk 25.0.1')
+elif '--help' in sys.argv:
     print('Usage: tracer')
 elif 'TraceExample' in sys.argv:
     assert Path('TraceExample.class').is_file()
@@ -277,6 +296,100 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("-Usage: obsolete", result.stderr)
         self.assertIn("+Usage: tracer", result.stderr)
+
+    def test_jdk_setup_uses_reported_home_with_spaces_and_one_selected_environment(self) -> None:
+        """Follow the JVM's reported home rather than assuming its launcher location owns the JDK."""
+        home = self.root / "actual JDK home"
+        (home / "bin").mkdir(parents=True)
+        for tool in ("java", "javac"):
+            (home / "bin" / tool).symlink_to(self.root / "bin" / tool)
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=dict(self.env, DISCOVERED_JAVA_HOME=str(home)))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        records = [json.loads(line) for line in (self.root / "jdk-commands.jsonl").read_text().splitlines()]
+        self.assertEqual(len(records), 6)
+        self.assertEqual(sum("-jar" in record["args"] for record in records), 3)
+        for record in records:
+            self.assertEqual(record["resolved_home"], str(home.resolve()))
+            self.assertIn("selected JDK with spaces", record["java_home"])
+            self.assertEqual(record["args"][0], record["java_home"] + "/bin/java")
+            self.assertEqual(record["path"].split(":")[0], record["java_home"] + "/bin")
+            self.assertEqual(Path(record["cwd"]).name, "code-tracer")
+
+    def test_jdk_setup_rejects_missing_discovery_incomplete_jdk_and_invalid_tool_evidence(self) -> None:
+        """Fail when the current JVM cannot establish a full JDK or the checkpoint output is absent."""
+        for variable, message in (
+            ("MISSING_JAVA_HOME", "Cannot discover the running JDK"),
+            ("EMPTY_JAVA_VERSION", "Verify explicit and PATH Java tool versions"),
+            ("BAD_TRACER_VERSION", "Selected Java must run the packaged tracer"),
+        ):
+            with self.subTest(variable=variable):
+                result = invoke(self.root, "check_docs.py", "--update-cli", env=dict(self.env, **{variable: "1"}))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+        compiler = self.root / "bin/javac"
+        compiler.chmod(0o644)
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("A full executable JDK is required", result.stderr)
+
+    def test_jdk_snippets_reject_lost_selection_quoting_or_checkpoint_evidence(self) -> None:
+        """Execute altered documentation verbatim and detect wrong paths, missing output, and failed commands."""
+        path = self.root / "docs/guides/installation.md"
+        original = path.read_text()
+        changes = [
+            (original.replace("<!-- jdk-inspect-bash:end -->", ""), "jdk-inspect-bash: missing"),
+            (original.replace("'/path/to/your/jdk'", "'/different/placeholder'"), "documented placeholder"),
+            (original.replace('export PATH="$JAVA_HOME/bin:$PATH"', ""), "exit 1"),
+            (
+                original.replace('"$JAVA_HOME/bin/java" --version', "$JAVA_HOME/bin/java --version"),
+                "No such file or directory",
+            ),
+            (
+                original.replace(check_docs.block(original, "jdk-inspect-bash"), "printf inspected"),
+                "JDK inspection must show current selection",
+            ),
+            (
+                original.replace(
+                    check_docs.block(original, "jdk-inspect-bash"),
+                    check_docs.block(original, "jdk-inspect-bash").replace("type -a java javac", "type -a java"),
+                ),
+                "JDK inspection must show current selection",
+            ),
+            (original.replace('"$JAVA_HOME/bin/javac" --version\n', ""), "Verify explicit and PATH Java tool versions"),
+            (
+                original.replace(
+                    check_docs.block(original, "jdk-verify-bash"), "java --version\njavac --version\n" * 2
+                ),
+                "Verify selected Java executable paths",
+            ),
+            (
+                original.replace(check_docs.block(original, "jdk-tracer-bash"), "printf 'wrong checkpoint\\n'"),
+                "Explicit and PATH tracer installation checkpoints",
+            ),
+            (
+                original.replace(
+                    check_docs.block(original, "jdk-verify-bash"),
+                    check_docs.block(original, "jdk-verify-bash") + "\nfalse\ntrue",
+                ),
+                "exit 1",
+            ),
+        ]
+        for content, message in changes:
+            with self.subTest(message=message):
+                path.write_text(content)
+                result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
+    def test_jdk_markers_require_an_executable_fenced_block(self) -> None:
+        """Reject a marker pair whose example was replaced with unfenced prose."""
+        path = self.root / "docs/guides/installation.md"
+        original = path.read_text()
+        inspection = check_docs.block(original, "jdk-inspect-bash")
+        path.write_text(original.replace("```sh\n" + inspection + "\n```", "Inspect the current Java selection."))
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("jdk-inspect-bash: missing code block", result.stderr)
 
     def test_manual_cli_section_survives_help_updates_and_stays_link_checked(self) -> None:
         """Preserve authored bytes through regeneration while checking help drift and manual links."""
@@ -370,7 +483,17 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("AssertionError", result.stderr)
         path.write_text(original)
-        executable(self.root / "bin/javac", "import sys; sys.stderr.write('bad Java example'); sys.exit(1)")
+        executable(
+            self.root / "bin/javac",
+            """
+import sys
+if '--version' in sys.argv:
+    print('javac 25.0.1')
+else:
+    sys.stderr.write('bad Java example')
+    sys.exit(1)
+""",
+        )
         result = invoke(self.root, "check_docs.py", env=self.env)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("bad Java example", result.stderr)

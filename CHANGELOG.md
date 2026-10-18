@@ -65,6 +65,10 @@ Implementation: [58e8f8e](https://github.com/cs1302uga/cs1302-tracer/commit/58e8
 — Verified CLI lessons, standalone tracing recipes, result-contract guidance,
 and grouped troubleshooting.
 
+Implementation: [038d59c](https://github.com/cs1302uga/cs1302-tracer/commit/038d59cb9126775d9ddec558e1c88c9c8be1f6d3)
+— Generated project license and dependency references with compact, accessible
+tables and fresh metadata checks.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -82,6 +86,13 @@ and grouped troubleshooting.
   are unchanged.
 
 ### Non-breaking changes
+
+- **JDK setup documentation:** add current-session JDK selection and verification
+  recipes for Bash, PowerShell, and Command Prompt, with an installation checkpoint
+  before the first trace and linked recovery steps for startup failures. Check the
+  marked Bash snippets and add native Windows snippet checks on JDK 21 and 25.
+  These documentation and tooling changes preserve CLI preflight behavior, Java
+  and JSON/protocol contracts, and published snapshots.
 
 - **Dependency documentation:** publish the exact project license and a generated
   inventory of resolved Maven project dependencies, separating runtime and test

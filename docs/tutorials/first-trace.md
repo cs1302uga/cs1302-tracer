@@ -4,8 +4,11 @@ Create a Java program, capture its execution, and save a JSON file you can inspe
 By the end, you will have a trace showing a local variable that refers to an object,
 a value copied from that object's field, and the program's printed output.
 The tracer produces data for a visualizer; it does not open an interactive
-visualization. First complete [installation](../guides/installation.md) with a full
-**JDK 21 or later**. You do not need a source checkout or a separate JSON tool.
+visualization. First [install the tracer](../guides/installation.md) with a full
+**JDK 21 or later** and complete the
+[installation checkpoint](../guides/installation.md#verify-your-installation).
+That checkpoint confirms that the bare `java` command below uses your selected
+JDK. You do not need a source checkout or a separate JSON tool.
 
 ## Choose your working directory
 

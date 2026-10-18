@@ -305,7 +305,7 @@ jobs:
           call mvnw.cmd -B -ntp --version
           if errorlevel 1 exit /b 1
           call mvnw.cmd -B -ntp -DskipTests -Djacoco.skip=true package
-      - name: Analyze and test Windows launchers
+      - name: Analyze Windows launchers and test documented JDK selection
         shell: pwsh
         run: |
           Install-Module Pester -RequiredVersion 6.2.0 -Scope CurrentUser -Repository PSGallery -Force
@@ -314,7 +314,7 @@ jobs:
           Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
           $diagnostics = @(Invoke-ScriptAnalyzer src/main/scripts/code-tracer.ps1)
           if ($diagnostics.Count) { $diagnostics | Format-Table; throw 'PowerShell analysis failed' }
-          Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1 -CI
+          Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1, scripts/tests/WindowsDocumentation.Tests.ps1 -CI
       - name: Verify Windows launcher distribution
         shell: pwsh
         run: |

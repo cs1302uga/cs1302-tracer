@@ -43,10 +43,18 @@ normalizing heap identities, and runs the documented batch request. It also extr
 first-trace tutorial with its own source file, compiles and runs the complete Java
 tutorial, and checks both jobs from the batch tutorial. Package the project first;
 a JAR-only build is insufficient. These checks run the marked POSIX-shell commands
-with real Java tools. They do not execute native **PowerShell** or **Command Prompt**
-alternatives; review and validate those separately when changing them. Python unit
-tests substitute external tools to test checker failures and do not replace the
-integration run.
+with real Java tools. `check_docs.py` does not execute native **PowerShell** or
+**Command Prompt** alternatives. Python unit tests substitute external tools to
+test checker failures and do not replace the integration run.
+
+The installation guide's marked JDK inspection, selection, tool-verification, and
+installation-checkpoint snippets have shell-specific checks. `check_docs.py` runs
+the **Bash** snippets; a separate **Pester** suite runs the native PowerShell and
+Command Prompt snippets in Windows CI with JDK 21 and 25. The suite is
+[`WindowsDocumentation.Tests.ps1`](../../scripts/tests/WindowsDocumentation.Tests.ps1).
+Keep those markers and their validation in agreement when changing the recipes.
+This Windows coverage applies to the JDK recovery snippets; other native Windows
+tutorial and recipe commands still need separate review and validation when changed.
 
 Keep tutorial and recipe marker names stable when editing examples. The reading
 check compares marked JSON excerpts with actual locals and fields, follows the

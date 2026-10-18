@@ -7,6 +7,7 @@ import json
 import os
 import re
 import runpy
+import shlex
 import signal
 import subprocess
 import tempfile
@@ -348,6 +349,62 @@ def check_recipes(work: Path) -> None:
     assert all(value > 0 for value in partial["limits"].values()), "The partial-result recipe must set every budget"
 
 
+def check_jdk(work: Path) -> None:
+    """Exercise the Bash JDK setup in one session with spaces and conflicting prior tool selection."""
+    guide = (ROOT / "docs/guides/installation.md").read_text()
+    settings = run(["sh", "-eu", "-c", "java -XshowSettings:properties -version 2>&1"])
+    match = re.search(r"^\s*java\.home\s*=\s*(.+)$", settings, re.M)
+    if match is None:
+        raise ValueError("Cannot discover the running JDK's java.home")
+    home = Path(match.group(1)).resolve()
+    assert all(os.access(home / "bin" / tool, os.X_OK) for tool in ("java", "javac")), (
+        "A full executable JDK is required"
+    )
+    selected = work.parent / "selected JDK with spaces"
+    selected.symlink_to(home, target_is_directory=True)
+    previous = work.parent / "previous JAVA_HOME"
+    conflicting = work.parent / "conflicting PATH"
+    for directory in (previous / "bin", conflicting):
+        directory.mkdir(parents=True)
+        for tool in ("java", "javac"):
+            path = directory / tool
+            path.write_text(f"#!/bin/sh\n[ \"$1\" = --version ] || exit 19\nprintf '%s\\n' '{tool} 1.0 conflicting'\n")
+            path.chmod(0o755)
+    commands = {stage: block(guide, f"jdk-{stage}-bash") for stage in ("inspect", "select", "verify", "tracer")}
+    placeholder = "'/path/to/your/jdk'"
+    assert commands["select"].count(placeholder) == 1, "JDK selection must keep the documented placeholder"
+    commands["select"] = commands["select"].replace(placeholder, shlex.quote(str(selected)))
+    script = (
+        f"export JAVA_HOME={shlex.quote(str(previous))}\n"
+        f'export PATH={shlex.quote(str(conflicting))}:"$PATH"\nhash -r\nhash java javac\n'
+    )
+    for stage, command in commands.items():
+        script += f"{{\n{command}\n}} > jdk-{stage}.out\n"
+        if stage == "select":
+            script += (
+                f'[[ "$JAVA_HOME" == {shlex.quote(str(selected))} ]]\n'
+                '[[ "$(command -v java)" == "$JAVA_HOME/bin/java" ]]\n'
+                '[[ "$(command -v javac)" == "$JAVA_HOME/bin/javac" ]]\n'
+                'bash -c \'[[ "$JAVA_HOME/bin/java" == "$(command -v java)" ]]\'\n'
+            )
+    for tool in ("java", "javac"):
+        script += f'"$JAVA_HOME/bin/{tool}" --version > expected-{tool}.out\n'
+    script += '"$JAVA_HOME/bin/java" -jar code-tracer.jar --version > expected-tracer.out\n'
+    run(["bash", "--noprofile", "--norc", "-euo", "pipefail", "-c", script], cwd=work)
+    inspected = (work / "jdk-inspect.out").read_text()
+    assert str(previous) in inspected and all(str(conflicting / tool) in inspected for tool in ("java", "javac")), (
+        "JDK inspection must show current selection"
+    )
+    verified = (work / "jdk-verify.out").read_text()
+    for tool in ("java", "javac"):
+        expected = (work / f"expected-{tool}.out").read_text().strip()
+        assert expected and verified.count(expected) == 2, "Verify explicit and PATH Java tool versions"
+        assert str(selected / "bin" / tool) in verified, "Verify selected Java executable paths"
+    expected = (work / "expected-tracer.out").read_text()
+    assert expected.startswith("code-tracer "), "Selected Java must run the packaged tracer"
+    equal((work / "jdk-tracer.out").read_text(), expected * 2, "Explicit and PATH tracer installation checkpoints")
+
+
 def check_tutorials() -> None:
     """Run reader workflows using only an extracted binary distribution and documented inputs."""
     first = (ROOT / "docs/tutorials/first-trace.md").read_text()
@@ -357,6 +414,7 @@ def check_tutorials() -> None:
         with zipfile.ZipFile(ROOT / "target/code-tracer-bin.zip") as archive:
             archive.extractall(directory)
         work = Path(directory) / "code-tracer"
+        check_jdk(work)
         (work / "Main.java").write_text(block(first, "first-source") + "\n", encoding="utf-8")
         run(["sh", "-eu", "-c", block(first, "first-command")], cwd=work)
         result = json.loads((work / "trace.json").read_text())
