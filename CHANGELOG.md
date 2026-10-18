@@ -97,6 +97,7 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   for explicit strict validation of staged content. The optional pre-push hook
   remains ordinary working-tree feedback. Java API, CLI, JSON/batch protocol,
   and runtime requirements are unchanged.
+  Implementation: [c90b351](https://github.com/cs1302uga/cs1302-tracer/commit/c90b35182d459a764cca784ef3c9bceac15db650).
 
 - **Regression gates:** the Java CI matrix now enforces 100% production line and
   branch coverage with the existing strict profile. A `Regression gates` check
