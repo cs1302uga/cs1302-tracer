@@ -205,8 +205,13 @@ is pending; rerun the same command to continue. Exit 0 means assets and live doc
 were verified, while exit 1 means the operation stopped with an error. Generated
 history is never squashed or rebased, and published tags are never moved.
 Retries accept later `main` descendants containing the exact prepared history.
-Every required CI job must pass in the latest attempt; if a partial rerun lacks
-the complete matrix, rerun all jobs before retrying publication.
+Every required CI job must pass in the latest attempt, including the
+`Regression gates` aggregate and every original matrix job. The aggregate
+supplements the individual checks in exact-revision release evidence. A partial
+rerun without the complete matrix is insufficient; rerun all jobs before retrying
+publication. A revision predating the aggregate cannot gain it through a rerun.
+For previously prepared history, preserve its recorded revisions and follow the
+[recovery guidance](../docs/contributing/releases.md#recover-according-to-the-recorded-and-remote-state).
 The publisher preserves complete verified Javadoc assets on retries and never
 automatically overwrites them. A partial artifact set requires the runbook's
 explicit recovery procedure; a final check verifies the actual remote files.

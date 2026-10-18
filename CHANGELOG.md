@@ -90,6 +90,14 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
 
 ### Non-breaking changes
 
+- **Regression gates:** the Java CI matrix now enforces 100% production line and
+  branch coverage with the existing strict profile. A `Regression gates` check
+  requires successful Java, documentation, scripts, and Windows job groups;
+  release publication and exact-revision evidence require the aggregate as well
+  as every original job. Configure it as a required check for `main` before
+  reducing local commit checks. Java API, CLI, JSON/batch protocol, and runtime
+  requirements are unchanged.
+
 - **Build tooling:** pin the Maven distribution SHA-256 checksum with
   `wrapper.maven.sha256sum` in `pom.xml`. `./mvnw wrapper:wrapper` now retains
   checksum verification without `-DdistributionSha256Sum`, and `validate` rejects

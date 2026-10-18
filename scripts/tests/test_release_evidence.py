@@ -321,6 +321,53 @@ else:
         with self.assertRaises(subprocess.CalledProcessError):
             self.ci()
 
+    def test_aggregate_does_not_replace_individual_job_evidence(self) -> None:
+        """Require the aggregate and all eight original validation jobs independently."""
+        original = deepcopy(self.state["run"]["jobs"])
+        names = {
+            "Documentation",
+            "Regression gates",
+            "Scripts quality",
+            "Java (ubuntu-latest, 21)",
+            "Java (ubuntu-latest, 25)",
+            "Java (macos-latest, 21)",
+            "Java (macos-latest, 25)",
+            "Windows packaging and launchers (Java 21)",
+            "Windows packaging and launchers (Java 25)",
+        }
+        for name in sorted(names):
+            with self.subTest(missing=name):
+                self.state["run"]["jobs"] = [job for job in original if job["name"] != name]
+                with self.assertRaisesRegex(ValueError, "missing or duplicates"):
+                    self.ci()
+
+    def test_regression_gate_must_pass_for_branch_and_tag_evidence(self) -> None:
+        """Reject missing, duplicated, pending, failed, cancelled, or skipped aggregates."""
+        for key, verify in (("run", self.ci), ("tag_run", self.published)):
+            original = deepcopy(self.state[key]["jobs"])
+            gate = next(job for job in original if job["name"] == "Regression gates")
+            for jobs in (
+                [job for job in original if job["name"] != "Regression gates"],
+                [*original, gate],
+            ):
+                with self.subTest(run=key, jobs=jobs):
+                    self.state[key]["jobs"] = jobs
+                    with self.assertRaisesRegex(ValueError, "missing or duplicates"):
+                        verify()
+            self.state[key]["jobs"] = deepcopy(original)
+            gate = next(job for job in self.state[key]["jobs"] if job["name"] == "Regression gates")
+            for status, conclusion in (
+                ("in_progress", ""),
+                ("completed", "failure"),
+                ("completed", "cancelled"),
+                ("completed", "skipped"),
+            ):
+                with self.subTest(run=key, status=status, conclusion=conclusion):
+                    gate.update(status=status, conclusion=conclusion)
+                    with self.assertRaisesRegex(ValueError, "Every required CI job"):
+                        verify()
+            self.state[key]["jobs"] = original
+
     def test_publication_downloads_and_verifies_all_five_assets(self) -> None:
         """Require consistent embedded identity and byte-identical packaged executables."""
         self.assertTrue(self.published())

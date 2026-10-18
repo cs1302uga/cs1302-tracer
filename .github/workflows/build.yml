@@ -190,7 +190,7 @@ jobs:
           javac -version
           echo '::endgroup::'
       - name: Build and test with Maven
-        run: ./mvnw -B -ntp clean package
+        run: ./mvnw -B -ntp -Ppre-commit-coverage clean package
       - name: Verify launcher distribution
         shell: bash
         run: |
@@ -364,12 +364,28 @@ jobs:
             Remove-Item $smokeRoot -Recurse -Force
           }
 
+  regression-gates:
+    name: Regression gates
+    if: always()
+    needs: [test, documentation, windows-wrapper, scripts-quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require every regression job group to succeed
+        env:
+          JAVA_RESULT: ${{ needs.test.result }}
+          DOCUMENTATION_RESULT: ${{ needs.documentation.result }}
+          SCRIPTS_QUALITY_RESULT: ${{ needs.scripts-quality.result }}
+          WINDOWS_WRAPPER_RESULT: ${{ needs.windows-wrapper.result }}
+        run: ./.github/scripts/check-regression-gates.sh
+
   release:
     permissions:
       contents: write
       id-token: write
       attestations: write
-    needs: [test, documentation, windows-wrapper, scripts-quality]
+    needs: [test, documentation, windows-wrapper, scripts-quality, regression-gates]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:

@@ -18,6 +18,7 @@ type Record = dict[str, Any]
 
 EXPECTED_JOBS = {
     "Documentation",
+    "Regression gates",
     "Scripts quality",
     *(f"Java ({platform}, {version})" for platform in ("ubuntu-latest", "macos-latest") for version in (21, 25)),
     *(f"Windows packaging and launchers (Java {version})" for version in (21, 25)),

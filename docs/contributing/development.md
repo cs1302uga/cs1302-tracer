@@ -97,6 +97,27 @@ JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchang
 
 The **JaCoCo** check enforces **100% line coverage** and **100% branch coverage** for the configured `cs1302.tracer.internal.model` and `cs1302.tracer.internal.serialize` packages. It does not enforce that threshold across the tracing engine or all production packages. New lifecycle tests exercise real subprocesses with outer deadlines and cleanup; coverage percentage alone is not the release gate.
 
+### Required CI regression gates
+
+Every Java CI matrix job runs `./mvnw -B -ntp -Ppre-commit-coverage clean package`,
+adding the existing 100% production line and branch coverage gate to the complete
+Java 21/25 Linux/macOS test matrix. The matrix also verifies trace fixtures,
+launchers, and packaged source distributions.
+
+The `Regression gates` job waits for the Java matrix, Documentation, Scripts
+quality, and Windows packaging/launcher matrix. It runs even when a dependency
+fails and accepts only `success` from every group. Failed, cancelled, skipped,
+empty, or unexpected results fail the aggregate. Its checker lives in
+`.github/scripts/check-regression-gates.sh` and has subprocess tests under
+`scripts/tests/`.
+
+Configure the active GitHub ruleset for `main` to require both `Regression gates`
+and `Documentation` from GitHub Actions, with an up-to-date branch required.
+The workflow defines the checks; the ruleset makes their success a merge
+requirement. Verify the effective rules before reducing local commit checks.
+Release publication and exact-revision release evidence also require the
+aggregate and every original job.
+
 ### Python script quality
 
 Run repository Python commands through `./scripts/uv run python3` from the
@@ -193,7 +214,8 @@ chmod +x "$(git rev-parse --git-path hooks)/pre-commit"
 This enables lint and coverage without activating the separate pre-push hook.
 Installation is local to each checkout; the scripts and
 Maven profile are tracked in the repository. Git permits local hooks to be bypassed;
-use the same Maven profile in CI if this must also be a merge requirement.
+the [CI regression gate](#required-ci-regression-gates) provides merge enforcement
+when configured as a required check, independently of local hook installation.
 
 ## Compatibility fixtures
 

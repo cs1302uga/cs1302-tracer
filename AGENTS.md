@@ -74,6 +74,11 @@ stricter than the normal build's model/serializer coverage gate. Keep these gate
 intact; a successful working-tree test does not validate different staged content.
 Report the checks actually run and any unverified execution paths.
 
+CI runs the same strict coverage profile across its Java matrix. Keep the
+`Regression gates` aggregate dependent on successful Java, documentation, scripts,
+and Windows job groups; failed, cancelled, or skipped groups must fail it. Verify
+that the aggregate is required for `main` before reducing local commit checks.
+
 For Python script changes, follow `scripts/AGENTS.md`: tests belong under
 `scripts/tests/`, and completion requires Ruff lint/format, ty, and 100% production
 line/branch coverage including subprocesses. Preserve the Scripts quality CI gate
