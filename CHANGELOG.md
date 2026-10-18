@@ -149,6 +149,9 @@ project license and dependency references with compact, accessible tables and
 fresh metadata checks; and verified JDK selection and first-run recovery
 documentation.
 
+Implementation: [fd7737e](https://github.com/cs1302uga/cs1302-tracer/commit/fd7737efe36c7663f43d6fcf1da1501bd18c74f0)
+— Verified shared-reference tutorial.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
