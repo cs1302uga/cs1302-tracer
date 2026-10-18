@@ -90,13 +90,23 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
 
 ### Non-breaking changes
 
+- **Local commits:** run staged whitespace and Java Checkstyle checks without
+  rerunning the complete Java suite on each commit. Local commits can precede
+  tests; required CI and release preparation retain the full regression and
+  100% production line/branch coverage gates. Use `.githooks/pre-commit-coverage`
+  for explicit strict validation of staged content. The optional pre-push hook
+  remains ordinary working-tree feedback. Java API, CLI, JSON/batch protocol,
+  and runtime requirements are unchanged.
+  Implementation: [c90b351](https://github.com/cs1302uga/cs1302-tracer/commit/c90b35182d459a764cca784ef3c9bceac15db650).
+
 - **Regression gates:** the Java CI matrix now enforces 100% production line and
   branch coverage with the existing strict profile. A `Regression gates` check
   requires successful Java, documentation, scripts, and Windows job groups;
   release publication and exact-revision evidence require the aggregate as well
-  as every original job. Configure it as a required check for `main` before
-  reducing local commit checks. Java API, CLI, JSON/batch protocol, and runtime
-  requirements are unchanged.
+  as every original job. The active ruleset requires it alongside Documentation
+  for `main`. Java API, CLI, JSON/batch protocol, and runtime requirements are
+  unchanged.
+  Implementation: [0dd30a3](https://github.com/cs1302uga/cs1302-tracer/commit/0dd30a369409ea49f44e850f8e58c19b2acab061).
 
 - **Build tooling:** pin the Maven distribution SHA-256 checksum with
   `wrapper.maven.sha256sum` in `pom.xml`. `./mvnw wrapper:wrapper` now retains

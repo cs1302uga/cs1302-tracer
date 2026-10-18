@@ -233,7 +233,8 @@ state, remote refs, and `.git/release-logs/` before recovery. See the runbook's
 
 **Ruff** lint and formatting, **ty**, and 100% production Python line and branch coverage
 are enforced by the Scripts quality CI job. Release creation depends on this job.
-The existing **Git** hooks remain Java-only. Run the coverage gate from the root:
+Local **Git** hooks check staged whitespace and Java style. Python quality remains
+part of required CI and explicit local validation. Run the coverage gate from the root:
 
 ```sh
 export COVERAGE_RCFILE="$PWD/scripts/pyproject.toml"

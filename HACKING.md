@@ -17,6 +17,9 @@ across all production classes. The Java CI matrix uses that strict profile too;
 the `Regression gates` check requires successful Java, documentation, scripts,
 and Windows packaging/launcher jobs. See the
 [merge gate](docs/contributing/development.md#required-ci-regression-gates).
+Local commits run staged whitespace and Java Checkstyle checks; they can precede
+the full test suite. Run `.githooks/pre-commit-coverage` for explicit staged strict
+validation. Required CI and release preparation retain the full regression gates.
 Before running Maven `clean`, preserve any needed audit evidence under `target/`.
 Run Java tests, trace fixture verification, and executable documentation checks
 serially because they share temporary-directory checks.
@@ -31,7 +34,8 @@ Run `./scripts/uv sync --locked`, then follow the
 [scripts quality commands](scripts/README.md#tests-and-development-tools).
 CI enforces **Ruff** lint/format checks, **ty**, and 100% production Python line/branch
 coverage. Tests live under `scripts/tests/`; subprocess coverage is combined before
-reporting. The scripts CI job is required for releases; Git hooks remain Java-only.
+reporting. The scripts CI job is required for merges and releases; local Git hooks
+check staged whitespace and Java style.
 
 ## Documentation changes
 
