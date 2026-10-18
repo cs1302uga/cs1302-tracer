@@ -25,6 +25,7 @@ module.exports = {
     hooks: { onBrokenMarkdownLinks: 'throw', onBrokenMarkdownImages: 'throw' },
   },
   themes: ['@docusaurus/theme-mermaid'],
+  clientModules: [require.resolve('./src/client/dependencies.mjs')],
   presets: [['classic', {
     docs: {
       path: '../docs',
@@ -38,6 +39,7 @@ module.exports = {
       }])),
     },
     blog: false,
+    theme: {customCss: require.resolve('./src/css/dependencies.css')},
     pages: guide.archive ? false : {path: 'src/pages', exclude: latest ? [] : ['**/index.jsx']},
   }]],
   themeConfig: {

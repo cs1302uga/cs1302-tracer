@@ -89,7 +89,7 @@ behavior.
 | Script | Purpose |
 | --- | --- |
 | [`check_pom.py`](check_pom.py) | Check version properties, plugin ownership, and aligned test-scoped JsonUnit dependencies offline. Defaults to the repository POM; accepts an optional POM path. Exit codes: 0 passed, 1 policy violations, 2 input/argument errors. |
-| [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable CLI help, quickstart commands, JSON examples, and the batch example. Requires the built tracer JAR. `--update-cli` refreshes the CLI reference. |
+| [`check_docs.py`](check_docs.py) | Validate Markdown destinations, executable help, JSON examples, tutorials, and CLI recipes. Requires the packaged tracer JAR and binary ZIP. Checks local/heap relationships, capture modes, input, sources, dependencies, presentation, and partial results. `--update-cli` refreshes the CLI reference. |
 | [`docs_site.py`](docs_site.py) | Run `build`, `start`, `api`, or complete `verify` with explicit preview/published selection, Javadoc artifact/source and cache controls, and stage timings. |
 | [`build_javadoc.py`](build_javadoc.py) | Select verified release Javadoc or tagged-source output and generate development API pages. Invoke through `docs_site.py api`. |
 | [`javadoc_cache.py`](javadoc_cache.py) | Internal historical-output cache with build-input fingerprints and complete-file integrity checks. Configure it through `docs_site.py`. |
@@ -119,8 +119,9 @@ git fetch --tags
 ```
 
 Open `http://127.0.0.1:3100/cs1302-tracer/`. Stop the server with Ctrl-C.
-Follow [documentation maintenance](../docs/contributing/documentation.md) for live
-preview, published mode, and release rehearsal using the plugin-installed toolchain.
+Follow [documentation builds](../docs/contributing/documentation-builds.md) for live
+preview and published mode using the plugin-installed toolchain. See the
+[release runbook](../docs/contributing/releases.md#release-rehearsal) for rehearsal.
 
 `docs_site.py verify` runs the complete documentation checks after tracer packaging;
 `build` generates the site, `start` runs the development server, and `api` generates
@@ -159,7 +160,7 @@ advertises no artifact can fall back to source; missing required artifacts
 or incomplete/invalid advertised sets fail. `source` explicitly bypasses release
 artifacts. Downloaded bundles live under `website/.cache/release-javadoc/` and are
 verified on every reuse, which can still require network access for trust data.
-See [published Javadoc artifacts](../docs/contributing/documentation.md#published-javadoc-artifacts)
+See [published Javadoc artifacts](../docs/contributing/javadoc-artifacts.md#published-javadoc-artifacts)
 for provenance requirements and the `javadoc_artifact.py check`/`verify` commands.
 
 Source-built historical Javadoc uses the ignored `website/.cache/javadoc/`
@@ -177,12 +178,12 @@ and the complete `verify` workflow's documentation and rendered-link checks.
 `website/npm-ci-timing.json` separately records the timed dependency installation.
 Check their invocation timestamps and preserve reports before comparing runs.
 They exclude outer Maven packaging, frontend bootstrap, and workflow transfers.
-See [cache and timing guidance](../docs/contributing/documentation.md#documentation-build-cache-and-timing)
+See [cache and timing guidance](../docs/contributing/documentation-builds.md#documentation-build-cache-and-timing)
 for input validation, CI trust, failure handling, and controlled cold/warm comparisons.
 
 ## Signed release workflow
 
-Follow the [release runbook](../docs/contributing/documentation.md#prepare-a-stable-release)
+Follow the [release runbook](../docs/contributing/releases.md#prepare-a-stable-release)
 for version classification, signing prerequisites, pending snapshots, and the
 full command sequence. **Maven Release Plugin 3.3.1** owns version transitions and
 tagging; **GitHub Actions** publishes assets. Do not use `release:perform`.
@@ -214,7 +215,7 @@ explicit recovery procedure; a final check verifies the actual remote files.
 report; it does not refresh remote state. `resume --directory PATH` handles only
 interrupted real preparation before remote publication. Inspect the report, Maven
 state, remote refs, and `.git/release-logs/` before recovery. See the runbook's
-[recovery procedure](../docs/contributing/documentation.md#recover-according-to-the-recorded-and-remote-state).
+[recovery procedure](../docs/contributing/releases.md#recover-according-to-the-recorded-and-remote-state).
 
 ## Tests and development tools
 

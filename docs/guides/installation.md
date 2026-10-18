@@ -9,27 +9,194 @@ JDK, so newer language/library features require a suitable runtime and parser su
 
 | Your task | Download or build | Next step |
 | --- | --- | --- |
-| Run on Linux or macOS | Binary tar.gz or tar.xz archive | Extract it and run the **Bash** launcher. |
-| Run on Windows | Binary ZIP archive | Extract it and use **PowerShell 7.4+** or **Command Prompt**. |
-| Invoke Java directly | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
+| Run a downloaded release on any supported platform | Standalone `code-tracer.jar` | Run `java -jar code-tracer.jar --help`. |
+| Use a launcher on Linux or macOS | Binary tar.gz or tar.xz archive, when provided | Extract it and run the **Bash** launcher. |
+| Use a launcher on Windows | Binary ZIP archive, when provided | Extract it and use **PowerShell 7.4+** or **Command Prompt**. |
 | Develop or modify the tracer | Source checkout | Build with the included **Maven** wrapper. |
 
-Check `java --version` and `javac --version` before starting. Their complete release
-numbers must match and be stable JDK 21 or later releases. The launcher uses a
-nonempty `JAVA_HOME` in preference to `PATH`; both `java` and `javac` must be
-executable under that selection. Every command, including help and version,
-requires the [JDK environment preflight](../reference/cli.md#jdk-environment-preflight)
-to pass. Direct JAR execution must use the same JDK selected by the environment.
+First [select and verify your JDK](#inspect-your-current-java-selection), then
+download or build the tracer. After obtaining the JAR, complete
+[Verify your installation](#verify-your-installation) before the first tutorial.
 Use the documentation version matching your downloaded release; `/next/` describes
 development builds, whose artifacts may differ from older releases.
 
+## Inspect your current Java selection
+
+Open the terminal you will use for tracing. A nonempty `JAVA_HOME` selects the
+tracer's JDK; otherwise, the tracer searches `PATH` for both `java` and `javac`.
+An invalid `JAVA_HOME` does not fall back to `PATH`. In contrast, typing bare
+`java` in a shell does not automatically use `JAVA_HOME`.
+
+Run the commands for your shell to inspect both settings. These commands report
+what is configured; they do not change it. Missing commands or an unset
+`JAVA_HOME` are reasons to complete the selection step below.
+
+Bash — Linux or macOS:
+
+<!-- jdk-inspect-bash:start -->
+```sh
+printf 'JAVA_HOME=%s\n' "${JAVA_HOME:-<unset>}"
+type -a java javac
+```
+<!-- jdk-inspect-bash:end -->
+
+PowerShell — Windows:
+
+<!-- jdk-inspect-powershell:start -->
+```powershell
+Write-Output "JAVA_HOME=$env:JAVA_HOME"
+Get-Command java, javac -All | Select-Object CommandType, Name, Source, Definition | Format-List
+```
+<!-- jdk-inspect-powershell:end -->
+
+Command Prompt — Windows:
+
+<!-- jdk-inspect-cmd:start -->
+```bat
+if defined JAVA_HOME (echo JAVA_HOME="%JAVA_HOME%") else (echo JAVA_HOME is not set)
+where java
+where javac
+```
+<!-- jdk-inspect-cmd:end -->
+
+Multiple paths can indicate multiple installed JDKs. Bash and PowerShell can
+also report an alias or function named `java`; a version-manager shim can appear
+as an executable path. These may select a different runtime from the one the
+tracer expects. Keep this output when [diagnosing a startup error](troubleshooting.md#the-tracer-does-not-start).
+
+## Select an installed JDK for this terminal session
+
+Find the directory of an already installed full stable JDK 21 or later. It must
+contain both `bin/java` and `bin/javac` (`java.exe` and `javac.exe` on Windows).
+Use the JDK root, not its `bin` directory or an executable filename. On macOS,
+the root of a JDK application bundle may end in `Contents/Home`.
+If you do not have a full JDK, install one using your course or organization's
+instructions before continuing.
+
+Replace the example JDK path below with that directory, keeping the quotes.
+The commands select the JDK and put its `bin` directory before the existing
+`PATH`. They affect this terminal session and programs started from it; they do
+not edit shell profiles or machine-wide settings. These changes are not saved
+for future terminal sessions; repeat the selection when needed.
+
+Bash:
+
+<!-- jdk-select-bash:start -->
+```sh
+export JAVA_HOME='/path/to/your/jdk'
+export PATH="$JAVA_HOME/bin:$PATH"
+hash -r
+```
+<!-- jdk-select-bash:end -->
+
+`hash -r` clears Bash's cached executable locations. It does not remove aliases
+or functions.
+
+PowerShell:
+
+<!-- jdk-select-powershell:start -->
+```powershell
+$env:JAVA_HOME = 'C:\path\to\your\jdk'
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+```
+<!-- jdk-select-powershell:end -->
+
+Command Prompt:
+
+<!-- jdk-select-cmd:start -->
+```bat
+set "JAVA_HOME=C:\path\to\your\jdk"
+set "PATH=%JAVA_HOME%\bin;%PATH%"
+```
+<!-- jdk-select-cmd:end -->
+
+## Verify the selected tools
+
+Run the matching block in the same terminal. The explicit paths check the JDK
+selected by `JAVA_HOME`; the remaining commands show what the bare commands used
+in the tutorials resolve to. PowerShell's `&` invokes the quoted executable path.
+
+Bash:
+
+<!-- jdk-verify-bash:start -->
+```sh
+printf '%s\n' "$JAVA_HOME/bin/java" "$JAVA_HOME/bin/javac"
+"$JAVA_HOME/bin/java" --version
+"$JAVA_HOME/bin/javac" --version
+type -a java javac
+java --version
+javac --version
+```
+<!-- jdk-verify-bash:end -->
+
+PowerShell:
+
+<!-- jdk-verify-powershell:start -->
+```powershell
+Write-Output "$env:JAVA_HOME\bin\java.exe" "$env:JAVA_HOME\bin\javac.exe"
+& "$env:JAVA_HOME\bin\java.exe" --version
+& "$env:JAVA_HOME\bin\javac.exe" --version
+Get-Command java, javac -All | Select-Object CommandType, Name, Source, Definition | Format-List
+java --version
+javac --version
+```
+<!-- jdk-verify-powershell:end -->
+
+Command Prompt:
+
+<!-- jdk-verify-cmd:start -->
+```bat
+echo "%JAVA_HOME%\bin\java.exe"
+echo "%JAVA_HOME%\bin\javac.exe"
+"%JAVA_HOME%\bin\java.exe" --version
+"%JAVA_HOME%\bin\javac.exe" --version
+where java
+where javac
+java --version
+javac --version
+```
+<!-- jdk-verify-cmd:end -->
+
+Both tools must report the same complete stable release number, with a major
+version of at least 21. For example, `25.0.4.1` and `25.0.4` do not match. Vendor
+names and build metadata do not have to match, and early-access releases are
+rejected. Confirm that the bare commands use the selected JDK too; matching
+version numbers alone do not establish that they select the same installation.
+If an alias, function, or shim still takes precedence, use the
+[startup recovery guidance](troubleshooting.md#the-tracer-does-not-start).
+
+Every tracer command, including help and version, performs the
+[JDK environment preflight](../reference/cli.md#jdk-environment-preflight).
+Do not continue after a failed probe: correct the selected JDK first.
+
 ## Download a release
 
-Download `code-tracer.jar` from the desired
-[GitHub release](https://github.com/cs1302uga/cs1302-tracer/releases), then run
-`java -jar code-tracer.jar --help`. A full JDK is still required.
-Use documentation matching the downloaded version. The first-trace tutorial works from the extracted directory or beside the downloaded
-JAR; no source checkout is needed.
+Open the [latest stable software release](https://github.com/cs1302uga/cs1302-tracer/releases/latest),
+or select a particular version from the
+[release history](https://github.com/cs1302uga/cs1302-tracer/releases).
+Software releases use `vX.Y.Z` tags. Separate `docs-*` prereleases publish historical
+guide applications; use a software release when downloading the tracer itself.
+
+Choose an asset by its purpose. Availability depends on the release: older releases
+may provide only the executable and library JARs. Binary distributions and **Javadoc**
+bundles described here are produced by the current workflow and may be absent from
+your selected release.
+
+| Asset | Purpose |
+| --- | --- |
+| `code-tracer.jar` | Executable CLI with its runtime dependencies bundled. Start here for direct Java invocation. |
+| `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, or `code-tracer-bin.zip` | The executable JAR, shell launchers, and license in one directory. Choose one archive for your platform. |
+| `cs1302-tracer-VERSION.jar` | Library for [Java integration](../tutorials/java-integration.md). It requires its runtime dependencies; use Maven to resolve them. |
+| `cs1302-tracer-VERSION-javadoc.jar` | Javadoc HTML for offline API reading, with matching checksum and provenance companions when supplied by the current workflow. See [offline API documentation](offline-javadoc.md). |
+| `cs1302-tracer-VERSION-guides.zip` | Historical guide application from a separate `docs-*` publication. The [documentation site](https://cs1302uga.github.io/cs1302-tracer/) already serves these guides at their versioned URLs. |
+
+For the simplest installation, download `code-tracer.jar` and run
+`java -jar code-tracer.jar --help` in its directory. A full JDK is still required.
+Use documentation matching the downloaded version. The
+[first-trace tutorial](../tutorials/first-trace.md) works beside that JAR or from an
+extracted binary distribution; no source checkout is needed.
+
+### Binary distributions
 
 Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and
 `code-tracer-bin.zip` provide
@@ -67,12 +234,12 @@ Continue with [your first trace](../tutorials/first-trace.md); no checkout is ne
 
 Releases produced by the current workflow also include
 `cs1302-tracer-VERSION-javadoc.jar`, its `.jar.sha256` checksum, and its
-`.jar.sigstore.json` provenance bundle. These contain **Javadoc** for library
+`.jar.sigstore.json` provenance bundle. These contain Javadoc for library
 integration; they are separate from the executable and library JARs. Older
 releases may not provide them.
 
 Download the three matching files and follow the
-[release-artifact verification instructions](../contributing/documentation.md#published-javadoc-artifacts)
+[offline API documentation guide](offline-javadoc.md)
 to check their source identity and trusted build provenance. Extract the verified
 Javadoc JAR into an empty directory and open `index.html` in a browser. The HTML,
 navigation, and search are bundled; links to other projects can still need network
@@ -102,8 +269,53 @@ The [version report](../reference/cli.md#version-and-runtime-details) includes t
 application version and source commit, followed by OS and Java runtime details.
 Include this report when diagnosing installation or JDK differences.
 
-Continue with [your first trace](../tutorials/first-trace.md). That tutorial creates
-its own source file and explains which directory to use for each installation.
+Complete the installation check below, then continue with
+[your first trace](../tutorials/first-trace.md). That tutorial creates its own
+source file and explains which directory to use for each installation.
+
+## Verify your installation
+
+Use the same terminal where you selected the JDK. Work in the directory containing
+`code-tracer.jar`: the download directory, the extracted `code-tracer` directory,
+or `target` after a source build. Run the block for your shell:
+
+Bash:
+
+<!-- jdk-tracer-bash:start -->
+```sh
+"$JAVA_HOME/bin/java" -jar code-tracer.jar --version
+java -jar code-tracer.jar --version
+```
+<!-- jdk-tracer-bash:end -->
+
+PowerShell:
+
+<!-- jdk-tracer-powershell:start -->
+```powershell
+& "$env:JAVA_HOME\bin\java.exe" -jar code-tracer.jar --version
+java -jar code-tracer.jar --version
+```
+<!-- jdk-tracer-powershell:end -->
+
+Command Prompt:
+
+<!-- jdk-tracer-cmd:start -->
+```bat
+"%JAVA_HOME%\bin\java.exe" -jar code-tracer.jar --version
+java -jar code-tracer.jar --version
+```
+<!-- jdk-tracer-cmd:end -->
+
+Both commands must succeed and report the same tracer version, source commit,
+and Java runtime details. The first confirms that the explicitly selected JDK
+can run the tracer; the second confirms that the shorter tutorial command works.
+If either fails, preserve its stderr diagnostic and follow
+[startup troubleshooting](troubleshooting.md#the-tracer-does-not-start).
+A failure mentioning a different running JDK means the direct invocation and
+environment selection still disagree.
+
+You are ready for [your first trace](../tutorials/first-trace.md) when both commands
+succeed. Keep using this terminal so the session's JDK selection stays in effect.
 
 ## Advanced launcher configuration
 

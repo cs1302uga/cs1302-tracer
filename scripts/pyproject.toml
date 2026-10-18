@@ -56,7 +56,7 @@ strict = true
 branch = true
 source = ["scripts"]
 source_pkgs = [
-    "build_javadoc", "check_docs", "check_external_links", "check_site", "check_pom", "configure_maven",
+    "build_javadoc", "check_docs", "check_external_links", "check_site", "check_pom", "configure_maven", "dependency_docs",
     "docs_release", "docs_site", "docs_timing", "guide_archive", "guide_build", "guide_publish", "javadoc_artifact", "javadoc_cache", "javadoc_publish", "rehearse_docs_release", "release", "release_evidence", "release_validate", "serve_docs",
 ]
 omit = ["*/scripts/tests/*", "*/scripts/.venv/*", "*/scripts/.uv/*"]

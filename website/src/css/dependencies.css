@@ -1,0 +1,268 @@
+/* One semantic table is shared by the desktop and stacked phone layouts. */
+.dependency-inventory .dependency-table {
+  display: table;
+  table-layout: fixed;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 2rem;
+  /* Infima's scroll container would prevent headers from sticking to the viewport. */
+  overflow: visible;
+}
+
+.dependency-table :is(th, td) {
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: anywhere;
+  padding: 0.4rem 0.65rem;
+  line-height: 1.4;
+}
+
+.dependency-table thead th:nth-child(1) { width: 37%; }
+.dependency-table thead th:nth-child(2) { width: 24%; }
+.dependency-table thead th:nth-child(3) { width: 39%; }
+
+.dependency-table .dependency-entry tr {
+  background: transparent;
+}
+
+.dependency-table .dependency-entry:nth-of-type(even) {
+  background: var(--ifm-table-stripe-background);
+}
+
+.dependency-table .dependency-subgroup td {
+  padding-block: 0.35rem;
+  background: var(--ifm-color-emphasis-100);
+}
+
+.dependency-subgroup h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.dependency-table .dependency-entry > tr:first-child > :is(th, td) {
+  border-bottom: 0;
+}
+
+.dependency-table .dependency-details-row > td {
+  border-top: 0;
+  padding-top: 0;
+  padding-bottom: 0.35rem;
+}
+
+.dependency-name {
+  font-weight: 600;
+}
+
+.dependency-version,
+.dependency-group-id {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.dependency-scope,
+.dependency-relationship {
+  display: inline;
+}
+
+.dependency-count {
+  font-weight: normal;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.dependency-inventory .dependency-license-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dependency-license-list li + li {
+  margin-top: 0.2rem;
+}
+
+.dependency-override-note {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.dependency-mobile-label {
+  display: none;
+}
+
+.dependency-details {
+  margin: 0;
+}
+
+.dependency-summary {
+  width: fit-content;
+  max-width: 100%;
+  padding-block: 0.15rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ifm-link-color);
+}
+
+.dependency-summary:focus-visible,
+.dependency-controls button:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 3px;
+}
+
+.dependency-metadata {
+  margin-top: 0.5rem;
+}
+
+.dependency-metadata > :last-child {
+  margin-bottom: 0;
+}
+
+.dependency-coordinate {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.dependency-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dependency-controls button {
+  border: 1px solid var(--ifm-color-emphasis-500);
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dependency-controls button:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+@media screen and (min-width: 601px) {
+  /* The table bounds the sticky row; its opaque cells stay below the fixed navbar. */
+  .dependency-table thead {
+    position: sticky;
+    top: var(--ifm-navbar-height);
+    z-index: 1;
+  }
+
+  .dependency-table thead th {
+    background: var(--ifm-background-color);
+    box-shadow: inset 0 -1px var(--ifm-table-border-color);
+  }
+
+  .dependency-subgroup h3 {
+    /* Leave room for a wrapped column heading as well as the fixed navbar. */
+    scroll-margin-top: calc(var(--ifm-navbar-height) + 4rem);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .dependency-inventory .dependency-table,
+  .dependency-table :is(tbody, tr, th, td) {
+    display: block;
+    width: 100%;
+  }
+
+  /* Keep column headers available to assistive technology while rows become entries. */
+  .dependency-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .dependency-table .dependency-entry {
+    margin-bottom: 0.65rem;
+    border: 1px solid var(--ifm-table-border-color);
+    border-radius: var(--ifm-global-radius);
+  }
+
+  .dependency-table :is(tr, th, td) {
+    border: 0;
+  }
+
+  .dependency-table .dependency-name {
+    font-size: 1rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .dependency-mobile-label {
+    display: block;
+    margin-bottom: 0.1rem;
+    font-weight: 600;
+  }
+
+  .dependency-use .dependency-mobile-label {
+    display: none;
+  }
+
+  .dependency-table .dependency-subgroup td {
+    margin-block: 0.25rem 0.5rem;
+    border-radius: var(--ifm-global-radius);
+  }
+
+  .dependency-table .dependency-details-row {
+    border-top: 1px solid var(--ifm-table-border-color);
+  }
+
+  .dependency-table .dependency-details-row > td {
+    padding-block: 0;
+  }
+
+  .dependency-summary {
+    width: 100%;
+    min-height: 44px;
+    padding-block: 0.65rem;
+  }
+
+  .dependency-controls button {
+    min-height: 44px;
+  }
+
+  .dependency-metadata {
+    margin-top: 0;
+    padding-bottom: 0.5rem;
+  }
+}
+
+@media print {
+  .dependency-controls {
+    display: none;
+  }
+
+  .dependency-inventory .dependency-table {
+    font-size: 9pt;
+  }
+
+  .dependency-table thead {
+    display: table-header-group;
+    position: static;
+  }
+
+  .dependency-table :is(th, td) {
+    padding: 0.3rem;
+  }
+
+  /* Native disclosure contents remain printable even when JavaScript is disabled. */
+  .dependency-details::details-content {
+    content-visibility: visible;
+    block-size: auto;
+  }
+
+  .dependency-details > .dependency-metadata {
+    display: block !important;
+  }
+
+  .dependency-summary {
+    color: inherit;
+  }
+}

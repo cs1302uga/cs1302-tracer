@@ -87,6 +87,7 @@
     <maven-clean-plugin.version>3.5.0</maven-clean-plugin.version>
     <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
     <maven-deploy-plugin.version>3.2.0</maven-deploy-plugin.version>
+    <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
     <properties-maven-plugin.version>1.3.1</properties-maven-plugin.version>
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
     <maven-install-plugin.version>3.2.0</maven-install-plugin.version>
@@ -106,6 +107,8 @@
     <docsite.javadocCache>use</docsite.javadocCache>
     <docsite.javadocSource>auto</docsite.javadocSource>
     <docsite.guides>all</docsite.guides>
+    <!-- The dependency-page generator overrides this with a fresh temporary directory. -->
+    <dependency.docs.outputDirectory>${project.build.directory}/dependency-docs</dependency.docs.outputDirectory>
 
     <!-- Published releases declaring this schema must provide authenticated Javadoc artifacts. -->
     <release.javadoc.schema>1</release.javadoc.schema>
@@ -449,6 +452,12 @@
           <artifactId>maven-project-info-reports-plugin</artifactId>
           <version>${maven-project-info-reports-plugin.version}</version>
         </plugin>
+        <!-- Export the resolved project dependency graph for the generated reference page. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>${maven-dependency-plugin.version}</version>
+        </plugin>
         <!-- Additional build tools -->
         <!-- Manage the style-checking plugin and its separately selected engine dependency. -->
         <plugin>
@@ -627,6 +636,30 @@
               <licenseMerges>
                 <licenseMerge>The Apache Software License, Version 2.0|Apache License, Version 2.0|Apache License 2.0|The Apache License, Version 2.0|Apache-2.0|Apache 2.0</licenseMerge>
               </licenseMerges>
+            </configuration>
+          </execution>
+          <!-- Export effective metadata only when invoked explicitly by dependency_docs.py. -->
+          <execution>
+            <id>dependency-docs</id>
+            <phase>none</phase>
+            <goals><goal>add-third-party</goal></goals>
+            <configuration>
+              <fileTemplate>${project.basedir}/scripts/dependency-metadata.ftl</fileTemplate>
+              <outputDirectory>${dependency.docs.outputDirectory}</outputDirectory>
+              <thirdPartyFilename>metadata.json</thirdPartyFilename>
+              <includedScopes>compile,runtime,test,provided,system</includedScopes>
+              <excludedScopes></excludedScopes>
+              <includeTransitiveDependencies>true</includeTransitiveDependencies>
+              <force>true</force>
+              <!-- Keep documentation exports out of packaged resources and repository notices. -->
+              <addOutputDirectoryAsResourceDir>false</addOutputDirectoryAsResourceDir>
+              <generateBundle>false</generateBundle>
+              <deployMissingFile>false</deployMissingFile>
+              <useMissingFile>false</useMissingFile>
+              <useRepositoryMissingFiles>false</useRepositoryMissingFiles>
+              <missingFile>${dependency.docs.outputDirectory}/missing-licenses.properties</missingFile>
+              <!-- The generator checks missing names/URLs after applying reviewed source-linked overrides. -->
+              <failOnMissing>false</failOnMissing>
             </configuration>
           </execution>
         </executions>

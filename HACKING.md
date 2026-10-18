@@ -49,8 +49,9 @@ export PATH="$PWD/target/frontend/node:$PATH"
 ./scripts/uv run --locked npm --prefix website start
 ```
 
-See [documentation maintenance](docs/contributing/documentation.md) for prerequisites,
-published-mode builds, and release rehearsal. Python tooling changes also require
+See [documentation builds](docs/contributing/documentation-builds.md) for prerequisites
+and published-mode builds, and the [release runbook](docs/contributing/releases.md#release-rehearsal)
+for release rehearsal. Python tooling changes also require
 the [scripts quality gates](scripts/README.md#tests-and-development-tools).
 
 For CLI changes, regenerate help with `./scripts/uv run python scripts/check_docs.py --update-cli`

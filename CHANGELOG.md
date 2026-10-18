@@ -54,6 +54,24 @@ Implementation: [e6b1d44](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1
 Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e810c99fd6e4f26ab852f6f5e687ff6046386)
 — Reviewed initial archive catalog, independently verified against published bytes.
 
+Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb)
+— Active guide deployment with verified historical archives and retained version routes.
+
+Implementation: [61ab6bd](https://github.com/cs1302uga/cs1302-tracer/commit/61ab6bdabbfdf983b1ff70dec8746541214c47ec)
+— Download-first documentation, verified offline API guidance, and focused
+maintainer guides with preserved section links.
+
+Implementation: [58e8f8e](https://github.com/cs1302uga/cs1302-tracer/commit/58e8f8e5fc753c51505fe252df798be6dcd9e2e8)
+— Verified CLI lessons, standalone tracing recipes, result-contract guidance,
+and grouped troubleshooting.
+
+Implementation: [038d59c](https://github.com/cs1302uga/cs1302-tracer/commit/038d59cb9126775d9ddec558e1c88c9c8be1f6d3)
+— Generated project license and dependency references with compact, accessible
+tables and fresh metadata checks.
+
+Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a571897ea4bf789e18bca7060fbdc06d9455d)
+— Verified JDK selection and first-run recovery documentation.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -71,6 +89,43 @@ Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e
   are unchanged.
 
 ### Non-breaking changes
+
+- **JDK setup documentation:** add current-session JDK selection and verification
+  recipes for Bash, PowerShell, and Command Prompt, with an installation checkpoint
+  before the first trace and linked recovery steps for startup failures. Check the
+  marked Bash snippets and add native Windows snippet checks on JDK 21 and 25.
+  Windows checks account for shell startup changes to `PATH` while still requiring
+  the selection recipe to preserve all existing entries after the selected JDK.
+  These documentation and tooling changes preserve CLI preflight behavior, Java
+  and JSON/protocol contracts, and published snapshots.
+
+- **Dependency documentation:** publish the exact project license and a generated
+  inventory of resolved Maven project dependencies, separating runtime and test
+  dependencies with their versions, scopes, artifact types, declared licenses,
+  and dependency tree. Compact desktop tables and phone entries use artifact IDs
+  and group direct dependencies before transitive dependencies, keeping all
+  licensing visible while expandable details retain exact upstream names and
+  complete metadata. Desktop column headers stay visible while scrolling. The
+  site adds controls to expand or collapse all entries and includes their details
+  when printing; individual disclosures also work without JavaScript. Documentation
+  and release verification freshly check the inventory and reject drift or missing
+  licensing; reviewed, source-linked corrections cover missing upstream licensing
+  metadata. Java, CLI, JSON/protocol, packaged notices, and published snapshots
+  retain their existing behavior.
+
+- **CLI learning materials:** add a loop tutorial and a trace-model explanation,
+  annotate the first trace's local values and heap relationships, and supply
+  standalone recipes for input, multiple sources, binary dependencies, and partial
+  results. Document result shapes, defaults, and exit statuses together, and check
+  the runnable lessons against real tracer output. These documentation and checker
+  improvements do not change Java, CLI, or JSON/protocol behavior or published guides.
+
+- **Documentation:** lead the README with downloads and a self-contained first
+  trace, distinguish software and guide publications and their assets, and explain
+  offline API verification and extraction. Split maintainer instructions into
+  focused authoring, build, guide archive, Javadoc artifact, and release guides
+  while retaining the former runbook's section links. Published snapshots and
+  Java, CLI, and JSON/protocol behavior are unchanged by this reorganization.
 
 - **Contributor documentation:** clarify managed Python invocation through the
   repository's uv wrapper, correct the 4.0.0 CLI regeneration command, and label

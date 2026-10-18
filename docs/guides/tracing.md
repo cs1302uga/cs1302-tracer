@@ -1,115 +1,231 @@
 # Tracing programs
 
-Start with [your first trace](../tutorials/first-trace.md) and
-[reading its output](../tutorials/read-a-trace.md). Choose the task below after
-that first successful run. Commands using `target/` or `examples/` assume a source
-checkout; with a downloaded JAR, substitute its path and your own Java file.
+After [your first trace](../tutorials/first-trace.md) and
+[reading its output](../tutorials/read-a-trace.md), choose the task you need below.
+Work in the directory containing your downloaded `code-tracer.jar`, with a full
+**JDK 21 or later** selected as described in [installation](installation.md).
+Save the example files as UTF-8. No source checkout is needed.
 
-`trace` is an explicit subcommand. It accepts a Java source file with `--input`, or
-reads source from standard input when the path is omitted. A directory is not an
-input file. Trusted file-based compilation can discover neighboring dependencies
-from the inferred source root.
+Commands work in **Bash**, **PowerShell 7.4+**, and **Command Prompt** unless a
+shell-specific alternative is shown. Tracing commands include the explicit `trace`
+subcommand. `--input` (`-i`) takes a source file, not a directory; when omitted,
+the tracer reads source from its standard input. That is separate from the input
+read by the traced program.
+
+| Task | Recipe |
+| --- | --- |
+| Capture the final state or a sequence of states | [Choose snapshots](#choose-snapshots) |
+| Compare repeated hits at a loop line | [Trace a loop](../tutorials/trace-a-loop.md) |
+| Give the program input | [Supply program input](#supply-program-input) |
+| Submit a program with several source files | [Submit multiple files](#submit-multiple-files) |
+| Use precompiled classes or a dependency JAR | [Add binary dependencies](#add-binary-dependencies) |
+| Change output presentation or keep a partial result | [Choose presentation and budgets](#choose-presentation-and-budgets) |
 
 ## Choose snapshots
 
-- With no breakpoint options, ordinary tracing returns the final state at main
-  exit; envelope mode returns that capture inside a sequence root.
-- `--all-breakpoints` captures encountered breakpoints chronologically. Combine it
-  with `--breakpoints` to restrict source-line stops while retaining their order.
-- `--breakpoints '12,Helper.java:5'` selects lines, optionally qualified by file.
-- The `-1` sentinel selects main exit: `--breakpoints=-1`.
-- `--accumulate-breakpoints` retains multiple hits rather than the latest per
-  selected location. Use it with `--breakpoints`; by itself it does not select
-  loop lines. Chronological mode already retains repeated hits.
+Save this as `SnapshotDemo.java`:
 
-Use `list-breakpoints` to discover valid lines; blank lines and declarations need
-not correspond to executable locations.
+<!-- recipe-snapshots-source:start -->
+```java
+public class SnapshotDemo {
+    public static void main(String[] args) {
+        int value = 7;
+        value++;
+        System.out.println(value);
+    }
+}
+```
+<!-- recipe-snapshots-source:end -->
+
+For the state at main exit, run:
+
+<!-- recipe-final-command:start -->
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --format modern --pretty > final-trace.json
+```
+<!-- recipe-final-command:end -->
+
+For a sequence that includes the change from `7` to `8`, run:
+
+<!-- recipe-snapshots-command:start -->
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --pretty > snapshots.json
+```
+<!-- recipe-snapshots-command:end -->
+
+Both runs capture final guest stdout `8` followed by a newline. Open `snapshots.json`
+and follow `value` through the `main` frame's locals; a line stop can precede the
+statement's effect.
+The final-state command omits breakpoint options, so it selects main exit. Envelope
+mode places that capture inside a sequence root.
+
+To select particular stops, use `list-breakpoints` to discover executable lines;
+blank lines and declarations need not have a location. The
+[loop tutorial](../tutorials/trace-a-loop.md) compares the following choices:
+
+| Selection | Retained snapshots |
+| --- | --- |
+| `--all-breakpoints` | Encountered stops in execution order. |
+| `--breakpoints "12,Helper.java:5"` | Latest hit at each selected line, optionally qualified by file. |
+| `--breakpoints=-1` | Main exit. |
+| `--breakpoints 4 --accumulate-breakpoints` | Repeated hits at the selected line. Accumulation alone does not select loop lines. |
+| `--breakpoints 4 --all-breakpoints` | Source-line stops restricted to the selection, retained chronologically. |
+
+Chronological capture already retains repeated hits. Selected-breakpoint and
+chronological output can have different roots; use the
+[output reference](../reference/output.md#selected-breakpoints-and-envelopes) when
+comparing their JSON.
 
 ## Supply program input
 
-Source stdin and guest stdin are separate. Supply guest input with
-`--stdin 'text'` or `--stdin-file input.txt`, but not both. Output from the guest is
-captured in the JSON; the tracer writes diagnostics to stderr. Omitted guest
-input is an empty stream, so reads reach end-of-input instead of prompting the
-tracer's terminal.
+Save this as `Greeting.java`:
+
+<!-- recipe-input-source:start -->
+```java
+import java.util.Scanner;
+
+public class Greeting {
+    public static void main(String[] args) {
+        Scanner input = new Scanner(System.in);
+        String name = input.nextLine();
+        System.out.println("Hello, " + name + "!");
+    }
+}
+```
+<!-- recipe-input-source:end -->
+
+Save `input.txt` with this line and a newline at the end:
+
+<!-- recipe-input-text:start -->
+```text
+Ada
+```
+<!-- recipe-input-text:end -->
+
+<!-- recipe-input-command:start -->
+```sh
+java -jar code-tracer.jar trace -i Greeting.java --stdin-file input.txt --all-breakpoints --format modern --pretty > input-trace.json
+```
+<!-- recipe-input-command:end -->
+
+The final captured `stdout` is `Hello, Ada!` followed by a newline. The source comes
+from `Greeting.java`; the guest's input comes from `input.txt`. For a short literal
+input, replace `--stdin-file input.txt` with `--stdin "Ada"`; do not supply both options.
+Omitted guest input is an empty stream, so reads reach end-of-input instead of
+prompting the tracer's terminal. Guest output is inside the JSON; tracer
+diagnostics remain on terminal stderr.
 
 ## Submit multiple files
 
-Provide a self-contained UTF-8 stream with delimiter lines:
+Save this complete bundle as `submission.txt`; the delimiter lines name the two
+source files:
 
+<!-- recipe-multifile-source:start -->
 ```java
 // --- demo/Helper.java ---
 package demo;
 public class Helper {
-
     public static int answer() {
         return 42;
     }
-
 }
 // --- demo/Main.java ---
 package demo;
 public class Main {
-
     public static void main(String[] args) {
         System.out.println(Helper.answer());
     }
-
 }
 ```
+<!-- recipe-multifile-source:end -->
 
-Save it as `submission.txt` and pass it to `trace` through stdin:
+In Bash or Command Prompt, pass the bundle through the tracer's standard input:
 
+<!-- recipe-multifile-command:start -->
 ```sh
-java -jar target/code-tracer.jar trace -a -f modern < submission.txt
+java -jar code-tracer.jar trace --all-breakpoints --format modern --pretty < submission.txt > multi-trace.json
 ```
+<!-- recipe-multifile-command:end -->
 
-In `FIELDS` mode and multithread capture, include every required source in this
-bundle; neighboring file discovery is disabled. File-qualified breakpoint line
-numbers count from the beginning of each file's content, excluding its delimiter.
+PowerShell does not support `<` input redirection. Use its UTF-8 text pipeline:
 
-Java integrations can construct the same input with `SourceBundle.builder()`
-(since 4.1.0). Use `addSource(logicalPath, text)` for explicit names or
-`addInferredSource(text)` to derive a name from a public or sole top-level type.
-`addFile(logicalPath, path)` and `addInferredFile(path)` capture UTF-8 files when
-added. For a directory tree, use `addFiles(root, "demo/**/*.java")` for paths
-relative to `root`, or `addInferredFiles(root, "demo/**/*.java")` for names inferred
-from each selected file's declarations. The portable, case-sensitive pattern
-matches both `demo/Main.java` and files in deeper directories. Each call appends
-matches in lexical root-relative path order and captures all text before returning;
-a failed selection, read, or validation leaves the builder unchanged. Symbolic
-links within the root are skipped by default. The overload with `followLinks=true`
-follows them, including targets outside the root; encountered broken links and
-cycles fail the whole call. The selected root itself may be a symbolic link.
-Build once, then pass `bundle.source()` to `TraceRequest.builder`, obtain a
-fresh stream with `bundle.openStream()`, or write the UTF-8 bundle with
-`bundle.writeUtf8(output)`. The latter leaves flushing and closing to the caller.
-See [bundle source files](../reference/java-api.md#bundle-source-files) for complete examples.
+<!-- recipe-multifile-powershell-command:start -->
+```powershell
+Get-Content -Raw -Encoding utf8 submission.txt | java -jar code-tracer.jar trace --all-breakpoints --format modern --pretty > multi-trace.json
+```
+<!-- recipe-multifile-powershell-command:end -->
 
-The builder preserves insertion order and source text, including line endings and
-BOMs. It inserts an LF only when needed before the next file's delimiter, and leaves
-the final file unchanged. It rejects duplicate logical paths and source lines that
-match the delimiter grammar, including matches inside text blocks or comments.
-Glob selection does not discover dependencies from imports. Capturing files does
-not compile them or establish that all dependencies are present.
-The tracer's existing entry-point selection remains in effect: the first file with
-a recognized main-method candidate is selected.
+The final captured `stdout` is `42` followed by a newline. `sources` contains
+`demo/Helper.java` and `demo/Main.java`; `entryFile` is `demo/Main.java`. The tracer
+selects the first file with a recognized main-method candidate. File-qualified breakpoint line numbers
+start at each file's first content line, excluding the delimiter.
+
+Trusted file-based compilation can discover neighboring source dependencies from
+the inferred source root. In `FIELDS` mode and multithread capture, include every
+required source in the submitted bundle; neighboring discovery is disabled.
+For Java code that assembles bundles programmatically, use the
+[SourceBundle reference](../reference/java-api.md#bundle-source-files), including
+its ordering, validation, file-capture, and link-following rules.
 
 ## Add binary dependencies
 
-Supply directories containing package-relative class files/resources and JARs with
-repeatable `--class-path`, `-classpath`, or `-cp` options. These are tracer options
-after the `trace` or `list-breakpoints` subcommand:
+Use this recipe when the submitted program needs a compiled library. First save
+`Helper.java` beside the tracer JAR:
 
-```sh
-java -jar target/code-tracer.jar trace --input Main.java \
-  --class-path build/classes -cp 'lib/**/*.jar' --format modern
+<!-- recipe-dependency-source:start -->
+```java
+package teaching;
+
+public class Helper {
+    public static int answer() {
+        return 42;
+    }
+}
 ```
+<!-- recipe-dependency-source:end -->
 
-The same entries are available to compilation and execution. Dependencies do not
-receive source-line breakpoints. A directory is a binary/resource root; adding it
-does not request compilation of its Java sources. Explicit binary dependencies
-also work with `FIELDS` inspection and multithread tracing.
+Save the program to trace as `UseHelper.java`:
+
+<!-- recipe-dependency-main:start -->
+```java
+import teaching.Helper;
+
+public class UseHelper {
+    public static void main(String[] args) {
+        System.out.println(Helper.answer());
+    }
+}
+```
+<!-- recipe-dependency-main:end -->
+
+Use a new `classes` directory. These JDK tools compile the helper and package its
+classes; they do not run it:
+
+<!-- recipe-dependency-build:start -->
+```sh
+mkdir classes
+javac -d classes Helper.java
+jar --create --file helper.jar -C classes .
+```
+<!-- recipe-dependency-build:end -->
+
+<!-- recipe-dependency-command:start -->
+```sh
+java -jar code-tracer.jar trace -i UseHelper.java --class-path helper.jar --all-breakpoints --format modern --pretty > dependency-trace.json
+```
+<!-- recipe-dependency-command:end -->
+
+The final captured `stdout` is `42` followed by a newline. The tracer compiles and
+traces `UseHelper`; the compiled helper supplies its return value but receives no
+source-line breakpoints. To use the compiled directory instead, replace `--class-path helper.jar`
+with `--class-path classes`.
+
+`--class-path`, `-classpath`, and `-cp` are repeatable tracer options after the
+`trace` or `list-breakpoints` subcommand. The same entries serve compilation and
+execution. Directory entries contain package-relative class files and resources;
+adding a directory does not compile its Java sources or add JARs inside it.
+Explicit binary dependencies also work with `FIELDS` inspection and multithread
+tracing.
 
 Each option accepts a platform-separated list (`:` on Linux/macOS, `;` on Windows);
 repeated options append. Quote patterns so the tracer expands them. `lib/*` selects
@@ -133,7 +249,22 @@ source files explicitly; annotations can still be used as ordinary dependency ty
 
 ## Choose presentation and budgets
 
+Use `SnapshotDemo.java` from [Choose snapshots](#choose-snapshots) for this recipe:
+
+<!-- recipe-presentation-command:start -->
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --pretty --type-style simple --remove-main-args --include-primitive-bits > presentation-trace.json
+```
+<!-- recipe-presentation-command:end -->
+
+The output still captures `value` changing from `7` to `8` and stdout `8` followed
+by a newline. It omits the `main` frame's `args` local, uses simple type labels,
+and includes binary metadata beside the primitive `value`. Compare it with `snapshots.json`:
+presentation options change the representation, not the program's source.
+
 `--format modern` produces typed JSON objects; `--format pytutor` is the default.
+Ordinary modern JSON is always indented. `--pretty` indents Python Tutor output
+and result envelopes without changing capture selection.
 `--inline-strings`, `--remove-main-args`, `--remove-method-this`, and
 `--type-style simple` adjust the presentation; all three boolean options default
 to false, and the default type style is `fqn`.
@@ -147,11 +278,7 @@ Add the optional `--include-primitive-bits` flag (no value required) to include
 binary encodings alongside primitive literals. It defaults to false, supports
 both formats and every capture mode, and does not require `--result-envelope`.
 Use `--include-primitive-bits=true` or `--include-primitive-bits=false` to set it
-explicitly; other explicit values are usage errors (exit 2). For example:
-
-```sh
-java -jar target/code-tracer.jar trace -i examples/primitive-bits/Main.java -a -f modern --include-primitive-bits
-```
+explicitly; other explicit values are usage errors (exit 2).
 
 The option does not change inspection policy, capture selection, or exit statuses.
 `--multithread` still requires `--format modern`; invalid arguments still produce
@@ -160,7 +287,32 @@ for array/field placement and payload-size implications, and
 [encoding definitions and references](../reference/output.md#encoding-definitions-and-references)
 for normative specifications and informative explanations of the encoding formats.
 
-Ordinary tracing uses finite defaults. Envelope mode uses unlimited omitted limits,
-so integrations should supply every intended budget explicitly. Read
-[bounded tracing](../BOUNDED_TRACING.md) before choosing limits or inspection policy.
-The [CLI reference](../reference/cli.md) is generated from the executable.
+### Keep partial results when a budget stops tracing
+
+Ordinary tracing uses finite default budgets. If a budget stops it, the command
+exits with code `3` and writes no trace JSON. Use `--result-envelope` when you want
+an explicit status and the completed snapshots captured before the stop.
+**Envelope mode leaves omitted limits unlimited**, so choose every intended
+budget explicitly instead of assuming the ordinary defaults carry over.
+
+This demonstration uses `SnapshotDemo.java` from [Choose snapshots](#choose-snapshots).
+It deliberately allows only one captured snapshot:
+
+<!-- recipe-partial-command:start -->
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --pretty --result-envelope --inspection FIELDS --timeout-ms 5000 --max-snapshots 1 --max-output-bytes 65536 --max-heap-objects 1000 --max-elements 10000 --max-trace-bytes 33554432 --max-source-bytes 262144 --max-source-files 32 --max-threads 64 --max-frames 4096 --max-snapshot-bytes 8388608 > partial-result.json
+```
+<!-- recipe-partial-command:end -->
+
+Expect exit code `3`. Open `partial-result.json`: `status` is `stopped`, `complete`
+is false, and `stopReason` is `snapshot_limit`. The completed snapshot is inside
+`trace.steps`; it is useful partial evidence, not proof that the program finished.
+For other failures, `trace` can be null when no usable payload is available.
+
+These are illustrative budgets for a trusted example, not universal settings.
+`FIELDS` avoids inspection-time guest method calls and requires an envelope when
+selected explicitly. Neither inspection policy nor tracing budgets isolate guest
+code, and a tracing timeout does not cover the whole job. See the
+[trace model](../explanation/trace-model.md), [bounded result contract](../BOUNDED_TRACING.md),
+and [runner contract](../RUNNER_CONTRACT.md) for those boundaries. The
+[CLI reference](../reference/cli.md) defines the available flags and default values.

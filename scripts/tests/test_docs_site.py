@@ -59,6 +59,29 @@ class DocumentationSiteTests(unittest.TestCase):
 import json, os
 from pathlib import Path
 import sys
+if 'license:add-third-party@dependency-docs' in sys.argv:
+    with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
+        log.write(json.dumps(['dependency-inventory', *sys.argv[1:]]) + '\\n')
+    artifacts = [
+        {'groupId': 'example', 'artifactId': name, 'version': '1.2.3',
+         'type': 'jar', 'classifier': '', 'scope': scope}
+        for name, scope in (('library', 'compile'), ('assertions', 'test'))
+    ]
+    graph = {'groupId': 'cs1302uga', 'artifactId': 'cs1302-tracer',
+             'version': '1.0.0', 'type': 'jar', 'scope': '', 'children': artifacts}
+    metadata = {'dependencies': [
+        {key: artifact[key] for key in ('groupId', 'artifactId', 'version')}
+        | {'name': artifact['artifactId'], 'description': 'Fixture dependency.',
+           'url': 'https://example.invalid/' + artifact['artifactId'],
+           'licenses': [{'name': 'MIT', 'url': 'https://opensource.org/license/mit'}]}
+        for artifact in artifacts
+    ]}
+    tree = Path(next(arg.split('=', 1)[1] for arg in sys.argv if arg.startswith('-DoutputFile=')))
+    output = Path(next(arg.split('=', 1)[1] for arg in sys.argv
+                       if arg.startswith('-Ddependency.docs.outputDirectory=')))
+    tree.write_text(json.dumps(graph))
+    (output / 'metadata.json').write_text(json.dumps(metadata))
+    sys.exit(0)
 if '--version' in sys.argv:
     with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
         log.write(json.dumps(['maven-version']) + '\\n')
@@ -170,6 +193,21 @@ runpy.run_path(sys.argv[0], run_name='__main__')
             text=True,
             capture_output=True,
         )
+
+    def prepare_dependency_inventory(self) -> None:
+        """Generate the verification prerequisite with the real CLI and fake Maven boundary."""
+        shutil.copy2(SCRIPTS / "dependency_docs.py", self.root / "scripts/dependency_docs.py")
+        shutil.copy2(SCRIPTS.parent / "LICENSE", self.root / "LICENSE")
+        (self.root / "scripts/dependency-license-overrides.json").write_text("{}\n")
+        result = subprocess.run(
+            [sys.executable, str(self.root / "scripts/dependency_docs.py"), "update"],
+            cwd=self.root,
+            env=self.environment,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        self.log.write_text("")
 
     def release_assets(self, *, commit: str | None = None) -> Path:
         """Advertise real Javadoc files behind the external download boundary."""
@@ -579,12 +617,37 @@ runpy.run_path(sys.argv[0], run_name='__main__')
 
     def test_failed_executable_documentation_is_recorded_before_api_generation(self) -> None:
         """A failing prerequisite stops generation and leaves an invocation-specific timing report."""
+        self.prepare_dependency_inventory()
         result = self.run_site("verify")
         self.assertNotEqual(result.returncode, 0)
         report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual(report["stages"][-2]["name"], "dependency-inventory")
+        self.assertEqual(report["stages"][-2]["status"], "passed")
         self.assertEqual(report["stages"][-1]["name"], "executable-docs")
         self.assertEqual(report["stages"][-1]["status"], "failed")
-        self.assertFalse(self.log.exists())
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call[0] for call in calls], ["dependency-inventory"])
+
+    def test_stale_dependency_inventory_fails_before_executable_docs_api_and_frontend(self) -> None:
+        """Verification rejects edited generated pages without repairing them or starting later work."""
+        self.prepare_dependency_inventory()
+        inventory = self.root / "docs/reference/dependencies.md"
+        edited = inventory.read_text() + "\nUnexpected manual edit.\n"
+        inventory.write_text(edited)
+        result = self.run_site("verify")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("dependencies.md", result.stderr + result.stdout)
+        self.assertEqual(inventory.read_text(), edited)
+        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual([call[0] for call in calls], ["dependency-inventory"])
+        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual(
+            [(stage["name"], stage["status"]) for stage in report["stages"]],
+            [("release-selection", "passed"), ("dependency-inventory", "failed")],
+        )
+        self.assertFalse((self.site / "generated-api").exists())
+        self.assertFalse((self.site / "release-manifest.json").exists())
+        self.assertFalse((self.site / "build").exists())
 
     def test_callable_builder_retains_default_cache_and_timing_behavior(self) -> None:
         """Support the existing build(root, plan) interface without mandatory timing plumbing."""

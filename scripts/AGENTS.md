@@ -41,6 +41,7 @@ their declared dependencies.
 | File | Purpose |
 | --- | --- |
 | `check_docs.py` | Checks Markdown links and executable CLI, quickstart, JSON, and batch examples. Requires the built tracer JAR. `--update-cli` rewrites the CLI reference. |
+| `dependency_docs.py` | Resolves fresh Maven metadata to `update` or `check` the project license and dependency reference pages. See [maintenance guidance](../docs/contributing/documentation-authoring.md#maintain-license-and-dependency-pages). |
 | `check_site.py` | Validates links, fragments, base paths, and version-matched API links in `website/build`. Run after building the site. |
 | `check_external_links.py` | Checks external HTTP links and writes `external-links-report.md`; remote failures are advisory rather than a PR merge gate. |
 | `docs_release.py` | Validates and prepares snapshots; owns release selection, routes, tag provenance, and explicit pending-commit previews. `prepare --version` retains the snapshot POM; `check --pending` validates before its stable transition. |

@@ -1,79 +1,98 @@
 # Read a trace
 
-Start with `trace.json` from [your first trace](first-trace.md). Open it alongside
-`Main.java`. A snapshot records the debugger's captured state at a stop; it is not
-a record of every bytecode instruction or every memory operation.
+Use `trace.json` and the unchanged `Main.java` from [your first trace](first-trace.md).
+Open both files in a text editor. You will locate the state before and after an
+assignment, follow a local reference into the heap, and find the program's output.
+You do not need to run another command.
 
 ## Follow a local variable into the heap
 
-The root `sources` map contains the submitted source, and `entryFile` chooses the
-entry source. Each chronological element of `steps` has a source `file` and a
-1-based `line`. A line stop can occur before that line's statement executes: look
-at a later snapshot to see the assignment's effect.
+Check that the root says `"format": "modern"` and `"entryFile": "Main.java"`.
+The `sources` map contains the submitted source. Each element of `steps` records
+a captured state and identifies its source with `file` and a 1-based `line`.
 
-Find a snapshot in which `main` has both `box` and `answer` locals:
+Find the step whose `file` is `Main.java` and whose `line` is `7`, the assignment
+`int answer = box.value;`. Its `callStack` array contains a frame with
+`"methodName": "main"`. In that frame's `locals`, find `box`.
+There is no `answer` local yet: this stop is before the assignment executes.
+Do not treat its absence as a default value of zero.
 
-| Part of the snapshot | What it tells you |
-| --- | --- |
-| `callStack` | The captured application frames and their local variables. |
-| Local `answer` | An `int` value of `7`, copied from the field. |
-| Local `box` | A reference of the form `{"ref": id}`. |
-| `heap` entry with that ID | The `Box` object, whose `value` field is `7`. |
-| `stdout` | Guest output observed up to this capture. |
+Now find the later step at line 8, `System.out.println(answer);`. Its `main`
+frame includes this local-variable object:
 
-The local `box` refers to the object; it does not contain a second copy of the
-object. Two references with the same ID in one result refer to the same object.
-IDs may change on another run, so compare relationships rather than literal IDs.
-The complete machine-checked examples and field conventions live in the
-[JSON output reference](../reference/output.md).
+<!-- reading-answer:start -->
+```json
+{
+  "name": "answer",
+  "type": "int",
+  "value": 7,
+  "final": false
+}
+```
+<!-- reading-answer:end -->
+
+This excerpt is one entry in `locals`, not a complete snapshot. The assignment
+has copied `7` into `answer`, and the print statement has not executed yet.
+Locate states by their source and local values rather than their array positions;
+the trace also includes stops inside the `Box` constructor.
+
+Stay in the line-8 snapshot and follow `box`:
+
+1. Find the `box` entry in the `main` frame's `locals`.
+2. Its `value` contains a `ref` number. Look up the matching key in that same
+   snapshot's `heap` map; JSON object keys are strings.
+3. Confirm that the heap entry has `kind` equal to `object` and type `Main$Box`,
+   then find this entry in its `fields` array:
+
+<!-- reading-field:start -->
+```json
+{
+  "name": "value",
+  "type": "int",
+  "value": 7,
+  "final": false
+}
+```
+<!-- reading-field:end -->
+
+You have now found the same `7` in two places: the object's `value` field and the
+local variable `answer`. `box` refers to the object; it does not contain a copy
+of the object. The assignment copies the primitive field value into `answer`.
+The local's source-style type `Main.Box` and the heap object's binary name
+`Main$Box` both describe this nested class.
+
+Your `ref` number can differ from another run. Compare the reference and its heap
+key within your result, rather than looking for a particular number.
 
 ## Observe output over time
 
-Before the print executes, `stdout` is empty. The final snapshot contains `7\n`.
-Output is cumulative, so concatenating every snapshot's stdout would duplicate
-text. `stderr` similarly records guest stderr. The tracer process writes its own
+In the line-8 snapshot, `stdout` is still empty. Find the later main-exit capture
+at the closing brace on line 9: its `stdout` contains `7` followed by a newline.
+The change confirms that the print executed between those captures.
+
+Output is cumulative. Each snapshot contains the guest output observed up to
+that capture, so concatenating every snapshot's `stdout` would duplicate text.
+`stderr` similarly records guest stderr. The tracer process writes its own
 diagnostics to the terminal's stderr, outside the JSON trace.
+
+At this point, you have connected a source assignment to its local value, followed
+an object reference, and found the printed result. For the reasons behind these
+representations, read [How a trace represents execution](../explanation/trace-model.md).
+The [JSON output reference](../reference/output.md) defines the complete fields
+and includes full output examples.
 
 ## Observe a repeated breakpoint
 
-Save this second program as `Loop.java` beside the JAR:
-
-```java
-public class Loop {
-    public static void main(String[] args) {
-        for (int i = 0; i < 3; i++) {
-            System.out.println(i);
-        }
-    }
-}
-```
-
-Discover executable lines, then compare captures at line 4:
-
-```sh
-java -jar code-tracer.jar list-breakpoints -i Loop.java --json --pretty
-java -jar code-tracer.jar trace -i Loop.java --breakpoints 4 --format modern --pretty
-java -jar code-tracer.jar trace -i Loop.java --breakpoints 4 --accumulate-breakpoints --format modern --pretty
-java -jar code-tracer.jar trace -i Loop.java --breakpoints 4 --all-breakpoints --format modern --pretty
-```
-
-The first trace retains the latest hit for the selected location. Accumulation
-retains repeated hits; chronological capture retains them in execution order.
-Combining `--all-breakpoints` with a selection restricts source-line stops to that
-selection. Ordinary selected-breakpoint output and chronological output have
-different root shapes; do not assume every trace has a `steps` array.
+Continue with [Trace a loop](trace-a-loop.md). You will visit the same print
+statement three times and compare the latest hit, accumulated hits, and
+chronological output. The lesson also shows why a selected-breakpoint result
+does not have the same root shape as this tutorial's `steps` array.
 
 ## Choose the result contract
 
-| Interface | Result | Omitted budgets |
-| --- | --- | --- |
-| Ordinary `trace` | Trace payload; root shape depends on capture selection and format | Finite interactive defaults |
-| `trace --result-envelope` | Status, completion, diagnostics, streams, limits, and optional trace payload | Unlimited |
-| `batch-trace` | One response per job, with its `id` and result envelope | Unlimited |
-| Java convenience `new TraceRequest(source)` | `TraceOutcome`, with envelope and payload accessors | Finite instructor defaults |
-
-For envelopes, inspect `status`, `complete`, and `stopReason` before using the
-payload as a complete execution. A stopped job can have valid partial snapshots;
-a job with no usable trace can have a null payload. Ordinary budget exhaustion
-exits with code `3` without a JSON result. See [bounded tracing](../BOUNDED_TRACING.md)
-for the precise statuses, exit codes, and limits. Budgets do not provide isolation.
+When choosing output for your own program, use the
+[result-contract reference](../reference/output.md#result-contracts) to distinguish
+ordinary traces from result envelopes. For other entry points, see the
+[batch protocol](../reference/batch.md) and [Java API reference](../reference/java-api.md).
+Completion, partial results, budgets, and exit codes are defined in
+[bounded tracing](../BOUNDED_TRACING.md).

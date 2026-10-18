@@ -4,6 +4,42 @@ For an annotated walkthrough, start with [Read a trace](../tutorials/read-a-trac
 This reference defines field behavior and complete output examples.
 
 The tracer supports Python Tutor (`pytutor`, default) and modern (`modern`) JSON.
+
+## Result contracts
+
+The CLI's capture options determine which snapshots are retained and how they are
+grouped. Choose the result shape before writing code that reads it. The table
+describes successful `trace` commands; an error can leave ordinary stdout empty.
+
+| CLI selection | Modern JSON (`--format modern`) | Python Tutor JSON (`--format pytutor`, default) |
+| --- | --- | --- |
+| No capture options | A root object with `steps`, containing the final main-exit snapshot. | A root object with `trace`, containing the final main-exit snapshot. |
+| `--breakpoints 4` | A root object with `breakpoints`; `breakpoints["4"]` is the latest snapshot at that location. | A root dictionary; `["4"]` is a complete Python Tutor payload whose `trace` contains the latest snapshot. |
+| `--breakpoints 4 --accumulate-breakpoints` | `breakpoints["4"]` is an array of snapshots in hit order. | `["4"]` is an array of complete Python Tutor payloads, one per hit. |
+| `--all-breakpoints` | A root object with a chronological `steps` array. | A root object with a chronological `trace` array. |
+| `--all-breakpoints --breakpoints 4` | A chronological `steps` array for the selected location, plus the main-exit snapshot when reached. | A chronological `trace` array for the selected location, plus the main-exit snapshot when reached. |
+| `--result-envelope`, with any selection above | An envelope whose `trace` contains a modern payload with a `steps` sequence when available. | An envelope whose `trace` contains one Python Tutor payload with a `trace` sequence when available. |
+
+Line `4` is an example, not a universal breakpoint. Discover executable locations
+with `list-breakpoints`; a selected line that is not reached has no hit to display.
+`--all-breakpoints` selects chronological presentation even when
+`--accumulate-breakpoints` is also supplied. Without an explicit `--breakpoints`
+selection, accumulation alone does not request all executable lines.
+
+The envelope separates trace-generation status from the payload; its `trace` can
+be `null` when unavailable. It also changes the budget profile: **omitted envelope
+limits are unlimited**, whereas ordinary tracing has finite defaults. Consult
+[bounded tracing](../BOUNDED_TRACING.md) for the full limits and partial-result
+contract and the [CLI exit-status lookup](cli.md#exit-statuses) before automating
+these commands. Java API outcomes and batch responses use their own envelope
+contracts; see the [Java reference](java-api.md) and [batch protocol](batch.md).
+
+For a runnable comparison of latest, accumulated, and chronological captures, use
+[Trace a loop](../tutorials/trace-a-loop.md). For the relationship between captured
+state and JSON presentation, read [How a trace represents execution](../explanation/trace-model.md).
+
+## Complete chronological examples
+
 These examples are complete output from the source below using `--all-breakpoints`.
 CI compares them with actual output after normalizing heap IDs.
 
