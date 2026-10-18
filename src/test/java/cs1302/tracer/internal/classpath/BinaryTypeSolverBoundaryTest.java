@@ -59,4 +59,17 @@ class BinaryTypeSolverBoundaryTest {
         assertThat(entry).doesNotExist();
     }
 
+    @Test
+    void detachedSignatureEvidenceIsImmutableAndNeverRequiresGuestClassLoading() {
+        var solver = new BinaryTypeSolver(List.of());
+        assertThat(solver.declarationSignatures("missing.Type")).isEmpty();
+        assertThat(solver.declarationSignatures("java.lang.Object")).isEmpty();
+        var string = solver.declarationSignatures("java.lang.String").orElseThrow();
+        assertThat(string.fields()).containsKey("value");
+        assertThatThrownBy(() -> string.fields().put("invented", "I"))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(solver.declarationSignatures("java.util.List").orElseThrow().hierarchy())
+                .contains("<E:", "Ljava/lang/Object;", "<TE;>;");
+    }
+
 }

@@ -179,6 +179,120 @@ class BinaryGenericMetadataTest {
     }
 
     @Test
+    void binaryFieldTypesPreserveDollarIdentitiesInsideConcreteAndStructuredDeclarations() throws Exception {
+        Map<String, String> sources = Map.of(
+                "p$foo/Item", "package p$foo; public class Item {}",
+                "p/foo/Item", "package p.foo; public class Item {}",
+                "literal/Item$Inner", "package literal; public class Item$Inner {}",
+                "nested/Outer", "package nested; public class Outer<T> {"
+                        + " public static class Item$Inner {} public class Member<U> {}"
+                        + " public class Middle { public class Deep<V> {} }}",
+                "fieldcase/Holder", """
+                        package fieldcase;
+                        public class Holder {
+                            public p$foo.Item missing;
+                            public p$foo.Item concrete = new p$foo.Item();
+                            public p$foo.Item[] items;
+                            public java.util.List<p$foo.Item[]> arrays;
+                            public java.util.List<? extends p$foo.Item> upper;
+                            public java.util.List<? super p$foo.Item> lower;
+                            public java.util.Map<p$foo.Item, p.foo.Item> distinct;
+                            public literal.Item$Inner literal;
+                            public nested.Outer.Item$Inner nested;
+                            public nested.Outer<p$foo.Item>.Member<p.foo.Item> owner;
+                            public nested.Outer<p$foo.Item>.Middle.Deep<p.foo.Item> deep;
+                        }
+                        """);
+        List<String> arguments = new ArrayList<>(List.of("-proc:none", "-g:none", "-d",
+                root.resolve("classes").toString()));
+        for (var entry : sources.entrySet()) {
+            Path source = root.resolve("field-source/" + entry.getKey() + ".java");
+            Files.createDirectories(source.getParent());
+            Files.writeString(source, entry.getValue());
+            arguments.add(source.toString());
+        }
+        assertThat(ToolProvider.getSystemJavaCompiler().run(null, null, null, arguments.toArray(String[]::new)))
+                .isZero();
+        archiveLibrary(root.resolve("classes"));
+        try (var files = Files.walk(root.resolve("field-source"))) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) {
+                Files.delete(file);
+            }
+        }
+        String source = """
+                import fieldcase.Holder;
+                public class Main {
+                    public static void main(String[] args) {
+                        Holder value = new Holder();
+                        System.out.println(value.missing == null);
+                    }
+                }
+                """;
+        Map<String, String> expected = Map.of(
+                "missing", "p$foo.Item", "concrete", "p$foo.Item", "items", "p$foo.Item[]",
+                "arrays", "java.util.List<p$foo.Item[]>", "upper", "java.util.List<? extends p$foo.Item>",
+                "lower", "java.util.List<? super p$foo.Item>",
+                "distinct", "java.util.Map<p$foo.Item, p.foo.Item>", "literal", "literal.Item$Inner",
+                "nested", "nested.Outer.Item$Inner",
+                "owner", "nested.Outer<p$foo.Item>.Member<p.foo.Item>");
+        try (var prepared = SourcePreparation.prepare(source, Optional.empty(),
+                SourcePreparation.Discovery.SUBMITTED_ONLY, TraceClassPath.builder().addPath(library).build())) {
+            var resolver = new AstTypeResolver(prepared.units());
+            var evidence = prepared.units().getFirst().getData(AstTypeResolver.BINARY_TYPES)
+                    .declarationSignatures("fieldcase.Holder").orElseThrow();
+            assertThat(evidence.fields().get("missing")).isEqualTo("Lp$foo/Item;");
+            assertThat(BinaryTypeSignatures.field(evidence.fields().get("missing"),
+                    prepared.units().getFirst().getData(AstTypeResolver.TYPE_SOLVER)))
+                    .contains(new BinaryTypeSignatures.View("p$foo.Item", java.util.Set.of()));
+            assertThat(resolver.getClassGenericInfo("fieldcase.Holder")).isPresent();
+            assertThat(BinaryTypeSignatures.field("Lliteral/Item<TT;>.Inner;",
+                    prepared.units().getFirst().getData(AstTypeResolver.TYPE_SOLVER))).isEmpty();
+            assertThat(BinaryTypeSignatures.field("Lnested/Outer$Item<TT;>.Inner;",
+                    prepared.units().getFirst().getData(AstTypeResolver.TYPE_SOLVER))).isEmpty();
+            assertThat(resolver.fieldType("fieldcase.Holder", "fieldcase.Holder", "missing"))
+                    .contains("p$foo.Item");
+            for (var field : expected.entrySet()) {
+                assertThat(resolver.fieldType("fieldcase.Holder", "fieldcase.Holder", field.getKey()))
+                        .as(field.getKey()).contains(field.getValue());
+            }
+            // Javassist collapses the nongeneric middle owner; unavailable exact structure must retain JDI erasure.
+            assertThat(resolver.fieldType("fieldcase.Holder", "fieldcase.Holder", "deep")).isEmpty();
+        }
+        for (TraceFormat format : TraceFormat.values()) {
+            var outcome = Tracer.trace(TraceRequest.builder(source).format(format).chronological(true)
+                    .typeStyle(TypeStyle.FQN).build(), TraceClassPath.builder().addPath(library).build());
+            assertThat(outcome.complete()).as(outcome.diagnostics().toString()).isTrue();
+            JsonObject trace = JsonParser.parseString(outcome.traceJson()).getAsJsonObject();
+            JsonArray steps = trace.getAsJsonArray(format == TraceFormat.MODERN ? "steps" : "trace");
+            JsonObject last = steps.get(steps.size() - 1).getAsJsonObject();
+            assertThat(last.getAsJsonObject("heap").entrySet()).anySatisfy(entry -> {
+                Map<String, String> actual = new java.util.HashMap<>();
+                if (format == TraceFormat.MODERN) {
+                    JsonObject object = entry.getValue().getAsJsonObject();
+                    assertThat(object.get("type").getAsString()).isEqualTo("fieldcase.Holder");
+                    for (JsonElement field : object.getAsJsonArray("fields")) {
+                        JsonObject value = field.getAsJsonObject();
+                        actual.put(value.get("name").getAsString(), value.get("type").getAsString());
+                    }
+                } else {
+                    JsonArray object = entry.getValue().getAsJsonArray();
+                    assertThat(object.get(0).getAsString()).isEqualTo("INSTANCE");
+                    assertThat(object.get(1).getAsString()).isEqualTo("fieldcase.Holder");
+                    JsonArray types = last.getAsJsonObject("heap_attrs").getAsJsonObject(entry.getKey())
+                            .getAsJsonArray("type");
+                    for (int index = 2; index < object.size(); index++) {
+                        actual.put(object.get(index).getAsJsonArray().get(0).getAsString(),
+                                types.get(index - 2).getAsString());
+                    }
+                }
+                assertThat(actual).containsAllEntriesOf(expected);
+                assertThat(actual).containsEntry("deep", "nested.Outer$Middle$Deep");
+            });
+            assertThat(outcome.traceJson()).doesNotContain("Holder.java", "public class Item");
+        }
+    }
+
+    @Test
     void hierarchyMatchingRetainsOnlyConsistentStructuralEvidence() {
         AstTypeResolver resolver = new AstTypeResolver(StaticJavaParser.parse("""
                 interface One<A> {}

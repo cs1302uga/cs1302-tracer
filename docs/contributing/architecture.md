@@ -244,12 +244,18 @@ argument types, and source line. Method matching and location-sensitive lambda
 selection remain with source analysis, including the first-assignment fallback.
 Lambda rendering uses a call-local parser, so independent workers do not share
 mutable parser state. `AstTypeResolver` holds source-derived type indexes and lazily
-supplements class declarations through the prepared job's binary solver. Its generic
-hierarchy traversal composes superclass and interface arguments; heap inspection
-resolves each instance field against its JDI declaring owner. These declaration
-caches belong to the job, while snapshot-specific bindings remain with the type
-evidence described below. Binary declarations do not add library source listings
-or source-line breakpoints.
+supplements them with immutable class-file descriptors and signatures supplied by
+the prepared job's `BinaryTypeSolver`. That solver reuses its ordered bytecode
+lookup and class pool without loading dependency classes into the host JVM.
+Binary declaration caches and hierarchy composition retain exact binary identities;
+canonical display names require evidence that they resolve to the same declaration.
+This preserves legal `$` identifiers and distinguishes a nested class from a
+different class whose package produces the same dotted spelling. Generic hierarchy
+traversal composes superclass and interface arguments; heap inspection resolves
+each instance field against its JDI declaring owner. These declaration caches belong
+to the job, while snapshot-specific bindings remain with the type evidence described
+below. Binary declarations do not add library source listings or source-line
+breakpoints.
 
 `BreakpointReader` uses ASM to read SourceFile and line-number attributes without
 loading or executing guest classes. All compiled classes contribute to its index,

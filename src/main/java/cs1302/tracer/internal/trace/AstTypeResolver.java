@@ -5,6 +5,7 @@ import org.apiguardian.api.API;
 import com.github.javaparser.ast.body.CallableDeclaration;
 import com.github.javaparser.StaticJavaParser;
 import cs1302.tracer.internal.execution.NestingException;
+import cs1302.tracer.internal.classpath.BinaryTypeSolver;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -24,7 +25,6 @@ import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.WildcardType;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
 import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
-import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -37,6 +37,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javassist.bytecode.BadBytecode;
+import javassist.bytecode.SignatureAttribute;
 
 /**
  * Indexes source type information and lazily reads prepared binary declarations to reconstruct generic type labels
@@ -56,6 +58,11 @@ public class AstTypeResolver {
             new com.github.javaparser.ast.DataKey<>() {
             };
 
+    /** Job-owned raw bytecode evidence, without dependency source files or loaded guest classes. */
+    public static final com.github.javaparser.ast.DataKey<BinaryTypeSolver> BINARY_TYPES =
+            new com.github.javaparser.ast.DataKey<>() {
+            };
+
     private final InvocationTypeResolver invocationTypes;
 
     /**
@@ -70,7 +77,7 @@ public class AstTypeResolver {
     /**
      * Metadata for a class's generic type parameters, fields, and declared supertypes.
      *
-     * @param classFqn Fully qualified class name.
+     * @param classFqn Declaration identity; exact binary name for bytecode metadata.
      * @param typeParameters List of generic type parameter names.
      * @param fieldTypes Map of field names to declared type strings.
      * @param fieldIsFinal Map of field names to final modifiers.
@@ -565,7 +572,7 @@ public class AstTypeResolver {
             try {
                 ResolvedReferenceTypeDeclaration declaration = unit.getData(TYPE_SOLVER).solveType(className);
                 String binary = binaryName(declaration);
-                String canonical = canonicalName(declaration).orElse(binary);
+                String canonical = displayName(declaration, unit.getData(TYPE_SOLVER));
                 if (className.equals(binary) && (declaredRaw.equals(binary) || declaredRaw.equals(canonical))
                         && declaration.isInterface()
                         && FunctionalInterfaceLogic.getFunctionalMethod(declaration).isPresent()) {
@@ -584,7 +591,7 @@ public class AstTypeResolver {
      * @param declaration Resolved source or binary declaration.
      * @return Qualified binary name.
      */
-    private static String binaryName(ResolvedReferenceTypeDeclaration declaration) {
+    static String binaryName(ResolvedReferenceTypeDeclaration declaration) {
         String packageName = declaration.getPackageName();
         String className = declaration.getClassName().replace('.', '$');
         return packageName == null || packageName.isEmpty() ? className : packageName + "." + className;
@@ -594,17 +601,13 @@ public class AstTypeResolver {
      * Converts only proved enclosing-type boundaries to canonical-name separators.
      *
      * @param declaration Resolved source or binary declaration.
-     * @return Canonical identity, or empty for inconsistent or cyclic enclosing-type metadata.
+     * @return Canonical identity, or empty for inconsistent enclosing-type metadata.
      */
-    private static Optional<String> canonicalName(ResolvedReferenceTypeDeclaration declaration) {
+    static Optional<String> canonicalName(ResolvedReferenceTypeDeclaration declaration) {
         String suffix = "";
-        Set<String> visited = new HashSet<>();
         ResolvedReferenceTypeDeclaration current = declaration;
         while (true) {
             String name = binaryName(current);
-            if (!visited.add(name)) {
-                return Optional.empty();
-            } // if
             Optional<ResolvedReferenceTypeDeclaration> container = current.containerType();
             if (container.isEmpty()) {
                 return Optional.of(name + suffix);
@@ -613,10 +616,28 @@ public class AstTypeResolver {
             if (!name.startsWith(owner + "$")) {
                 return Optional.empty();
             } // if
+            // A proved enclosing name is strictly shorter, so malformed cycles cannot continue.
             suffix = "." + name.substring(owner.length() + 1) + suffix;
             current = container.orElseThrow();
         } // while
     } // canonicalName
+
+    /**
+     * Uses canonical display spelling only when it resolves to this exact binary declaration.
+     * @param declaration Proven declaration.
+     * @param solver Prepared type solver.
+     * @return Unambiguous canonical spelling, or the exact binary name.
+     */
+    static String displayName(ResolvedReferenceTypeDeclaration declaration,
+            com.github.javaparser.resolution.TypeSolver solver) {
+        String binary = binaryName(declaration);
+        String canonical = canonicalName(declaration).orElse(binary);
+        try {
+            return binary.equals(binaryName(solver.solveType(canonical))) ? canonical : binary;
+        } catch (RuntimeException ignored) {
+            return binary;
+        } // try
+    } // displayName
 
     /**
      * Reads declaration evidence through the prepared job's existing bytecode solver.
@@ -632,74 +653,58 @@ public class AstTypeResolver {
             try {
                 ResolvedReferenceTypeDeclaration declaration = unit.getData(TYPE_SOLVER).solveType(className);
                 String binary = binaryName(declaration);
-                String qualified = canonicalName(declaration).orElse(binary);
+                String qualified = displayName(declaration, unit.getData(TYPE_SOLVER));
                 if (!className.equals(binary) && !className.equals(qualified)) {
                     continue;
                 } // if
-                ClassGenericInfo existing = this.classInfoMap.get(qualified);
+                ClassGenericInfo existing = this.classInfoMap.get(binary);
                 if (existing != null) {
-                    this.classInfoMap.put(className, existing);
                     return existing;
+                } // if
+                if (!unit.containsData(BINARY_TYPES)) {
+                    continue;
+                } // if
+                Optional<BinaryTypeSolver.DeclarationSignatures> raw =
+                        unit.getData(BINARY_TYPES).declarationSignatures(binary);
+                if (raw.isEmpty()) {
+                    continue;
                 } // if
                 List<String> parameters = declaration.getTypeParameters().stream().map(p -> p.getName()).toList();
                 Map<String, String> fields = new HashMap<>();
-                declaration.getDeclaredFields().forEach(field -> {
-                    ResolvedType type = field.getType();
-                    fields.put(field.getName(), type.describe());
-                    this.fieldParameters.put(qualified + "#" + field.getName(), freeParameters(type));
+                raw.orElseThrow().fields().forEach((name, signature) -> {
+                    BinaryTypeSignatures.field(signature, unit.getData(TYPE_SOLVER)).ifPresent(view -> {
+                        fields.put(name, view.label());
+                        this.fieldParameters.put(binary + "#" + name, view.variables());
+                    });
                 });
                 List<String> interfaces = new ArrayList<>();
                 Optional<String> superclass = Optional.empty();
-                for (ResolvedReferenceType ancestor : declaration.getAncestors()) {
-                    this.parentParameters.put(qualified + "#" + ancestor.describe(), freeParameters(ancestor));
-                    if (ancestor.getTypeDeclaration().map(d -> d.isClass()).orElse(false)) {
-                        superclass = Optional.of(ancestor.describe());
-                    } else {
-                        interfaces.add(ancestor.describe());
-                    } // if
+                TypeTraversal.validateText(raw.orElseThrow().hierarchy().replace("[", ""));
+                SignatureAttribute.ClassSignature hierarchy =
+                        SignatureAttribute.toClassSignature(raw.orElseThrow().hierarchy());
+                Optional<BinaryTypeSignatures.View> parent =
+                        BinaryTypeSignatures.parent(hierarchy.getSuperClass(), unit.getData(TYPE_SOLVER));
+                if (parent.isPresent()) {
+                    BinaryTypeSignatures.View view = parent.orElseThrow();
+                    superclass = Optional.of(view.label());
+                    this.parentParameters.put(binary + "#" + view.label(), view.variables());
+                } // if
+                for (SignatureAttribute.ClassType implemented : hierarchy.getInterfaces()) {
+                    BinaryTypeSignatures.parent(implemented, unit.getData(TYPE_SOLVER)).ifPresent(view -> {
+                        interfaces.add(view.label());
+                        this.parentParameters.put(binary + "#" + view.label(), view.variables());
+                    });
                 } // for
-                ClassGenericInfo info = new ClassGenericInfo(qualified, parameters, fields, Map.of(), interfaces,
+                ClassGenericInfo info = new ClassGenericInfo(binary, parameters, fields, Map.of(), interfaces,
                         superclass);
-                this.classInfoMap.put(className, info);
-                this.classInfoMap.put(qualified, info);
+                this.classInfoMap.put(binary, info);
                 return info;
-            } catch (RuntimeException ignored) {
+            } catch (RuntimeException | BadBytecode ignored) {
                 // Missing or unsupported binary evidence must retain the erased fallback.
             } // try
         } // for
         return null;
     } // loadBinaryClassInfo
-
-    /**
-     * Retains the actual free variables in a binary field, including generic enclosing owners.
-     *
-     * @param fieldType Resolved field declaration from the prepared bytecode solver.
-     * @return Variables that need proved bindings before the declaration can be specialized.
-     */
-    private static Set<String> freeParameters(ResolvedType fieldType) {
-        Set<String> variables = new HashSet<>();
-        ArrayDeque<ResolvedType> pending = new ArrayDeque<>();
-        pending.add(fieldType);
-        while (!pending.isEmpty()) {
-            ResolvedType current = pending.removeFirst();
-            if (current.isTypeVariable()) {
-                variables.add(current.describe());
-                continue;
-            } // if
-            if (current.isArray()) {
-                pending.add(current.asArrayType().getComponentType());
-                continue;
-            } // if
-            if (current.isReferenceType()) {
-                pending.addAll(current.asReferenceType().typeParametersValues());
-                continue;
-            } // if
-            if (current.isWildcard() && current.asWildcard().isBounded()) {
-                pending.add(current.asWildcard().getBoundedType());
-            } // if
-        } // while
-        return variables;
-    } // freeParameters
 
     /**
      * Describes one owner along a parameterized class/interface hierarchy.
@@ -799,10 +804,13 @@ public class AstTypeResolver {
         String symbolic = concreteClassFqn + "<" + String.join(", ", info.typeParameters()) + ">";
         Optional<String> ancestor = ancestorType(symbolic, targetRaw);
         if (ancestor.isPresent()) {
+            ClassGenericInfo target = findClassGenericInfo(targetRaw);
+            String declaredIdentity = target == null ? interfaceOrSuperTypeString
+                    : target.classFqn() + interfaceOrSuperTypeString.substring(interfaceOrSuperTypeString.indexOf('<'));
             TypeTraversal.validateText(ancestor.get());
-            TypeTraversal.validateText(interfaceOrSuperTypeString);
+            TypeTraversal.validateText(declaredIdentity);
             Map<String, String> bindings = new HashMap<>();
-            if (matchTypeArguments(ancestor.get(), interfaceOrSuperTypeString, info.typeParameters(), bindings)
+            if (matchTypeArguments(ancestor.get(), declaredIdentity, info.typeParameters(), bindings)
                     && !bindings.isEmpty()) {
                 return concreteClassFqn + "<" + String.join(", ", info.typeParameters().stream()
                         .map(parameter -> bindings.getOrDefault(parameter, "?")).toList()) + ">";

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.model.typesystem.ReferenceTypeImpl;
+import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.InterfaceType;
@@ -86,6 +88,7 @@ class FunctionalLambdaMetadataTest {
         assertThat(resolver.functionalInterfaceName("java.util.List", "java.util.List")).isEmpty();
         assertThat(resolver.functionalInterfaceName("java.lang.String", "java.lang.String")).isEmpty();
         assertThat(resolver.functionalInterfaceName("missing.Interface", "missing.Interface")).isEmpty();
+        assertThat(resolver.getClassGenericInfo("java.lang.String")).isEmpty();
         assertThat(new AstTypeResolver((com.github.javaparser.ast.CompilationUnit) null)
                 .functionalInterfaceName(COMPARATOR, COMPARATOR)).isEmpty();
     }
@@ -107,6 +110,55 @@ class FunctionalLambdaMetadataTest {
                     "Outer.Inner")).isEmpty();
             assertThat(resolver.functionalInterfaceName("missing.Other", "Outer.Inner")).isEmpty();
         }
+    }
+
+    @Test
+    void malformedSourceOwnerKeepsExactBinaryFallbackAndWrongSolverCannotPopulateTheCache() {
+        var owner = mirror(ResolvedReferenceTypeDeclaration.class,
+                Map.of("getPackageName", "", "getClassName", "Unrelated"));
+        var declaration = mirror(ResolvedReferenceTypeDeclaration.class, Map.of(
+                "getPackageName", "p$foo", "getClassName", "Item$Inner", "getQualifiedName", "p.foo.Item.Inner",
+                "containerType", Optional.of(owner), "getTypeParameters", List.of(), "isTypeParameter", false,
+                "hasName", true));
+        var reference = new ReferenceTypeImpl(declaration);
+        var named = new com.github.javaparser.ast.type.ClassOrInterfaceType() {
+            @Override
+            public ResolvedType resolve() {
+                return reference;
+            }
+        };
+        named.setName("Item$Inner");
+        assertThat(AstTypeResolver.resolveAstType(named)).isEqualTo("p$foo.Item$Inner");
+        var scalar = new com.github.javaparser.ast.type.ClassOrInterfaceType() {
+            @Override
+            public ResolvedType resolve() {
+                return com.github.javaparser.resolution.types.ResolvedPrimitiveType.INT;
+            }
+        };
+        scalar.setName("Unavailable");
+        assertThat(AstTypeResolver.resolveAstType(scalar)).isEqualTo("int");
+        var unit = StaticJavaParser.parse("class Main {}");
+        unit.setData(AstTypeResolver.TYPE_SOLVER, mirror(TypeSolver.class, Map.of("solveType", declaration)));
+        assertThat(new AstTypeResolver(unit).getClassGenericInfo("unrelated.Missing")).isEmpty();
+        var absent = mirror(ResolvedReferenceTypeDeclaration.class, Map.of("getPackageName", "",
+                "getClassName", "Absent", "containerType", Optional.empty()));
+        unit.setData(AstTypeResolver.TYPE_SOLVER, mirror(TypeSolver.class, Map.of("solveType", absent)));
+        unit.setData(AstTypeResolver.BINARY_TYPES,
+                new cs1302.tracer.internal.classpath.BinaryTypeSolver(List.of()));
+        assertThat(new AstTypeResolver(unit).getClassGenericInfo("Absent")).isEmpty();
+    }
+
+    @Test
+    void missingCanonicalResolutionKeepsTheProvenBinaryDisplayIdentity() {
+        var entry = new ReflectionTypeSolver().solveType("java.util.Map$Entry");
+        TypeSolver exactOnly = (TypeSolver) java.lang.reflect.Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[] { TypeSolver.class }, (self, method, arguments) -> {
+                    if (method.getName().equals("solveType") && "java.util.Map$Entry".equals(arguments[0])) {
+                        return entry;
+                    }
+                    throw new com.github.javaparser.resolution.UnsolvedSymbolException("canonical alias unavailable");
+                });
+        assertThat(AstTypeResolver.displayName(entry, exactOnly)).isEqualTo("java.util.Map$Entry");
     }
 
     @Test

@@ -8,6 +8,8 @@
  * {@link cs1302.tracer.internal.FileSelection} dependency operation for glob selections; copying and deletion
  * stay within dependency preparation. {@link cs1302.tracer.internal.classpath.BinaryTypeSolver} reads
  * selected bytecode with job-local caches, without loading dependency classes into the host JVM.
+ * It supplies immutable descriptors and generic signatures from the same class pool and ordered lookup;
+ * declaration metadata retains binary identities independently of canonical display names.
  * The enclosing {@link cs1302.tracer.internal.SourcePreparation} closes compiled output before releasing
  * the prepared class path. Guest execution and lazy source analysis finish before that scope closes.
  */
