@@ -57,7 +57,10 @@ class ApiExposureTest {
                         || name.equals("cs1302.tracer.internal.CompilationHelper$ParsedSources")
                         || name.equals("cs1302.tracer.internal.FileSelection")
                         || name.equals("cs1302.tracer.internal.FileSelection$Match");
-                assertThat(annotation.since()).as(name).isEqualTo(introducedIn41 ? "4.1.0" : "4.0.0");
+                String expectedSince = name.equals(
+                        "cs1302.tracer.internal.classpath.BinaryTypeSolver$DeclarationSignatures")
+                        ? "4.2.1" : introducedIn41 ? "4.1.0" : "4.0.0";
+                assertThat(annotation.since()).as(name).isEqualTo(expectedSince);
             }
         }
     }

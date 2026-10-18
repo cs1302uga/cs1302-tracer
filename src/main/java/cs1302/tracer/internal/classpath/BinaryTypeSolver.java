@@ -44,6 +44,7 @@ public final class BinaryTypeSolver implements TypeSolver {
      * @param fields Field names mapped to their generic signatures or erased descriptors.
      * @param hierarchy Generic class signature, including its superclass and interfaces.
      */
+    @API(status = API.Status.INTERNAL, since = "4.2.1")
     public record DeclarationSignatures(Map<String, String> fields, String hierarchy) {
 
         /**
