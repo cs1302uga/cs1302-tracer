@@ -263,7 +263,9 @@ generated-cache reuse.
 
 Required repository settings: Pages uses GitHub Actions as its source;
 `main` can deploy to the `github-pages` environment; and **Documentation** is a
-required GitHub Actions status check for `main`. These are configured in GitHub,
+required GitHub Actions status check for `main`. Require **Regression gates** as
+well to enforce the complete regression matrix, as described in the
+[development guide](development.md#required-ci-regression-gates). These are configured in GitHub,
 not by the workflow YAML. Preserve other existing protection settings when
 recreating or modifying them.
 The check is defined in CI / Release and runs on every PR, including code-only PRs.

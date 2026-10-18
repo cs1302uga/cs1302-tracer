@@ -13,7 +13,10 @@ The **Maven** wrapper supplies Maven. Run these commands from the repository roo
 The normal build runs **Checkstyle** and tests, and enforces 100% line/branch coverage
 for the configured model and serializer packages. The optional
 `./mvnw -Ppre-commit-coverage clean test` profile requires 100% line/branch coverage
-across all production classes. It is stricter than the normal CI gate.
+across all production classes. The Java CI matrix uses that strict profile too;
+the `Regression gates` check requires successful Java, documentation, scripts,
+and Windows packaging/launcher jobs. See the
+[merge gate](docs/contributing/development.md#required-ci-regression-gates).
 Before running Maven `clean`, preserve any needed audit evidence under `target/`.
 Run Java tests, trace fixture verification, and executable documentation checks
 serially because they share temporary-directory checks.

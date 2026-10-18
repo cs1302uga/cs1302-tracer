@@ -155,7 +155,9 @@ advances only as far as verified evidence permits:
 
 1. Push the stable release commit to `release/X.Y.Z`, without the tag. Require a
    successful push-triggered CI / Release run on that exact commit, including
-   every required documentation, Python, Java OS/JDK, and Windows launcher job.
+   every required documentation, Python, Java OS/JDK, and Windows launcher job,
+   plus the `Regression gates` aggregate. The aggregate requires successful job
+   groups; exact-revision evidence still checks each individual job too.
 2. Fast-forward that same release branch to the next-development commit. Require
    another complete successful push run on that exact commit. CI pins the pending
    documentation preview to the stable parent while its tag remains local.
@@ -246,6 +248,13 @@ Preserve `.git/code-tracer-release.json`, `.git/release-logs/`, Maven
 Inspect Git history, local tags, remote branch/tag refs, and the saved phase before
 choosing recovery. A saved report alone is not proof that no remote action occurred.
 
+- If prepared history predates `Regression gates`, its original workflow cannot
+  produce that job through a rerun. The current publisher requires the aggregate.
+  Preserve the prepared revisions and their evidence; recover with the matching
+  historical tooling and validation contract, or prepare a new unpublished
+  candidate from a base containing the current workflow. Check the effective
+  branch rules before choosing either path. Published tags and assets retain
+  their original identities and validation scope.
 - If the initial dry run fails, inspect its logs and simulated POMs. No real release
   history should have been created. Correct the cause and use a new isolated
   preparation directory after checking the failed attempt's state.

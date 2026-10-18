@@ -77,7 +77,7 @@ elif args[:2] == ['run', 'list']:
     output([record] if 'all' in ready or commit in ready else [])
 elif args[:2] == ['run', 'view']:
     record = json.loads(root.joinpath('.git/last-ci.json').read_text())
-    names = ['Documentation', 'Scripts quality', 'release']
+    names = ['Documentation', 'Regression gates', 'Scripts quality', 'release']
     names += [f'Java ({platform}, {version})' for platform in ('ubuntu-latest', 'macos-latest') for version in (21, 25)]
     names += [f'Windows packaging and launchers (Java {version})' for version in (21, 25)]
     record['jobs'] = [dict(name=name, status='completed', conclusion='success') for name in names]
