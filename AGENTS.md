@@ -32,6 +32,11 @@ or modern JSON. It supports direct CLI use and batch jobs with reusable guest JV
 - **Build, style, or coverage:** read [the development guide](docs/contributing/development.md).
   `pom.xml` and `src/main/resources/cs1302_checks_extended.xml` are authoritative
   for compiler and Checkstyle configuration.
+- **Dependency, plugin, or Maven versions:** follow [dependency versions and upgrades](docs/contributing/development.md#dependency-versions-and-upgrades).
+  `wrapper.maven.version` in `pom.xml` is the only Maven version pin; change it
+  through [Maven wrapper maintenance](docs/contributing/development.md#maven-wrapper-maintenance),
+  not by editing the wrapper files alone. `./mvnw versions:display-plugin-updates
+  versions:display-dependency-updates` lists stable candidates only.
 
 ## Verify the change
 
@@ -53,6 +58,10 @@ Example source line numbers are part of committed trace fixtures. Regenerate
 fixtures only for an intended change and inspect the diff; updating expected
 output is not a substitute for diagnosing a regression. Use structural assertions
 for nondeterministic thread schedules.
+
+After changing dependencies, their versions or metadata, or `LICENSE`, run
+`./scripts/uv run python scripts/dependency_docs.py update`, review the generated
+license and dependency pages, and confirm `dependency_docs.py check` passes.
 
 Run guest-executing tests and documentation checks serially: shared temporary
 compilation-directory checks can interfere across concurrent runs. Before using

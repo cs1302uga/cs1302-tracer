@@ -264,6 +264,10 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   `./mvnw versions:display-plugin-updates` and `versions:display-dependency-updates`
   suggest only stable upgrades.
 
+- **Dependencies:** upgrade ASM from 9.11 to 9.11.1, which fixes a regression
+  introduced in 9.11 and a `LimitExceededException` when computing frames for some
+  complex classes. Breakpoint discovery and serialized trace formats are unchanged.
+
 - **Build repositories:** mirror the legacy JVNet releases repository to Maven Central
   in local setup and all Maven CI jobs, avoiding its expired certificate while
   preserving other repository routes and credential settings.

@@ -435,6 +435,8 @@ allow extra object fields, require array order and length, and compare numbers
 mathematically with zero tolerance. Focused negative checks protect those rules.
 
 For each upgrade, compare resolved dependencies and effective plugin configuration,
+regenerate and review the [license and dependency pages](documentation-authoring.md#maintain-license-and-dependency-pages)
+with `scripts/dependency_docs.py update` (the Documentation CI job rejects drift),
 run the focused checks and full coverage gate, verify committed trace fixtures on
 Java 21 and 25, and rebuild the docs/site. Do not refresh expected JSON to accommodate
 an unexplained behavior change. Check the automatic module name, bundled dependency

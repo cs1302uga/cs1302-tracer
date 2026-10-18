@@ -65,15 +65,15 @@ Jump to: [Runtime (14)](#runtime-dependencies) · [Test (19)](#test-dependencies
 </tbody>
 <tbody class="dependency-entry" data-dependency-entry="true" role="rowgroup">
 <tr role="row">
-<th id="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525" scope="row" role="rowheader" class="dependency-name" headers="runtime-dependency">
+<th id="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27" scope="row" role="rowheader" class="dependency-name" headers="runtime-dependency">
 <a href="http://asm.ow2.io/">asm</a>
-<span class="dependency-version">Version 9.11</span>
+<span class="dependency-version">Version 9.11.1</span>
 </th>
-<td class="dependency-use" headers="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525 runtime-use" role="cell" aria-label="Scope: compile; relationship: Direct">
+<td class="dependency-use" headers="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27 runtime-use" role="cell" aria-label="Scope: compile; relationship: Direct">
 <span class="dependency-mobile-label" aria-hidden="true">Use</span>
 <span class="dependency-scope">compile</span><span class="dependency-use-separator" aria-hidden="true"> · </span><span class="dependency-relationship">Direct</span>
 </td>
-<td class="dependency-licenses" headers="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525 runtime-licenses" role="cell">
+<td class="dependency-licenses" headers="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27 runtime-licenses" role="cell">
 <span class="dependency-mobile-label" aria-hidden="true">Declared licenses</span>
 <ul class="dependency-license-list">
 <li><a href="https://asm.ow2.io/license.html">BSD-3-Clause</a></li>
@@ -81,16 +81,16 @@ Jump to: [Runtime (14)](#runtime-dependencies) · [Test (19)](#test-dependencies
 </td>
 </tr>
 <tr class="dependency-details-row" role="row">
-<td colspan="3" headers="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525" role="cell">
-<details id="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525-details" class="dependency-details">
-<summary id="dependency-498c4c81c6f5e0d2f654b2380da0e74616b12952dd4ea3b556594117efdff525-summary" class="dependency-summary" aria-label="Details for org.ow2.asm:asm:jar:9.11">Details</summary>
+<td colspan="3" headers="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27" role="cell">
+<details id="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27-details" class="dependency-details">
+<summary id="dependency-9f7a1b9a65e2f140c34052dac297f44395b286626476db830c6bf15a7d2efe27-summary" class="dependency-summary" aria-label="Details for org.ow2.asm:asm:jar:9.11.1">Details</summary>
 <div class="dependency-metadata">
 <p>ASM, a very small and fast Java bytecode manipulation framework</p>
 <dl>
 <dt>Upstream project name</dt>
 <dd>asm</dd>
 <dt>Resolved coordinate</dt>
-<dd><code class="dependency-coordinate">org.ow2.asm:asm:jar:9.11</code></dd>
+<dd><code class="dependency-coordinate">org.ow2.asm:asm:jar:9.11.1</code></dd>
 <dt>Artifact type</dt>
 <dd>jar</dd>
 </dl>
@@ -1290,7 +1290,7 @@ cs1302-tracer
     - org.junit.jupiter:junit-jupiter-engine:jar:6.1.3 [test]
       - org.junit.platform:junit-platform-engine:jar:6.1.3 [test]
     - org.junit.jupiter:junit-jupiter-params:jar:6.1.3 [test]
-  - org.ow2.asm:asm:jar:9.11 [compile]
+  - org.ow2.asm:asm:jar:9.11.1 [compile]
   - org.slf4j:slf4j-simple:jar:2.0.20 [test]
     - org.slf4j:slf4j-api:jar:2.0.20 [test]
 ```
