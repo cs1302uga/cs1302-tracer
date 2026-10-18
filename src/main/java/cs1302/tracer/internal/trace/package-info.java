@@ -8,8 +8,10 @@
  * Source analysis and prepared binary declarations supply evidence for generic type label
  * reconstruction and
  * lambda reconstruction. {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
- * while
- * {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.</p>
+ * while {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.
+ * Hidden binary lambda objects have separate functional-interface views. Heap inspection finalizes their
+ * interface-based {@code λ} headings after traversal without changing semantic generic bindings or source
+ * implementation bodies.</p>
  *
  * <p>Package-private {@link cs1302.tracer.internal.trace.HeapInspection} owns one snapshot's reachable reference
  * queue, admitted identities, heap values, and JDI inspection. It borrows the snapshot's type evidence;

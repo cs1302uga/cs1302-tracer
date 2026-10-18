@@ -39,6 +39,12 @@ requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
+- **Binary lambda object labels:** display a supported functional-interface view
+  with a `λ` marker, such as `Comparator<Person>λ`, instead of an
+  opaque hidden implementation name. Retain object identities, existing JSON
+  shapes, source-reconstructed lambda bodies, and conservative labels for unknown
+  or conflicting type evidence. Finalize headings after heap traversal so field
+  observations can refine a lambda first encountered through an `Object` alias.
 - **Generic heap type labels (CLI, Java API, and batch):** use prepared binary
   declarations to compose superclass and interface type arguments across multiple
   hierarchy levels. Resolve inherited and hidden instance fields against their

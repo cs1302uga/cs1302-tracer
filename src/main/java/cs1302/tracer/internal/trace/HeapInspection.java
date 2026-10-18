@@ -103,6 +103,13 @@ final class HeapInspection {
             TraceValue convertedObject = this.inspect(workingObject);
             this.heap.put(workingObject.uniqueID(), convertedObject);
         } // while
+        this.heap.replaceAll((id, value) -> {
+            java.lang.String view = this.metadata.functionalView(id);
+            if (view != null && value instanceof TraceValue.Object object) {
+                return new TraceValue.Object(view + "λ", object.fields(), object.enumConstant());
+            } // if
+            return value;
+        });
         return heap;
     } // finish
 
@@ -276,8 +283,7 @@ final class HeapInspection {
         TraceSession.elements(ar.length());
         for (Value elemVal : ar.getValues()) {
             if (elemVal instanceof ObjectReference elemOr) {
-                java.lang.String elemRuntime = elemOr.referenceType().name();
-                this.metadata.refineDeclared(elemOr.uniqueID(), elemType, elemRuntime);
+                this.metadata.refineDeclared(elemOr, elemType);
             } // if
         } // for
     } // propagateContainerElements
@@ -413,8 +419,7 @@ final class HeapInspection {
                     fieldTypeName, objectField.name(), primitive(pf)));
             case ObjectReference of -> {
                 if (fieldTypeName != null) {
-                    java.lang.String ofRuntimeFqn = of.referenceType().name();
-                    this.metadata.refineDeclared(of.uniqueID(), fieldTypeName, ofRuntimeFqn);
+                    this.metadata.refineDeclared(of, fieldTypeName);
                 } // if
                 objectSnapshotFields.add(new ExecutionSnapshot.Field(objectField.isFinal(), fieldTypeName,
                         objectField.name(), new TraceValue.Reference(of.uniqueID())));

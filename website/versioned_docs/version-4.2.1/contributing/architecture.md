@@ -290,6 +290,14 @@ one snapshot. All captured threads share it. Callers submit fallback or refined
 evidence instead of mutating a map or invalidating bindings. Frame bindings are
 read-only. `InvocationTypeResolver` contributes source-based method substitutions.
 
+Hidden binary lambda objects retain observed functional-interface views separately
+from concrete runtime type evidence. Reference observations verify actual JDI
+interface membership and a resolvable single abstract method. `HeapInspection`
+finalizes these object headings after traversal, using the interface type with a
+`λ` presentation marker only when the accumulated evidence supports it.
+This keeps late field evidence effective without feeding display markers into
+generic substitution or changing source-reconstructed lambda bodies.
+
 Fallback evidence fills missing entries. Refinement preserves runtime-name,
 generic, and concrete-over-wildcard precedence; conflicting concrete arguments
 retain the earlier candidate. All captured threads finish their type prepasses

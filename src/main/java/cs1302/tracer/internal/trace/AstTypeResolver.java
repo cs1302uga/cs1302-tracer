@@ -23,6 +23,7 @@ import com.github.javaparser.ast.type.ReferenceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.WildcardType;
 import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.logic.FunctionalInterfaceLogic;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import java.util.ArrayDeque;
@@ -325,11 +326,7 @@ public class AstTypeResolver {
             if (cit.getTypeArguments().isPresent() && !cit.getTypeArguments().get().isEmpty()) {
                 String baseType = cit.getNameWithScope();
                 try {
-                    baseType = cit.resolve().describe();
-                    int angleIdx = baseType.indexOf('<');
-                    if (angleIdx != -1) {
-                        baseType = baseType.substring(0, angleIdx);
-                    } // if
+                    baseType = resolvedRawName(cit.resolve());
                 } catch (Throwable ignored) {
                     // fallback to simple name with scope
                 } // try
@@ -416,11 +413,30 @@ public class AstTypeResolver {
         } // if
         TypeTraversal.postorder(type);
         try {
+            if (type instanceof ClassOrInterfaceType named && named.getTypeArguments().isEmpty()) {
+                return resolvedRawName(type.resolve());
+            } // if
             return type.resolve().describe();
         } catch (Throwable t) {
             return type.asString();
         } // try
     } // resolveAstType
+
+    /**
+     * Formats a resolved raw source reference without relying on dollar-normalizing solver descriptions.
+     *
+     * @param type Resolved source type.
+     * @return Proven declaration identity, or the solver's raw description when no declaration is available.
+     */
+    private static String resolvedRawName(ResolvedType type) {
+        String fallback = extractRawTypeName(type.describe());
+        if (type.isReferenceType()) {
+            return type.asReferenceType().getTypeDeclaration()
+                    .map(declaration -> canonicalName(declaration).orElseGet(() -> binaryName(declaration)))
+                    .orElse(fallback);
+        } // if
+        return fallback;
+    } // resolvedRawName
 
     /**
      * Extracts the raw type name by stripping any generic type arguments.
@@ -535,6 +551,74 @@ public class AstTypeResolver {
     } // findClassGenericInfo
 
     /**
+     * Validates a declared functional view against the implemented interface's exact binary identity.
+     *
+     * @param className Implemented interface's qualified binary name.
+     * @param declaredRaw Declared interface name without type arguments.
+     * @return Proven canonical interface name, or empty when identity or its single abstract method is unavailable.
+     */
+    Optional<String> functionalInterfaceName(String className, String declaredRaw) {
+        for (CompilationUnit unit : this.compilationUnits) {
+            if (unit == null || !unit.containsData(TYPE_SOLVER)) {
+                continue;
+            } // if
+            try {
+                ResolvedReferenceTypeDeclaration declaration = unit.getData(TYPE_SOLVER).solveType(className);
+                String binary = binaryName(declaration);
+                String canonical = canonicalName(declaration).orElse(binary);
+                if (className.equals(binary) && (declaredRaw.equals(binary) || declaredRaw.equals(canonical))
+                        && declaration.isInterface()
+                        && FunctionalInterfaceLogic.getFunctionalMethod(declaration).isPresent()) {
+                    return Optional.of(canonical);
+                } // if
+            } catch (RuntimeException ignored) {
+                // Unavailable or unsupported declarations cannot establish a functional view.
+            } // try
+        } // for
+        return Optional.empty();
+    } // functionalInterfaceName
+
+    /**
+     * Restores a declaration's binary identity while preserving literal dollars in its package and identifiers.
+     *
+     * @param declaration Resolved source or binary declaration.
+     * @return Qualified binary name.
+     */
+    private static String binaryName(ResolvedReferenceTypeDeclaration declaration) {
+        String packageName = declaration.getPackageName();
+        String className = declaration.getClassName().replace('.', '$');
+        return packageName == null || packageName.isEmpty() ? className : packageName + "." + className;
+    } // binaryName
+
+    /**
+     * Converts only proved enclosing-type boundaries to canonical-name separators.
+     *
+     * @param declaration Resolved source or binary declaration.
+     * @return Canonical identity, or empty for inconsistent or cyclic enclosing-type metadata.
+     */
+    private static Optional<String> canonicalName(ResolvedReferenceTypeDeclaration declaration) {
+        String suffix = "";
+        Set<String> visited = new HashSet<>();
+        ResolvedReferenceTypeDeclaration current = declaration;
+        while (true) {
+            String name = binaryName(current);
+            if (!visited.add(name)) {
+                return Optional.empty();
+            } // if
+            Optional<ResolvedReferenceTypeDeclaration> container = current.containerType();
+            if (container.isEmpty()) {
+                return Optional.of(name + suffix);
+            } // if
+            String owner = binaryName(container.orElseThrow());
+            if (!name.startsWith(owner + "$")) {
+                return Optional.empty();
+            } // if
+            suffix = "." + name.substring(owner.length() + 1) + suffix;
+            current = container.orElseThrow();
+        } // while
+    } // canonicalName
+
+    /**
      * Reads declaration evidence through the prepared job's existing bytecode solver.
      *
      * @param className Runtime binary class name.
@@ -547,7 +631,11 @@ public class AstTypeResolver {
             } // if
             try {
                 ResolvedReferenceTypeDeclaration declaration = unit.getData(TYPE_SOLVER).solveType(className);
-                String qualified = declaration.getQualifiedName();
+                String binary = binaryName(declaration);
+                String qualified = canonicalName(declaration).orElse(binary);
+                if (!className.equals(binary) && !className.equals(qualified)) {
+                    continue;
+                } // if
                 ClassGenericInfo existing = this.classInfoMap.get(qualified);
                 if (existing != null) {
                     this.classInfoMap.put(className, existing);

@@ -116,6 +116,32 @@ The same behavior applies to the batch request's `typeStyle` field and the Java
 API's `TypeStyle` setting. Consumers must regenerate cached traces to obtain the
 updated signature formatting.
 
+## Lambda heap object labels
+
+A lambda returned by a binary dependency may have no source implementation to
+reconstruct. Its JVM-generated class name is not a useful description of its
+functional-interface type. When a declared reference type and the actual JDI
+interface hierarchy establish that view, the heap object's type label uses the
+interface followed by `λ`. For example, an object observed through a
+`Comparator<Person>` reference displays `Comparator<Person>λ` with simple
+type names. A visualizer may append its existing identity, producing
+`Comparator<Person>λ@91`; every alias still refers to that same object.
+
+The `λ` is a presentation marker, not a declared Java class name or evidence
+that generic type arguments survive erasure. Functional views are kept separately
+from concrete runtime type evidence and are finalized after reachable-heap
+inspection, so a later field observation can supply the interface type. Marker
+interfaces do not supply a functional view. Consistent parameterized evidence for
+one interface takes precedence over its raw aliases; conflicting parameterizations
+retain the raw interface, and incompatible interface views retain the generated
+runtime label. Wildcard evidence is not replaced with invented concrete arguments.
+
+This correction applies to hidden lambda objects represented as ordinary heap
+objects. Source-reconstructed lambda implementations retain their existing body
+representation. Ordinary named classes implementing a functional interface keep
+their concrete class labels. Both JSON formats use their existing type fields;
+regenerate cached traces and images to obtain the corrected labels.
+
 ## Generic heap type labels
 
 Heap type labels combine source-declared reference types with generic declarations
@@ -147,7 +173,8 @@ For example, `max(T[])` called with an `Integer[]` variable displays `Integer[]`
 for its parameter and `Integer` for its `T` locals with `--type-style simple`.
 An explicit `<Number>` invocation keeps `Number` labels even when the value is
 an `Integer` or `null`. Arrays and nested parameterized local declarations use
-the same substitutions. Heap objects retain their runtime identities and classes.
+the same substitutions. Heap objects retain their runtime identities; their labels
+follow the generic and lambda heap-label rules above.
 
 Resolution requires source metadata and an unambiguous caller invocation matched
 by declaring type and erased method descriptor. Explicit type arguments and

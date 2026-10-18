@@ -10,7 +10,8 @@ import java.util.List;
  * Represents a typed heap object in the modern trace format.
  *
  * @param id The unique reference ID of this heap object.
- * @param type The runtime or declared type of the object.
+ * @param type The presentation type label, including a functional-interface label followed by {@code λ}
+ *     for a hidden lambda when supported by type evidence.
  * @param kind The category of heap object: "object", "array", "string", "lambda", "box", or "color".
  * @param fields The list of instance fields for objects.
  * @param elements The list of element values for arrays.
@@ -55,7 +56,7 @@ public record HeapObject(@SerializedName("id") long id, @SerializedName("type") 
      * Factory method for general instance objects.
      *
      * @param id The heap object ID.
-     * @param type The object type.
+     * @param type The object presentation type label.
      * @param fields The object fields.
      * @return A new HeapObject instance for an object.
      */
@@ -114,7 +115,7 @@ public record HeapObject(@SerializedName("id") long id, @SerializedName("type") 
      * Factory method for lambdas.
      *
      * @param id The heap object ID.
-     * @param type The functional interface type.
+     * @param type The lambda presentation label.
      * @param sam The single abstract method implementation.
      * @return A new HeapObject instance for a lambda.
      */
