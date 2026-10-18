@@ -51,7 +51,7 @@ public class ModernTraceSerializer {
      * Constructs a ModernTraceSerializer with the specified formatting options and TypeStyle.
      *
      * @param removeMainArgs Whether to remove args from the main stack frame.
-     * @param inlineStrings Whether strings should be inlined.
+     * @param inlineStrings Accepted for shared configuration; has no effect on modern output.
      * @param removeMethodThis Whether this references should be omitted from method frames.
      * @param typeStyle The type qualification style (FQN or SIMPLE).
      * @param includePrimitiveBits Whether to include primitive binary metadata.
@@ -68,7 +68,7 @@ public class ModernTraceSerializer {
     /**
      * Constructs a serializer without primitive binary metadata.
      * @param removeMainArgs Omit main arguments.
-     * @param inlineStrings Inline strings.
+     * @param inlineStrings Accepted for shared configuration; has no effect on modern output.
      * @param removeMethodThis Omit receiver references.
      * @param typeStyle Type-label style.
      */
@@ -81,7 +81,7 @@ public class ModernTraceSerializer {
      * Constructs a ModernTraceSerializer defaulting to fully qualified type names.
      *
      * @param removeMainArgs Whether to remove args from the main stack frame.
-     * @param inlineStrings Whether strings should be inlined.
+     * @param inlineStrings Accepted for shared configuration; has no effect on modern output.
      * @param removeMethodThis Whether this references should be omitted from method frames.
      */
     public ModernTraceSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {

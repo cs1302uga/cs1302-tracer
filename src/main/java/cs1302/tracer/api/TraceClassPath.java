@@ -21,7 +21,16 @@ import org.apiguardian.api.API;
  * until the operation finishes. Optional copying captures the available dependency closure before
  * compilation and uses those copies throughout the operation, without modifying JAR contents.
  * Copying does not provide an atomic snapshot of a concurrently changing filesystem.
+ * Source collection through {@link SourceBundle.Builder} instead captures file text when it is added.
  *
+ * <p>This configuration does not resolve Maven coordinates or download dependencies, and it does not
+ * implicitly include the embedding application's class path. Supply the directories and JARs needed
+ * by the submitted program explicitly. Missing explicit inputs, unreadable files, and invalid
+ * archives fail during preparation, appearing in the outcome or discovery diagnostics returned
+ * by {@link Tracer}. Required values and glob syntax are checked when entries are constructed.
+ *
+ * @see Tracer#trace(TraceRequest, TraceClassPath)
+ * @see Tracer#discoverBreakpoints(String, TraceClassPath)
  * @since 4.1.0
  */
 @API(status = API.Status.STABLE, since = "4.1.0")
@@ -75,6 +84,8 @@ public final class TraceClassPath {
 
     /**
      * Returns the requested selections, before expansion or dependency discovery.
+     * Repeated selections remain in this list; preparation, rather than configuration construction,
+     * applies normalized-path duplicate handling.
      *
      * @return Immutable selections in supplied order.
      */
@@ -101,12 +112,17 @@ public final class TraceClassPath {
         return this.followLinks;
     } // followLinks
 
-    /** A literal dependency or an explicit root-relative pattern selection. */
+    /**
+     * A requested dependency selection whose files are resolved during operation preparation.
+     * Use {@link PathEntry} for one literal path or {@link GlobEntry} for an explicit pattern group.
+     */
     @API(status = API.Status.STABLE, since = "4.1.0")
     public sealed interface Entry permits PathEntry, GlobEntry {} // Entry
 
     /**
      * One literal directory or JAR path, never interpreted as a glob or a path list.
+     * Relative paths are resolved when an operation prepares its dependencies, not when this value
+     * is constructed. A symbolic link supplied directly as this path uses normal path resolution.
      *
      * @param path Dependency path; existence is checked during preparation.
      */
@@ -132,6 +148,9 @@ public final class TraceClassPath {
      * metacharacters. Absolute patterns, dot components, and empty components are invalid.
      * Each selection is sorted by its encountered root-relative paths and inserted at its original
      * position. A selection with no matches fails during preparation.
+     * The complete pattern grammar is shared with
+     * {@link SourceBundle.Builder#addFiles(Path, String, boolean)}; this selection reads no files
+     * until a tracing or discovery operation uses it.
      *
      * @param root Search directory, relative to the preparation-time working directory when relative.
      * @param glob Portable root-relative pattern.
@@ -157,6 +176,7 @@ public final class TraceClassPath {
     /**
      * Mutable, reusable dependency selection; not thread-safe.
      * Building snapshots the selections and options without reading or copying dependency files.
+     * Each build is independent of subsequent additions and option changes to the builder.
      */
     @API(status = API.Status.STABLE, since = "4.1.0")
     public static final class Builder {
@@ -178,6 +198,8 @@ public final class TraceClassPath {
 
         /**
          * Appends one literal directory or JAR path.
+         * The path need not exist yet; existence and readability are checked during preparation.
+         * Use {@link #addGlob(Path, String)} to request pattern matching explicitly.
          *
          * @param path Literal dependency path.
          * @return This builder.
@@ -204,6 +226,8 @@ public final class TraceClassPath {
 
         /**
          * Selects copying of dependencies once per operation, including local manifest dependencies.
+         * Owned copies are released when that operation finishes. This option leaves the caller's
+         * original files intact and defaults to false for a new builder.
          *
          * @param copy True to use owned copies; false to borrow caller-owned inputs.
          * @return This builder.
@@ -217,6 +241,8 @@ public final class TraceClassPath {
          * Selects handling of encountered symbolic links. With false, glob traversal skips links and
          * copying directory contents rejects links. With true, both follow targets, including targets
          * outside the selected root; encountered broken links and directory cycles fail preparation.
+         * The default is false. This option does not change resolution of an explicitly supplied
+         * path or root that is itself a symbolic link.
          *
          * @param followLinks Whether encountered links may be followed.
          * @return This builder.

@@ -19,19 +19,31 @@ import java.util.Objects;
  * capture and {@link InspectionPolicy#FIELDS}, without changing this record. Breakpoint text is
  * parsed after successful source preparation. A chronological request captures selected locations,
  * or all executable lines when its breakpoint selection is empty.
+ * Source text is already captured; construction does not read files. Use {@link SourceBundle} to capture
+ * source files and {@link TraceClassPath} with the tracing overloads to supply compiled dependencies.
+ *
+ * <p>Breakpoint specifications accept a positive one-based {@code LINE}, {@code FILE:LINE}, or the
+ * unqualified {@code -1} sentinel for main exit. File qualification uses compiled debug-source identity,
+ * such as {@code demo/Main.java}, rather than an arbitrary {@link SourceBundle} logical path. Obtain
+ * executable locations with {@link Tracer#discoverBreakpoints(String)}. Each list entry may contain
+ * comma-separated specifications; surrounding whitespace, blank entries, and empty comma-separated segments
+ * are ignored. Null entries are rejected during construction. If no specification remains, ordinary capture
+ * selects main exit and chronological capture selects all executable lines. Malformed nonblank text is
+ * parsed after compilation; when compilation succeeds, tracing reports it as a {@code tracer_error} outcome
+ * in phase {@code trace}, rather than rejecting the request constructor.</p>
  *
  * @param source Submitted Java source text.
  * @param stdin Guest standard input.
  * @param format Output format.
- * @param breakpoints Selected breakpoint specifications; empty selects main exit unless chronological capture is used.
+ * @param breakpoints Copied text in the class contract's syntax; an empty effective selection uses the mode default.
  * @param chronological Whether to capture selected locations chronologically; an empty selection captures all lines.
  * @param accumulate Whether to retain repeated selected breakpoint hits.
  * @param multithread Whether to capture application threads in modern format.
  * @param removeMainArgs Whether to omit the main argument variable.
- * @param inlineStrings Whether to render strings inline.
+ * @param inlineStrings Whether to render strings inline in Python Tutor output; ignored by modern output.
  * @param removeMethodThis Whether to omit receiver variables.
  * @param typeStyle Type-label presentation.
- * @param limits Resource budgets.
+ * @param limits Resource budgets; zero-valued ceilings are unlimited.
  * @param inspection Guest inspection policy.
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
@@ -59,6 +71,8 @@ public record TraceRequest(String source, String stdin, TraceFormat format, List
      * Creates a Python Tutor request with finite instructor budgets and trusted inspection.
      * Standard input and breakpoint selection are empty, every boolean setting is false,
      * and type labels use {@link TypeStyle#FQN}. The empty selection captures main exit.
+     * Limits come from {@link TraceLimits#instructorDefaults()}; unlike an NDJSON batch request
+     * with omitted limits, this convenience constructor does not select unlimited budgets.
      *
      * @param source Submitted Java source text.
      * @throws NullPointerException If source is null.
@@ -172,8 +186,7 @@ public record TraceRequest(String source, String stdin, TraceFormat format, List
         /**
          * Sets and detaches the selected breakpoint specifications.
          *
-         * @param breakpoints Selected breakpoint specifications; empty selects main exit unless chronological
-         *     capture is used.
+         * @param breakpoints Text in the class contract's syntax; an empty effective selection uses the mode default.
          * @return This builder.
          * @throws NullPointerException If the list or one of its elements is null.
          */
@@ -228,9 +241,9 @@ public record TraceRequest(String source, String stdin, TraceFormat format, List
         } // removeMainArgs
 
         /**
-         * Sets the inlineStrings setting.
+         * Selects string inlining for Python Tutor output; modern output ignores this setting.
          *
-         * @param inlineStrings Whether to render strings inline.
+         * @param inlineStrings Whether to replace Python Tutor string references with literal strings.
          * @return This builder.
          */
         public Builder inlineStrings(boolean inlineStrings) {

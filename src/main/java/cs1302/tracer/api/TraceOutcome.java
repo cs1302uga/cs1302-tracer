@@ -13,11 +13,34 @@ import java.util.Map;
  * Direct construction and the builder also accept arbitrary, possibly null strings; they do not
  * validate status combinations, parse JSON, or synchronize JSON with other components.
  *
+ * <p>For tracer-produced outcomes, {@code completed} and {@code complete=true} mean that no stop or failure
+ * was recorded. {@code failed} identifies an observed execution, preparation, or tracer failure;
+ * {@code stopped} identifies a controlled stop such as a resource or representation limit.
+ * These fields do not prove that the guest program behaved correctly. In particular, the single-stack
+ * exception-recognition limitation described by {@link Tracer} can leave an uncaught JDK or dependency
+ * exception only in {@code stderr} while completion metadata indicates success.</p>
+ *
+ * <p>Use {@code stopReason} for machine-readable classification and {@code diagnostics} for explanatory
+ * messages; diagnostic text is not a stable identifier. Captured guest stderr is separate from diagnostics
+ * and can contain ordinary program output as well as stack traces. A missing payload is the text
+ * {@code "null"} in {@code traceJson}, distinct from an available trace containing an empty step sequence.</p>
+ *
+ * <p>Available counters depend on how far execution progressed. {@code snapshotsCaptured} counts committed
+ * snapshots, including those later replaced; {@code snapshotsRetained} is the remaining history size.
+ * {@code droppedSnapshots} is a zero-or-one indicator that an unfinished snapshot was discarded, not the
+ * number of replaced snapshots. {@code retainedBytes} is tracer accounting, not process memory or response size.
+ * {@code elapsedMillis} measures time from entry into the trace phase, excluding source preparation and
+ * reusable-guest startup. Full JSON uses the
+ * <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/BOUNDED_TRACING.md#envelope">
+ * version 1 result envelope</a>; {@code traceJson} contains only its format-specific sequence payload as defined
+ * by the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md">output reference</a>.
+ * JSON strings and metadata remain valid after the producing worker is closed or reused.</p>
+ *
  * @param format Selected output format; tracing produces {@code pytutor} or {@code modern}.
  * @param status Job status; tracing produces {@code completed}, {@code failed}, or {@code stopped}.
- * @param stopReason Machine-readable stop reason, or null on tracing success.
- * @param phase Last execution phase, possibly null for a manually constructed outcome.
- * @param complete Whether the job completed.
+ * @param stopReason Machine-readable stop reason, or null when tracing recorded no stop or failure.
+ * @param phase Last execution phase; successful API jobs report {@code serialize}. May be null in supplied outcomes.
+ * @param complete Whether tracing recorded completion without a stop or failure; subject to the class limitations.
  * @param counters Resource accounting; copied without preserving a particular iteration order.
  * @param diagnostics Job diagnostics; copied in their supplied order.
  * @param stdout Captured guest output, possibly null for a manually constructed outcome.

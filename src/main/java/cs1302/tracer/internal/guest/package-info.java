@@ -11,7 +11,10 @@
  *
  * <p>Dedicated guests with dependencies use {@link cs1302.tracer.internal.guest.GuestSystemClassLoader}
  * while retaining the JVM's native main invocation and process lifetime. Persistent guests retain their
- * existing harness lifecycle and close the application loader after each job. These helpers require only
- * JDK runtime types; guest loading and reusable-process cleanup do not establish security isolation.</p>
+ * harness lifecycle and close the application loader after each job. The harness interrupts lingering job threads
+ * after the entry method returns and restores system properties, default locales/time zone, standard streams,
+ * and the default uncaught-exception handler. Other JDK-global state can survive between jobs; resetting those
+ * selected values is not a complete JVM reset. These helpers require only JDK runtime types; guest loading and
+ * reusable-process cleanup do not establish security isolation.</p>
  */
 package cs1302.tracer.internal.guest;

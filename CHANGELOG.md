@@ -52,6 +52,13 @@ requirements, and JSON/batch schemas are unchanged.
 - **Development documentation:** align the current Java integration references and
   CLI version-report example with `4.2.2-SNAPSHOT`. Preserve the published 4.2.1
   guide snapshot and earlier published documentation.
+- **Java API documentation:** clarify entry-point selection, runtime and packaging
+  requirements, result metadata, per-job budgets, and resource ownership. Describe
+  CLI launcher termination, reusable-guest state, stream-processing failures, and
+  the existing single-stack exception-reporting limitation. Qualify format-specific
+  presentation options and improve the generated API examples and cross-references.
+  These comment corrections preserve Java API signatures, CLI behavior, and
+  JSON/batch protocol formats; the documented runtime limitations remain.
 
 ### Commits
 

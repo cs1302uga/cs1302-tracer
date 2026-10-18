@@ -3,9 +3,18 @@ package cs1302.tracer.api;
 import org.apiguardian.api.API;
 
 /**
- * Trace budgets. Zero means unlimited; byte counts use bytes, time uses milliseconds.
+ * Immutable resource budgets for one tracing job. Zero disables the corresponding budget;
+ * byte counts use bytes, and time uses milliseconds.
  * Budgets must be nonnegative, and the timeout must not exceed {@code Long.MAX_VALUE / 1_000_000}.
- * Retained-byte accounting is not a measurement of process memory or a limit on serialized response size.
+ * Counted resource caps allow usage exactly at the cap; attempting to exceed one stops the job.
+ * A nonzero deadline expires when elapsed tracing time reaches the configured duration.
+ * Snapshot limits count completed captures even when a later hit replaces an earlier retained state.
+ *
+ * <p>{@link #builder()} starts with {@link #instructorDefaults()}, matching the budgets of
+ * {@link TraceRequest#TraceRequest(String)}. Use {@link #unlimited()} or its {@link #toBuilder()}
+ * to disable those defaults. Unlimited budgets do not disable fixed representation checks or
+ * provide process isolation. Retained-byte accounting is not a measurement of process memory
+ * or a limit on serialized response size.
  *
  * @param timeoutMillis Elapsed deadline from the trace phase, excluding source preparation and reusable guest startup.
  * @param snapshots Maximum completed snapshots captured, including replaced snapshots.
@@ -13,12 +22,16 @@ import org.apiguardian.api.API;
  * @param heapObjects Maximum distinct reachable objects per snapshot.
  * @param elements Maximum cumulative inspected fields, array slots, frames/locals, and string storage units
  *     per snapshot.
- * @param traceBytes Maximum accounted retained snapshot bytes.
- * @param sourceBytes Maximum UTF-8 source bytes.
+ * @param traceBytes Maximum accounted snapshot bytes, including retained history and the snapshot
+ *     being built; a previous state remains charged until its replacement is admitted.
+ * @param sourceBytes Maximum submitted UTF-8 source bytes, excluding discovered neighboring sources
+ *     and binary dependencies.
  * @param sourceFiles Maximum delimiter-defined source files; undelimited input counts as one.
  * @param threads Maximum live application threads in multithread capture.
  * @param frames Maximum total frames in multithread capture before filtering application stacks.
  * @param snapshotBytes Maximum accounted bytes for one snapshot.
+ * @see TraceRequest
+ * @see TraceOutcome
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
 public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, long heapObjects, long elements,
@@ -27,14 +40,14 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
     /**
      * Constructs the original eight budgets with unlimited thread, frame, and individual-snapshot ceilings.
      *
-     * @param timeoutMillis Deadline.
-     * @param snapshots Snapshot count.
-     * @param outputBytes Output bytes.
-     * @param heapObjects Heap objects.
-     * @param elements Inspected elements.
-     * @param traceBytes Retained bytes.
-     * @param sourceBytes Source bytes.
-     * @param sourceFiles Source files.
+     * @param timeoutMillis Trace-phase deadline in milliseconds; zero means unlimited.
+     * @param snapshots Maximum completed captures, including replaced snapshots; zero means unlimited.
+     * @param outputBytes Maximum retained bytes per guest output stream; zero means unlimited.
+     * @param heapObjects Maximum distinct reachable objects per snapshot; zero means unlimited.
+     * @param elements Maximum inspected elements per snapshot; zero means unlimited.
+     * @param traceBytes Maximum accounted retained snapshot bytes; zero means unlimited.
+     * @param sourceBytes Maximum submitted UTF-8 source bytes; zero means unlimited.
+     * @param sourceFiles Maximum delimiter-defined source files; zero means unlimited.
      * @throws IllegalArgumentException If a budget is negative or the timeout exceeds
      *     {@code Long.MAX_VALUE / 1_000_000} milliseconds.
      */
@@ -61,7 +74,22 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
     } // TraceLimits
 
     /**
-     * Returns the ordinary instructor CLI policy.
+     * Returns the finite budgets used by ordinary CLI tracing and {@link TraceRequest#TraceRequest(String)}.
+     * These interactive-example defaults are not measured process-memory ceilings.
+     *
+     * <table>
+     * <caption>Instructor budgets</caption>
+     * <tr><th scope="col">Budget</th><th scope="col">Value</th></tr>
+     * <tr><td>Trace-phase deadline</td><td>10,000 milliseconds</td></tr>
+     * <tr><td>Completed snapshots</td><td>10,000</td></tr>
+     * <tr><td>Output per stream</td><td>1,048,576 bytes</td></tr>
+     * <tr><td>Reachable objects per snapshot</td><td>10,000</td></tr>
+     * <tr><td>Inspected elements per snapshot</td><td>100,000</td></tr>
+     * <tr><td>Accounted retained snapshot storage</td><td>67,108,864 bytes</td></tr>
+     * <tr><td>Submitted source</td><td>1,048,576 UTF-8 bytes across at most 128 files</td></tr>
+     * <tr><td>Multithread capture</td><td>64 live application threads and 4,096 total frames per snapshot</td></tr>
+     * <tr><td>Accounted storage per snapshot</td><td>8,388,608 bytes</td></tr>
+     * </table>
      *
      * @return Finite budgets for interactive examples.
      */
@@ -71,7 +99,8 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
     } // instructorDefaults
 
     /**
-     * Returns unlimited budgets without selecting an inspection policy.
+     * Returns a value with every budget set to zero, without selecting an inspection policy.
+     * Fixed nesting and representation checks still apply during tracing and rendering.
      *
      * @return Unlimited budgets.
      */
@@ -102,7 +131,9 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
 
     /**
      * Mutable, reusable budget construction; not thread-safe.
-     * Values are validated by {@link #build()}. Zero continues to mean unlimited for every budget.
+     * Setters retain values without range validation; {@link #build()} validates all budgets together.
+     * Unchanged settings retain their initial values, and later changes do not affect previously
+     * built values. Zero continues to mean unlimited for every budget.
      *
      * @since 4.1.0
      */
@@ -141,7 +172,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // Builder
 
         /**
-         * Sets the timeoutMillis setting.
+         * Sets the elapsed deadline beginning at the trace phase.
          *
          * @param timeoutMillis Deadline in milliseconds from the trace phase, excluding source preparation
          *     and reusable guest startup.
@@ -153,7 +184,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // timeoutMillis
 
         /**
-         * Sets the snapshots setting.
+         * Sets the completed-capture budget, independently of how many snapshots remain retained.
          *
          * @param snapshots Maximum completed snapshots captured, including replaced snapshots.
          * @return This builder.
@@ -164,7 +195,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // snapshots
 
         /**
-         * Sets the outputBytes setting.
+         * Sets the retained-output budget applied independently to standard output and standard error.
          *
          * @param outputBytes Maximum retained bytes per guest output stream.
          * @return This builder.
@@ -175,7 +206,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // outputBytes
 
         /**
-         * Sets the heapObjects setting.
+         * Sets the reachable-object budget for each snapshot.
          *
          * @param heapObjects Maximum distinct reachable objects per snapshot.
          * @return This builder.
@@ -186,7 +217,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // heapObjects
 
         /**
-         * Sets the elements setting.
+         * Sets the inspected-element budget for each snapshot.
          *
          * @param elements Maximum cumulative inspected fields, array slots, frames/locals, and string storage
          *     units per snapshot; repeated inspection can count more than once.
@@ -198,7 +229,8 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // elements
 
         /**
-         * Sets the traceBytes setting.
+         * Sets the accounted storage budget for retained snapshots and the snapshot being built.
+         * The previous retained state remains charged while a replacement is built and admitted.
          *
          * @param traceBytes Maximum accounted retained snapshot bytes.
          * @return This builder.
@@ -209,7 +241,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // traceBytes
 
         /**
-         * Sets the sourceBytes setting.
+         * Sets the submitted-source budget, excluding discovered sources and binary dependencies.
          *
          * @param sourceBytes Maximum UTF-8 source bytes.
          * @return This builder.
@@ -220,7 +252,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // sourceBytes
 
         /**
-         * Sets the sourceFiles setting.
+         * Sets the submitted source-file budget.
          *
          * @param sourceFiles Maximum delimiter-defined source files; undelimited input counts as one.
          * @return This builder.
@@ -231,7 +263,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // sourceFiles
 
         /**
-         * Sets the threads setting.
+         * Sets the live application-thread budget used only during multithread capture.
          *
          * @param threads Maximum live application threads in multithread capture.
          * @return This builder.
@@ -242,7 +274,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // threads
 
         /**
-         * Sets the frames setting.
+         * Sets the total frame budget used only during multithread capture.
          *
          * @param frames Maximum total frames in multithread capture before filtering application stacks.
          * @return This builder.
@@ -253,7 +285,7 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // frames
 
         /**
-         * Sets the snapshotBytes setting.
+         * Sets the accounted storage budget for one snapshot in either capture mode.
          *
          * @param snapshotBytes Maximum accounted bytes for one snapshot.
          * @return This builder.
@@ -264,10 +296,11 @@ public record TraceLimits(long timeoutMillis, long snapshots, long outputBytes, 
         } // snapshotBytes
 
         /**
-         * Builds budgets using the existing constructor's validation.
+         * Builds an independent immutable value, validating every budget without starting tracing.
          *
          * @return A new set of trace budgets.
-         * @throws IllegalArgumentException If a budget is negative or the timeout is too large.
+         * @throws IllegalArgumentException If a budget is negative or the timeout exceeds
+         *     {@code Long.MAX_VALUE / 1_000_000} milliseconds.
          */
         public TraceLimits build() {
             return new TraceLimits(this.timeoutMillis, this.snapshots, this.outputBytes, this.heapObjects,

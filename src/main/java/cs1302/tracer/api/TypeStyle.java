@@ -7,18 +7,24 @@ import java.util.regex.Pattern;
 /**
  * Represents the type qualification style used when rendering types in stack frames, object labels, variable
  * attributes, and reconstructed lambda return and parameter types. Lambda bodies retain their captured text.
+ * {@link TraceRequest#TraceRequest(String)} defaults to {@link #FQN}. This choice changes label
+ * presentation without changing captured object identity, source names, or source discovery.
+ *
+ * @see TraceRequest#typeStyle()
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
 public enum TypeStyle {
 
     /**
-     * Fully qualified type names (e.g., {@code java.lang.String},
-     * {@code pkg.Pair<java.lang.String, java.lang.Integer>}).
+     * Preserves captured type-name text, including package qualification when available
+     * (e.g., {@code java.lang.String}, {@code pkg.Pair<java.lang.String, java.lang.Integer>}).
      */
     FQN("fqn"),
 
     /**
-     * Simplified type names without package prefixes (e.g., {@code String}, {@code Pair<String, Integer>}).
+     * Simplified type names without dotted identifier prefixes
+     * (e.g., {@code String}, {@code Pair<String, Integer>}).
+     * Distinct qualified names can therefore have the same displayed label.
      */
     SIMPLE("simple");
 
@@ -37,6 +43,7 @@ public enum TypeStyle {
 
     /**
      * Formats the given type name according to this type style.
+     * {@link #FQN} returns the input unchanged; {@link #SIMPLE} applies {@link #simplify(String)}.
      *
      * @param typeName The raw type name string (may be fully qualified or generic).
      * @return The formatted type name string, or null if input is null.
@@ -51,6 +58,7 @@ public enum TypeStyle {
     /**
      * Simplifies a fully qualified or parameterized type string by stripping dotted identifier prefixes.
      * This is a textual presentation operation, not Java type parsing or name resolution.
+     * Dotted enclosing-type prefixes are removed as well as package prefixes; no class is loaded.
      *
      * @param typeName The type string to simplify, or null.
      * @return The simplified type string, or null if the input is null.
@@ -63,9 +71,9 @@ public enum TypeStyle {
     } // simplify
 
     /**
-     * Gets the string representation of this TypeStyle.
+     * Returns the lowercase identifier used for this presentation style.
      *
-     * @return The string identifier.
+     * @return {@code fqn} or {@code simple}.
      */
     @Override
     public String toString() {

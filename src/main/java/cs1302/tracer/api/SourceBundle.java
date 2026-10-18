@@ -29,7 +29,15 @@ import org.apiguardian.api.API;
  * files may contain empty or invalid Java text. Inferred names require parseable source with exactly
  * one public top-level type, or otherwise exactly one top-level type. Use {@link #source()} with
  * {@link TraceRequest#builder(String)} or an existing source-text constructor.
+ * File additions capture text immediately; later filesystem changes do not alter a built bundle.
+ * Binary dependencies are selected separately through {@link TraceClassPath}.
  *
+ * <p>Logical paths name the packaged inputs. Executable locations returned in
+ * {@link BreakpointDiscovery} instead use package-relative debug source paths, which can differ
+ * from logical paths such as {@code src/demo/Main.java}.
+ *
+ * @see Tracer#discoverBreakpoints(String)
+ * @see Builder
  * @since 4.1.0
  */
 @API(status = API.Status.STABLE, since = "4.1.0")
@@ -75,6 +83,8 @@ public final class SourceBundle {
 
     /**
      * Returns the delimited source text for tracing, discovery, or other source-text consumers.
+     * Headers are part of this transport string; each file's original text follows its header.
+     * Calling this method performs no filesystem access or Java parsing.
      *
      * @return The immutable delimited source string.
      */
@@ -134,6 +144,8 @@ public final class SourceBundle {
 
         /**
          * Adds explicitly named source text without parsing or compiling its Java contents.
+         * Paths identify bundle entries rather than filesystem inputs; use
+         * {@link #addFile(String, Path)} to read a file instead.
          *
          * @param sourcePath Relative logical source path, normalized to forward slashes.
          * @param source Original source text, including an empty string when desired.
@@ -164,6 +176,7 @@ public final class SourceBundle {
         /**
          * Reads a UTF-8 file immediately and adds its captured text under an explicit logical source path.
          * The filesystem filename does not determine the logical path, and Java text is not parsed.
+         * Later changes to the file do not affect this builder or its subsequently built bundles.
          *
          * @param sourcePath Relative logical source path, normalized to forward slashes.
          * @param file Filesystem input to read now.
@@ -319,6 +332,7 @@ public final class SourceBundle {
         /**
          * Builds an independent immutable bundle from the captured files, preserving insertion order.
          * This operation performs no filesystem I/O, Java parsing, or compilation.
+         * Later additions to this builder do not change the returned bundle.
          *
          * @return A new source bundle.
          * @throws IllegalStateException If no source files have been added.

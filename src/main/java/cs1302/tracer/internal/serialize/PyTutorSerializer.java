@@ -36,7 +36,8 @@ import java.util.stream.Collectors;
  * Container class for methods that help serialize a trace into the OnlinePythonTutor format using Gson.
  *
  * @param removeMainArgs True if the args parameter to main should be excluded.
- * @param inlineStrings True if strings should be inlined as literals.
+ * @param inlineStrings Whether to replace Python Tutor string references with literal strings
+ *     and omit their heap entries.
  * @param removeMethodThis True if this references for method calls should be excluded.
  * @param typeStyle The type qualification style (FQN or SIMPLE).
  * @param includePrimitiveBits Whether to include primitive binary metadata.
@@ -48,7 +49,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
     /**
      * Constructs a serializer without primitive binary metadata.
      * @param removeMainArgs Omit main arguments.
-     * @param inlineStrings Inline strings.
+     * @param inlineStrings Whether to render Python Tutor strings as literals instead of heap references.
      * @param removeMethodThis Omit receiver references.
      * @param typeStyle Type-label style.
      */
@@ -61,7 +62,7 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
      * Constructs a PyTutorSerializer defaulting to fully qualified type names.
      *
      * @param removeMainArgs True if the args parameter to main should be excluded.
-     * @param inlineStrings True if strings should be inlined as literals.
+     * @param inlineStrings Whether to render Python Tutor strings as literals instead of heap references.
      * @param removeMethodThis True if this references for method calls should be excluded.
      */
     public PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, boolean removeMethodThis) {

@@ -10,11 +10,42 @@ Submit Java source with optional binary dependencies, discover executable breakp
 batch jobs, and receive Python Tutor or modern JSON output.</p>
 
 <h1>Using the Java API</h1>
+<h2>Choose an entry point</h2>
+<ul>
+  <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest)
+  Tracer.trace}: execute one request and receive a detached {@link cs1302.tracer.api.TraceOutcome}.
+  The call owns source preparation and guest cleanup; callers do not close the outcome.</li>
+  <li>{@link cs1302.tracer.api.Tracer#discoverBreakpoints(String)
+  Tracer.discoverBreakpoints}: compile submitted sources and discover executable locations without
+  launching a guest. Inspect both returned locations and preparation diagnostics.</li>
+  <li>{@link cs1302.tracer.api.BatchTracer}: process NDJSON request streams through reusable workers.
+  Use try-with-resources, call {@code processStream} sequentially, and retain ownership of input/output streams.</li>
+  <li>{@link cs1302.tracer.App}: invoke the process-facing command line. CLI commands run environment
+  preflight, and some command failures terminate the calling JVM. Embedding applications use
+  {@code Tracer} or {@code BatchTracer}.</li>
+</ul>
+
+<h2>Requirements and resource ownership</h2>
+<p>Use a full JDK 21 or later and the tracer's runtime dependencies. The regular library JAR
+requires those dependencies on the application class path. Submitted language features depend on the
+active JDK and parser support. Java tracing calls use the running JDK and do not run the CLI's
+{@code JAVA_HOME}/{@code PATH} preflight.</p>
+<p>{@link cs1302.tracer.api.SourceBundle} owns captured source text independently of the original files.
+{@link cs1302.tracer.api.TraceClassPath} records dependency selections without opening files;
+borrowed dependencies must remain available and unchanged until tracing or discovery returns.
+Each operation owns its temporary compilation files, archive readers, and optional dependency copies.
+Returned outcomes remain usable after cleanup and subsequent jobs.</p>
+<p>The tracer is not a sandbox. Source parsing and compilation run in the host process, including
+breakpoint discovery, and guest programs can access their process environment and filesystem.
+Resource budgets and field-only inspection do not isolate either part of the operation.
+Run trusted programs directly; hosted student submissions require whole-job isolation as described in the
+<a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/RUNNER_CONTRACT.md">runner contract</a>.</p>
+
 <h2>Start with a single trace</h2>
 <p>{@link cs1302.tracer.api.Tracer} compiles the submitted program, traces it in a
 guest JVM, and releases the job's resources before returning a detached
-{@link cs1302.tracer.api.TraceOutcome}. This complete example prints the guest's
-output, followed by the JSON result envelope:</p>
+{@link cs1302.tracer.api.TraceOutcome}. This complete example checks the reported
+completion state, preserves guest stderr separately, and prints guest stdout followed by the JSON result envelope:</p>
 
 <pre><code>import cs1302.tracer.api.TraceOutcome;
 import cs1302.tracer.api.TraceRequest;
@@ -35,6 +66,13 @@ public class TraceExample {
             } // Main
             """;
         TraceOutcome outcome = Tracer.trace(new TraceRequest(source));
+        if (!"completed".equals(outcome.status()) || !outcome.complete()) {
+            System.err.println("Trace " + outcome.status() + ": " + outcome.stopReason());
+            for (String diagnostic : outcome.diagnostics()) {
+                System.err.println(diagnostic);
+            } // for
+        } // if
+        System.err.print(outcome.stderr());
         System.out.print(outcome.stdout());
         System.out.println(outcome.json());
     } // main
@@ -49,7 +87,7 @@ stdin, choose a format and capture settings, or configure
 {@link cs1302.tracer.api.TraceLimits} and {@link cs1302.tracer.api.InspectionPolicy}.
 The overload {@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest, boolean)
 Tracer.trace(request, true)} opts into binary metadata alongside existing literals;
-the original trace method defaults it to false. The request record shape is unchanged.
+the overload without that argument omits the metadata.
 Binary metadata describes captured values, not physical guest storage. It expands
 serialized output without changing retained snapshot accounting.
 See the <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md#encoding-definitions-and-references">encoding definitions and references</a>
@@ -85,8 +123,8 @@ available type evidence; they do not make Java's erased type arguments available
 through runtime reflection. Library source-line breakpoints are not added. Source discovery
 and source-byte/file limits remain separate; those limits do not bound binary
 dependencies. Guest compilation disables annotation processing, so required
-generated declarations must be supplied as sources. Existing trace overloads and
-the {@code TraceRequest} record shape remain available.</p>
+generated declarations must be supplied as sources. See {@link cs1302.tracer.api.TraceClassPath}
+for selection, duplicate, manifest, and copying rules.</p>
 <p>A hidden lambda object without a reconstructed source body can use an observed,
 verified functional-interface view for its heap label, such as
 {@code Comparator<Person>λ}. The marker identifies a lambda implementation while
@@ -95,7 +133,7 @@ incompatible evidence retains a conservative label, and ordinary concrete classe
 and reconstructed lambda bodies retain their existing representations.</p>
 
 <h2>Bundle source files</h2>
-<p>Since 4.1.0, {@link cs1302.tracer.api.SourceBundle} captures an ordered set of named
+<p>{@link cs1302.tracer.api.SourceBundle} captures an ordered set of named
 source texts and emits the existing delimiter format. Explicit paths support empty
 or invalid Java text; inferred names require exactly one public top-level type,
 or a sole top-level type when none is public. Pass the resulting text to the existing
@@ -122,43 +160,24 @@ request builder:</p>
     .build();
 TraceOutcome result = Tracer.trace(TraceRequest.builder(bundle.source()).build());
 </code></pre>
-<p>The named types above are in {@code cs1302.tracer.api}.
-{@code addFile(logicalPath, path)} and {@code addInferredFile(path)} strictly decode
-UTF-8 files when added and close their file handles. Later changes to those files
-do not affect captured text. Built bundles are immutable; {@code toBuilder()} copies
-their ordered entries without rereading files. At least one entry is required.</p>
-<p>{@code addFiles(root, glob)} selects regular files with root-relative logical paths;
-{@code addInferredFiles(root, glob)} infers logical paths from each selected file's
-Java declarations. Both append matches in case-sensitive lexical order of the
-encountered relative paths. Portable patterns use {@code /} separators and support
-component wildcards, character classes, non-nested brace alternatives, and
-whole-component {@code **}. For example, {@code demo/**/*.java} matches both
-{@code demo/Main.java} and deeper files. No implicit extension or hidden-file filter
-is applied, but selected files must pass the chosen naming and content validation.
-Zero matches is an error.</p>
-<p>The two-argument bulk methods skip discovered symbolic links. Their overloads
-with {@code followLinks=true} follow links, including targets outside the root,
-and abort on encountered broken links or directory cycles. The caller-selected
-root is resolved once and may itself be a symbolic link in either mode. Aliases
-retain their encountered relative paths rather than being deduplicated by physical
-identity. Each call captures all selected UTF-8 text and validates all entries
-before changing the builder; failures preserve previous entries. This does not
-guarantee a simultaneous snapshot of the filesystem.</p>
-<p>Every entry receives a delimiter. Source text, including line endings and BOMs,
-is preserved except for an LF inserted when needed before a following delimiter;
-the final source is unchanged. Duplicate logical paths and delimiter collisions
-are rejected, including collisions inside text blocks or comments. Bundling does
-not compile Java, establish dependency completeness, or change entry-point selection.</p>
+<p>The named types above are in {@code cs1302.tracer.api}. File additions strictly decode UTF-8 and
+close their handles before returning; later file changes do not affect captured text. Built bundles are immutable,
+and {@code toBuilder()} copies captured entries without rereading files. Construction validates logical paths
+and delimiter framing, rather than compilation, dependency completeness, or entry-point availability.</p>
+<p>Bulk additions capture root-relative glob matches in lexical path order and update the builder only after
+the whole group validates. Discovered symbolic links are skipped by default; optional following can reach
+outside the selected root. Capturing files is not an atomic filesystem snapshot. See
+{@link cs1302.tracer.api.SourceBundle.Builder} for file naming, glob syntax, link handling, and validation;
+{@link cs1302.tracer.api.SourceBundle} defines delimiter framing and text preservation.</p>
 <p>{@code source()} returns the framed text. Each {@code openStream()} returns a
 fresh independent UTF-8 input stream. {@code writeUtf8(OutputStream)} writes the
 same representation without flushing or closing the caller's stream.</p>
 
-<h2>Choose an entry point</h2>
-<p>Since 4.1.0, requests and limits have reusable builders and {@code toBuilder()}
+<h2>Configure capture and batch processing</h2>
+<p>Requests and limits have reusable builders and {@code toBuilder()}
 copy methods. {@code TraceLimits.builder()} starts with instructor defaults;
 {@code TraceLimits.unlimited().toBuilder()} starts with unlimited budgets.
-Builders preserve requested settings; tracing still owns policy resolution and
-execution validation. Existing constructors remain available.</p>
+Builders preserve requested settings; tracing owns policy resolution and execution validation.</p>
 <pre><code>TraceLimits limits = TraceLimits.builder().timeoutMillis(5_000).snapshots(500).build();
 TraceRequest request = TraceRequest.builder(source).limits(limits).build();
 TraceRequest modern = request.toBuilder().format(TraceFormat.MODERN).build();
@@ -166,17 +185,6 @@ TraceRequest modern = request.toBuilder().format(TraceFormat.MODERN).build();
 <p>The named types above are in {@code cs1302.tracer.api}. All builders are mutable
 and not thread-safe. Immediate collections are detached; arbitrary nested values
 are not recursively copied, and existing constructors retain their ownership rules.</p>
-<ul>
-  <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest)
-  Tracer.trace}: execute one self-contained tracing request.</li>
-  <li>{@link cs1302.tracer.api.Tracer#discoverBreakpoints(String)
-  Tracer.discoverBreakpoints}: compile source and discover executable lines without
-  running guest code. Inspect the returned locations and preparation diagnostics.</li>
-  <li>{@link cs1302.tracer.api.BatchTracer}: process the NDJSON batch protocol with
-  reusable workers. Use try-with-resources to release workers; call
-  {@code processStream} sequentially. Input and output streams remain caller-owned.</li>
-</ul>
-
 <p>{@code BatchTracer.builder()} requires explicit positive {@code workers},
 {@code maxJobsPerWorker}, and {@code maxInFlight} settings. Completion-order output
 defaults to false. Missing settings fail at build time; numeric ranges are validated
@@ -184,13 +192,22 @@ before resource allocation. Each successful build owns a fresh processor, which
 must be closed independently. There is no copy builder for a live processor.</p>
 
 <h2>Read the outcome</h2>
-<p>Expected compilation and execution failures are represented in the outcome.
-Inspect {@code status()}, {@code complete()}, {@code stopReason()}, and
-{@code diagnostics()} before treating a trace as complete. {@code json()} returns
+<p>Compilation failures, observed guest failures, and resource stops are represented in the outcome.
+Inspect the reported {@code status()}, {@code complete()}, {@code stopReason()},
+{@code diagnostics()}, and guest {@code stderr()}. In single-stack Java and batch jobs, an uncaught exception
+thrown inside a JDK or binary-dependency method can currently leave {@code status: completed} and
+{@code complete: true}, with the exception stack trace in stderr. Status alone is therefore insufficient to
+establish that guest execution succeeded; stderr can also contain ordinary application messages.
+See {@link cs1302.tracer.api.TraceOutcome} for result-component semantics and current limitations.</p>
+<p>{@code json()} returns
 the result envelope; {@code traceJson()} returns its trace payload, or the JSON
 literal {@code null} when no payload is available. The payload follows batch
 result-envelope conventions, rather than ordinary CLI selected-breakpoint map
-presentation. Outcomes remain usable after cleanup and after subsequent jobs.</p>
+presentation. The
+<a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/BOUNDED_TRACING.md#envelope">result-envelope reference</a>
+defines the wire schema, counters, phases, and stop codes; the
+<a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/output.md">output reference</a>
+describes the two payload formats. Outcomes remain usable after cleanup and after subsequent jobs.</p>
 <p>{@code TraceOutcome.builder()} supports explicitly supplied outcomes for adapters
 and fixtures. It defaults collections to empty, completion to false, and strings to
 null. {@code toBuilder()} preserves metadata and JSON verbatim. Neither builder
@@ -198,10 +215,23 @@ parses, generates, nor synchronizes JSON: changing metadata requires correspondi
 JSON if agreement is needed. Production tracing performs coherent rendering before
 returning. {@code writeJson} requires a supplied envelope string.</p>
 
+<h2>Guest lifetime and reuse</h2>
+<p>{@code Tracer.trace} owns a worker for one call and closes it before returning.
+Single-stack Java calls and single-stack batch jobs execute through the reusable guest harness;
+multithread jobs use dedicated guests. A {@code BatchTracer} can reuse a single-stack guest across jobs
+until recycling, so a fresh application class loader does not imply a fresh JVM.</p>
+<p>The reusable harness restores system properties, default locales, the default time zone,
+standard streams, and the default uncaught-exception handler between jobs. Other JDK-global state,
+such as the default {@code java.net.CookieHandler} or logger configuration, can persist.
+When the entry method returns, the harness interrupts lingering job threads rather than waiting indefinitely
+for ordinary non-daemon thread lifetime. An explicit {@code System.exit}, including status zero, ends the
+reusable guest and is reported as {@code guest_exit} unless an earlier stop or failure takes precedence.
+Use {@code maxJobsPerWorker=1} when batch jobs
+need fresh guest JVMs; this remains separate from host/OS isolation.
+See {@link cs1302.tracer.api.BatchTracer} for worker ownership and stream-processing rules.</p>
+
 <h2>Runtime and compatibility</h2>
-<p>Run with a full JDK 21 or later and the tracer's runtime dependencies. CI exercises
-Java 21 and 25; the local development JDK is selected by {@code .java-version}. The
-regular JAR is intended for library integration; the dependency-bundled JAR is
+<p>The regular JAR is intended for library integration; the dependency-bundled JAR is
 the executable CLI distribution. Both use the automatic module name
 {@code cs1302.tracer}. Features of submitted programs depend on the active JDK and parser support.</p>
 <p>CLI calls, including help and version, require matching stable Java/compiler releases of 21 or later.
@@ -227,7 +257,7 @@ overridden. The {@code since} value dates the stability status, rather than the
 original introduction of the code.</p>
 
 <h2>Further reading</h2>
-<p>The following links lead to the current development documentation:</p>
+<p>External guide links on this page lead to the current development documentation:</p>
 <ul>
   <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/tutorials/java-integration.md">Complete Java integration tutorial</a></li>
   <li><a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/java-api.md">Java integration reference</a></li>

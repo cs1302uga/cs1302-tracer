@@ -11,6 +11,25 @@ import java.io.Writer;
  * Owns a bounded worker pool for the existing NDJSON batch protocol.
  * Use try-with-resources and invoke {@link #processStream(InputStream, Writer)} sequentially.
  * A processor may handle consecutive streams until closed; caller-owned streams remain open.
+ *
+ * <p>Worker and admission counts bound scheduling, not each job's execution or resource use.
+ * NDJSON requests with omitted {@code limits} have unlimited job budgets, unlike the finite defaults of
+ * {@link TraceRequest#TraceRequest(String)}. Supply explicit per-job limits when bounded tracing is required.
+ * Request fields, defaults, response envelopes, and ordering are defined by the
+ * <a href="https://github.com/cs1302uga/cs1302-tracer/blob/main/docs/reference/batch.md">batch protocol</a>.</p>
+ *
+ * <p>Single-stack jobs reuse a guest JVM until its recycling interval or a guest failure requires replacement.
+ * Their entry-point return ends the job; lingering job threads are interrupted. Selected process state is reset,
+ * but other JVM-global state and filesystem effects can persist across jobs. Set {@code maxJobsPerWorker} to
+ * {@code 1} to avoid reuse between executed guest jobs; this is not a sandbox. Multithread jobs use fresh
+ * dedicated guests.
+ * Unexpected reusable-guest termination, including {@code System.exit(0)}, is reported as {@code guest_exit}
+ * unless an earlier stop or failure takes precedence.
+ * Host JDK, subprocess, and filesystem packaging requirements are the same as for {@link Tracer}.</p>
+ *
+ * <p>Successful stream processing does not establish successful guest execution. Inspect every response's
+ * {@code status}, {@code stopReason}, {@code complete}, and captured output. The single-stack
+ * exception-recognition limitation described by {@link Tracer} also applies to reusable batch guests.</p>
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
 public final class BatchTracer implements AutoCloseable {
@@ -22,7 +41,7 @@ public final class BatchTracer implements AutoCloseable {
      * All numeric settings must be positive.
      *
      * @param workers Concurrent worker sessions.
-     * @param maxJobsPerWorker Jobs before recycling a guest.
+     * @param maxJobsPerWorker Maximum completed jobs per reusable guest; one prevents reuse between executed jobs.
      * @param maxInFlight Maximum admitted requests, including responses buffered for ordered output.
      * @param completionOrder Whether to emit completion order instead of submission order.
      * @throws IllegalArgumentException If any numeric setting is less than one.
@@ -71,8 +90,8 @@ public final class BatchTracer implements AutoCloseable {
         } // workers
 
         /**
-         * Sets the guest recycling interval.
-         * @param value Required positive jobs per worker, validated when built.
+         * Sets the reusable guest's completed-job recycling interval.
+         * @param value Required positive completed jobs per guest, validated when built.
          * @return This builder.
          */
         public Builder maxJobsPerWorker(int value) {
@@ -119,6 +138,11 @@ public final class BatchTracer implements AutoCloseable {
      * Processes UTF-8 NDJSON jobs and flushes their responses without closing caller-owned streams.
      * Blank input lines are ignored. The call normally returns after input reaches EOF and every
      * admitted response has been written. Invoke sequentially; a processor must not be used after closing.
+     * Malformed requests and job failures are normally encoded as individual responses; inspect those responses
+     * even when this method returns normally. Request and response I/O failures are reported to the caller.
+     * An I/O failure does not cancel or wait for all admitted jobs: they can write responses after this method
+     * throws. Close the processor after such a failure and keep its writer dedicated to that processor;
+     * do not immediately reuse the writer for another stream or assume all response writing has stopped.
      *
      * @param input Request stream.
      * @param output Response destination.
@@ -131,6 +155,9 @@ public final class BatchTracer implements AutoCloseable {
     /**
      * Shuts down the scheduler and closes all owned workers and guest processes.
      * Call after stream processing finishes. This does not close any caller-supplied stream or writer.
+     * Shutdown normally allows 30 seconds for scheduler termination, then requests interruption and waits
+     * another 30 seconds if necessary before closing workers. Worker cleanup can add time; these waits are
+     * not a whole-job deadline. Already admitted jobs can continue producing responses during shutdown.
      */
     @Override
     public void close() {
