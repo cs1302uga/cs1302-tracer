@@ -69,6 +69,9 @@ Implementation: [038d59c](https://github.com/cs1302uga/cs1302-tracer/commit/038d
 — Generated project license and dependency references with compact, accessible
 tables and fresh metadata checks.
 
+Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a571897ea4bf789e18bca7060fbdc06d9455d)
+— Verified JDK selection and first-run recovery documentation.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -91,6 +94,8 @@ tables and fresh metadata checks.
   recipes for Bash, PowerShell, and Command Prompt, with an installation checkpoint
   before the first trace and linked recovery steps for startup failures. Check the
   marked Bash snippets and add native Windows snippet checks on JDK 21 and 25.
+  Windows checks account for shell startup changes to `PATH` while still requiring
+  the selection recipe to preserve all existing entries after the selected JDK.
   These documentation and tooling changes preserve CLI preflight behavior, Java
   and JSON/protocol contracts, and published snapshots.
 

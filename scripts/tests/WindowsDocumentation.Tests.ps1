@@ -115,6 +115,7 @@ Describe 'Documented Windows JDK selection' -Skip:(-not $IsWindows) {
             $tracer = ($tracer -split '\r?\n' | ForEach-Object { $_; 'if errorlevel 1 exit /b 1' }) -join "`r`n"
             $code = @"
 @echo off
+echo DOC_PATH_BEFORE=%PATH%
 $select
 echo DOC_HOME=%JAVA_HOME%
 echo DOC_PATH=%PATH%
@@ -129,6 +130,7 @@ echo DOC_TRACER_END
             $code = @"
 `$ErrorActionPreference = 'Stop'
 `$PSNativeCommandUseErrorActionPreference = `$true
+Write-Output "DOC_PATH_BEFORE=`$env:PATH"
 $select
 Write-Output "DOC_HOME=`$env:JAVA_HOME"
 Write-Output "DOC_PATH=`$env:PATH"
@@ -145,7 +147,14 @@ Write-Output DOC_TRACER_END
         $result.Out | Should -Not -Match 'WRONG_JDK'
         $lines = $result.Out -split '\r?\n'
         $lines | Should -Contain "DOC_HOME=$jdkLink"
-        $lines | Should -Contain "DOC_PATH=$jdkLink\bin;$conflictingPath"
+        # PowerShell can prepend its own directory at startup, before the recipe runs.
+        $beforeLines = @($lines | Where-Object { $_.StartsWith('DOC_PATH_BEFORE=') })
+        $afterLines = @($lines | Where-Object { $_.StartsWith('DOC_PATH=') })
+        $beforeLines.Count | Should -Be 1
+        $afterLines.Count | Should -Be 1
+        $beforePath = $beforeLines[0].Substring('DOC_PATH_BEFORE='.Length)
+        $beforePath.Split([IO.Path]::PathSeparator) | Should -Contain $conflictDir
+        $afterLines[0] | Should -BeExactly "DOC_PATH=$jdkLink\bin;$beforePath"
         $verified = [regex]::Match($result.Out, '(?s)DOC_VERIFY_START\r?\n(.*?)DOC_VERIFY_END').Groups[1].Value
         @($verified -split '\r?\n' | Where-Object { $_ -ceq $javaVersion }).Count | Should -Be 2
         @($verified -split '\r?\n' | Where-Object { $_ -ceq $javacVersion }).Count | Should -Be 2
