@@ -1,32 +1,85 @@
 {
   "metadata": {
-    "recorded_at": "2026-10-18T13:03:24.084226+00:00",
+    "recorded_at": "2026-10-18T14:00:15.809781+00:00",
     "baseline_commit": "0e760d7cab637c413f6eada784addbc592557390",
     "baseline_sha256": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
     "implementation_commits": {
       "javadoc": "88afe52b041ec6798a592fa04bee0c2038e91657",
       "baseline": "0e760d7cab637c413f6eada784addbc592557390",
       "references": "1827fcea19936810a00cef52a7f8cb292ac57304",
-      "workflows": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad"
+      "workflows": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad",
+      "inline_strings_help": "223bc3f40ee0adb4f69c75cc301c1a9aac552f08"
     },
     "policy": "The original 135 candidates, evidence, priorities, reviewer votes and dispositions remain frozen. These separate statuses describe documentation remediation, not runtime repairs or publication.",
     "selected": {
       "total": 46,
-      "documentation_corrected": 45,
-      "partial": 1
+      "documentation_corrected": 46,
+      "partial": 0
     },
-    "incidental": {
+    "active_baseline_status_counts": {
+      "pending": 61,
+      "documentation-corrected": 62,
+      "partially-corrected": 7
+    },
+    "remaining_active_documentation_findings": 68,
+    "scope_boundary": "DX-095 help correction and ten existing-page findings were separately approved. All original 46 selected findings are corrected. New pages/splits/navigation retain their outline checkpoint; runtime repairs are a separate proposal.",
+    "next_decision": "Review the prepared audit PR against main, dependent on 24. Select remaining 68 documentation findings separately; review runtime compatibility decisions before implementation.",
+    "initial_pass_metadata": {
+      "recorded_at": "2026-10-18T13:03:24.084226+00:00",
+      "baseline_commit": "0e760d7cab637c413f6eada784addbc592557390",
+      "baseline_sha256": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
+      "implementation_commits": {
+        "javadoc": "88afe52b041ec6798a592fa04bee0c2038e91657",
+        "baseline": "0e760d7cab637c413f6eada784addbc592557390",
+        "references": "1827fcea19936810a00cef52a7f8cb292ac57304",
+        "workflows": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad"
+      },
+      "policy": "The original 135 candidates, evidence, priorities, reviewer votes and dispositions remain frozen. These separate statuses describe documentation remediation, not runtime repairs or publication.",
+      "selected": {
+        "total": 46,
+        "documentation_corrected": 45,
+        "partial": 1
+      },
+      "incidental": {
+        "documentation_corrected": 6,
+        "partial": 10
+      },
+      "active_baseline_status_counts": {
+        "pending": 68,
+        "documentation-corrected": 51,
+        "partially-corrected": 11
+      },
+      "remaining_active_documentation_findings": 79,
+      "scope_boundary": "F27-1 retains unqualified executable/generated inline-strings help. Authored prose and Javadoc are corrected. Only the two approved JobOptions frame/thread help descriptions changed in Java.",
+      "next_decision": "Select remaining existing-page corrections or approve outlines for new pages, page splits and navigation changes. No such restructuring is implemented here."
+    },
+    "initial_incidental_results": {
       "documentation_corrected": 6,
       "partial": 10
     },
-    "active_baseline_status_counts": {
-      "pending": 68,
-      "documentation-corrected": 51,
-      "partially-corrected": 11
-    },
-    "remaining_active_documentation_findings": 79,
-    "scope_boundary": "F27-1 retains unqualified executable/generated inline-strings help. Authored prose and Javadoc are corrected. Only the two approved JobOptions frame/thread help descriptions changed in Java.",
-    "next_decision": "Select remaining existing-page corrections or approve outlines for new pages, page splits and navigation changes. No such restructuring is implemented here."
+    "followup_pass": {
+      "approved": "2026-10-18: proceed with recommended help correction, PR-stack alignment, ten existing-page findings and a separate runtime plan; audit PR targets main and depends on 24.",
+      "selected_ids": [
+        "F13-3",
+        "F17-4",
+        "F19-3",
+        "F22-5",
+        "F28-6",
+        "F6-1",
+        "F8-1",
+        "F8-2",
+        "F9-4",
+        "FU2-2"
+      ],
+      "help_closure": "F27-1",
+      "source_commit": "5796651661ab593d4ff0997c805208ea3769a785",
+      "implementation_commits": [
+        "470a5ff70ef0ebd93569ff2d2e33a5facb1231bf",
+        "2e960428ca6b5f23b5e8f198717abf8bcda4d988",
+        "5796651661ab593d4ff0997c805208ea3769a785"
+      ],
+      "documentation_corrected": 11
+    }
   },
   "findings": [
     {
@@ -141,7 +194,45 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F6-1",
+            "dx_id": "DX-012",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Added complete modern payload field tables covering roots, steps, frames, variables, heap entries and all six heap kinds, plus the four-field thread record. Defined mode-dependent null/absent properties, sequence versus mapping roots, per-bucket step numbering, receiver/locals presentation, references, primitive/char encoding, synthetic trusted-map entries, colors, boxes, and binary-metadata links. Updated the reading tutorial link to target the new field reference.",
+          "references": [
+            "docs/reference/output.md",
+            "docs/tutorials/read-a-trace.md"
+          ],
+          "source_evidence": [
+            "src/main/java/cs1302/tracer/internal/model/modern/Trace.java:20",
+            "src/main/java/cs1302/tracer/internal/model/modern/Step.java:30",
+            "src/main/java/cs1302/tracer/internal/model/modern/StackFrame.java:19",
+            "src/main/java/cs1302/tracer/internal/model/modern/Variable.java:19",
+            "src/main/java/cs1302/tracer/internal/model/modern/HeapObject.java:24",
+            "src/main/java/cs1302/tracer/internal/model/modern/Reference.java:12",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:251",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:278",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:373",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:402",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:438",
+            "src/main/java/cs1302/tracer/internal/trace/HeapInspection.java:238"
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F6-3",
@@ -165,7 +256,61 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F8-1",
+            "dx_id": "DX-015",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Adds an authored Breakpoint listing output section below the preserved CLI manual marker. Defines the JSON array and lineNumber, validBreakpoint, lineContent, and nullable file fields. Distinguishes original-text single-source listing from delimiter-free per-file multi-source listing, logical versus debug paths, and submission/line ordering. Documents LF splitting, discarded trailing empty elements, preserved CR for file input, stdin line-ending normalization, and the one-file delimiter-bundle mapping limitation. Describes the numbered highlighted-text alternative and links the loop lesson in both directions.",
+          "references": [
+            "docs/reference/cli.md",
+            "docs/tutorials/trace-a-loop.md"
+          ],
+          "source_evidence": [
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/model/BreakpointEntry.java:16-28",
+              "detail": "Four serialized fields; single-source constructor sets file to null."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:560-568",
+              "detail": "Branches on more than one parsed source; single source lists original complete input."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:586-622",
+              "detail": "Multi-source listing uses logicalPath and content.split(\"\\n\"); emits entries in submission/line order and delimiter headings in text mode."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:632-657",
+              "detail": "Single-source listing uses source.split(\"\\n\"), null file entries, and b markers with green ANSI styling."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:203-214",
+              "detail": "stdin reads Scanner.nextLine() and appends LF; file input uses Files.readString without line-ending reconstruction."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/SubmittedSources.java:85-93",
+              "detail": "Logical submission paths retain supplied structure and normalize native separators to forward slashes."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:72-79",
+              "detail": "Listing JSON serializer preserves null properties, so single-file entries include explicit file:null."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F8-2",
@@ -173,7 +318,44 @@
       "selected": false,
       "baseline_priority": "S4",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F8-2",
+            "dx_id": "DX-016",
+            "selected": false,
+            "baseline_priority": "S4",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Places exit 0/nonempty locations.json success checkpoint immediately after the first loop command. Gives immediate exit-status commands for the already named Bash, PowerShell, and Command Prompt shells. Routes a missing/misnamed Loop.java, wrong working directory, command error, or empty redirected file to existing troubleshooting before later lesson steps. Removes the late repeated failure checkpoint from the final comparison while preserving its entryFile check.",
+          "references": [
+            "docs/tutorials/trace-a-loop.md"
+          ],
+          "source_evidence": [
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:203-216",
+              "detail": "A missing --input file throws before listing; shell redirection can leave an empty output file."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/App.java:551-576",
+              "detail": "Discovery prepares and compiles before listing; in-command listing failures report stderr and exit 1."
+            },
+            {
+              "ref": "scripts/check_docs.py:231-237",
+              "detail": "Existing loop checks extract the unchanged loop source and named command markers for real integration execution."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F9-1",
@@ -217,7 +399,48 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F9-4",
+            "dx_id": "DX-019",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Adds a task-table route and a complete individual-budget tuning recipe before the partial-envelope recipe. Uses existing SnapshotDemo.java and demonstrates --max-snapshots 20000 versus the ordinary 10000 snapshot cap, with the remaining ordinary budgets retained. Shows trusted-local --unlimited use and explains explicit-option precedence, remaining fixed checks, other possible stops/failures, and whole-job isolation/deadline boundaries. States expected small-example exit 0/nonempty JSON and final guest output without promising that larger budgets guarantee general program success. Links actual budget accounting/defaults to bounded tracing rather than attributing numeric defaults to generated help.",
+          "references": [
+            "docs/guides/tracing.md"
+          ],
+          "source_evidence": [
+            {
+              "ref": "src/main/java/cs1302/tracer/api/TraceLimits.java:83-91",
+              "detail": "Finite instructor defaults include 10000 snapshots and other independently configurable caps."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/execution/JobOptions.java:26-30",
+              "detail": "--unlimited disables defaults and --max-snapshots is an explicit captured-snapshot cap."
+            },
+            {
+              "ref": "src/main/java/cs1302/tracer/internal/execution/JobOptions.java:104-111,129-130",
+              "detail": "Defaults are selected from unlimited/profile first, then each explicitly supplied cap wins independently."
+            },
+            {
+              "ref": "docs/BOUNDED_TRACING.md:72-106,198-230",
+              "detail": "Existing limits/stop-code contracts distinguish accounting caps from fixed restrictions and map codes to controls."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F9-6",
@@ -393,15 +616,51 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "partially-corrected",
-      "review": {
-        "reason": "The output reference now normatively identifies a null guest variable value among properties omitted in ordinary modern CLI output and preserved as null in envelopes.",
-        "residual": "The explanatory model still covers only primitive values and object references, without distinguishing a present null local from an absent not-yet-declared local. Python Tutor null representation also needs an explicit corresponding explanation. Keep the finding pending.",
-        "references": [
-          "docs/explanation/trace-model.md",
-          "docs/reference/output.md"
-        ]
-      }
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F13-3",
+            "dx_id": "DX-034",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "partially-corrected",
+            "review": {
+              "reason": "The output reference now normatively identifies a null guest variable value among properties omitted in ordinary modern CLI output and preserved as null in envelopes.",
+              "residual": "The explanatory model still covers only primitive values and object references, without distinguishing a present null local from an absent not-yet-declared local. Python Tutor null representation also needs an explicit corresponding explanation. Keep the finding pending.",
+              "references": [
+                "docs/explanation/trace-model.md",
+                "docs/reference/output.md"
+              ]
+            }
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Explained visible null references versus missing local entries. Ordinary modern variable entries omit null value members, envelope/Java/batch retain value:null, and null array elements remain explicit in all modes. Python Tutor preserves null in encoded_locals together with ordered names and local metadata. Kept Java scope distinct from debugger visibility at the initializing statement.",
+          "references": [
+            "docs/explanation/trace-model.md",
+            "docs/reference/output.md"
+          ],
+          "source_evidence": [
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:39",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:386",
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:402",
+            "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:72",
+            "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:497",
+            "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:512",
+            "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:549",
+            "src/main/java/cs1302/tracer/internal/serialize/TraceRendering.java:65",
+            "src/main/java/cs1302/tracer/internal/serialize/BinaryMetadataAdapterFactory.java:29",
+            "src/main/java/cs1302/tracer/internal/trace/SnapshotCapture.java:402"
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F13-4",
@@ -659,14 +918,59 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "partially-corrected",
-      "review": {
-        "reason": "A response-failure table now covers transport ceilings/I/O aborts and explains that some records have no guaranteed response, adding part of the previously missing abort behavior.",
-        "residual": "The protocol still lacks a complete batch-trace process exit lookup for per-job failures (0), invalid worker settings/unreadable input/I/O (1), malformed options (2), and late admitted responses. Existing tutorial success wording is not a full CLI contract.",
-        "references": [
-          "docs/reference/batch.md"
-        ]
-      }
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F17-4",
+            "dx_id": "DX-055",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "partially-corrected",
+            "review": {
+              "reason": "A response-failure table now covers transport ceilings/I/O aborts and explains that some records have no guaranteed response, adding part of the previously missing abort behavior.",
+              "residual": "The protocol still lacks a complete batch-trace process exit lookup for per-job failures (0), invalid worker settings/unreadable input/I/O (1), malformed options (2), and late admitted responses. Existing tutorial success wording is not a full CLI contract.",
+              "references": [
+                "docs/reference/batch.md"
+              ]
+            }
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Added the batch process exit-status table, distinct preflight and batch-handler exit-1 diagnostics, per-record versus process outcome handling, help/version status, admitted-job writes during failure cleanup, and crosslinks to trace and Java contracts.",
+          "references": [
+            "docs/reference/batch.md"
+          ],
+          "source_evidence": [
+            {
+              "path": "src/main/java/cs1302/tracer/internal/App.java:127",
+              "fact": "Preflight precedes Picocli command execution and returns 1 with code-tracer: JDK environment check diagnostics."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/App.java:523",
+              "fact": "Batch command catches setup/stream-processing exceptions, prints Batch trace failed, and exits 1. Normal processing returns without changing the command success status."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:83",
+              "fact": "Worker, in-flight, and recycling settings must all be positive."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:152",
+              "fact": "Normal stream processing ignores blank records, admits work, awaits response writes at EOF, checks output errors, and does not inspect per-job success to determine process success."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:279",
+              "fact": "Already-admitted work can continue during executor shutdown and worker cleanup after stream processing throws."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F17-7",
@@ -740,16 +1044,43 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending",
-      "review": {
-        "reason": "The new general tracing requirements and existing Javadoc explain entry-point selection, but the Java Markdown discovery section still does not state or link its exactly-one-main-candidate preparation prerequisite.",
-        "residual": "Keep this unselected finding pending. General source requirements elsewhere do not establish a clear discovery precondition on this reader path.",
-        "references": [
-          "docs/guides/tracing.md",
-          "docs/reference/java-api.md",
-          "src/main/java/cs1302/tracer/api/Tracer.java"
-        ]
-      }
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F19-3",
+            "dx_id": "DX-061",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending",
+            "review": {
+              "reason": "The new general tracing requirements and existing Javadoc explain entry-point selection, but the Java Markdown discovery section still does not state or link its exactly-one-main-candidate preparation prerequisite.",
+              "residual": "Keep this unselected finding pending. General source requirements elsewhere do not establish a clear discovery precondition on this reader path.",
+              "references": [
+                "docs/guides/tracing.md",
+                "docs/reference/java-api.md",
+                "src/main/java/cs1302/tracer/api/Tracer.java"
+              ]
+            }
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Describe exactly-one recognized main candidate in first entry-containing file; helper files need no main; missing/ambiguous entries give diagnostics; link program requirements and discoverBreakpoints member Javadoc.",
+          "references": [
+            "docs/reference/java-api.md#discover-breakpoints"
+          ],
+          "source_evidence": [
+            "src/main/java/cs1302/tracer/api/Tracer.java:129-173",
+            "src/main/java/cs1302/tracer/internal/SourcePreparation.java"
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F19-4",
@@ -888,14 +1219,63 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "partially-corrected",
-      "review": {
-        "reason": "The envelope reference now names all eight counters and gives snapshot/accounting/time/output-byte semantics plus guestExitCode availability when an attached process has terminated.",
-        "residual": "It does not explicitly explain empty parse-result counters, full per-key presence rules, or that guestExitCode can represent tracer-forced termination rather than a guest-originated crash. Retain this narrower residual reference task.",
-        "references": [
-          "docs/BOUNDED_TRACING.md"
-        ]
-      }
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F22-5",
+            "dx_id": "DX-073",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "partially-corrected",
+            "review": {
+              "reason": "The envelope reference now names all eight counters and gives snapshot/accounting/time/output-byte semantics plus guestExitCode availability when an attached process has terminated.",
+              "residual": "It does not explicitly explain empty parse-result counters, full per-key presence rules, or that guestExitCode can represent tracer-forced termination rather than a guest-originated crash. Retain this narrower residual reference task.",
+              "references": [
+                "docs/BOUNDED_TRACING.md"
+              ]
+            }
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Replaced the partial counter paragraph with all eight counter keys, core-session presence rules, empty early-result counter objects, optional stream/guest-exit counters, accounting units, and forced-termination interpretation without a portable exit-number claim.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "source_evidence": [
+            {
+              "path": "src/main/java/cs1302/tracer/internal/execution/TraceSession.java:468",
+              "fact": "Session result construction always inserts five core counters, inserts output-byte keys only from available accounting, and inserts guestExitCode only for an attached process that has terminated."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/execution/TraceSession.java:304",
+              "fact": "A recorded stop forcibly destroys an attached live guest; its eventual process exit value can describe tracer-forced termination."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/execution/TraceResult.java:52",
+              "fact": "Failed-result factory uses an empty counter map; stopped-result factory does so at line 78 as well."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:202",
+              "fact": "Parse and JSON-nesting failures have empty counters; interrupted worker admission also uses the stopped-result factory at line 256."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceWorker.java:112",
+              "fact": "Configuration and guest-startup failures return factory results before the tracing session is established. Source/compile failures occur inside a session instead."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/trace/PersistentGuestSession.java:618",
+              "fact": "Reusable-job output finalization supplies per-job stream byte counts separately from process lifetime."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F23-1",
@@ -1168,35 +1548,62 @@
       "selected": true,
       "baseline_priority": "S2",
       "baseline_disposition": "active",
-      "remediation_status": "partially-corrected",
+      "remediation_status": "documentation-corrected",
       "corrections": [
         {
-          "change": "Explicitly scopes --inline-strings to Python Tutor, preserves modern reference/string-object behavior, and identifies the executable help's remaining format omission.",
+          "change": "Qualified executable --inline-strings help as Python Tutor-only, regenerated its CLI reference, and removed the stale omission caveat. Serialization and argument/default behavior are unchanged.",
           "references": [
-            "docs/guides/tracing.md",
+            "src/main/java/cs1302/tracer/internal/App.java",
             "docs/reference/cli.md"
           ],
-          "runtime_or_scope_residual": "internal/App.java's --inline-strings annotation is outside the authorized Java exception, so it remains unchanged. Markdown explicitly qualifies its behavior; no serializer changes."
-        },
-        {
-          "change": "Qualify inlineStrings as Python Tutor-only in batch field table and Java reference; leave generated CLI help/runtime unchanged for other owners.",
-          "references": [
-            "docs/reference/batch.md",
-            "docs/reference/java-api.md"
-          ],
-          "runtime_or_scope_residual": "Modern output still ignores inlineStrings."
+          "source_evidence": [
+            "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java",
+            "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java"
+          ]
         }
       ],
-      "review": {
-        "reason": "API Javadoc and authored tracing/CLI/batch/Java reference prose now correctly say inlineStrings affects Python Tutor only. Executable/generated help intentionally still says strings are inlined without format qualification.",
-        "residual": "Do not mark the whole original help-plus-prose finding resolved. A remaining description-only executable help correction and generated reference refresh need the relevant authorization; this pass did not change runtime modern string behavior.",
-        "references": [
-          "docs/guides/tracing.md",
-          "docs/reference/batch.md",
-          "docs/reference/cli.md",
-          "docs/reference/java-api.md"
-        ]
-      }
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F27-1",
+            "dx_id": "DX-095",
+            "selected": true,
+            "baseline_priority": "S2",
+            "baseline_disposition": "active",
+            "remediation_status": "partially-corrected",
+            "corrections": [
+              {
+                "change": "Explicitly scopes --inline-strings to Python Tutor, preserves modern reference/string-object behavior, and identifies the executable help's remaining format omission.",
+                "references": [
+                  "docs/guides/tracing.md",
+                  "docs/reference/cli.md"
+                ],
+                "runtime_or_scope_residual": "internal/App.java's --inline-strings annotation is outside the authorized Java exception, so it remains unchanged. Markdown explicitly qualifies its behavior; no serializer changes."
+              },
+              {
+                "change": "Qualify inlineStrings as Python Tutor-only in batch field table and Java reference; leave generated CLI help/runtime unchanged for other owners.",
+                "references": [
+                  "docs/reference/batch.md",
+                  "docs/reference/java-api.md"
+                ],
+                "runtime_or_scope_residual": "Modern output still ignores inlineStrings."
+              }
+            ],
+            "review": {
+              "reason": "API Javadoc and authored tracing/CLI/batch/Java reference prose now correctly say inlineStrings affects Python Tutor only. Executable/generated help intentionally still says strings are inlined without format qualification.",
+              "residual": "Do not mark the whole original help-plus-prose finding resolved. A remaining description-only executable help correction and generated reference refresh need the relevant authorization; this pass did not change runtime modern string behavior.",
+              "references": [
+                "docs/guides/tracing.md",
+                "docs/reference/batch.md",
+                "docs/reference/cli.md",
+                "docs/reference/java-api.md"
+              ]
+            }
+          }
+        }
+      ],
+      "followup_selected": false
     },
     {
       "id": "F27-2",
@@ -1386,7 +1793,35 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "F28-6",
+            "dx_id": "DX-106",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Document IOException transport failures including oversized records, late response writes after failure, dedicated writer ownership, and scheduler shutdown waits plus worker cleanup.",
+          "references": [
+            "docs/reference/java-api.md#io-failures-and-shutdown"
+          ],
+          "source_evidence": [
+            "src/main/java/cs1302/tracer/api/BatchTracer.java:135-167",
+            "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:105-195",
+            "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:279-298"
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "F28-7",
@@ -1731,7 +2166,48 @@
       "selected": false,
       "baseline_priority": "S3",
       "baseline_disposition": "active",
-      "remediation_status": "pending"
+      "remediation_status": "documentation-corrected",
+      "history": [
+        {
+          "scope": "First correction pass through b42dad1",
+          "record": {
+            "id": "FU2-2",
+            "dx_id": "DX-132",
+            "selected": false,
+            "baseline_priority": "S3",
+            "baseline_disposition": "active",
+            "remediation_status": "pending"
+          }
+        }
+      ],
+      "followup_selected": true,
+      "corrections": [
+        {
+          "change": "Added a caller-specific phase table: completed CLI envelopes use trace while Java/batch completion uses serialize; source_file_limit uses compile for CLI envelopes and source for Java/batch. Explained why phase alone is not evidence that compiler work or serialization did or did not occur.",
+          "references": [
+            "docs/BOUNDED_TRACING.md"
+          ],
+          "source_evidence": [
+            {
+              "path": "src/main/java/cs1302/tracer/internal/App.java:411",
+              "fact": "CLI envelope enters compile before enforcing sourceFiles. executeBoundedSource enters trace at line 473."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/batch/BatchTraceWorker.java:192",
+              "fact": "Java/batch source preparation enforces sourceFiles before entering compile."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:91",
+              "fact": "Successful CLI-envelope rendering leaves the current phase alone; only rendering failure explicitly enters serialize."
+            },
+            {
+              "path": "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:116",
+              "fact": "Successful worker completion explicitly enters serialize before rendering for both chronological and selected capture."
+            }
+          ],
+          "scope": "Existing-page documentation correction; runtime behavior unchanged."
+        }
+      ]
     },
     {
       "id": "FU2-3",

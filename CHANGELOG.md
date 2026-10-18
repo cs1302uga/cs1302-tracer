@@ -70,6 +70,11 @@ requirements, and JSON/batch schemas are unchanged.
   findings rather than presenting documentation corrections as runtime fixes.
   Keep generated file-download URLs free of route trailing slashes so the site's
   JSON evidence downloads remain accessible.
+  Complete modern field and counter definitions, distinguish visible null locals
+  from absent variables, and document caller-specific phases and Java stream
+  cleanup. Define breakpoint-listing fields and path/line-ending limitations,
+  provide budget-tuning recipes, and check tutorial failures before continuing.
+  Executable string-inlining help now identifies its Python Tutor-only scope.
 
 ### Commits
 
@@ -188,6 +193,14 @@ Implementation: [0e760d7](https://github.com/cs1302uga/cs1302-tracer/commit/0e76
 [6ffe3a6](https://github.com/cs1302uga/cs1302-tracer/commit/6ffe3a6efc4b525c547d064f107d3e9246bcf9ad)
 — Reviewed documentation audit, corrected result and integration contracts, and
 verified CLI, installation, offline API, and Maven consumer workflows.
+
+Implementation: [223bc3f](https://github.com/cs1302uga/cs1302-tracer/commit/223bc3f40ee0adb4f69c75cc301c1a9aac552f08),
+[470a5ff](https://github.com/cs1302uga/cs1302-tracer/commit/470a5ff70ef0ebd93569ff2d2e33a5facb1231bf),
+[2e96042](https://github.com/cs1302uga/cs1302-tracer/commit/2e960428ca6b5f23b5e8f198717abf8bcda4d988), and
+[5796651](https://github.com/cs1302uga/cs1302-tracer/commit/5796651661ab593d4ff0997c805208ea3769a785)
+— Format-specific string-inlining help, complete modern output fields, batch
+metadata and process statuses, Java discovery and stream-failure contracts,
+breakpoint listings, budget recipes, and immediate tutorial recovery checks.
 
 ### Breaking changes
 

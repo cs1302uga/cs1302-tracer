@@ -6,7 +6,7 @@
 
 The consumer-documentation audit began at `08ccd72`. Its source reviews, original executions, aggregation recovery, and later checks retain their own recorded revisions. The branch was rebased from `64347dc` onto `origin/main` `dc8887f`, producing `0235c0f`. A separately approved Javadoc pass was committed as `88afe52`. No release, deployment, or hosted-isolation implementation is asserted by this review.
 
-The scope covers consumer guides, tutorials, references, explanation, README, GLOSSARY, and historical-review findability. Existing URLs and published snapshots remain intact. Contributor prose and runtime implementation fixes are outside this pass. The selected help-description correction changes only the frame/thread descriptions in `JobOptions`; generated help must be refreshed and checked. Other generated help retains its existing wording, with qualifications in authored reference prose.
+The scope covers consumer guides, tutorials, references, explanation, README, GLOSSARY, and historical-review findability. Existing URLs and published snapshots remain intact. Contributor prose and runtime implementation fixes are outside this pass. The first correction pass's approved Java edits covered only the frame/thread help descriptions in `JobOptions`, followed by help regeneration and checks. The user separately approved the remaining Python Tutor-only qualification in executable `--inline-strings` help and ten further existing-page documentation findings; their results and validation status appear in the follow-up record below.
 
 Readers are prioritized as JSON/batch integrators, instructors, then Java embedders. Incorrect contracts rank S1, blocked reader goals S2, missing topics S3, and reading friction S4. These are documentation impact priorities, not vulnerability classifications.
 
@@ -202,13 +202,18 @@ JD-001 corrected `App.execute`'s false promise that it would not terminate the c
 
 The [baseline commit](https://github.com/cs1302uga/cs1302-tracer/commit/0e760d7cab637c413f6eada784addbc592557390) precedes the consumer corrections. The original inventory, priorities, dispositions, reviewer votes, and execution evidence remain frozen. The [remediation overlay](diataxis-audit/remediation.json) records a separate status for all 135 candidates, with current correction references and residual reasons. These statuses describe documentation corrections, not runtime repairs.
 
+### First correction pass
+
+The first pass through `b42dad1` recorded the following documentation results.
+The later approved follow-up below supplies the current totals.
+
 | Baseline-active findings | Corrected | Partial | Pending |
 | --- | --- | --- | --- |
 | 46 selected S1/S2 findings | 45 | 1 | 0 |
 | 84 lower-priority findings | 6 | 10 | 68 |
 | Total | 51 | 11 | 68 |
 
-The 79 partial or pending findings remain in the audit. The five baseline merged, deferred, or already-documented candidates retain their dispositions and are outside these totals. No new page, page split, sidebar restructure, or published snapshot correction is included.
+That pass left 79 partial or pending findings in the audit. The five baseline merged, deferred, or already-documented candidates retained their dispositions and are outside these totals. No new page, page split, sidebar restructure, or published snapshot correction was included.
 
 ### Committed corrections
 
@@ -216,14 +221,14 @@ The 79 partial or pending findings remain in the audit. The five baseline merged
 - [Result and integration contracts](https://github.com/cs1302uga/cs1302-tracer/commit/1827fcea19936810a00cef52a7f8cb292ac57304): selected-output shapes and projection, source-less thread events, null versus empty payloads, all 24 stop codes, batch parsing and correlation, reusable-guest state, and Java migration behavior.
 - [CLI and user workflows](https://github.com/cs1302uga/cs1302-tracer/commit/6ffe3a6efc4b525c547d064f107d3e9246bcf9ad): source selection, discovery, exit statuses, exceptions, JDK discovery, offline verification prerequisites, whole-job teardown, and a complete separate Maven consumer. The two approved frame/thread help descriptions and generated CLI reference now identify their multithread-only scope.
 
-The same-page corrections also resolved lower-priority [DX-027](#dx-027), [DX-030](#dx-030), [DX-057](#dx-057), [DX-063](#dx-063), [DX-082](#dx-082), and [DX-121](#dx-121). Ten other lower-priority findings improved partially; the overlay keeps their outstanding work explicit.
+The first pass's same-page corrections also resolved lower-priority [DX-027](#dx-027), [DX-030](#dx-030), [DX-057](#dx-057), [DX-063](#dx-063), [DX-082](#dx-082), and [DX-121](#dx-121). Ten other lower-priority findings improved partially; the overlay preserves those first-pass statuses alongside later corrections.
 
 ### Verification of the correction pass
 
 The [validation record](diataxis-audit/remediation-validation.json) ties the checked source paths to the correction commits and preserves environment, commands, coverage totals, and independent consumer inputs. On macOS aarch64 with JDK 25:
 
-- `./mvnw -B -ntp -Ppre-commit-coverage package` passed all **1,248 tests**. Fresh strict Java coverage measured **6,484 production lines and 3,684 branches, with none missed**. The upstream staged whitespace and Checkstyle hooks also passed for the correction commits; their implementation and the CI/release regression gates are unchanged.
-- `check_docs.py --update-cli` regenerated the two approved help descriptions and passed executable documentation checks. The later `./mvnw -B -ntp -Pdocsite -DskipTests install` reran executable docs serially, checked dependency inventory and release metadata, generated current and seven historical API versions, built Docusaurus, and validated links and fragments across **1,280 rendered pages**. It reused the fresh strict Java coverage rather than rerunning tests.
+- `./mvnw -B -ntp -Ppre-commit-coverage package` passed all **1,248 tests**. Its aggregate Java coverage recorded **6,484 production lines and 3,684 branches, with none missed**. Execution data was retained between runs, so these totals do not establish coverage from that invocation alone; the earlier description of this data as fresh was incorrect. The upstream staged whitespace and Checkstyle hooks also passed for the correction commits; their implementation and the CI/release regression gates are unchanged.
+- `check_docs.py --update-cli` regenerated the two approved help descriptions and passed executable documentation checks. The later `./mvnw -B -ntp -Pdocsite -DskipTests install` reran executable docs serially, checked dependency inventory and release metadata, generated current and seven historical API versions, built Docusaurus, and validated links and fragments across **1,280 rendered pages**. It reused the existing coverage data rather than rerunning tests. The first-pass JSON validation record preserves the original claims; this paragraph corrects their freshness qualification.
 - A separate Maven project compiled the tutorial's complete POM and `TraceExample`, resolved the locally installed regular library and its transitive dependencies, and emitted a completed v1 envelope with guest stdout `hello\n`. This establishes the local-install workflow; it does not establish package-registry access.
 - [Fresh contract probes](diataxis-audit/contract-probes.json) confirmed the ordinary CLI's bare-line-number output-projection buckets and the distinct zero-snapshot `System.exit(0)` results for ordinary CLI, CLI envelope, batch, and Java API callers. Inputs and captured text output are preserved alongside the summary.
 - Rendered review covered installation, CLI, the Maven lesson, and bounded-result tables. At a 390 CSS-pixel viewport, long tables scroll within their containers without widening the page. Independent static review of the correction diff found no new actionable factual errors within the selected scope.
@@ -233,8 +238,106 @@ Native Windows commands received static review only. This pass did not repeat ru
 
 ### Remaining decisions and runtime limitations
 
-[DX-095 / F27-1](#dx-095) remains partial: authored Markdown and Javadoc correctly say string inlining applies only to Python Tutor, but the executable/generated `--inline-strings` help still lacks that qualification. The agreed Java exception covered only the frame/thread descriptions. Correcting this remaining annotation is a separate one-line help change, followed by packaging, help regeneration, and documentation checks.
+At the end of the first pass, [DX-095 / F27-1](#dx-095) remained partial: authored Markdown and Javadoc correctly said string inlining applied only to Python Tutor, but executable/generated help lacked that qualification. The original Java exception covered only the frame/thread descriptions. The separately approved help correction and its current status are recorded below.
 
 The documented runtime limitations remain. In particular, single-stack Java/batch execution can report completion for an uncaught exception originating in JDK or precompiled dependency code; default main-exit capture can fail without an ordinary payload; output projection differs by caller; unknown request keys or inspection strings remain permissive; and an unreadable `--stdin-file` can fail before envelope construction. The docs now describe those behaviors and their supported alternatives. Any runtime correction needs its own compatibility decision and tests across the affected callers and guest modes.
 
-The next documentation selection should use the 79 residual entries in the overlay. Existing-page corrections can be considered independently; new explanations, page splits, and navigation changes retain their outline checkpoint. No unselected finding is closed merely because a nearby paragraph changed.
+The first pass's 79 residual entries supplied the later selection. Existing-page corrections were considered independently; new explanations, page splits, and navigation changes retain their outline checkpoint. No unselected finding is closed merely because a nearby paragraph changed.
+
+### Approved follow-up corrections
+
+After the first correction pass, the user approved the remaining string-inlining
+help clarification and ten further findings on existing pages. The follow-up
+records eleven additional documentation closures. The original 135 candidates,
+stable DX IDs, priorities, baseline dispositions, and historical evidence remain
+unchanged.
+
+| Follow-up scope | Findings | Documentation change |
+| --- | --- | --- |
+| Complete the original selection | [DX-095](#dx-095) / F27-1 | Qualify executable `--inline-strings` help as Python Tutor-only, regenerate its CLI reference, and remove the superseded help-omission caveat. |
+| Batch process and result metadata | [DX-055](#dx-055) / F17-4, [DX-073](#dx-073) / F22-5, [DX-132](#dx-132) / FU2-2 | Separate process exits from per-job outcomes; define counter presence, guest-exit interpretation, and caller-specific phases. |
+| Modern fields and null references | [DX-012](#dx-012) / F6-1, [DX-034](#dx-034) / F13-3 | Complete the modern field reference and distinguish a visible null variable from an absent local, preserving caller-specific null encoding. |
+| Breakpoint listing and instructor recovery | [DX-015](#dx-015) / F8-1, [DX-019](#dx-019) / F9-4, [DX-016](#dx-016) / F8-2 | Define listing fields and source-path/line-ending limitations, add budget-tuning recipes, and put recovery guidance immediately after the loop tutorial's first command. |
+| Java discovery and stream failure | [DX-061](#dx-061) / F19-3, [DX-106](#dx-106) / F28-6 | Document discovery's entry-point prerequisite, stream I/O failure and late writes, writer ownership, and shutdown waits plus cleanup. |
+
+Implementation is recorded in
+[223bc3f](https://github.com/cs1302uga/cs1302-tracer/commit/223bc3f40ee0adb4f69c75cc301c1a9aac552f08),
+[470a5ff](https://github.com/cs1302uga/cs1302-tracer/commit/470a5ff70ef0ebd93569ff2d2e33a5facb1231bf),
+[2e96042](https://github.com/cs1302uga/cs1302-tracer/commit/2e960428ca6b5f23b5e8f198717abf8bcda4d988), and
+[5796651](https://github.com/cs1302uga/cs1302-tracer/commit/5796651661ab593d4ff0997c805208ea3769a785). The follow-up validation record identifies the checked source commit and
+its matching file hashes. These changes clarify existing behavior; they
+preserve runtime tracing logic, Java signatures, CLI arguments and defaults,
+JSON/batch schemas, published snapshots, and existing page routes.
+
+The updated documentation status among the 130 baseline-active findings is:
+
+| Baseline-active findings | Documentation corrected | Partial | Pending |
+| --- | --- | --- | --- |
+| 46 originally selected S1/S2 findings | 46 | 0 | 0 |
+| 84 other baseline-active findings | 16 | 7 | 61 |
+| Total | 62 | 7 | 61 |
+
+All 46 originally selected findings are now corrected in documentation. The
+remaining documentation inventory is **68 findings: seven partial and 61
+pending**. The five merged, deferred, or already-documented baseline candidates
+remain outside these active totals. New explanations, page splits, and sidebar
+changes retain their separate outline checkpoint. Documentation closure does not
+mean a documented runtime limitation has been repaired.
+
+### Follow-up validation status
+
+The [follow-up validation record](diataxis-audit/followup-validation.json)
+identifies source commit `5796651`, checked file hashes, commands, environment,
+and results separately from first-pass evidence. Its strict Java run passed
+**1,248 tests**, with **6,484 production lines and 3,684 branches covered and none
+missed**. Before that invocation, the old execution data was archived and absent
+from `target/jacoco.exec`, and the old XML was moved away. The resulting execution
+data, XML, and every Surefire report postdate the recorded start. This fresh run
+supersedes the first-pass coverage-freshness claim without rewriting its saved
+packet. No other guest-executing checks ran concurrently.
+
+The 25 serial contract, recipe, and listing-path command checks cover
+process/metadata distinctions, null representation, breakpoint listings, budget
+recipes, discovery diagnostics, and writes after a stream failure. Their original
+commands, inputs, JAR hashes where recorded, and text output remain in the new
+packet. No Java execution logic changed between these probes and `5796651`.
+The saved complete documentation workflow passed dependency inventory, executable
+examples, release metadata, current and seven historical API versions, Docusaurus,
+and links/fragments across 1,280 pages. It skipped Java tests and reused the
+then-existing aggregate coverage; the separate fresh strict run supplies Java
+coverage proof. The 18 existing website tests also passed; their measured modules
+do not establish coverage for every frontend component.
+
+PR #24's original macOS Java 25 job passed all tests but failed the strict line
+gate. Two independent `clean package` runs at its exact source tree passed all
+1,248 tests with zero missed lines or branches. The unchanged hosted macOS Java
+25 rerun also passed. The cause of the original failure remains unidentified;
+no speculative code/test fix, threshold change, or workflow change is claimed.
+The unchanged hosted rerun subsequently passed all required job groups and the
+Regression gates aggregate. The packet records both the original failure and the
+dated successful rerun; the live run remains authoritative for CI readiness.
+
+New native Windows prose received static review; no fresh local Windows/JDK 21
+runtime run, CodeQL scan, registry verification, hosted-isolation certification,
+or deployment is asserted here. Desktop and phone-width review found the new
+field/counter tables readable without page-wide overflow. PR creation retains
+the user's explicit final review checkpoint.
+
+### Pull-request dependency and remaining runtime decision
+
+The audit pull request is prepared to target `main` and depends on
+[#24](https://github.com/cs1302uga/cs1302-tracer/pull/24). Hold its merge until
+#24 lands, then verify the final base/head, mergeability, and required checks on
+its actual commits. Passing checks on prerequisite or historical commits do not
+establish readiness of the final audit head. Approval to create the audit pull
+request remains pending; this record does not assert PR creation, merge, or
+publication.
+
+A separate, unimplemented proposal addresses the runtime exception-recognition
+defect documented in [DX-129 / FU1-1](#dx-129). It examines persistent-guest event
+filters, escaped-entry-point evidence, job-thread attribution, valid partial
+traces, output, and consecutive-job cleanup. Its proposed implementation boundary
+comes from source inspection; the original reproduction retains its historical
+revision and platform limits. Default versus opt-in behavior, the job-thread
+boundary, and any terminal-snapshot expansion still require explicit decisions.
+Preparing that proposal does not authorize runtime changes or close the defect.
