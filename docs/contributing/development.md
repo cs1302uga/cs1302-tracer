@@ -314,31 +314,37 @@ for the environment-variable contract.
 
 The `wrapper.maven.version` property in `pom.xml` is the only Maven version pin.
 The wrapper downloads exactly that version, and Enforcer uses it as an inclusive
-lower bound, with no upper bound. The Maven Wrapper Plugin is managed at
+lower bound, with no upper bound. The `wrapper.maven.sha256sum` property pins the
+distribution ZIP's SHA-256 checksum. The Maven Wrapper Plugin is managed at
 `maven-wrapper-plugin.version` and configured to generate the script-only wrapper
-for `wrapper.maven.version`; `-Dmaven` and `-Dtype` do not override that configuration.
+from these POM properties; `-Dmaven`, `-Dtype`, and `-DdistributionSha256Sum` do not
+override that configuration.
 
-To change the Maven version, update `wrapper.maven.version`, then regenerate the
-scripts and `.mvn/wrapper/maven-wrapper.properties`:
+To change the Maven version, update `wrapper.maven.version` and
+`wrapper.maven.sha256sum` after verifying the new distribution against the
+published checksum. Then regenerate the scripts and
+`.mvn/wrapper/maven-wrapper.properties`:
 
 ```sh
-./mvnw wrapper:wrapper -DdistributionSha256Sum=SHA256
+./mvnw wrapper:wrapper
 ```
 
-Replace `SHA256` with the distribution's SHA-256 checksum after verifying the
-distribution against the published checksum. Omitting `-DdistributionSha256Sum`
-removes checksum verification from the wrapper. Review both scripts, retain the
-executable bit on `mvnw`, and test bootstrap with an empty `MAVEN_USER_HOME`
-before adopting a new Maven distribution. Upgrading the wrapper plugin follows
-the same steps after updating `maven-wrapper-plugin.version`.
+The plugin writes the resolved checksum as a literal `distributionSha256Sum` in
+the generated properties file. The wrapper scripts read that file before Maven
+starts; they do not resolve POM properties themselves. Regeneration retains
+checksum verification without an extra command-line argument. Review both
+scripts, retain the executable bit on `mvnw`, and test bootstrap with an empty
+`MAVEN_USER_HOME` before adopting a new Maven distribution. Upgrading the wrapper
+plugin follows the same steps after updating `maven-wrapper-plugin.version`.
 
 At `validate`, Properties Maven Plugin reads the wrapper properties, then Enforcer
 checks them against the POM. The `distributionUrl` must end in
 `apache-maven-VERSION-bin.zip` for the selected version, the form the wrapper
-scripts accept, and `wrapperVersion` must equal `maven-wrapper-plugin.version`.
-Keep the Properties execution before Enforcer. Missing wrapper properties or a
-wrapper generated for a different Maven or plugin version fail validation;
-regenerate the wrapper rather than editing either value alone.
+scripts accept, `distributionSha256Sum` must equal `wrapper.maven.sha256sum`, and
+`wrapperVersion` must equal `maven-wrapper-plugin.version`. Keep the Properties
+execution before Enforcer. Missing wrapper properties or a wrapper generated for
+a different Maven version, checksum, or plugin version fail validation;
+regenerate the wrapper rather than editing its properties alone.
 Direct plugin goals do not automatically run `validate`; prepend `validate` when
 the toolchain check is required (for example, `./mvnw validate checkstyle:check`).
 Tools that read Enforcer's configuration without running `validate`, such as

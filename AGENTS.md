@@ -33,8 +33,9 @@ or modern JSON. It supports direct CLI use and batch jobs with reusable guest JV
   `pom.xml` and `src/main/resources/cs1302_checks_extended.xml` are authoritative
   for compiler and Checkstyle configuration.
 - **Dependency, plugin, or Maven versions:** follow [dependency versions and upgrades](docs/contributing/development.md#dependency-versions-and-upgrades).
-  `wrapper.maven.version` in `pom.xml` is the only Maven version pin; change it
-  through [Maven wrapper maintenance](docs/contributing/development.md#maven-wrapper-maintenance),
+  `wrapper.maven.version` and `wrapper.maven.sha256sum` in `pom.xml` select the
+  Maven distribution and its checksum; change them through
+  [Maven wrapper maintenance](docs/contributing/development.md#maven-wrapper-maintenance),
   not by editing the wrapper files alone. `./mvnw versions:display-plugin-updates
   versions:display-dependency-updates` lists stable candidates only.
 

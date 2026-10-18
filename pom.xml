@@ -103,10 +103,11 @@
 
     <!--
       Select the Maven version that the wrapper downloads and Enforcer requires as
-      the minimum. Regenerate the wrapper after changing it; validate rejects a
-      wrapper that downloads a different version.
+      the minimum, and pin the distribution's SHA-256 checksum. Regenerate the
+      wrapper after changing either; validate rejects a version or checksum mismatch.
     -->
     <wrapper.maven.version>3.10.0</wrapper.maven.version>
+    <wrapper.maven.sha256sum>1f6d9909266510f039f59aa0e13dcd2c66da85f043e56276e41f2918f8bddaff</wrapper.maven.sha256sum>
 
     <!-- Pin the docsite toolchain; npm is supplied by this Node distribution. -->
     <node.version>v24.22.0</node.version>
@@ -513,7 +514,7 @@
           <artifactId>properties-maven-plugin</artifactId>
           <version>${properties-maven-plugin.version}</version>
         </plugin>
-        <!-- Regenerate the script-only wrapper for the POM's Maven version (./mvnw wrapper:wrapper). -->
+        <!-- Regenerate the script-only wrapper from the POM's Maven version and checksum. -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-wrapper-plugin</artifactId>
@@ -521,6 +522,7 @@
           <configuration>
             <mavenVersion>${wrapper.maven.version}</mavenVersion>
             <distributionType>only-script</distributionType>
+            <distributionSha256Sum>${wrapper.maven.sha256sum}</distributionSha256Sum>
           </configuration>
         </plugin>
         <!-- Report only stable dependency and plugin updates (./mvnw versions:display-plugin-updates). -->
@@ -628,6 +630,13 @@
                   <message>.mvn/wrapper/maven-wrapper.properties must define distributionUrl.</message>
                   <regex>.*/apache-maven-\Q${wrapper.maven.version}\E-bin\.zip</regex>
                   <regexMessage>.mvn/wrapper/maven-wrapper.properties must download Maven ${wrapper.maven.version} (wrapper.maven.version in pom.xml), but its distributionUrl is ${wrapper.distributionUrl}. Regenerate the wrapper with ./mvnw wrapper:wrapper.</regexMessage>
+                </requireProperty>
+                <!-- Require the generated wrapper to retain the POM's distribution checksum. -->
+                <requireProperty>
+                  <property>wrapper.distributionSha256Sum</property>
+                  <message>.mvn/wrapper/maven-wrapper.properties must define distributionSha256Sum. Regenerate the wrapper with ./mvnw wrapper:wrapper.</message>
+                  <regex>\Q${wrapper.maven.sha256sum}\E</regex>
+                  <regexMessage>.mvn/wrapper/maven-wrapper.properties must use wrapper.maven.sha256sum from pom.xml as its distributionSha256Sum. Regenerate the wrapper with ./mvnw wrapper:wrapper.</regexMessage>
                 </requireProperty>
                 <!-- Require the wrapper scripts to come from the managed wrapper plugin version. -->
                 <requireProperty>
