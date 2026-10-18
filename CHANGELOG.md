@@ -140,20 +140,14 @@ Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e
 Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb)
 — Active guide deployment with verified historical archives and retained version routes.
 
-Implementation: [61ab6bd](https://github.com/cs1302uga/cs1302-tracer/commit/61ab6bdabbfdf983b1ff70dec8746541214c47ec)
-— Download-first documentation, verified offline API guidance, and focused
-maintainer guides with preserved section links.
-
-Implementation: [58e8f8e](https://github.com/cs1302uga/cs1302-tracer/commit/58e8f8e5fc753c51505fe252df798be6dcd9e2e8)
-— Verified CLI lessons, standalone tracing recipes, result-contract guidance,
-and grouped troubleshooting.
-
-Implementation: [038d59c](https://github.com/cs1302uga/cs1302-tracer/commit/038d59cb9126775d9ddec558e1c88c9c8be1f6d3)
-— Generated project license and dependency references with compact, accessible
-tables and fresh metadata checks.
-
-Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a571897ea4bf789e18bca7060fbdc06d9455d)
-— Verified JDK selection and first-run recovery documentation.
+Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a)
+— Squash merge of [#23](https://github.com/cs1302uga/cs1302-tracer/pull/23):
+download-first documentation, verified offline API guidance, and focused
+maintainer guides with preserved section links; verified CLI lessons, standalone
+tracing recipes, result-contract guidance, and grouped troubleshooting; generated
+project license and dependency references with compact, accessible tables and
+fresh metadata checks; and verified JDK selection and first-run recovery
+documentation.
 
 ### Breaking changes
 
@@ -197,6 +191,12 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   for `main`. Java API, CLI, JSON/batch protocol, and runtime requirements are
   unchanged.
   Implementation: [0dd30a3](https://github.com/cs1302uga/cs1302-tracer/commit/0dd30a369409ea49f44e850f8e58c19b2acab061).
+
+- **Shared-reference tutorial:** add a runnable lesson that follows two local
+  references into one object, observes a field mutation, and distinguishes it
+  from an earlier primitive copy. Executable documentation checks verify the
+  assignment timing, reference relationships, field and local values, and output.
+  Java, CLI, and JSON/protocol behavior are unchanged.
 
 - **Build tooling:** pin the Maven distribution SHA-256 checksum with
   `wrapper.maven.sha256sum` in `pom.xml`. `./mvnw wrapper:wrapper` now retains

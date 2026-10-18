@@ -262,6 +262,60 @@ def check_loop(work: Path) -> None:
     cumulative_output(chronological, "0\n1\n2\n")
 
 
+def check_shared_references(work: Path) -> None:
+    """Verify reference copying and shared mutation at the documented source checkpoints."""
+    tutorial = (ROOT / "docs/tutorials/trace-shared-references.md").read_text()
+    source = block(tutorial, "shared-source") + "\n"
+    filename = "SharedReferences.java"
+    (work / filename).write_text(source, encoding="utf-8")
+    run(["sh", "-eu", "-c", block(tutorial, "shared-command")], cwd=work)
+    result = json.loads((work / "shared-references.json").read_text())
+    assert result["format"] == "modern" and result["entryFile"] == filename
+    assert result["sources"][filename] == source, "Shared-reference source differs from the tutorial"
+    steps = result["steps"]
+    checkpoints = []
+    for expected_line, statement in (
+        (7, "Box alias = box;"),
+        (9, "alias.value = 9;"),
+        (10, "System.out.println(box.value);"),
+    ):
+        line = next(number for number, text in enumerate(source.splitlines(), 1) if text.strip() == statement)
+        assert line == expected_line, "Shared-reference teaching line numbers differ from the source"
+        index = next(
+            index
+            for index, step in enumerate(steps)
+            if step["file"] == filename and step["line"] == line and step["method"] == "main"
+        )
+        checkpoints.append(index)
+    before_index, copied_index, mutated_index = checkpoints
+    assert before_index < copied_index < mutated_index, "Shared-reference checkpoints must follow source order"
+    before = main_locals(steps[before_index])
+    assert "alias" not in before and "copied" not in before, "Alias and copy must not be initialized yet"
+    reference = before["box"]["value"]
+    for index, expected in ((before_index, 7), (copied_index, 7), (mutated_index, 9)):
+        step = steps[index]
+        locals_by_name = main_locals(step)
+        assert locals_by_name["box"]["value"] == reference, "The original Box reference must stay unchanged"
+        box = step["heap"][str(reference["ref"])]
+        assert box["kind"] == "object" and box["type"] == "SharedReferences$Box", "Expected the shared Box object"
+        field = next(item for item in box["fields"] if item["name"] == "value")
+        assert field["type"] == "int" and field["value"] == expected, "Shared field changed at the wrong checkpoint"
+        if index != before_index:
+            assert locals_by_name["alias"]["value"] == reference, "Box and alias must refer to the same object"
+            copied = locals_by_name["copied"]
+            assert copied["type"] == "int" and copied["value"] == 7, "The primitive copy must remain 7"
+    assert all(step["stdout"] == "" for step in steps[: mutated_index + 1]), "Shared mutation must precede printing"
+    main_exit = max(number for number, text in enumerate(source.splitlines(), 1) if text == "    }")
+    assert main_exit == 13, "Shared-reference main-exit line differs from the tutorial"
+    final = steps[-1]
+    assert final["file"] == filename and final["line"] == main_exit and final["method"] == "main"
+    # Guest println uses the guest platform's newline; the example describes the same three lines.
+    output = [{"stdout": step["stdout"].replace("\r\n", "\n")} for step in steps]
+    expected_output = block(tutorial, "shared-output") + "\n"
+    assert expected_output == "9\n9\n7\n", "Shared-reference output example must show 9, 9, and 7"
+    cumulative_output(output, expected_output)
+
+
 def check_recipes(work: Path) -> None:
     """Execute source, input, dependency, presentation, and bounded-result recipes."""
     guide = (ROOT / "docs/guides/tracing.md").read_text()
@@ -421,6 +475,7 @@ def check_tutorials() -> None:
         assert result["format"] == "modern" and result["entryFile"] == "Main.java"
         assert result["sources"]["Main.java"] == (work / "Main.java").read_text()
         check_reading(result, (work / "Main.java").read_text())
+        check_shared_references(work)
         check_loop(work)
         check_recipes(work)
 

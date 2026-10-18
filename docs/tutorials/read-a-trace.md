@@ -81,9 +81,16 @@ representations, read [How a trace represents execution](../explanation/trace-mo
 The [JSON output reference](../reference/output.md) defines the complete fields
 and includes full output examples.
 
+## Observe a field mutation
+
+Continue with [Trace shared references](trace-shared-references.md) to follow two
+local variables that refer to the same object. You will change its field through
+one reference, observe the change through the other, and check why an earlier
+primitive copy keeps its value.
+
 ## Observe a repeated breakpoint
 
-Continue with [Trace a loop](trace-a-loop.md). You will visit the same print
+In [Trace a loop](trace-a-loop.md), you will visit the same print
 statement three times and compare the latest hit, accumulated hits, and
 chronological output. The lesson also shows why a selected-breakpoint result
 does not have the same root shape as this tutorial's `steps` array.

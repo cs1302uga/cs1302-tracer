@@ -38,6 +38,37 @@ def tutorial_results() -> dict[str, Any]:
         for line, output, locals_ in ((6, "", []), (7, "", [box]), (8, "", [box, answer]), (9, "7\n", [box, answer]))
     ]
     steps[0]["callStack"].append({"methodName": "<init>", "locals": []})
+    shared_locals = [
+        {"name": "box", "type": "SharedReferences.Box", "value": {"ref": 72}, "final": False},
+        {"name": "alias", "type": "SharedReferences.Box", "value": {"ref": 72}, "final": False},
+        {"name": "copied", "type": "int", "value": 7, "final": False},
+    ]
+    shared_steps = [
+        {
+            "line": line,
+            "file": "SharedReferences.java",
+            "method": "main",
+            "stdout": output,
+            "callStack": [{"methodName": "main", "locals": copy.deepcopy(shared_locals[:count])}],
+            "heap": {
+                "72": {
+                    "kind": "object",
+                    "type": "SharedReferences$Box",
+                    "fields": [{"name": "value", "type": "int", "value": value, "final": False}],
+                }
+            },
+        }
+        for line, count, value, output in (
+            (6, 0, 7, ""),
+            (7, 1, 7, ""),
+            (8, 2, 7, ""),
+            (9, 3, 7, ""),
+            (10, 3, 9, ""),
+            (11, 3, 9, "9\n"),
+            (12, 3, 9, "9\n9\n"),
+            (13, 3, 9, "9\n9\n7\n"),
+        )
+    ]
     chronological: list[dict[str, Any]] = [
         {
             "line": 4,
@@ -94,6 +125,7 @@ def tutorial_results() -> dict[str, Any]:
     )
     return {
         "first": {"format": "modern", "entryFile": "Main.java", "steps": steps},
+        "shared": {"format": "modern", "entryFile": "SharedReferences.java", "steps": shared_steps},
         "latest": {"format": "modern", "entryFile": "Loop.java", "breakpoints": {"4": accumulated[-1]}},
         "accumulated": {"format": "modern", "entryFile": "Loop.java", "breakpoints": {"4": accumulated}},
         "chronological": {"format": "modern", "entryFile": "Loop.java", "steps": chronological},
@@ -158,7 +190,14 @@ class DocumentationChecksTests(unittest.TestCase):
             quickstart + "[Local](docs/reference/output.md) [Web](https://example.test)\n"
         )
         (self.root / "HACKING.md").write_text("[Fragment](#local) [Mail](mailto:docs@example.test)\n")
-        for name in ("first-trace", "read-a-trace", "trace-a-loop", "java-integration", "batch-jobs"):
+        for name in (
+            "first-trace",
+            "read-a-trace",
+            "trace-shared-references",
+            "trace-a-loop",
+            "java-integration",
+            "batch-jobs",
+        ):
             shutil.copy2(SCRIPTS.parent / f"docs/tutorials/{name}.md", self.root / f"docs/tutorials/{name}.md")
         for name in ("tracing", "installation"):
             shutil.copy2(SCRIPTS.parent / f"docs/guides/{name}.md", self.root / f"docs/guides/{name}.md")
@@ -231,6 +270,10 @@ elif 'TraceExample' in sys.argv:
 elif 'Main.java' in sys.argv:
     trace = results['first']
     trace['sources'] = {'Main.java': Path('Main.java').read_text()}
+    print(json.dumps(trace))
+elif 'SharedReferences.java' in sys.argv:
+    trace = results['shared']
+    trace.setdefault('sources', {'SharedReferences.java': Path('SharedReferences.java').read_text()})
     print(json.dumps(trace))
 elif 'Loop.java' in sys.argv:
     mode = ('locations' if 'list-breakpoints' in sys.argv else
@@ -564,6 +607,101 @@ else:
                 result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
+
+    def test_shared_references_reject_wrong_identity_values_timing_and_shape(self) -> None:
+        """Reject traces that contradict the shared-object and independent-primitive teaching checkpoints."""
+        original = json.dumps(tutorial_results())
+        frame = ["callStack", 0, "locals"]
+        field = ["heap", "72", "fields", 0]
+        initialized = tutorial_results()["shared"]["steps"][3]["callStack"][0]["locals"]
+        changes = [
+            ("format", None, ["format"], "pytutor", "AssertionError"),
+            ("entry file", None, ["entryFile"], "Other.java", "AssertionError"),
+            ("source", None, ["sources"], {"SharedReferences.java": "different"}, "source differs"),
+            ("early alias", 7, frame, initialized[:2], "must not be initialized"),
+            ("early copy", 7, frame, [initialized[0], initialized[2]], "must not be initialized"),
+            ("different alias", 9, [*frame, 1, "value", "ref"], 81, "must refer to the same object"),
+            ("reassigned alias", 10, [*frame, 1, "value", "ref"], 81, "must refer to the same object"),
+            ("reassigned box", 10, [*frame, 0, "value", "ref"], 81, "original Box reference"),
+            ("wrong heap kind", 7, ["heap", "72", "kind"], "array", "Expected the shared Box object"),
+            ("wrong heap type", 9, ["heap", "72", "type"], "Other$Box", "Expected the shared Box object"),
+            ("early mutation", 9, [*field, "value"], 9, "wrong checkpoint"),
+            ("missing mutation", 10, [*field, "value"], 7, "wrong checkpoint"),
+            ("wrong field type", 10, [*field, "type"], "long", "wrong checkpoint"),
+            ("wrong primitive copy", 9, [*frame, 2, "value"], 9, "primitive copy must remain 7"),
+            ("changed primitive copy", 10, [*frame, 2, "value"], 9, "primitive copy must remain 7"),
+            ("wrong copy type", 10, [*frame, 2, "type"], "long", "primitive copy must remain 7"),
+            ("early output", 6, ["stdout"], "9\n", "must precede printing"),
+            ("print timing", 10, ["stdout"], "9\n", "must precede printing"),
+            ("output reset", 11, ["stdout"], "9\n9\n9\n", "stdout must accumulate"),
+            ("final output", 13, ["stdout"], "9\n9\n9\n", "Unexpected final guest output"),
+            ("main exit", 13, ["line"], 12, "AssertionError"),
+            ("missing main frame", 9, ["callStack", 0, "methodName"], "other", "box"),
+        ]
+        for name, line, path, value, message in changes:
+            with self.subTest(name=name):
+                data = json.loads(original)
+                target = data["shared"]
+                if line is not None:
+                    target = next(step for step in target["steps"] if step["line"] == line)
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = value
+                (self.root / "tutorial-results.json").write_text(json.dumps(data))
+                result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
+    def test_shared_references_accept_arbitrary_ids_unrelated_snapshots_and_platform_newlines(self) -> None:
+        """Locate checkpoints by their source and main method, independent of incidental trace positions."""
+        data = tutorial_results()
+        steps = data["shared"]["steps"]
+        for step in steps:
+            step["heap"]["9013"] = step["heap"].pop("72")
+            step["heap"]["unused"] = {"kind": "object", "type": "Unrelated", "fields": []}
+            step["stdout"] = step["stdout"].replace("\n", "\r\n")
+            for item in step["callStack"][0]["locals"]:
+                if item["name"] in {"box", "alias"}:
+                    item["value"]["ref"] = 9013
+        # Wrong-file and constructor stops can share a teaching line without being its main checkpoint.
+        for key, value in (("file", "Other.java"), ("method", "<init>"), ("line", 3)):
+            unrelated = copy.deepcopy(next(step for step in steps if step["line"] == 7))
+            unrelated[key] = value
+            unrelated["callStack"].insert(0, {"methodName": "<init>", "locals": []})
+            steps.insert(0, unrelated)
+        (self.root / "tutorial-results.json").write_text(json.dumps(data))
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_shared_reference_markers_guard_teaching_lines_output_and_capture_order(self) -> None:
+        """Detect documentation drift and reordered evidence without requiring literal heap identities."""
+        path = self.root / "docs/tutorials/trace-shared-references.md"
+        original = path.read_text()
+        for content, message in (
+            (original.replace("<!-- shared-command:end -->", ""), "shared-command: missing"),
+            (original.replace("> shared-references.json", "> another.json"), "shared-references.json"),
+            (original.replace("        Box alias = box;", "\n        Box alias = box;"), "teaching line numbers"),
+            (
+                original.replace("        System.out.println(copied);", "        System.out.println(copied);\n"),
+                "main-exit line",
+            ),
+            (original.replace(check_docs.block(original, "shared-output"), "9\n9\n9"), "output example must show"),
+        ):
+            with self.subTest(message=message):
+                path.write_text(content)
+                result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+        path.write_text(original)
+        data = tutorial_results()
+        steps = data["shared"]["steps"]
+        mutated = next(step for step in steps if step["line"] == 10)
+        steps.remove(mutated)
+        steps.insert(0, mutated)
+        (self.root / "tutorial-results.json").write_text(json.dumps(data))
+        result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("checkpoints must follow source order", result.stderr)
 
     def test_recipes_reject_misleading_input_presentation_and_limit_results(self) -> None:
         """Check actual documented outcomes instead of accepting valid JSON alone."""

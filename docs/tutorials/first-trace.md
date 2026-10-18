@@ -80,6 +80,7 @@ Ordinary tracing uses finite default budgets; see
 Continue with [Read a trace](read-a-trace.md) to find the assignment in your new
 file and follow `box` from a local variable to its heap object. After that:
 
+- [Trace shared references](trace-shared-references.md): observe a shared object's mutation and an unchanged primitive copy.
 - [Trace a loop](trace-a-loop.md): compare repeated visits to one source line.
 - [Tracing programs](../guides/tracing.md): select breakpoints, provide input, and submit multiple files.
 - [Run batch jobs](batch-jobs.md): send several requests and inspect each result.

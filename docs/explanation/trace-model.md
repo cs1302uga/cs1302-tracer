@@ -56,6 +56,9 @@ The heap representation keeps that relationship visible without copying the
 object under every variable that refers to it. Identity values are opaque and may
 change between runs; use them to follow relationships within a result.
 
+[Trace shared references](../tutorials/trace-shared-references.md) walks through
+a field mutation with two references to one object and an unchanged primitive copy.
+
 The captured heap contains objects reachable from the captured stack and static
 roots, subject to inspection policy and tracing limits. It is not a dump of the
 whole JVM heap. The JSON representation describes captured program values rather

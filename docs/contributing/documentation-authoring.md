@@ -67,6 +67,12 @@ and a controlled budget stop with a partial envelope. Java and batch checks insp
 completion and failure outcomes. The README quickstart remains a separate
 checkout-based example.
 
+The shared-references tutorial check follows two locals into one heap object
+before and after a field mutation, verifies the unchanged primitive copy, and
+compares the final guest output with the marked lesson block. It locates states
+by source file, line, and the main frame, with no fixed heap identities or snapshot
+positions.
+
 Refresh help using `./scripts/uv run python scripts/check_docs.py --update-cli`;
 review the resulting diff.
 The CLI reference keeps generated help and budget links above

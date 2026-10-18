@@ -13,6 +13,7 @@ interactive visualization itself.
 | You want to… | Start here | Then read |
 | --- | --- | --- |
 | Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md) |
+| Teach or inspect shared references and mutation | [Trace shared references](tutorials/trace-shared-references.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Teach or inspect repeated execution | [Trace a loop](tutorials/trace-a-loop.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Trace your own program | [Tracing recipes](guides/tracing.md) | [Troubleshooting](guides/troubleshooting.md), [CLI defaults and exit statuses](reference/cli.md#trace-defaults-at-a-glance) |
 | Consume JSON or process jobs | [Batch tutorial](tutorials/batch-jobs.md) | [JSON output](reference/output.md), [batch protocol](reference/batch.md), [bounded results](BOUNDED_TRACING.md) |
