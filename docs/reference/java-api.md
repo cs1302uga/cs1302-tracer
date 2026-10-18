@@ -525,6 +525,12 @@ reads executable line tables without running guest code. The returned
 source path and line, or preparation diagnostics. Locations use package-relative
 paths and one-based lines. A preparation failure has diagnostics and no locations.
 Temporary compilation resources are released before the operation returns.
+Discovery uses tracing's entry-point preparation: the first submitted file with
+a recognized main-method candidate must contain exactly one such candidate.
+Helper files need no main method. A missing or ambiguous entry point produces
+preparation diagnostics even if the sources otherwise compile. See the
+[program requirements](../guides/tracing.md#program-requirements) and the
+[`Tracer.discoverBreakpoints(String)` Javadoc](https://cs1302uga.github.io/cs1302-tracer/api/next/cs1302/tracer/api/Tracer.html#discoverBreakpoints(java.lang.String)).
 Use `location.sourcePath() + ":" + location.line()` for a file-qualified request
 breakpoint; these paths can differ from bundle logical paths as explained
 [above](#trace-a-submitted-program).
@@ -589,6 +595,32 @@ Inspect every response's status, completion, reason and captured output; the
 also applies here. A normal `processStream` return establishes stream-processing
 success, not successful guest execution. See the
 [shared envelope](../BOUNDED_TRACING.md#envelope) for per-job results.
+
+### I/O failures and shutdown
+
+Malformed requests and recorded job failures normally produce individual NDJSON
+responses; they do not by themselves make `processStream` throw. Request or
+response I/O failures instead propagate as `IOException`. A record exceeding the
+[batch transport ceiling](batch.md) is also an
+`IOException`, rather than a failed job response. The method can already have
+written earlier responses when any of these stream failures occurs.
+
+An I/O exception does not cancel or wait for every admitted job. Those jobs can
+continue writing responses after `processStream` throws, including while the
+processor closes. Keep the writer dedicated to that processor; do not immediately
+reuse it for another stream or assume response writing has stopped. Close the
+processor after failure, as the try-with-resources example above does. The caller
+still owns and closes both the input and the writer. See the
+[`processStream` Javadoc](https://cs1302uga.github.io/cs1302-tracer/api/next/cs1302/tracer/api/BatchTracer.html#processStream(java.io.InputStream,java.io.Writer)).
+
+`close()` shuts down the scheduler, normally waits up to 30 seconds for its
+termination, and, if necessary, requests interruption and waits up to another
+30 seconds. If the first wait is interrupted, it requests interruption, attempts
+another wait, and restores the calling thread's interrupt status. It then closes
+all owned workers and guest processes. Worker cleanup can add time; these waits
+are not a fixed total shutdown deadline or a whole-job limit. Closing the
+processor leaves the caller's streams open. See the
+[`close()` Javadoc](https://cs1302uga.github.io/cs1302-tracer/api/next/cs1302/tracer/api/BatchTracer.html#close()).
 
 ## Migrate Java integrations from 3.x
 

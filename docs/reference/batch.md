@@ -110,6 +110,34 @@ tracing directly only for trusted workloads. Hosted untrusted jobs must use one
 disposable tracer process per job under the
 [runner contract](../RUNNER_CONTRACT.md).
 
+## Process exit statuses
+
+The `batch-trace` process reports whether it processed the stream successfully.
+Each response's `result.status` reports that individual job's outcome. Inspect
+both levels when automating a batch:
+
+| Process status | Meaning | Output and next action |
+| --- | --- | --- |
+| `0` | Input reached end-of-stream and admitted responses were written, regardless of individual job statuses. Empty input also succeeds. | Inspect every response, including `failed` and `stopped` results. Malformed requests that produce per-record parse responses do not by themselves fail the process. |
+| `1` | JDK environment preflight failed or was interrupted before batch processing. | Stderr reports `code-tracer: JDK environment check failed: ...` or the interrupted-check diagnostic. No batch responses are produced. Follow [JDK environment preflight](cli.md#jdk-environment-preflight). |
+| `1` | Batch setup or stream processing failed: nonpositive `--workers`, `--max-in-flight`, or `--max-jobs-per-worker`; an unreadable `--input` file; an oversized physical record; or input/output I/O failure. | The command handler writes `Batch trace failed: ...` to stderr. Preserve any responses already written; a response is not guaranteed for the offending record or later input. |
+| `2` | Command-line argument parsing failed, such as an unknown option, a missing option value, or nonnumeric worker settings. | Read the usage diagnostic on stderr and compare with `batch-trace --help`. No batch work starts. |
+
+`batch-trace --help` and `batch-trace --version` can also exit `0` without
+processing input; the environment preflight still runs before those options.
+
+Already-admitted jobs can keep executing and writing responses while the command
+closes its workers after a stream-processing failure. An exit-`1` run can therefore
+contain valid responses followed by incomplete or missing output. Validate each
+NDJSON response independently, preserve process stderr and status, and account for
+submitted records that have no response. An external kill or host failure can
+also truncate a response without reaching the command's error handler.
+
+These process statuses differ from the single-command
+[`trace` exit statuses](cli.md#exit-statuses). Java callers of `BatchTracer` receive
+stream-processing exceptions instead of a CLI process status; see
+[Java batch integration](java-api.md#process-a-batch-stream).
+
 ## Request limits
 
 Every budget below defaults to zero (unlimited), including fields omitted from a

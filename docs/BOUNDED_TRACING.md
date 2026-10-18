@@ -165,13 +165,57 @@ order. Existing non-envelope selected-breakpoint dictionary output still groups
 by bare line number, so one key can contain hits from multiple files. See
 [result contracts](reference/output.md#result-contracts).
 
-Available counter keys include `snapshotsCaptured` (committed captures, including
-later replacements), `snapshotsRetained` (remaining history size), `retainedBytes`
-(accounted storage), and `droppedSnapshots` (zero or one unfinished snapshot
-discarded, rather than a count of replacements). `elapsedMillis` begins at the
-trace phase, excluding source preparation and reusable-guest startup. `stdoutBytes`
-and `stderrBytes` count retained guest bytes per stream; `guestExitCode` is available
-when an attached process has terminated. Early failures can have fewer counters.
+### Counter fields
+
+The `counters` object contains integer measurements available when the result is
+constructed. A **session result** in the table below includes a source or compile
+failure handled inside an established tracing session, even when tracing never
+began. Such a result includes the five core counters, with zero values before any
+capture or trace-phase work.
+
+| Key | Meaning | Presence |
+| --- | --- | --- |
+| `snapshotsCaptured` | Number of committed snapshots, including snapshots later replaced in selected-location mode. | Every session result. |
+| `snapshotsRetained` | Number of committed snapshots remaining in the retained history. | Every session result. |
+| `retainedBytes` | Accounted storage for retained snapshots; not process memory or serialized-response size. | Every session result. |
+| `droppedSnapshots` | Zero or one: whether an unfinished snapshot was discarded. Replaced committed snapshots do not increment it. | Every session result. |
+| `elapsedMillis` | Elapsed monotonic milliseconds from entering the trace phase until result construction, including later rendering; zero if that phase was never entered. Excludes source preparation and reusable-guest startup. | Every session result. |
+| `stdoutBytes` | Retained guest stdout bytes, before UTF-8 decoding and replacement of incomplete sequences. | When byte accounting is available for stdout; zero means an observed empty stream. |
+| `stderrBytes` | Retained guest stderr bytes, measured independently of stdout. | When byte accounting is available for stderr; zero means an observed empty stream. |
+| `guestExitCode` | Exit status of the guest process attached to this job's tracing session. | Only when that attached process has terminated by result construction. |
+
+Results produced before a tracing session is established use `counters: {}`.
+These include batch parse and JSON-nesting failures, Java/batch configuration
+rejection or guest-startup failure, and interrupted batch-worker admission.
+Session results without stream byte accounting omit the corresponding byte keys.
+Consumers must accept missing counters rather than treating absence as a measured
+zero or using it to prove that no guest started.
+
+A healthy reusable guest normally remains alive when its job result is created,
+so `guestExitCode` is absent. A recorded exit code can also reflect termination
+requested by the tracer after a timeout, cancellation, or another stop. Exact
+values depend on the platform and termination path; they do not identify the
+cause independently of `status`, `stopReason`, and diagnostics. A stopped result
+need not include this counter if termination has not completed yet.
+
+### Reported phases
+
+`phase` records the last phase assigned by the calling entry point. The same
+logical outcome can therefore report different phases:
+
+| Outcome | CLI `trace --result-envelope` | Java `Tracer.trace` and batch results |
+| --- | --- | --- |
+| Normal completion with rendered JSON | `trace` | `serialize` |
+| `source_file_limit` while admitting submitted files | `compile` | `source` |
+
+The CLI enters `compile` before checking the submitted file count, while Java and
+batch check it in `source`. For successful rendering, Java and batch advance to
+`serialize`; the CLI retains `trace`. Thus `phase: "compile"` can describe a stop
+before compiler work, and a completed CLI result with `phase: "trace"` still
+contains rendered JSON. Interpret the phase together with status and stop reason;
+it is not a common sequence of milestones across callers.
+
+### Trace payload
 
 Payload availability depends on the caller and completion path, not final status
 alone:
