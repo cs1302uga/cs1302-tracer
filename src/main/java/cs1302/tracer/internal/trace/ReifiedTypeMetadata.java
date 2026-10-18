@@ -7,6 +7,9 @@ import com.github.javaparser.ast.body.CallableDeclaration;
 import java.util.Optional;
 import com.sun.jdi.IncompatibleThreadStateException;
 import com.sun.jdi.StackFrame;
+import com.sun.jdi.ClassType;
+import com.sun.jdi.InterfaceType;
+import com.sun.jdi.ObjectReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,6 +29,7 @@ public final class ReifiedTypeMetadata {
 
     private final AstTypeResolver resolver;
     private final Map<Long, String> objectTypes = new HashMap<>();
+    private final Map<Long, Set<String>> functionalViews = new HashMap<>();
     private final List<FrameBindings> contexts = new ArrayList<>();
 
     /**
@@ -94,6 +98,68 @@ public final class ReifiedTypeMetadata {
                     runtimeType);
         } // if
     } // refineDeclared
+
+    /**
+     * Observes declared evidence and a lambda's actual implemented functional interface.
+     * Functional views remain separate from runtime generic bindings and retain all conflicting observations.
+     *
+     * @param reference Actual guest object reference.
+     * @param declaredType Declared type evidence, or null when unavailable.
+     */
+    void refineDeclared(ObjectReference reference, String declaredType) {
+        String runtime = reference.referenceType().name();
+        refineDeclared(reference.uniqueID(), declaredType, runtime);
+        if (resolver == null || declaredType == null || declaredType.contains("&")
+                || !runtime.matches(".*\\$\\$Lambda(?:\\$[0-9]+)?/0x[0-9a-fA-F]+")
+                || !(reference.referenceType() instanceof ClassType implementation)) {
+            return;
+        } // if
+        String raw = AstTypeResolver.extractRawTypeName(declaredType);
+        try {
+            for (InterfaceType implemented : implementation.allInterfaces()) {
+                Optional<String> name = resolver.functionalInterfaceName(implemented.name(), raw);
+                if (name.isPresent()) {
+                    int arguments = declaredType.indexOf('<');
+                    String view = name.orElseThrow()
+                            + (arguments < 0 ? "" : declaredType.substring(arguments).strip());
+                    functionalViews.computeIfAbsent(reference.uniqueID(), key -> new HashSet<>()).add(view);
+                } // if
+            } // for
+        } catch (RuntimeException ignored) {
+            // Missing JDI interface evidence must retain the runtime implementation heading.
+        } // try
+    } // refineDeclared
+
+    /**
+     * Resolves all observed functional views without depending on alias traversal order.
+     *
+     * @param id Guest object identity.
+     * @return Interface type, raw when arguments conflict, or null for absent or unrelated evidence.
+     */
+    String functionalView(long id) {
+        Set<String> views = functionalViews.get(id);
+        if (views == null) {
+            return null;
+        } // if
+        String raw = null;
+        String parameterized = null;
+        boolean conflicting = false;
+        for (String view : views) {
+            String candidateRaw = AstTypeResolver.extractRawTypeName(view);
+            if (raw != null && !raw.equals(candidateRaw)) {
+                return null;
+            } // if
+            raw = candidateRaw;
+            if (!view.equals(raw)) {
+                if (parameterized == null) {
+                    parameterized = view;
+                } else {
+                    conflicting = true;
+                } // if
+            } // if
+        } // for
+        return conflicting || parameterized == null ? raw : parameterized;
+    } // functionalView
 
     /**
      * Updates evidence and invalidates only contexts whose receiver evidence changed.

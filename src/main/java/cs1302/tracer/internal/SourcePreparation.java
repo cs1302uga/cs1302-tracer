@@ -187,8 +187,9 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
     private static CompilationUnit parseSource(String source, Optional<Path> sourceRoot, List<Path> binaryRoots) {
         CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
         combinedTypeSolver.add(new ReflectionTypeSolver());
+        BinaryTypeSolver binaryTypes = new BinaryTypeSolver(binaryRoots);
         if (!binaryRoots.isEmpty()) {
-            combinedTypeSolver.add(new BinaryTypeSolver(binaryRoots));
+            combinedTypeSolver.add(binaryTypes);
         } // if
         sourceRoot.ifPresent(sr -> combinedTypeSolver.add(new JavaParserTypeSolver(sr)));
         JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
@@ -199,6 +200,7 @@ public record SourcePreparation(CompilationHelper.CompilationResult compilation,
         CompilationUnit unit = new com.github.javaparser.JavaParser(config).parse(source).getResult()
                 .orElseThrow(() -> new IllegalArgumentException("Failed to parse Java source with symbol solver"));
         unit.setData(cs1302.tracer.internal.trace.AstTypeResolver.TYPE_SOLVER, combinedTypeSolver);
+        unit.setData(cs1302.tracer.internal.trace.AstTypeResolver.BINARY_TYPES, binaryTypes);
         return unit;
     } // parseSource
 

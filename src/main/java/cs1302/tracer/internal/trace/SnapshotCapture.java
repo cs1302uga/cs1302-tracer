@@ -485,9 +485,8 @@ final class SnapshotCapture {
             heapInspection.sourceLambda(or, lvLambdaImplementation.get());
         } // case
         case ObjectReference or -> {
-            String runtimeFqn = or.referenceType().name();
             if (resolvedTypeName != null) {
-                metadata.refineDeclared(or.uniqueID(), resolvedTypeName, runtimeFqn);
+                metadata.refineDeclared(or, resolvedTypeName);
             } // if
             stackFrameFields.add(new ExecutionSnapshot.Field(isFinal, resolvedTypeName, lv.name(),
                     new TraceValue.Reference(or.uniqueID())));

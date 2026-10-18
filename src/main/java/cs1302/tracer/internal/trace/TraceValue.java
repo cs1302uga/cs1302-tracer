@@ -176,9 +176,10 @@ public sealed interface TraceValue {
     record Null() implements TraceValue {} // Null
 
     /**
-     * An object.
+     * A captured ordinary object with its presentation type label.
      *
-     * @param classFqn Declaring class FQN.
+     * @param classFqn Runtime or reified class label, or a validated functional-interface label followed by
+     *     {@code λ} for a hidden lambda.
      * @param fields Object fields.
      * @param enumConstant Optional enum constant name if this object is an enum constant.
      */
@@ -189,7 +190,7 @@ public sealed interface TraceValue {
         /**
          * Constructs an Object without an enum constant name.
          *
-         * @param classFqn Declaring class FQN.
+         * @param classFqn Presentation type label, including a functional-interface {@code λ} label when proved.
          * @param fields Object fields.
          */
         public Object(java.lang.String classFqn, java.util.Collection<ExecutionSnapshot.Field> fields) {

@@ -5,11 +5,13 @@
  * The package-private snapshot capture module assembles complete
  * {@link cs1302.tracer.internal.trace.ExecutionSnapshot} values for both guest paths, hiding type prepass ordering
  * and shared heap traversal. Sessions retain budget and admission ownership.
- * Source analysis supplies evidence for runtime type
- * recovery and
- * lambda reconstruction. {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
- * while
- * {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.</p>
+ * Source analysis and prepared class-file descriptors and signatures supply evidence for generic type label
+ * and lambda reconstruction. Binary declaration identities stay separate from canonical display names.
+ * {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
+ * while {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.
+ * Hidden binary lambda objects have separate functional-interface views. Heap inspection finalizes their
+ * interface-based {@code λ} headings after traversal without changing semantic generic bindings or source
+ * implementation bodies.</p>
  *
  * <p>Package-private {@link cs1302.tracer.internal.trace.HeapInspection} owns one snapshot's reachable reference
  * queue, admitted identities, heap values, and JDI inspection. It borrows the snapshot's type evidence;
@@ -26,6 +28,9 @@
  * archive views and optional dependency copies remain owned by
  * {@link cs1302.tracer.internal.classpath.PreparedClassPath}, held by
  * {@link cs1302.tracer.internal.SourcePreparation} until guest execution and source analysis finish.
+ * Generic superclass and interface bindings compose across hierarchy levels; instance fields use the metadata of
+ * their declaring owner, including inherited and hidden fields. Binary generic declarations do not require library
+ * source or local-variable debug tables. Unresolved arguments retain conservative erased or wildcard labels.
  * Precompiled dependency classes supply runtime behavior and type evidence, but do not add source-line
  * breakpoints to submitted or discovered Java source.</p>
  *

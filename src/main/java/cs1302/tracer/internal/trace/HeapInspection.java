@@ -103,6 +103,13 @@ final class HeapInspection {
             TraceValue convertedObject = this.inspect(workingObject);
             this.heap.put(workingObject.uniqueID(), convertedObject);
         } // while
+        this.heap.replaceAll((id, value) -> {
+            java.lang.String view = this.metadata.functionalView(id);
+            if (view != null && value instanceof TraceValue.Object object) {
+                return new TraceValue.Object(view + "λ", object.fields(), object.enumConstant());
+            } // if
+            return value;
+        });
         return heap;
     } // finish
 
@@ -276,8 +283,7 @@ final class HeapInspection {
         TraceSession.elements(ar.length());
         for (Value elemVal : ar.getValues()) {
             if (elemVal instanceof ObjectReference elemOr) {
-                java.lang.String elemRuntime = elemOr.referenceType().name();
-                this.metadata.refineDeclared(elemOr.uniqueID(), elemType, elemRuntime);
+                this.metadata.refineDeclared(elemOr, elemType);
             } // if
         } // for
     } // propagateContainerElements
@@ -345,27 +351,13 @@ final class HeapInspection {
      * Resolves the field type name applying generic bindings if available.
      *
      * @param objectField The JDI field.
-     * @param classInfo Class generic metadata.
-     * @param bindings Type parameter bindings.
+     * @param concreteType Reconstructed runtime type with available type arguments.
      * @return Resolved field type string.
      */
-    private java.lang.String resolveFieldTypeName(Field objectField,
-            Optional<AstTypeResolver.ClassGenericInfo> classInfo,
-            java.util.Map<java.lang.String, java.lang.String> bindings) {
-        java.lang.String fieldTypeName = objectField.typeName();
-        if (classInfo.isPresent()) {
-            java.lang.String declared = classInfo.get().fieldTypes().get(objectField.name());
-            if (declared != null) {
-                if (!bindings.isEmpty()) {
-                    fieldTypeName = AstTypeResolver.substituteType(declared, bindings);
-                } else {
-                    if (!declared.contains("<") && !classInfo.get().typeParameters().contains(declared)) {
-                        fieldTypeName = declared;
-                    } // if
-                } // if
-            } // if
-        } // if
-        return fieldTypeName;
+    private java.lang.String resolveFieldTypeName(Field objectField, java.lang.String concreteType) {
+        return this.astTypeResolver == null ? objectField.typeName()
+                : this.astTypeResolver.fieldType(concreteType, objectField.declaringType().name(), objectField.name())
+                        .orElseGet(objectField::typeName);
     } // resolveFieldTypeName
 
     /**
@@ -407,19 +399,17 @@ final class HeapInspection {
      * Converts JDI fields of an object reference into execution snapshot fields.
      *
      * @param or The object reference.
-     * @param classInfo Generic class info.
-     * @param bindings Type bindings.
+     * @param concreteType Reconstructed runtime type with available type arguments.
      * @return Collection of snapshot fields.
      */
     private java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(ObjectReference or,
-            Optional<AstTypeResolver.ClassGenericInfo> classInfo,
-            java.util.Map<java.lang.String, java.lang.String> bindings) {
+            java.lang.String concreteType) {
         java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields = or.referenceType().allFields().stream().filter(f -> !f.isStatic())
                 .filter(f -> this.includeThreadField(or, f)).toList();
         TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
-            java.lang.String fieldTypeName = this.resolveFieldTypeName(objectField, classInfo, bindings);
+            java.lang.String fieldTypeName = this.resolveFieldTypeName(objectField, concreteType);
             Value fieldValue = or.getValue(objectField);
             switch (fieldValue) {
             case null -> objectSnapshotFields.add(
@@ -429,8 +419,7 @@ final class HeapInspection {
                     fieldTypeName, objectField.name(), primitive(pf)));
             case ObjectReference of -> {
                 if (fieldTypeName != null) {
-                    java.lang.String ofRuntimeFqn = of.referenceType().name();
-                    this.metadata.refineDeclared(of.uniqueID(), fieldTypeName, ofRuntimeFqn);
+                    this.metadata.refineDeclared(of, fieldTypeName);
                 } // if
                 objectSnapshotFields.add(new ExecutionSnapshot.Field(objectField.isFinal(), fieldTypeName,
                         objectField.name(), new TraceValue.Reference(of.uniqueID())));
@@ -502,14 +491,7 @@ final class HeapInspection {
         java.lang.String reifiedClassType = this.metadata.typeOf(or.uniqueID());
         java.lang.String classFqn = (reifiedClassType != null) ? reifiedClassType : rawClassFqn;
         java.lang.String constantName = this.extractEnumConstantName(or, enumDeclaringType);
-        java.util.Map<java.lang.String, java.lang.String> bindings = (reifiedClassType != null
-                && this.astTypeResolver != null) ? this.astTypeResolver.getTypeBindings(rawClassFqn, reifiedClassType)
-                        : Collections.emptyMap();
-        Optional<AstTypeResolver.ClassGenericInfo> classInfo = this.astTypeResolver != null
-                ? this.astTypeResolver.getClassGenericInfo(rawClassFqn)
-                : Optional.empty();
-        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = this.extractSnapshotFields(or, classInfo,
-                bindings);
+        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = this.extractSnapshotFields(or, classFqn);
         return new TraceValue.Object(classFqn, objectSnapshotFields, Optional.ofNullable(constantName));
     } // handleRegularObject
 

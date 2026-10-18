@@ -11,9 +11,14 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.Objects;
 import javassist.ClassPath;
 import javassist.ClassPool;
+import javassist.CtClass;
+import javassist.CtField;
 import javassist.NotFoundException;
 import org.apiguardian.api.API;
 
@@ -33,6 +38,57 @@ public final class BinaryTypeSolver implements TypeSolver {
         this.lookup = new BinaryLookup(roots);
         this.pool.appendClassPath(this.lookup);
     } // BinaryTypeSolver
+
+    /**
+     * Detached class-file declaration evidence with exact binary identifiers.
+     * @param fields Field names mapped to their generic signatures or erased descriptors.
+     * @param hierarchy Generic class signature, including its superclass and interfaces.
+     */
+    @API(status = API.Status.INTERNAL, since = "4.2.1")
+    public record DeclarationSignatures(Map<String, String> fields, String hierarchy) {
+
+        /**
+         * Copies mutable bytecode metadata into immutable host-owned values.
+         * @param fields Field signatures.
+         * @param hierarchy Class hierarchy signature.
+         */
+        public DeclarationSignatures {
+            fields = Map.copyOf(fields);
+        } // DeclarationSignatures
+
+    } // DeclarationSignatures
+
+    /**
+     * Reads raw declaration signatures before JavaParser can normalize binary identifiers.
+     * @param binaryName Exact binary name to inspect without loading or initializing the guest class.
+     * @return Immutable evidence, or empty for unavailable bytecode or a root without a superclass signature.
+     */
+    public Optional<DeclarationSignatures> declarationSignatures(String binaryName) {
+        try {
+            CtClass declaration = this.pool.get(binaryName);
+            Map<String, String> fields = new HashMap<>();
+            for (CtField field : declaration.getDeclaredFields()) {
+                String signature = field.getGenericSignature();
+                fields.put(field.getName(), signature == null ? field.getSignature() : signature);
+            } // for
+            String hierarchy = declaration.getGenericSignature();
+            if (hierarchy == null) {
+                String superclass = declaration.getClassFile2().getSuperclass();
+                if (superclass == null) {
+                    return Optional.empty();
+                } // if
+                StringBuilder descriptor = new StringBuilder("L")
+                        .append(superclass.replace('.', '/')).append(';');
+                for (String implemented : declaration.getClassFile2().getInterfaces()) {
+                    descriptor.append('L').append(implemented.replace('.', '/')).append(';');
+                } // for
+                hierarchy = descriptor.toString();
+            } // if
+            return Optional.of(new DeclarationSignatures(fields, hierarchy));
+        } catch (NotFoundException ignored) {
+            return Optional.empty();
+        } // try
+    } // declarationSignatures
 
     /** Reads bytecode through filesystem and platform-resource boundaries without loading guest classes. */
     static final class BinaryLookup implements ClassPath {

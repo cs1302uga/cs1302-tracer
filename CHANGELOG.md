@@ -34,10 +34,24 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Breaking changes
 
-No breaking changes identified.
+No breaking changes. Supported Java API signatures, CLI arguments, runtime
+requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
+- **Binary lambda object labels:** display a supported functional-interface view
+  with a `λ` marker, such as `Comparator<Person>λ`, instead of an
+  opaque hidden implementation name. Retain object identities, existing JSON
+  shapes, source-reconstructed lambda bodies, and conservative labels for unknown
+  or conflicting type evidence. Finalize headings after heap traversal so field
+  observations can refine a lambda first encountered through an `Object` alias.
+- **Generic heap type labels (CLI, Java API, and batch):** use prepared binary
+  declarations to compose superclass and interface type arguments across multiple
+  hierarchy levels. Resolve inherited and hidden instance fields against their
+  declaring owner, including null generic fields. No library source or debug-table
+  rebuild is required. Unknown arguments retain raw or wildcard labels rather
+  than fabricated types. Existing JSON schemas and supported API signatures are
+  unchanged; regenerate cached traces and images for corrected labels.
 - **Development version:** advance the Maven project to `4.2.1-SNAPSHOT` after the
   4.2.0 release. Tracing behavior, the supported Java API, and JSON/batch protocol
   are unchanged.
@@ -45,6 +59,12 @@ No breaking changes identified.
 - **Development documentation:** align the current Java integration references and
   CLI version-report example with `4.2.1-SNAPSHOT`. Preserve the published 4.2.0
   guide snapshot.
+
+
+### Commits
+
+- [`211cdf3`](https://github.com/cs1302uga/cs1302-tracer/commit/211cdf30f2bd50106d97c78b6c934d520850cbd3) Finalize the 4.2.0 release history and current development references (#31).
+- [`debe2cb`](https://github.com/cs1302uga/cs1302-tracer/commit/debe2cb9988f5c7ff98d10304d8b5d0ae56b8c3f) Prepare the next development iteration, 4.2.1-SNAPSHOT.
 
 ## 4.2.0 — 2026-10-18
 

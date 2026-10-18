@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Precomputes source-derived indexes, type resolution hierarchies, and lambda analysis for one tracing job
- * to avoid per-snapshot re-indexing. Compilation units and declaration nodes remain shared with source preparation;
+ * Precomputes source-derived indexes and lambda analysis for one tracing job, retaining the prepared binary solver
+ * for lazy generic declaration lookup. Compilation units and declaration nodes remain shared with source preparation;
  * callers must not mutate them while the analysis is in use. Runtime type evidence belongs to
  * {@link ReifiedTypeMetadata}, not this source index.
  */

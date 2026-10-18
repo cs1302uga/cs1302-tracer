@@ -77,11 +77,22 @@ links by default, while directory copying rejects encountered links. The optiona
 following setting permits outside targets and rejects broken links or cycles.
 Copying is not an atomic filesystem snapshot or an isolation boundary.</p>
 <p>The same selected binary dependencies support compilation, type analysis, and
-guest execution. Library source-line breakpoints are not added. Source discovery
+guest execution. Generic declarations in those binaries support reconstructed
+heap type labels through superclass and interface hierarchies, including inherited
+fields resolved against their declaring class. Library source and local-variable
+debug tables are not required for those declarations. These labels describe
+available type evidence; they do not make Java's erased type arguments available
+through runtime reflection. Library source-line breakpoints are not added. Source discovery
 and source-byte/file limits remain separate; those limits do not bound binary
 dependencies. Guest compilation disables annotation processing, so required
 generated declarations must be supplied as sources. Existing trace overloads and
 the {@code TraceRequest} record shape remain available.</p>
+<p>A hidden lambda object without a reconstructed source body can use an observed,
+verified functional-interface view for its heap label, such as
+{@code Comparator<Person>λ}. The marker identifies a lambda implementation while
+preserving its object identity; it is not a declared class name. Unknown or
+incompatible evidence retains a conservative label, and ordinary concrete classes
+and reconstructed lambda bodies retain their existing representations.</p>
 
 <h2>Bundle source files</h2>
 <p>Since 4.1.0, {@link cs1302.tracer.api.SourceBundle} captures an ordered set of named

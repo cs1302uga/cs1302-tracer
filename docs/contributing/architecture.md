@@ -243,7 +243,19 @@ implementation text. Capture requests observations for a declaring class, method
 argument types, and source line. Method matching and location-sensitive lambda
 selection remain with source analysis, including the first-assignment fallback.
 Lambda rendering uses a call-local parser, so independent workers do not share
-mutable parser state. `AstTypeResolver` holds reusable source-derived type indexes.
+mutable parser state. `AstTypeResolver` holds source-derived type indexes and lazily
+supplements them with immutable class-file descriptors and signatures supplied by
+the prepared job's `BinaryTypeSolver`. That solver reuses its ordered bytecode
+lookup and class pool without loading dependency classes into the host JVM.
+Binary declaration caches and hierarchy composition retain exact binary identities;
+canonical display names require evidence that they resolve to the same declaration.
+This preserves legal `$` identifiers and distinguishes a nested class from a
+different class whose package produces the same dotted spelling. Generic hierarchy
+traversal composes superclass and interface arguments; heap inspection resolves
+each instance field against its JDI declaring owner. These declaration caches belong
+to the job, while snapshot-specific bindings remain with the type evidence described
+below. Binary declarations do not add library source listings or source-line
+breakpoints.
 
 `BreakpointReader` uses ASM to read SourceFile and line-number attributes without
 loading or executing guest classes. All compiled classes contribute to its index,
@@ -283,6 +295,14 @@ without invoking a guest method.
 one snapshot. All captured threads share it. Callers submit fallback or refined
 evidence instead of mutating a map or invalidating bindings. Frame bindings are
 read-only. `InvocationTypeResolver` contributes source-based method substitutions.
+
+Hidden binary lambda objects retain observed functional-interface views separately
+from concrete runtime type evidence. Reference observations verify actual JDI
+interface membership and a resolvable single abstract method. `HeapInspection`
+finalizes these object headings after traversal, using the interface type with a
+`λ` presentation marker only when the accumulated evidence supports it.
+This keeps late field evidence effective without feeding display markers into
+generic substitution or changing source-reconstructed lambda bodies.
 
 Fallback evidence fills missing entries. Refinement preserves runtime-name,
 generic, and concrete-over-wildcard precedence; conflicting concrete arguments

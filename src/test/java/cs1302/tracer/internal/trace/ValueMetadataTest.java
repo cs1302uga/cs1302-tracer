@@ -141,8 +141,10 @@ class ValueMetadataTest {
     void rawGenericFieldsRetainErasureUntilConcreteBindingsAreAvailable() {
         var resolver = new AstTypeResolver(com.github.javaparser.StaticJavaParser
                 .parse("class Box<T> { T element; String text; java.util.List<T> list; }"));
+        var owner = mirror(ReferenceType.class, Map.of("name", "Box"));
         var fields = List.of("element", "text", "list", "unknown").stream().map(name -> mirror(Field.class,
-                Map.of("name", name, "typeName", "java.lang.Object", "isStatic", false, "isFinal", false))).toList();
+                Map.of("name", name, "typeName", "java.lang.Object", "isStatic", false, "isFinal", false,
+                        "declaringType", owner))).toList();
         var type = mirror(ReferenceType.class, Map.of("name", "Box", "allFields", fields));
         var root = object(type, Map.of());
         var raw = (TraceValue.Object) inspect(root, new ReifiedTypeMetadata(resolver));
