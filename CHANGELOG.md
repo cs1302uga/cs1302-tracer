@@ -29,6 +29,9 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 [Changes since v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...HEAD).
 
+Implementation: [3c9c8a7](https://github.com/cs1302uga/cs1302-tracer/commit/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf)
+— Consistent lambda signature type presentation across both serializers, preserving bodies.
+
 Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae)
 — Maven configuration, dependency updates, and portable launcher distributions.
 
