@@ -273,10 +273,108 @@ with the updated tracer.
 
 ## Modern format
 
-`steps` contains chronological snapshots, with `callStack`, `statics`, and `heap`.
-References use `{"ref": id}`; IDs identify objects within the result and are not
-stable across runs. Variables include name, type, value, and finality metadata.
-Output/input fields record captured streams and guest input consumption.
+These tables describe the modern payload, which appears at the JSON root for
+ordinary CLI output and inside the envelope's `trace` for CLI envelopes, Java,
+and batch. [Result contracts](#result-contracts) determine whether that payload
+contains a sequence or a selected-breakpoint mapping. Unset fields follow the
+[null-property rules](#null-properties-in-modern-output); optional does not mean
+that key presence alone identifies a mode.
+
+### Root fields
+
+| Field | JSON value | Meaning |
+| --- | --- | --- |
+| `code` | String | Original submitted text, including multi-file delimiters when supplied. |
+| `format` | String | Always `"modern"` for this payload. |
+| `stdin` | String | Guest input supplied for the job; empty when omitted. |
+| `steps` | Array of steps | Available for final-state and chronological output, and for every available envelope payload. Null or absent for ordinary selected-breakpoint output. |
+| `breakpoints` | Object keyed by line number | Ordinary selected-breakpoint output: each value is a step or an array of steps, as defined in [result contracts](#result-contracts). Null or absent for sequence output. |
+| `sources` | Object mapping source paths to strings | Submitted source text under package-relative debug identities; see [shared source metadata](#shared-source-metadata). |
+| `entryFile` | String | Key in `sources` identifying the selected entry file. |
+
+### Step fields
+
+| Field | JSON value | Meaning |
+| --- | --- | --- |
+| `step` | Integer | One-based position in its emitted sequence. Numbering restarts within each selected-breakpoint bucket; it is not an instruction counter. |
+| `line` | Integer | Source line of the top captured frame, or zero when `callStack` is empty. |
+| `file` | String, null, or absent | Debug source path for the event location. A path need not be a key in `sources`; see [source lookup](#shared-source-metadata). |
+| `event` | String | `step_line` for single-stack snapshots, including main exit and terminal exceptions. Multithread capture adds the [thread event labels](#opt-in-thread-capture). |
+| `method` | String | Top captured frame's method name, or an empty string when there is no captured frame. |
+| `callStack` | Array of frames | Captured event-thread stack, bottommost frame first and topmost last. |
+| `statics` | Array of variables | Captured static fields; this is not every static field in the JVM. |
+| `heap` | Object keyed by identity string | Captured reachable objects. A reference `{"ref": 49}` selects `heap["49"]` in that step; IDs are opaque and not stable across runs. |
+| `stdout`, `stderr` | Strings | Captured guest streams, with [mode-specific cumulative output](#input-and-output-observations). |
+| `stdinConsumed` | String | Observed consumed prefix of guest input, subject to the [reader-observation boundary](#input-and-output-observations). |
+| `stdinOffset` | Integer | Zero-based UTF-16 code-unit length of that observed prefix. |
+| `threads` | Array of thread records, null, or absent | Multithread records described [below](#opt-in-thread-capture); unset in single-stack capture. |
+| `triggeringThreadId` | Integer, null, or absent | Identity of the event thread in multithread capture; unset in single-stack capture. |
+
+### Frame and variable fields
+
+Frames in both `callStack` and `threads[].callStack` use these fields:
+
+| Frame field | JSON value | Meaning |
+| --- | --- | --- |
+| `methodName` | String | Method name for that captured invocation. |
+| `line` | Integer | Debug source line for this frame; debug information can be unavailable. |
+| `file` | String, null, or absent | Frame's debug source path, which can lack corresponding submitted text. |
+| `isHighlighted` | Boolean | True for the topmost captured frame in that stack. |
+| `this` | Reference, null, or absent | Receiver object for an instance invocation when captured. Static frames have no receiver; `--remove-method-this` suppresses it. |
+| `locals` | Array of variables | Locals visible to the debugger at this stop. A variable not yet in scope is not an entry; `--remove-main-args` can also omit the entry frame's `args` local. |
+
+Locals, static fields, and ordinary instance fields share one variable record:
+
+| Variable field | JSON value | Meaning |
+| --- | --- | --- |
+| `name` | String | Variable or field identifier; specialized map entries use a synthetic key label. |
+| `type` | String | Captured declared or inferred type label, formatted by `--type-style`; specialized map entries use `"entry"`. |
+| `value` | Number, boolean, string, reference, or null/absent | Primitive value, `{"ref": id}`, or a null reference. Java `char` uses a string containing one UTF-16 code unit; [non-finite floats](#floating-point-special-values) use strings. A null variable remains an entry even when ordinary CLI JSON omits its `value` property. |
+| `final` | Boolean | Captured declaration's finality metadata; false for synthetic map entries. It does not mean that a referenced object is immutable. |
+| `binary` | Object or absent | Optional descriptor for a direct primitive value when binary metadata is enabled; see [modern placement](#modern-placement). |
+
+The presence of the variable entry distinguishes a visible null reference from a
+missing local. For a null reference, ordinary modern CLI JSON omits `value`, while
+envelope, Java, and batch JSON include `"value": null`. Null elements in an array's
+`elements` remain JSON null in every mode; omission applies to object properties.
+
+### Heap fields and kinds
+
+Every heap entry has `id`, `type`, and `kind`. The kind selects its payload fields;
+unrelated fields are null or absent according to the output mode.
+
+| Heap field | JSON value | Meaning |
+| --- | --- | --- |
+| `id` | Integer | Object identity, matching the string key in `heap` and numerical `ref` values. |
+| `type` | String | Captured object type label after type-style formatting; lambda entries use `"lambda"`. Enum object labels can include the constant name. |
+| `kind` | String | One of the six kinds below; inspection policy can change the selected representation. |
+| `fields` | Array of variables, null, or absent | Instance fields or specialized map entries for `object`. |
+| `elements` | Array of values, null, or absent | Ordered captured elements for `array`, using the same literal/reference/null encoding as variable values. |
+| `value` | Scalar, null, or absent | String contents, a boxed primitive, or a color string, depending on `kind`. |
+| `sam` | String, null, or absent | Detected single-abstract-method implementation description for `lambda`. |
+| `binary` | Object or absent | Optional descriptor for a specialized boxed primitive. |
+| `elementBinary` | Array or absent | Optional descriptors aligned with `elements`; nonprimitive positions are null. |
+
+| `kind` | Payload | Representation |
+| --- | --- | --- |
+| `object` | `fields` | Ordinary object fields; specialized trusted maps instead expose synthetic entries. Enum labels can include their constant name. |
+| `array` | `elements` | Java arrays and trusted logical collection representations. `type` distinguishes their captured types. |
+| `string` | `value` | String contents. Modern output keeps string references and heap entries even with `--inline-strings`. |
+| `lambda` | `sam` | Lambda implementation description, with `type: "lambda"`. |
+| `box` | `value` | Specialized boxed primitive using the corresponding primitive JSON encoding. |
+| `color` | `value` | Color text: `#RRGGBB` when opaque, otherwise `#RRGGBBAA`, with alpha last. |
+
+Trusted map entries currently put `String.valueOf` of the rendered key in `name`,
+`"entry"` in `type`, and the map value in `value`. For a reference key, the label
+can look like `Reference[ref=49]`; it is not a structured key/reference field.
+Do not parse it as though it were the `{"ref": 49}` value encoding.
+
+Under `FIELDS` inspection, collections and wrappers are ordinary objects whose
+captured fields can differ from these trusted logical representations. Arrays,
+strings, and colors keep their dedicated representations. See
+[inspection policies](../BOUNDED_TRACING.md#inspection-policies) and the existing
+[primitive metadata contract](#optional-primitive-binary-metadata) for those
+separate choices; enabling metadata does not change the kind or original value.
 
 ### Opt-in thread capture
 
@@ -288,8 +386,16 @@ Without `--multithread`, thread data is absent or null according to the
 represent this mode; the CLI, batch validation, and Python Tutor serializer reject
 it explicitly.
 
-Each `threads` entry has `id`, `name`, `state`, and `callStack`. IDs are guest
-object identities, stable within one job and unrelated to a thread's name.
+Each `threads` entry has the following fields:
+
+| Field | JSON value | Meaning |
+| --- | --- | --- |
+| `id` | Integer | Guest thread identity within the job, unrelated to its name. |
+| `name` | String | Observed thread name. |
+| `state` | String | Observed JDI execution state listed below. |
+| `callStack` | Array of frames | Captured application frames, using the [frame fields](#frame-and-variable-fields). |
+
+IDs are guest object identities, stable within one job and unrelated to a thread's name.
 Stacks contain submitted application frames, bottommost first. The top-level
 `callStack` remains the triggering thread's application stack. All stacks share
 one `heap` and one set of `statics`; the same reference ID means the same object.
@@ -483,6 +589,12 @@ not included; timeout alone does not prove deadlock.
 `trace` contains snapshots with `stack_to_render`, `heap`, and `stdout`.
 References use `["REF", id]`; heap objects use tagged tuple arrays. Additional
 metadata such as `locals_attrs` and `heap_attrs` preserves Java type information.
+
+A visible null reference local has an explicit JSON null in `encoded_locals`,
+such as `"label": null`. Its name remains in `ordered_varnames`, with its type and
+finality metadata in `locals_attrs`. Python Tutor serialization preserves these
+null entries in ordinary and envelope output alike; a local absent from the frame
+has no `encoded_locals` entry.
 
 <!-- pytutor:start -->
 ```json

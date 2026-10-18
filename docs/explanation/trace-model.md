@@ -25,6 +25,30 @@ several operations, and a loop can revisit the same line. Some source lines have
 no executable location. The trace therefore is not a log of every bytecode
 instruction or every memory operation.
 
+## Null references and local visibility
+
+A reference variable can be visible and hold `null`. It then refers to no object,
+so there is no heap entry to follow from that value. A local not yet in scope has
+no entry in the captured frame. In the tutorial, `answer` is also absent from the
+debugger's visible locals at the stop before its initializing statement executes;
+that absence is not an encoded null value.
+
+For example, after `String label = null;` has executed and `label` is visible,
+ordinary modern CLI JSON includes a variable entry such as
+`{"name":"label","type":"java.lang.String","final":false}`. The missing
+`value` property represents its null reference. Modern envelope, Java, and batch
+JSON preserve the same entry with `"value": null`. In both cases the variable
+exists in `locals`; an absent variable has no entry at all. Presentation filters,
+scope, and available debugger information also affect which locals are shown,
+so absence alone does not establish a Java value.
+
+Python Tutor output records a visible null local explicitly: the frame's
+`encoded_locals` includes `"label": null`, and its variable metadata remains
+available in `locals_attrs`. The two formats express the same Java null value;
+the modern ordinary-output omission is a serialization choice, not a different
+program state. See the [modern variable fields](../reference/output.md#frame-and-variable-fields)
+and [null-property rules](../reference/output.md#null-properties-in-modern-output).
+
 ## Frames and heap objects describe different parts of the state
 
 In modern JSON, `callStack` describes captured method frames and their locals.

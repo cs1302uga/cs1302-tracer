@@ -78,8 +78,8 @@ diagnostics to the terminal's stderr, outside the JSON trace.
 At this point, you have connected a source assignment to its local value, followed
 an object reference, and found the printed result. For the reasons behind these
 representations, read [How a trace represents execution](../explanation/trace-model.md).
-The [JSON output reference](../reference/output.md) defines the complete fields
-and includes full output examples.
+The [modern field reference](../reference/output.md#modern-format) defines the
+fields used here and includes full output examples.
 
 ## Observe a field mutation
 
