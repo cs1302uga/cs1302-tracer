@@ -563,7 +563,8 @@ public record PyTutorSerializer(boolean removeMainArgs, boolean inlineStrings, b
             } // if
             yield List.of("INSTANCE", "String", List.of("___NO_LABEL!___", stringValue.value()));
         } // case
-        case TraceValue.Lambda lambdaValue -> List.of("JAVA_LAMBDA", lambdaValue.implementation());
+        case TraceValue.Lambda lambdaValue -> List.of("JAVA_LAMBDA",
+                LambdaSignatures.format(lambdaValue.implementation(), this.typeStyle));
         case TraceValue.List listValue -> {
             List<Object> list = new ArrayList<>();
             list.add("LIST");

@@ -186,6 +186,10 @@ both the retained snapshots and the JSON root shape.
 | Binary dependencies | None; the host `CLASSPATH` is not imported. | Repeatable `--class-path`, `-classpath`, or `-cp`. |
 | Budgets | Finite instructor defaults. | Explicit `--max-*` options or `--timeout-ms`; `--result-envelope` switches omitted limits to unlimited. |
 
+`--type-style` also controls the return and parameter types in
+[reconstructed lambda signatures](output.md#lambda-implementation-types), including
+generic arguments and arrays. It preserves the lambda body's text in both formats.
+
 See [result contracts](output.md#result-contracts) for the exact JSON root shapes,
 [bounded tracing](../BOUNDED_TRACING.md) for numeric defaults, and
 [tracing recipes](../guides/tracing.md) for complete commands and source files.

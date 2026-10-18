@@ -38,7 +38,7 @@ stream processing does not mean every job completed successfully.
 | `classPath` | Optional ordered array of literal path strings, `{ "path": "..." }` objects, or `{ "root": "...", "glob": "..." }` objects; omitted or null means no binary dependencies. |
 | `copyClassPath` | Optional boolean, false when omitted or null; capture dependency copies before compilation for this job. |
 | `followClassPathLinks` | Optional boolean, false when omitted or null; follow links encountered during dependency glob discovery and directory copying. |
-| `typeStyle` | `fqn` (default) or `simple`. |
+| `typeStyle` | `fqn` (default) or `simple`; applies to type labels and [lambda signature types](output.md#lambda-implementation-types), preserving lambda body text. |
 | `limits` | Envelope limits using camelCase names; omitted limits are unlimited. |
 | `inspection` | `TRUSTED` (default) or `FIELDS`. |
 | `multithread` | Opt-in platform-thread capture; requires `modern`, implies chronological capture and field-only inspection. |

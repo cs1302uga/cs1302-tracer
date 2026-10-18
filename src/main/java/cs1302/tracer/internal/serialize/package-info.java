@@ -9,6 +9,7 @@
  * {@link cs1302.tracer.internal.serialize.PyTutorSerializer} produces Python Tutor-compatible output, and
  * {@link cs1302.tracer.internal.serialize.ModernTraceSerializer} produces modern object-graph output.
  * Both apply presentation options and source metadata to captured state.
+ * Type-style presentation includes generated lambda return and parameter types without rewriting lambda bodies.
  * Prepared rendering uses detached {@link cs1302.tracer.internal.SubmittedSources} rather than reparsing input.
  * Raw-source rendering uses the shared parser without requiring successful compilation or a main method.
  * Metadata projection stays at each format's existing call point to preserve failure precedence.

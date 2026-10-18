@@ -96,6 +96,26 @@ Python Tutor retains its existing literal conventions: floats use
 `["NUMBER-LITERAL", "value"]`, while non-finite doubles use
 `["SPECIAL_FLOAT", "value"]`, with the same special-value spellings.
 
+## Lambda implementation types
+
+Reconstructed lambda implementations include a method signature and body. In both
+JSON formats, `--type-style` applies to the signature's return and parameter types,
+including types inside generic arguments and arrays. The default `fqn` style
+preserves their qualification; `simple` removes dotted prefixes with the same
+presentation rule used for other type labels. It does not resolve Java names or
+change the lambda body's text.
+
+For example, the generated signature `java.lang.String apply(java.lang.Integer x)`
+becomes `String apply(Integer x)` with `--type-style simple`, while the body
+`return "java.lang." + x;` is unchanged. Qualified calls, comments, string literals,
+and other body text are not type labels. Python Tutor keeps the existing
+`["JAVA_LAMBDA", implementation]` representation; modern output keeps the existing
+lambda heap object's `sam` field. No fields or schemas are added.
+
+The same behavior applies to the batch request's `typeStyle` field and the Java
+API's `TypeStyle` setting. Consumers must regenerate cached traces to obtain the
+updated signature formatting.
+
 ## Generic method variable types
 
 Stack variable labels describe source-declared types for the active invocation.

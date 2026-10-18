@@ -5,8 +5,8 @@ import org.apiguardian.api.API;
 import java.util.regex.Pattern;
 
 /**
- * Represents the type qualification style used when rendering types in stack frames, object labels, and variable
- * attributes.
+ * Represents the type qualification style used when rendering types in stack frames, object labels, variable
+ * attributes, and reconstructed lambda return and parameter types. Lambda bodies retain their captured text.
  */
 @API(status = API.Status.STABLE, since = "4.0.0")
 public enum TypeStyle {
