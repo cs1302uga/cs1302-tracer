@@ -91,7 +91,7 @@ Generate an execution trace for a Java program.
       --remove-main-args     Don't include the main method's args parameter in the output.
       --remove-method-this   Don't include the value of this for methods in the output.
       --result-envelope      Emit versioned job status and trace JSON.
-  -s, --inline-strings       If provided, strings are inlined into fields.
+  -s, --inline-strings       Inline strings into Python Tutor fields; has no effect on modern JSON.
       --stdin=<stdin>        Input string provided to the traced program via standard input.
       --stdin-file=<stdinFile>
                              Path to file whose content is provided to the traced program via
@@ -200,8 +200,8 @@ values are supplied. `--max-snapshot-bytes` applies to both capture modes.
 
 `--inline-strings` changes Python Tutor presentation only; it defaults to false.
 Modern JSON continues to represent strings through references and heap string
-objects, regardless of that flag. The generated help currently lacks this format
-qualification. See [string representation](output.md) for the output contract.
+objects, regardless of that flag. See [string representation](output.md) for the
+output contract.
 
 ## Source input and discovery
 

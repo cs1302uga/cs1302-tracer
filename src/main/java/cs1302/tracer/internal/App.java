@@ -265,7 +265,8 @@ public class App {
                 description = "Don't include the main method's args parameter in the output.")
         boolean removeMainArgs = false;
 
-        @Option(names = { "--inline-strings", "-s" }, description = "If provided, strings are inlined into fields.")
+        @Option(names = { "--inline-strings", "-s" },
+            description = "Inline strings into Python Tutor fields; has no effect on modern JSON.")
         boolean inlineStrings = false;
 
         @Option(names = "--include-primitive-bits",
