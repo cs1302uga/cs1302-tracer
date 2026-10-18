@@ -507,11 +507,17 @@ else:
             """
 import sys
 from pathlib import Path
-assert '-P!docsite' in sys.argv
-output = Path('target/reports/apidocs')
-output.mkdir(parents=True, exist_ok=True)
-for name in ('index.html', 'search.html', 'element-list'):
-    (output / name).write_text('API')
+if 'dependency:tree' in sys.argv:
+    prefix = '-Ddependency.docs.outputDirectory='
+    output = Path(next(arg.removeprefix(prefix) for arg in sys.argv if arg.startswith(prefix)))
+    (output / 'tree.json').write_text('{"artifactId": "cs1302-tracer", "children": []}')
+    (output / 'metadata.json').write_text('{"dependencies": []}')
+else:
+    assert '-P!docsite' in sys.argv
+    output = Path('target/reports/apidocs')
+    output.mkdir(parents=True, exist_ok=True)
+    for name in ('index.html', 'search.html', 'element-list'):
+        (output / name).write_text('API')
 """,
         )
         executable(
@@ -529,6 +535,12 @@ if os.environ.get('BAD_SITE'):
 (output / 'index.html').write_text(text)
 """,
         )
+        (self.root / "LICENSE").write_text("MIT License\n")
+        authoring = self.root / "docs/contributing/documentation-authoring.md"
+        authoring.parent.mkdir(exist_ok=True)
+        authoring.write_text("# Authoring\n\n## Maintain license and dependency pages\n")
+        result = invoke(self.root, "dependency_docs.py", "update", env=self.env)
+        self.assertEqual(result.returncode, 0, result.stderr)
         result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         result = invoke(self.root, "docs_site.py", "verify", env=self.env)

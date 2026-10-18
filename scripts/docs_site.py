@@ -79,6 +79,10 @@ def main() -> None:
             plan = project.plan(args.mode, records, pending_commit=args.pending_commit)
             validate_retention(ROOT, plan)
         if args.action == "verify":
+            with timings.measure("dependency-inventory"):
+                subprocess.run(
+                    [sys.executable, str(ROOT / "scripts/dependency_docs.py"), "check"], cwd=ROOT, check=True
+                )
             with timings.measure("executable-docs"):
                 subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py")], cwd=ROOT, check=True)
             with timings.measure("release-metadata"):

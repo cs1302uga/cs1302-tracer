@@ -141,8 +141,8 @@ jobs:
         run: ./scripts/uv sync --locked
       - name: Check Maven version ownership
         run: ./scripts/uv run --locked python scripts/check_pom.py
-      - name: Test documentation navigation and isolated guide configuration
-        run: node --test --experimental-test-coverage website/tests/guide-navigation.test.cjs
+      - name: Test documentation navigation, dependency controls, and isolated guides
+        run: node --test --experimental-test-coverage website/tests/*.test.cjs
       - name: Lint, format, and type-check scripts
         run: |
           ./scripts/uv run --locked ruff check scripts

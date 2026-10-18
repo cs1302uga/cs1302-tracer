@@ -75,6 +75,93 @@ uploads a report. It is not a required PR check because remote availability is
 outside this repository's control. A newly configured site can return 404 until
 its first deployment.
 
+## Maintain license and dependency pages
+
+The [project license](../reference/licenses.md) reproduces the repository's
+`LICENSE` text exactly. The [dependency reference](../reference/dependencies.md)
+lists resolved **Maven** project dependencies, including transitive dependencies,
+with exact versions, artifact types, effective scopes, descriptions, declared
+licenses, and a dependency tree. It separates dependencies shipped at runtime
+from test dependencies. Build plugins and the frontend and Python toolchains are
+outside this Maven project-dependency inventory. Packaged runtime notices and
+the CLI's `show-licenses` command remain a separate source of bundled notices.
+
+The reference uses each dependency's `artifactId` as its primary label, linked to
+the declared project website when available, with its version below. Repeated
+artifact IDs also show their `groupId`. Runtime and test sections place direct
+dependencies before transitive dependencies, with subgroup counts; entries in
+each subgroup are alphabetical by artifact ID, with the full resolved coordinate
+breaking ties. Compact scope and relationship labels, such as `compile · Direct`,
+leave all declared licenses visible.
+
+Expand **Details** to read the exact upstream project name, complete description,
+resolved coordinate, artifact type, optional classifier, and any license-correction
+evidence. The full-width native HTML disclosure works without JavaScript and
+keeps the generated Markdown readable on GitHub. Responsive entries, desktop
+table headers that remain below the navigation bar while scrolling, and bulk
+controls are site enhancements.
+
+When changing the layout, review the desktop table and narrow-screen entries,
+including a dependency with a long description and one with several licenses.
+Confirm that subgroup order and counts are clear, that desktop headers stay
+readable below the navigation bar, and that each disclosure works independently.
+Check the site's **Expand all** and **Collapse all** controls and confirm that
+printing includes all metadata and then restores the previous open/closed states.
+Generated-content checks detect drift; they do not replace this review of rendered
+behavior. GitHub does not use the site's stylesheet or bulk controls.
+
+After changing dependencies, their metadata, or `LICENSE`, run these commands
+from the repository root with a full **JDK**:
+
+```sh
+./scripts/uv run python scripts/dependency_docs.py update
+./scripts/uv run python scripts/dependency_docs.py check
+```
+
+Both commands freshly resolve the Maven dependency graph and metadata.
+`update` writes the generated license and dependency pages; review their diff
+before committing. `check` compares freshly generated content with the checked-in
+pages and fails on drift without rewriting those pages. It does not rely on a
+previously saved dependency report. Maven resolution can require network access
+and populate local caches in either mode.
+
+Missing license names or URLs stop validation. When an upstream POM omits a
+declaration or leaves one incomplete, add a reviewed correction to
+`scripts/dependency-license-overrides.json`, keyed by the exact
+`groupId:artifactId:version`. Each entry has this shape:
+
+```json
+{
+  "groupId:artifactId:version": {
+    "licenses": [
+      {"name": "Verified license name", "url": "https://example.org/license"}
+    ],
+    "source": "https://example.org/upstream-license-evidence",
+    "reason": "Explain why this exact artifact needs the correction."
+  }
+}
+```
+
+Replace the example with the artifact's actual coordinates, licenses, and HTTPS
+source evidence. An override can fill a missing name or URL while preserving every
+known name and URL. Include all upstream declarations in its `licenses` array,
+including any that are already complete; an override cannot drop a declaration
+or change its known fields. Stale entries for artifacts no longer resolved, and
+redundant entries whose upstream declarations are now complete, fail validation.
+Recheck the evidence when upgrading the artifact. Missing descriptions remain
+explicitly identified in the generated inventory rather than being invented.
+
+The complete `docs_site.py verify` workflow runs the no-write check in its
+`dependency-inventory` stage before the other documentation checks. The same gate
+runs through Maven's `docsite` profile in CI and release validation.
+
+Generated content omits timestamps and uses a version-independent project root
+label while preserving exact dependency versions. Project-version-only release
+commits therefore do not make these pages stale. Update current pages and include
+them in future release snapshots; keep a pending snapshot in agreement with
+current docs. Preserve published snapshots and their own release's dependency
+information instead of regenerating them from the development checkout.
+
 ## Keep release snapshots accurate
 
 Current guides describe the development checkout. Published snapshots describe

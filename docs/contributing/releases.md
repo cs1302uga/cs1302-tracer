@@ -35,9 +35,13 @@ these instructions; replace the placeholders below with reviewed values.
 Reconcile `CHANGELOG.md` against the real release range. Keep the pending summary
 in `Unreleased` until publication supplies its actual date and final commit IDs.
 Finish current docs, build the executable, refresh CLI help when needed, and check
-the documented behavior. Set the development POM to the selected release's
-`X.Y.Z-SNAPSHOT` as part of the ordinary reviewed changes, then prepare the stable
-documentation without changing that POM:
+the documented behavior. Refresh and review the
+[license and dependency references](documentation-authoring.md#maintain-license-and-dependency-pages)
+before preparing the snapshot. Their generated project root label is independent
+of the project version, so the release plugin's version-only transitions preserve
+agreement while the dependency versions remain exact. Set the development POM to
+the selected release's `X.Y.Z-SNAPSHOT` as part of the ordinary reviewed changes,
+then prepare the stable documentation without changing that POM:
 
 ```sh
 git fetch --tags
@@ -103,7 +107,8 @@ Before creating the release commit and tag, the real gate runs full Java tests
 with 100% production line and branch coverage; Python lint, format, type, and 100%
 coverage checks including subprocesses; trace fixtures; local launcher regression
 and packaged-launcher smoke checks; exact release-snapshot agreement; executable
-documentation; public/internal **Javadoc**; and the docsite build and rendered links.
+documentation; fresh license/dependency-reference validation; public/internal
+**Javadoc**; and the docsite build and rendered links.
 Guest execution and documentation checks run serially. Previously generated Java
 coverage is preserved as audit evidence instead of being merged into a fresh
 measurement. CI supplies the additional configured OS/JDK and native Windows

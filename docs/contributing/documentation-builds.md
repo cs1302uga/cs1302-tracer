@@ -17,8 +17,9 @@ root, build and verify the complete site with **Maven**:
 The opt-in profile uses **frontend-maven-plugin 2.0.2** to install **Node.js 24.22.0 LTS**
 and its bundled **npm 11.19.1** under `target/frontend/`. No global Node/npm is needed.
 It runs `npm ci` against `website/package-lock.json`, packages the tracer, then
-checks executable documentation and release metadata, generates **Javadoc** and the
-site, and checks rendered links. Any failed step fails Maven. Ordinary Maven builds
+checks the generated license and dependency references, executable documentation,
+and release metadata, generates **Javadoc** and the site, and checks rendered
+links. Any failed step fails Maven. Ordinary Maven builds
 leave the frontend toolchain alone. `clean` removes the local toolchain under
 `target/`; downloaded distributions remain in Maven's cache.
 
@@ -31,6 +32,13 @@ on the child process PATH; `build:maven` enters the managed Python environment
 through `scripts/uv`. Python 3.15 and locked tooling are provisioned by that wrapper.
 The complete site workflow uses the repository's Unix shell tooling on Linux/macOS;
 this profile does not establish native Windows docsite support.
+
+The complete verification workflow runs `dependency_docs.py check` in the
+`dependency-inventory` stage before the other documentation checks. It resolves
+current Maven dependencies and metadata and rejects stale generated pages or
+missing licensing without rewriting the pages. Follow
+[license and dependency page maintenance](documentation-authoring.md#maintain-license-and-dependency-pages)
+to update them and review any metadata corrections before rerunning verification.
 
 For live editing, bootstrap the frontend without packaging, then use its tools:
 
@@ -208,8 +216,9 @@ generated-output cache makes the next source build regenerate historical Javadoc
 it does not remove a published release artifact.
 
 `website/build-timings.json` records the Python documentation run's applicable
-stages: release selection, executable documentation, release metadata, per-version
-Javadoc with output-selection/cache outcomes, Docusaurus, and rendered-link checks.
+stages: release selection, dependency inventory (`dependency-inventory`), executable
+documentation, release metadata, per-version Javadoc with output-selection/cache
+outcomes, Docusaurus, and rendered-link checks.
 The report includes the selected `javadocSource`; `release-asset` and
 `release-asset-cache` identify verified downloaded and locally retained bundles.
 The separate `website/npm-ci-timing.json` records dependency installation with its

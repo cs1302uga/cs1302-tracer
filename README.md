@@ -75,6 +75,7 @@ library JAR and traces a program using a recursive class-path pattern.
 - [Read a trace](docs/tutorials/read-a-trace.md), [trace a loop](docs/tutorials/trace-a-loop.md), and [understand the trace model](docs/explanation/trace-model.md).
 - [Trace your own program](docs/guides/tracing.md), [process batch jobs](docs/tutorials/batch-jobs.md), or [integrate with Java](docs/tutorials/java-integration.md).
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).
+- [Project license](docs/reference/licenses.md) and [resolved Maven dependencies](docs/reference/dependencies.md), including runtime and test scopes and declared licenses.
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
 - [HACKING](HACKING.md) — contributor setup and quality gates.
 
@@ -84,6 +85,10 @@ update those versions.
 
 ## License
 
-First-party code and documentation are [MIT licensed](LICENSE).
-Dependency notices retain their original terms. Display bundled dependency notices
-with `java -jar target/code-tracer.jar show-licenses`.
+First-party code and documentation are [MIT licensed](LICENSE); the
+[project license reference](docs/reference/licenses.md) reproduces that text.
+The [dependency reference](docs/reference/dependencies.md) lists resolved Maven
+project dependencies and their declared licenses, separating runtime dependencies
+from test dependencies. Display the separate bundled runtime dependency notices
+with `java -jar target/code-tracer.jar show-licenses`; those notices retain their
+original terms.

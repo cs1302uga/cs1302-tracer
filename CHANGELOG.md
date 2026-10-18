@@ -61,6 +61,10 @@ Implementation: [61ab6bd](https://github.com/cs1302uga/cs1302-tracer/commit/61ab
 — Download-first documentation, verified offline API guidance, and focused
 maintainer guides with preserved section links.
 
+Implementation: [58e8f8e](https://github.com/cs1302uga/cs1302-tracer/commit/58e8f8e5fc753c51505fe252df798be6dcd9e2e8)
+— Verified CLI lessons, standalone tracing recipes, result-contract guidance,
+and grouped troubleshooting.
+
 ### Breaking changes
 
 - **CLI environment:** every command, including help, version, and licenses, now
@@ -78,6 +82,20 @@ maintainer guides with preserved section links.
   are unchanged.
 
 ### Non-breaking changes
+
+- **Dependency documentation:** publish the exact project license and a generated
+  inventory of resolved Maven project dependencies, separating runtime and test
+  dependencies with their versions, scopes, artifact types, declared licenses,
+  and dependency tree. Compact desktop tables and phone entries use artifact IDs
+  and group direct dependencies before transitive dependencies, keeping all
+  licensing visible while expandable details retain exact upstream names and
+  complete metadata. Desktop column headers stay visible while scrolling. The
+  site adds controls to expand or collapse all entries and includes their details
+  when printing; individual disclosures also work without JavaScript. Documentation
+  and release verification freshly check the inventory and reject drift or missing
+  licensing; reviewed, source-linked corrections cover missing upstream licensing
+  metadata. Java, CLI, JSON/protocol, packaged notices, and published snapshots
+  retain their existing behavior.
 
 - **CLI learning materials:** add a loop tutorial and a trace-model explanation,
   annotate the first trace's local values and heap relationships, and supply
