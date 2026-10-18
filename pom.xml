@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>4.2.0-SNAPSHOT</version>
+  <version>4.2.0</version>
 
   <name>cs1302-tracer</name>
   <description>Compiles Java programs, traces execution through JDI, and emits Python Tutor or modern JSON.</description>
@@ -18,7 +17,7 @@
     <connection>scm:git:https://github.com/cs1302uga/cs1302-tracer.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/cs1302uga/cs1302-tracer.git</developerConnection>
     <url>https://github.com/cs1302uga/cs1302-tracer</url>
-    <tag>HEAD</tag>
+    <tag>v4.2.0</tag>
   </scm>
   <issueManagement>
     <system>GitHub</system>
@@ -112,8 +111,8 @@
     <!-- Pin the docsite toolchain; npm is supplied by this Node distribution. -->
     <node.version>v24.22.0</node.version>
     <docsite.mode>preview</docsite.mode>
-    <docsite.releases></docsite.releases>
-    <docsite.pendingCommit></docsite.pendingCommit>
+    <docsite.releases />
+    <docsite.pendingCommit />
     <docsite.javadocCache>use</docsite.javadocCache>
     <docsite.javadocSource>auto</docsite.javadocSource>
     <docsite.guides>all</docsite.guides>
@@ -696,7 +695,7 @@
               <outputDirectory>${dependency.docs.outputDirectory}</outputDirectory>
               <thirdPartyFilename>metadata.json</thirdPartyFilename>
               <includedScopes>compile,runtime,test,provided,system</includedScopes>
-              <excludedScopes></excludedScopes>
+              <excludedScopes />
               <includeTransitiveDependencies>true</includeTransitiveDependencies>
               <force>true</force>
               <!-- Keep documentation exports out of packaged resources and repository notices. -->
@@ -790,13 +789,10 @@
               <target xmlns:if="ant:if">
                 <!-- Require this project's own .git entry, including linked-worktree files. -->
                 <available file="${project.basedir}/.git" property="provenance.checkout" />
-                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout"
-                  failifexecutionfails="false" outputproperty="provenance.head" errorproperty="provenance.head.error">
+                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout" failifexecutionfails="false" outputproperty="provenance.head" errorproperty="provenance.head.error">
                   <arg value="rev-parse" /><arg value="--verify" /><arg value="HEAD" />
                 </exec>
-                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout"
-                  failifexecutionfails="false" outputproperty="provenance.status" errorproperty="provenance.status.error"
-                  resultproperty="provenance.status.result">
+                <exec executable="git" dir="${project.basedir}" if:set="provenance.checkout" failifexecutionfails="false" outputproperty="provenance.status" errorproperty="provenance.status.error" resultproperty="provenance.status.result">
                   <arg value="status" /><arg value="--porcelain" /><arg value="--untracked-files=no" />
                   <arg value="--ignore-submodules=untracked" />
                 </exec>
@@ -815,8 +811,7 @@
                 <property name="git.dirty" value="false" />
                 <mkdir dir="${project.build.directory}" />
                 <!-- Write deterministic metadata without a timestamp for the source assembly. -->
-                <echo file="${project.build.directory}/build-provenance.properties"
-                  encoding="UTF-8">git.commit=${git.commit}
+                <echo file="${project.build.directory}/build-provenance.properties" encoding="UTF-8">git.commit=${git.commit}
 git.dirty=${git.dirty}
 </echo>
               </target>
@@ -830,20 +825,16 @@ git.dirty=${git.dirty}
             <configuration>
               <target>
                 <!-- Copy shell expressions literally and make the local launcher executable on Unix. -->
-                <copy file="${project.basedir}/src/main/scripts/code-tracer.sh"
-                  tofile="${project.build.directory}/code-tracer.sh" overwrite="true" filtering="false" />
-                <copy file="${project.basedir}/src/main/scripts/code-tracer.ps1"
-                  tofile="${project.build.directory}/code-tracer.ps1" overwrite="true" filtering="false" />
-                <copy file="${project.basedir}/src/main/scripts/code-tracer.cmd"
-                  tofile="${project.build.directory}/code-tracer.cmd" overwrite="true" filtering="false" />
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.sh" tofile="${project.build.directory}/code-tracer.sh" overwrite="true" filtering="false" />
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.ps1" tofile="${project.build.directory}/code-tracer.ps1" overwrite="true" filtering="false" />
+                <copy file="${project.basedir}/src/main/scripts/code-tracer.cmd" tofile="${project.build.directory}/code-tracer.cmd" overwrite="true" filtering="false" />
                 <!-- Normalize batch line endings even when packaging from a Unix checkout. -->
                 <fixcrlf srcdir="${project.build.directory}" includes="code-tracer.cmd" eol="crlf" />
                 <chmod file="${project.build.directory}/code-tracer.sh" perm="755" osfamily="unix" />
                 <!-- Replace only generated legacy launchers; incremental builds must not retain stale names. -->
                 <delete file="${project.build.directory}/code-tracer.bat" />
                 <delete file="${project.build.directory}/code-tracer" />
-                <copy file="${project.build.directory}/code-tracer.sh"
-                  tofile="${project.build.directory}/code-tracer" overwrite="true" />
+                <copy file="${project.build.directory}/code-tracer.sh" tofile="${project.build.directory}/code-tracer" overwrite="true" />
                 <!-- Native Windows needs no symlink privileges; Unix uses a relocatable relative link. -->
                 <exec executable="ln" dir="${project.build.directory}" osfamily="unix" failonerror="true">
                   <arg value="-sf" />
@@ -861,8 +852,7 @@ git.dirty=${git.dirty}
             </goals>
             <configuration>
               <target>
-                <copy file="${project.build.directory}/code-tracer-jar-with-dependencies.jar"
-                  tofile="${project.build.directory}/code-tracer.jar" overwrite="true" />
+                <copy file="${project.build.directory}/code-tracer-jar-with-dependencies.jar" tofile="${project.build.directory}/code-tracer.jar" overwrite="true" />
               </target>
             </configuration>
           </execution>
@@ -964,16 +954,16 @@ git.dirty=${git.dirty}
                     <fail message="Release validation requires Java tests and coverage without skip flags.">
                       <condition>
                         <or>
-                          <istrue value="${skipTests}"/>
-                          <istrue value="${maven.test.skip}"/>
-                          <istrue value="${jacoco.skip}"/>
+                          <istrue value="${skipTests}" />
+                          <istrue value="${maven.test.skip}" />
+                          <istrue value="${jacoco.skip}" />
                         </or>
                       </condition>
                     </fail>
                     <exec executable="${project.basedir}/scripts/uv" dir="${project.basedir}" failonerror="true">
-                      <env key="UVW_GIT_COMMIT" value="never"/>
-                      <arg value="run"/><arg value="--locked"/><arg value="python"/>
-                      <arg value="scripts/release_validate.py"/><arg value="initialize"/>
+                      <env key="UVW_GIT_COMMIT" value="never" />
+                      <arg value="run" /><arg value="--locked" /><arg value="python" />
+                      <arg value="scripts/release_validate.py" /><arg value="initialize" />
                     </exec>
                   </target>
                 </configuration>
@@ -985,9 +975,9 @@ git.dirty=${git.dirty}
                 <configuration>
                   <target>
                     <exec executable="${project.basedir}/scripts/uv" dir="${project.basedir}" failonerror="true">
-                      <env key="UVW_GIT_COMMIT" value="never"/>
-                      <arg value="run"/><arg value="--locked"/><arg value="python"/>
-                      <arg value="scripts/release_validate.py"/><arg value="verify"/>
+                      <env key="UVW_GIT_COMMIT" value="never" />
+                      <arg value="run" /><arg value="--locked" /><arg value="python" />
+                      <arg value="scripts/release_validate.py" /><arg value="verify" />
                     </exec>
                   </target>
                 </configuration>
@@ -1013,10 +1003,8 @@ git.dirty=${git.dirty}
                 <goals><goal>run</goal></goals>
                 <configuration>
                   <target>
-                    <available file="${project.build.directory}/build-provenance.properties"
-                      property="release.javadoc.provenance.available" />
-                    <fail unless="release.javadoc.provenance.available"
-                      message="Javadoc packaging requires generated build provenance." />
+                    <available file="${project.build.directory}/build-provenance.properties" property="release.javadoc.provenance.available" />
+                    <fail unless="release.javadoc.provenance.available" message="Javadoc packaging requires generated build provenance." />
                     <property file="${project.build.directory}/build-provenance.properties" />
                     <!-- Maven supplies its actual runtime version; reject an unresolved interpolation. -->
                     <fail message="Javadoc packaging requires the actual Maven runtime version.">
