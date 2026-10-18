@@ -29,6 +29,9 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 [Changes since v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...HEAD).
 
+Implementation: [3c9c8a7](https://github.com/cs1302uga/cs1302-tracer/commit/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf)
+— Consistent lambda signature type presentation across both serializers, preserving bodies.
+
 Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae)
 — Maven configuration, dependency updates, and portable launcher distributions.
 
@@ -89,6 +92,13 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   are unchanged.
 
 ### Non-breaking changes
+
+- **Lambda type presentation (CLI, Java API, and batch):** apply the selected
+  `fqn` or `simple` type style to reconstructed lambda return and parameter types
+  in both JSON formats, including generic arguments and arrays. Preserve the
+  lambda body's text, including qualified calls, comments, and string literals.
+  Output schemas and default fully qualified signatures are unchanged; regenerate
+  cached traces to obtain corrected simple-style signatures.
 
 - **Local commits:** run staged whitespace and Java Checkstyle checks without
   rerunning the complete Java suite on each commit. Local commits can precede
@@ -307,6 +317,38 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   Java API, CLI, and JSON/protocol contracts are unchanged.
 - **Release documentation:** record the 4.1.0 publication date and its squash-merged
   commit range.
+
+### Commits
+
+The committed range below is `v4.1.0..origin/main` as inspected before the lambda
+formatting fix. Add that fix and release-preparation commits when their identities
+are available; the implementation references above also identify work later
+integrated through squash merges.
+
+- [`dc8887f`](https://github.com/cs1302uga/cs1302-tracer/commit/dc8887fbad0390957500d929ef904cadad7ae00d) Keep local commits fast with staged whitespace and style checks (#28)
+- [`0dd30a3`](https://github.com/cs1302uga/cs1302-tracer/commit/0dd30a369409ea49f44e850f8e58c19b2acab061) Require strict regression gates before merging (#27)
+- [`fe8a93f`](https://github.com/cs1302uga/cs1302-tracer/commit/fe8a93f768fab5354e9083be97ba4e5034234ac8) Pin the Maven wrapper checksum in the POM (#26)
+- [`5775c7e`](https://github.com/cs1302uga/cs1302-tracer/commit/5775c7e16d16b60e030077e0118de3a0d3d8c538) Make the POM the single source of the Maven wrapper version (#25)
+- [`47e7d43`](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) Improve onboarding, teaching guides, and dependency documentation (#23)
+- [`0c8c7d7`](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb) Deploy historical guides from verified archives
+- [`a99e810`](https://github.com/cs1302uga/cs1302-tracer/commit/a99e810c99fd6e4f26ab852f6f5e687ff6046386) Pin verified guide archives for retained releases
+- [`e6b1d44`](https://github.com/cs1302uga/cs1302-tracer/commit/e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038) Clarify managed Python commands across documentation versions
+- [`2e6cf82`](https://github.com/cs1302uga/cs1302-tracer/commit/2e6cf824fec0279cc6d432876517b606142ceaac) Link the historical guide archive implementation in the changelog
+- [`7f023e9`](https://github.com/cs1302uga/cs1302-tracer/commit/7f023e932fb9c36b2d6ce04fbcf3c0693a0bba37) Bound documentation builds with verified historical guide archives
+- [`05b6c82`](https://github.com/cs1302uga/cs1302-tracer/commit/05b6c823de21ccda099d0212abf4e6587f0809d1) Publish verified release Javadoc and reuse it in documentation builds
+- [`43c8970`](https://github.com/cs1302uga/cs1302-tracer/commit/43c8970e7448206607ecce30f5f112a514dc23d8) Cache historical Javadoc and measure documentation builds
+- [`68d81e2`](https://github.com/cs1302uga/cs1302-tracer/commit/68d81e2a2959100d3cb2b8c0a845861f2fa02a4a) Standardize signed releases, CLI environment checks, and documentation builds
+- [`caf1355`](https://github.com/cs1302uga/cs1302-tracer/commit/caf1355923fcea4e8587a06c7bf1d008935b66e9) Link documentation improvements in the changelog
+- [`4ca34cd`](https://github.com/cs1302uga/cs1302-tracer/commit/4ca34cdaa4447d5edc1ac66fc3a128ebc5a4cbc6) Improve documentation journeys and verify packaged tutorials
+- [`4b41e86`](https://github.com/cs1302uga/cs1302-tracer/commit/4b41e866ac6c603df17ceec01f9a4f31c70d8659) Link review fixes in the changelog
+- [`d7ef76c`](https://github.com/cs1302uga/cs1302-tracer/commit/d7ef76c084f4467e71e36929c50e305635ad0f26) Fix launcher path resolution and source distribution builds
+- [`9db377b`](https://github.com/cs1302uga/cs1302-tracer/commit/9db377bafbee75af36914c8c9cabe11095049762) Link the Maven cleanup implementation in the changelog
+- [`abde003`](https://github.com/cs1302uga/cs1302-tracer/commit/abde003b58259e65ea4711553cb275e5640e273c) Tighten Maven resource handling and dependency validation
+- [`a5cc1f6`](https://github.com/cs1302uga/cs1302-tracer/commit/a5cc1f659db321b51af0068aaed72de2f8ba5b93) Link the XZ distribution implementation in the changelog
+- [`23f6949`](https://github.com/cs1302uga/cs1302-tracer/commit/23f6949d285c58534727a98aa973f2c447ca38e3) Add XZ-compressed binary distributions
+- [`75d4c35`](https://github.com/cs1302uga/cs1302-tracer/commit/75d4c35ae2d89417d15a5768ba1855deebfcaf6b) Link the unreleased build and launcher implementation in the changelog
+- [`caeaf76`](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae) Standardize Maven configuration and package portable tracer launchers
+- [`36dd86a`](https://github.com/cs1302uga/cs1302-tracer/commit/36dd86af48bc419c89808447ce7e266dd8c78f9a) Document the published 4.1.0 release (#19)
 
 ## 4.1.0 — 2026-10-17
 

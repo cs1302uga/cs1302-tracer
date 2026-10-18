@@ -89,7 +89,9 @@ map, wrapper, and stream inspection. `FIELDS` reads ordinary objects through fie
 and avoids inspection-time method calls; arrays, strings, and `java.awt.Color` retain dedicated
 representations. Neither policy isolates guest code. `TypeStyle.FQN` preserves
 qualified type labels; `SIMPLE` removes dotted prefixes for presentation without
-resolving Java types.
+resolving Java types. Both settings also apply to the return and parameter types
+in [reconstructed lambda signatures](output.md#lambda-implementation-types),
+including generic arguments and arrays, while preserving the lambda body's text.
 
 Use the overload `Tracer.trace(request, true)` to include
 [primitive binary metadata](output.md#optional-primitive-binary-metadata) in either

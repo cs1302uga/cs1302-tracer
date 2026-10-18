@@ -450,7 +450,8 @@ public class ModernTraceSerializer {
             yield HeapObject.ofObject(id, typeLabel, fields);
         } // case
         case TraceValue.String str -> HeapObject.ofString(id, typeStyle.format("java.lang.String"), str.value());
-        case TraceValue.Lambda lambda -> HeapObject.ofLambda(id, "lambda", lambda.implementation());
+        case TraceValue.Lambda lambda -> HeapObject.ofLambda(id, "lambda",
+                LambdaSignatures.format(lambda.implementation(), this.typeStyle));
         case TraceValue.List list -> {
             List<Object> elements = list.value().stream().map(this::serializeValue).toList();
             yield HeapObject.ofArray(id, typeStyle.format(list.typeName()), elements)
