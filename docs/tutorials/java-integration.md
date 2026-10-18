@@ -80,7 +80,7 @@ to your application's POM:
 <dependency>
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
-  <version>4.2.1-SNAPSHOT</version>
+  <version>4.2.2-SNAPSHOT</version>
 </dependency>
 ```
 
