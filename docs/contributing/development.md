@@ -3,9 +3,10 @@
 Run commands from the repository root. Use a full **JDK**; CI tests Java 21 and 25 on Linux and macOS. `.java-version` selects JDK 25 locally. The tracer is compiled for Java 21; guest features depend on the active JDK.
 
 Use `./mvnw` on Unix or `mvnw.cmd` on Windows. The official Wrapper 3.3.4 scripts
-select **Maven 3.10.0** and verify the distribution's SHA-256 checksum. The build
-requires the Maven version selected by the wrapper or later, and JDK 21 or later;
-Enforcer checks both at `validate`. CI and the pre-push hook use the wrapper.
+select **Maven 3.10.0**, as declared by `wrapper.maven.version` in `pom.xml`, and
+verify the distribution's SHA-256 checksum. The build requires that Maven version
+or later, and JDK 21 or later; Enforcer checks both at `validate`, along with the
+wrapper's agreement with the POM. CI and the pre-push hook use the wrapper.
 A separate Windows job
 bootstraps the wrapper, packages the project, and checks both Windows launchers on Java 21 and 25;
 the full execution/fixture matrix remains Linux and macOS.
@@ -311,24 +312,37 @@ for the environment-variable contract.
 
 ## Maven wrapper maintenance
 
-To regenerate the scripts, use
-`./mvnw org.apache.maven.plugins:maven-wrapper-plugin:3.3.4:wrapper -Dmaven=3.10.0 -Dtype=only-script`.
-Review both scripts, retain the executable bit on `mvnw`, and retain or update
-`distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties` after verifying
-the distribution against the published checksum. Test bootstrap with an empty
-`MAVEN_USER_HOME` before adopting a new Maven distribution.
+The `wrapper.maven.version` property in `pom.xml` is the only Maven version pin.
+The wrapper downloads exactly that version, and Enforcer uses it as an inclusive
+lower bound, with no upper bound. The Maven Wrapper Plugin is managed at
+`maven-wrapper-plugin.version` and configured to generate the script-only wrapper
+for `wrapper.maven.version`; `-Dmaven` and `-Dtype` do not override that configuration.
 
+To change the Maven version, update `wrapper.maven.version`, then regenerate the
+scripts and `.mvn/wrapper/maven-wrapper.properties`:
 
-At `validate`, Properties Maven Plugin reads the wrapper properties, then
-Build Helper extracts the Maven version from `distributionUrl`, and Enforcer
-uses that version as an inclusive lower bound, with no upper bound. Keep those
-plugin executions in that order. Missing wrapper properties or an unrecognized
-distribution filename fail validation.
-The URL must end in `apache-maven-VERSION-bin.zip` or
-`apache-maven-VERSION-bin.tar.gz`. Updating the wrapper URL and checksum updates
-the requirement automatically; there is no second Maven version pin in the POM.
+```sh
+./mvnw wrapper:wrapper -DdistributionSha256Sum=SHA256
+```
+
+Replace `SHA256` with the distribution's SHA-256 checksum after verifying the
+distribution against the published checksum. Omitting `-DdistributionSha256Sum`
+removes checksum verification from the wrapper. Review both scripts, retain the
+executable bit on `mvnw`, and test bootstrap with an empty `MAVEN_USER_HOME`
+before adopting a new Maven distribution. Upgrading the wrapper plugin follows
+the same steps after updating `maven-wrapper-plugin.version`.
+
+At `validate`, Properties Maven Plugin reads the wrapper properties, then Enforcer
+checks them against the POM. The `distributionUrl` must end in
+`apache-maven-VERSION-bin.zip` for the selected version, the form the wrapper
+scripts accept, and `wrapperVersion` must equal `maven-wrapper-plugin.version`.
+Keep the Properties execution before Enforcer. Missing wrapper properties or a
+wrapper generated for a different Maven or plugin version fail validation;
+regenerate the wrapper rather than editing either value alone.
 Direct plugin goals do not automatically run `validate`; prepend `validate` when
 the toolchain check is required (for example, `./mvnw validate checkstyle:check`).
+Tools that read Enforcer's configuration without running `validate`, such as
+`versions:display-plugin-updates`, see the same minimum because it is a POM property.
 
 ## Packaging configuration and reproducibility
 
@@ -368,7 +382,8 @@ transitive overrides in `dependencyManagement`. Put all plugin versions in the
 top-level `pluginManagement`; active plugins and profiles inherit those versions.
 Declare the Checkstyle engine dependency once in the managed Checkstyle plugin.
 Project release versions and Enforcer's Java compatibility range remain literal.
-Enforcer's Maven lower bound is derived at runtime from the wrapper distribution.
+Enforcer's Maven lower bound is the `wrapper.maven.version` property described in
+[Maven wrapper maintenance](#maven-wrapper-maintenance).
 Its `requireUpperBoundDeps` rule also checks production and test dependencies,
 rejecting a selected version below the highest requested transitive version.
 Only `provided` scope is excluded. This guards against stale overrides; it does
@@ -390,7 +405,17 @@ and execution checks below.
 
 Choose the latest compatible stable releases while preserving Java 21 support.
 Do not adopt milestones, betas, release candidates, or alternate artifact variants
-as automatic upgrades. Review release notes and the resolved graph, including
+as automatic upgrades. To list stable candidates, run:
+
+```sh
+./mvnw versions:display-plugin-updates versions:display-dependency-updates
+```
+
+The managed Versions Maven Plugin ignores versions with alpha, beta, milestone
+(`M`), release-candidate (`RC`/`CR`), preview, early-access (`EA`), or snapshot
+qualifiers, including in its Maven-requirement summary. It also ignores
+JDK-targeted variants such as Byte Buddy's `-jdk5` build; Guava's `-jre` releases
+remain visible. Do not adopt other alternate artifact variants it lists. Review release notes and the resolved graph, including
 transitive dependencies. Reassess overrides when upgrading their owning libraries;
 do not add unused direct dependencies merely to control versions. Plugin-owned
 libraries are a separate graph: prefer upgrading the owning plugin to overriding
@@ -410,6 +435,8 @@ allow extra object fields, require array order and length, and compare numbers
 mathematically with zero tolerance. Focused negative checks protect those rules.
 
 For each upgrade, compare resolved dependencies and effective plugin configuration,
+regenerate and review the [license and dependency pages](documentation-authoring.md#maintain-license-and-dependency-pages)
+with `scripts/dependency_docs.py update` (the Documentation CI job rejects drift),
 run the focused checks and full coverage gate, verify committed trace fixtures on
 Java 21 and 25, and rebuild the docs/site. Do not refresh expected JSON to accommodate
 an unexplained behavior change. Check the automatic module name, bundled dependency

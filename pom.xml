@@ -60,7 +60,7 @@
     <maven.compiler.release>21</maven.compiler.release>
     <!-- Library and BOM versions -->
     <apiguardian-api.version>1.1.2</apiguardian-api.version>
-    <asm.version>9.11</asm.version>
+    <asm.version>9.11.1</asm.version>
     <assertj-core.version>3.27.7</assertj-core.version>
     <byte-buddy.version>1.18.15</byte-buddy.version>
     <checker-qual.version>4.3.1</checker-qual.version>
@@ -98,6 +98,15 @@
     <maven-resources-plugin.version>3.5.0</maven-resources-plugin.version>
     <maven-site-plugin.version>3.22.0</maven-site-plugin.version>
     <maven-surefire-plugin.version>3.6.0</maven-surefire-plugin.version>
+    <maven-wrapper-plugin.version>3.3.4</maven-wrapper-plugin.version>
+    <versions-maven-plugin.version>2.23.0</versions-maven-plugin.version>
+
+    <!--
+      Select the Maven version that the wrapper downloads and Enforcer requires as
+      the minimum. Regenerate the wrapper after changing it; validate rejects a
+      wrapper that downloads a different version.
+    -->
+    <wrapper.maven.version>3.10.0</wrapper.maven.version>
 
     <!-- Pin the docsite toolchain; npm is supplied by this Node distribution. -->
     <node.version>v24.22.0</node.version>
@@ -504,6 +513,37 @@
           <artifactId>properties-maven-plugin</artifactId>
           <version>${properties-maven-plugin.version}</version>
         </plugin>
+        <!-- Regenerate the script-only wrapper for the POM's Maven version (./mvnw wrapper:wrapper). -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-wrapper-plugin</artifactId>
+          <version>${maven-wrapper-plugin.version}</version>
+          <configuration>
+            <mavenVersion>${wrapper.maven.version}</mavenVersion>
+            <distributionType>only-script</distributionType>
+          </configuration>
+        </plugin>
+        <!-- Report only stable dependency and plugin updates (./mvnw versions:display-plugin-updates). -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>versions-maven-plugin</artifactId>
+          <version>${versions-maven-plugin.version}</version>
+          <configuration>
+            <ruleSet>
+              <ignoreVersions>
+                <ignoreVersion>
+                  <type>regex</type>
+                  <version>(?i).*[-.](alpha|beta|rc|cr|m|milestone|preview|ea|snapshot)[-.]?\d*([-.].*)?</version>
+                </ignoreVersion>
+                <!-- Ignore JDK-targeted variants such as Byte Buddy's -jdk5; plain -jre (Guava) remains. -->
+                <ignoreVersion>
+                  <type>regex</type>
+                  <version>(?i).*[-.](jdk|jre|java)\d+([-.].*)?</version>
+                </ignoreVersion>
+              </ignoreVersions>
+            </ruleSet>
+          </configuration>
+        </plugin>
         <!-- Manage the local Node/npm toolchain used only by the docsite profile. -->
         <plugin>
           <groupId>com.github.eirslett</groupId>
@@ -525,10 +565,10 @@
         <artifactId>maven-release-plugin</artifactId>
       </plugin>
       <!--
-        Keep these validate executions ordered: read the wrapper properties,
-        derive the Maven version, then enforce it as the minimum supported version.
+        Keep these validate executions ordered: read the wrapper properties, then
+        check them against the POM and enforce the POM's minimum Maven version.
       -->
-      <!-- Load the wrapper properties before deriving the minimum Maven version. -->
+      <!-- Load the wrapper properties so Enforcer can check them against the POM. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>properties-maven-plugin</artifactId>
@@ -549,26 +589,11 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Derive the minimum Maven version and the Javadoc copyright year. -->
+      <!-- Supply the current year used by the Javadoc copyright footer. -->
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
         <executions>
-          <execution>
-            <id>wrapper-maven-version</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>regex-property</goal>
-            </goals>
-            <configuration>
-              <name>wrapper.maven.version</name>
-              <value>${wrapper.distributionUrl}</value>
-              <regex>^.*/apache-maven-([0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?)-bin\.(?:zip|tar\.gz)$</regex>
-              <replacement>$1</replacement>
-              <failIfNoMatch>true</failIfNoMatch>
-            </configuration>
-          </execution>
-          <!-- Supply the current year used by the Javadoc copyright footer. -->
           <execution>
             <id>copyright-year</id>
             <phase>validate</phase>
@@ -584,7 +609,7 @@
           </execution>
         </executions>
       </plugin>
-      <!-- Enforce the wrapper-derived Maven minimum and the supported JDK minimum. -->
+      <!-- Enforce the POM's Maven minimum, a matching wrapper, and the supported JDK minimum. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -597,9 +622,23 @@
             </goals>
             <configuration>
               <rules>
+                <!-- Require the wrapper to download exactly the POM's Maven version. -->
+                <requireProperty>
+                  <property>wrapper.distributionUrl</property>
+                  <message>.mvn/wrapper/maven-wrapper.properties must define distributionUrl.</message>
+                  <regex>.*/apache-maven-\Q${wrapper.maven.version}\E-bin\.zip</regex>
+                  <regexMessage>.mvn/wrapper/maven-wrapper.properties must download Maven ${wrapper.maven.version} (wrapper.maven.version in pom.xml), but its distributionUrl is ${wrapper.distributionUrl}. Regenerate the wrapper with ./mvnw wrapper:wrapper.</regexMessage>
+                </requireProperty>
+                <!-- Require the wrapper scripts to come from the managed wrapper plugin version. -->
+                <requireProperty>
+                  <property>wrapper.wrapperVersion</property>
+                  <message>.mvn/wrapper/maven-wrapper.properties must define wrapperVersion.</message>
+                  <regex>\Q${maven-wrapper-plugin.version}\E</regex>
+                  <regexMessage>.mvn/wrapper/maven-wrapper.properties records Maven Wrapper ${wrapper.wrapperVersion}, but pom.xml manages maven-wrapper-plugin ${maven-wrapper-plugin.version}. Regenerate the wrapper with ./mvnw wrapper:wrapper.</regexMessage>
+                </requireProperty>
                 <requireMavenVersion>
                   <version>[${wrapper.maven.version},)</version>
-                  <message>Use ./mvnw (Unix) or mvnw.cmd (Windows): this build requires Maven ${wrapper.maven.version} or later; the minimum version comes from .mvn/wrapper/maven-wrapper.properties.</message>
+                  <message>Use ./mvnw (Unix) or mvnw.cmd (Windows): this build requires Maven ${wrapper.maven.version} or later, as selected by wrapper.maven.version in pom.xml.</message>
                 </requireMavenVersion>
                 <!-- Reject stale version overrides in both production and test dependencies. -->
                 <requireUpperBoundDeps>
