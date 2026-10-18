@@ -87,7 +87,8 @@ are outside the production measurement. Keep `source_pkgs` in `pyproject.toml`
 current when adding scripts so copied CLI execution remains measured. Always
 erase stale data and combine child-process data before reporting coverage.
 The Scripts quality CI job uses these checks and blocks release creation on
-failure. Existing Git hooks continue to run Java checks.
+failure. Local Git hooks check staged whitespace and Java style; Python quality
+checks remain in Scripts quality CI and the explicit commands above.
 
 
 ## Documentation workflow

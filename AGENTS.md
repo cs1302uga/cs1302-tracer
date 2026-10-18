@@ -68,16 +68,18 @@ Run guest-executing tests and documentation checks serially: shared temporary
 compilation-directory checks can interfere across concurrent runs. Before using
 Maven `clean`, preserve any needed audit evidence stored under `target/`.
 
-The repository's pre-commit hooks test the staged index in a fresh temporary tree.
-They run Checkstyle and enforce 100% production line and branch coverage, which is
-stricter than the normal build's model/serializer coverage gate. Keep these gates
-intact; a successful working-tree test does not validate different staged content.
-Report the checks actually run and any unverified execution paths.
+The pre-commit hook checks staged whitespace, then runs Checkstyle against a fresh
+export of the staged index. Keep those checks faithful to staged content; a
+successful working-tree check does not validate different staged content. Local
+commits can precede the full test suite. For explicit staged Java tests and 100%
+production line/branch coverage, run `.githooks/pre-commit-coverage`. Report the
+checks actually run and any unverified execution paths.
 
-CI runs the same strict coverage profile across its Java matrix. Keep the
+CI requires the strict coverage profile across its Java matrix. Keep the
 `Regression gates` aggregate dependent on successful Java, documentation, scripts,
-and Windows job groups; failed, cancelled, or skipped groups must fail it. Verify
-that the aggregate is required for `main` before reducing local commit checks.
+and Windows job groups; failed, cancelled, or skipped groups must fail it. Keep
+`Regression gates` and `Documentation` required for `main`, and preserve the full
+release validation gate.
 
 For Python script changes, follow `scripts/AGENTS.md`: tests belong under
 `scripts/tests/`, and completion requires Ruff lint/format, ty, and 100% production

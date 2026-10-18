@@ -33,10 +33,12 @@ and distributable artifacts. For a focused Java change, use:
 ```
 
 Replace `TestClass` with the relevant test class. A focused test run does not
-establish whole-project coverage. Before committing, use the
-[staged-file hooks](#pre-commit-lint-and-coverage-gates), which require 100% line and
-branch coverage across all production Java classes. The normal package gate
-covers the configured model and serializer packages.
+establish whole-project coverage. The
+[commit hook](#pre-commit-lint-and-coverage-gates) checks staged whitespace and Java
+style; local commits can precede the full suite. Use `.githooks/pre-commit-coverage`
+for explicit staged tests with 100% production line and branch coverage. The normal
+package gate covers the configured model and serializer packages; required CI
+and release preparation use the stricter all-production gate.
 
 | Change | Additional validation |
 | --- | --- |
@@ -152,7 +154,8 @@ export COVERAGE_FILE="$PWD/.coverage"
 
 Child-process coverage and temporary script copies contribute to the same report;
 test files and local tool environments are excluded from production measurement.
-Release creation depends on this job. Java hooks retain their existing behavior.
+Required merge validation and release creation depend on this job. Local commit
+hooks check staged whitespace and Java style; they do not run Python quality checks.
 
 ### Running Example Traces
 
@@ -178,29 +181,33 @@ golden trace files because thread schedules vary between runs.
 ## Pre-commit lint and coverage gates
 
 
-The executable `.githooks/pre-commit` runs Checkstyle first, then coverage.
-It does not automatically reformat or re-stage files.
+The executable `.githooks/pre-commit` runs `git diff --cached --check` first, then
+the staged Checkstyle helper. Whitespace errors stop the commit before Maven
+starts. The hook does not automatically reformat, re-stage files, compile Java,
+or run the test suite. Local commits receive fast staged checks; required CI
+validates the complete regression suite and strict coverage before merge.
 
 `.githooks/pre-commit-checkstyle` exports the Git index to a fresh temporary
 workspace and runs `./mvnw -B -ntp checkstyle:check`. This uses the staged Maven
 configuration and `src/main/resources/cs1302_checks_extended.xml`, with the same
 source scope as the normal build. Partial staging, spaces, and quotes in filenames
-are preserved. Style violations or tool failures block the commit before coverage
-runs. The check runs even without staged Java changes, so configuration changes
+are preserved. Style violations or tool failures block the commit.
+The check runs even without staged Java changes, so configuration changes
 are checked too. To check the working tree manually, run `./mvnw checkstyle:check`.
 
 The opt-in `pre-commit-coverage` Maven profile requires **100% line and branch
 coverage across all production classes**, in addition to the normal build checks.
 Run it directly with `./mvnw -Ppre-commit-coverage clean test`.
 
-The executable `.githooks/pre-commit-coverage` exports the Git index into a temporary
-workspace and runs that command there. It tests staged content only, excludes stale
+For an explicit full staged validation, run `.githooks/pre-commit-coverage` from
+the repository root. It exports the Git index into a temporary workspace and
+runs the strict command there. It tests staged content only, excludes stale
 coverage data, cleans up afterward, and never formats, stages, or changes files.
-Stage related build configuration with the change. A failing build, test,
-or coverage gate blocks the commit. After running the profile locally, open
+Stage related build configuration with the change. A failing build, test, or
+coverage gate makes this explicit check fail. After running the profile locally, open
 `target/site/jacoco/index.html` to inspect line and branch coverage.
 
-To enable both checks in a checkout using Git's default hooks directory:
+To enable staged whitespace and Checkstyle checks using Git's default hooks directory:
 
 ```sh
 cat > "$(git rev-parse --git-path hooks)/pre-commit" <<'EOF'
@@ -211,11 +218,17 @@ EOF
 chmod +x "$(git rev-parse --git-path hooks)/pre-commit"
 ```
 
-This enables lint and coverage without activating the separate pre-push hook.
+This enables whitespace and Java style checks without activating the separate
+pre-push hook or adding full test execution to every commit.
 Installation is local to each checkout; the scripts and
 Maven profile are tracked in the repository. Git permits local hooks to be bypassed;
 the [CI regression gate](#required-ci-regression-gates) provides merge enforcement
 when configured as a required check, independently of local hook installation.
+
+The optional `.githooks/pre-push` runs ordinary `./mvnw -B -ntp verify` against the
+current working checkout. It provides local feedback; it neither selects strict
+coverage nor verifies the exact objects being pushed. Required CI supplies merge
+protection independently of that optional hook.
 
 ## Compatibility fixtures
 
