@@ -96,6 +96,7 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   a missing or different checksum in the generated wrapper properties. When
   upgrading Maven, update both POM properties and regenerate the wrapper.
   Java API, CLI, JSON/batch protocol, and runtime requirements are unchanged.
+  Implementation: [d30ca14](https://github.com/cs1302uga/cs1302-tracer/commit/d30ca14a70dccea3f58ec0e9dd26edca774cee87).
 
 - **JDK setup documentation:** add current-session JDK selection and verification
   recipes for Bash, PowerShell, and Command Prompt, with an installation checkpoint
