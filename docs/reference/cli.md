@@ -259,7 +259,7 @@ output is redirected. These JVM properties take precedence over automatic detect
 Example output (values depend on the build and the JVM running it):
 
 ```text
-code-tracer 4.2.0-SNAPSHOT (caf1355923fcea4e8587a06c7bf1d008935b66e9)
+code-tracer 4.2.1-SNAPSHOT (debe2cb9988f5c7ff98d10304d8b5d0ae56b8c3f)
 macOS 26.7.1 aarch64
 openjdk 25.0.4.1 2026-08-18
 OpenJDK Runtime Environment Homebrew (build 25.0.4.1)

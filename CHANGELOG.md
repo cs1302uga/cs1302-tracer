@@ -2,7 +2,8 @@
 
 Published software releases are listed newest first. Publication dates are UTC dates from
 [GitHub release records](https://github.com/cs1302uga/cs1302-tracer/releases), verified
-on 2026-10-17. Version bumps without a published release are included in the next
+for historical entries through 4.1.0 on 2026-10-17; the 4.2.0 entry was verified
+on 2026-10-18. Version bumps without a published release are included in the next
 published range, not presented as separate releases.
 
 This history was reconstructed from release records, tagged source/documentation
@@ -16,8 +17,10 @@ from changes to structure. Consumers should tolerate unknown additive fields.
 Every commit reachable in each consecutive release range is linked, including
 merge and release-preparation commits; overlapping work may therefore have more
 than one historical commit. The first release includes all available ancestors.
-The checkout is not shallow, all 44 published software-release tags match origin, and no
-published software-release tag is missing. Separate `docs-*` prereleases publish
+The historical audit through 4.1.0 found a non-shallow checkout, all 44 published
+software-release tags matching origin, and no missing published software-release tag.
+The 4.2.0 entry was reconciled separately against its actual tag and release metadata.
+Separate `docs-*` prereleases publish
 documentation artifacts and are not software-version entries. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
@@ -27,7 +30,25 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v4.1.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...HEAD).
+[Changes since v4.2.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.0...HEAD).
+
+### Breaking changes
+
+No breaking changes identified.
+
+### Non-breaking changes
+
+- **Development version:** advance the Maven project to `4.2.1-SNAPSHOT` after the
+  4.2.0 release. Tracing behavior, the supported Java API, and JSON/batch protocol
+  are unchanged.
+  Implementation: [debe2cb](https://github.com/cs1302uga/cs1302-tracer/commit/debe2cb9988f5c7ff98d10304d8b5d0ae56b8c3f).
+- **Development documentation:** align the current Java integration references and
+  CLI version-report example with `4.2.1-SNAPSHOT`. Preserve the published 4.2.0
+  guide snapshot.
+
+## 4.2.0 — 2026-10-18
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.2.0) · [Compare v4.1.0...v4.2.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...v4.2.0)
 
 Implementation: [3c9c8a7](https://github.com/cs1302uga/cs1302-tracer/commit/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf)
 — Consistent lambda signature type presentation across both serializers, preserving bodies.
@@ -320,10 +341,13 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
 
 ### Commits
 
-The committed range below is `v4.1.0..origin/main` as inspected before the lambda
-formatting fix. Add that fix and release-preparation commits when their identities
-are available; the implementation references above also identify work later
-integrated through squash merges.
+Every commit in `v4.1.0..v4.2.0` is linked below, including the squash merge and
+signed stable-version preparation commit. The implementation references above
+also identify work integrated through squash merges; the next-development commit
+belongs to Unreleased rather than this tagged range.
+
+- [`8ca280d`](https://github.com/cs1302uga/cs1302-tracer/commit/8ca280dce0bfab6113fdfe2e7953d09452bb0108) [maven-release-plugin] prepare release v4.2.0
+- [`bbfe4be`](https://github.com/cs1302uga/cs1302-tracer/commit/bbfe4be5dbf5bd314b7c13e53bf65a483d8d3b27) Fix lambda signature type names and prepare tracer 4.2.0 (#29)
 
 - [`dc8887f`](https://github.com/cs1302uga/cs1302-tracer/commit/dc8887fbad0390957500d929ef904cadad7ae00d) Keep local commits fast with staged whitespace and style checks (#28)
 - [`0dd30a3`](https://github.com/cs1302uga/cs1302-tracer/commit/0dd30a369409ea49f44e850f8e58c19b2acab061) Require strict regression gates before merging (#27)
