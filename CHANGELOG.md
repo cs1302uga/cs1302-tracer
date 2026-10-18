@@ -204,7 +204,7 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   Implementation: [4ca34cd](https://github.com/cs1302uga/cs1302-tracer/commit/4ca34cdaa4447d5edc1ac66fc3a128ebc5a4cbc6).
 
 - **Source distribution:** include Maven wrapper scripts and configuration so the
-  wrapper-derived Maven version check also works when building extracted sources.
+  Maven wrapper version check also works when building extracted sources.
   CI now packages the extracted source archive.
   Implementation: [d7ef76c](https://github.com/cs1302uga/cs1302-tracer/commit/d7ef76c084f4467e71e36929c50e305635ad0f26).
 
@@ -250,9 +250,19 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   compilation, resources, documentation, packaging, quality gates, and publishing.
   Remove obsolete commented-out assembly settings without changing build behavior.
 
-- **Build tooling:** derive the minimum supported Maven version from
-  `.mvn/wrapper/maven-wrapper.properties`. Enforcer accepts that version or later;
-  `./mvnw` and `mvnw.cmd` continue to select the pinned wrapper version.
+- **Build tooling:** select the Maven version with the `wrapper.maven.version`
+  property in `pom.xml`. Enforcer accepts that version or later, and `validate`
+  fails unless `.mvn/wrapper/maven-wrapper.properties` downloads exactly that
+  version and records the managed Maven Wrapper Plugin version. The managed plugin
+  regenerates the wrapper from the POM with `./mvnw wrapper:wrapper`. `./mvnw` and
+  `mvnw.cmd` continue to select the pinned version, and plugin update reports such
+  as `versions:display-plugin-updates` now read the actual minimum Maven version.
+
+- **Build tooling:** manage the Versions Maven Plugin and ignore alpha, beta,
+  milestone, release-candidate, preview, early-access, and snapshot versions, plus
+  JDK-targeted variants such as `-jdk5`, so
+  `./mvnw versions:display-plugin-updates` and `versions:display-dependency-updates`
+  suggest only stable upgrades.
 
 - **Build repositories:** mirror the legacy JVNet releases repository to Maven Central
   in local setup and all Maven CI jobs, avoiding its expired certificate while
