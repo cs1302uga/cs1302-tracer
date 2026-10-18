@@ -20,6 +20,7 @@ read by the traced program.
 | Give the program input | [Supply program input](#supply-program-input) |
 | Submit a program with several source files | [Submit multiple files](#submit-multiple-files) |
 | Use precompiled classes or a dependency JAR | [Add binary dependencies](#add-binary-dependencies) |
+| Raise a budget for a complete trusted trace | [Tune a tracing budget](#tune-a-tracing-budget) |
 | Change output presentation or keep a partial result | [Choose presentation and budgets](#choose-presentation-and-budgets) |
 
 ## Program requirements
@@ -343,6 +344,43 @@ for array/field placement and payload-size implications, and
 [encoding definitions and references](../reference/output.md#encoding-definitions-and-references)
 for normative specifications and informative explanations of the encoding formats.
 
+### Tune a tracing budget
+
+Use `SnapshotDemo.java` from [Choose snapshots](#choose-snapshots), in the same
+directory as `code-tracer.jar`. An ordinary chronological trace permits 10,000
+captured snapshots by default. To allow up to 20,000 while keeping the other
+ordinary budgets, run:
+
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --max-snapshots 20000 > raised-limit.json
+```
+
+This small example should complete with exit status `0` and a nonempty
+`raised-limit.json`; its final captured stdout is `8` followed by a newline.
+For a longer trusted program that stopped with `snapshot_limit`, substitute that
+program's input file and choose a cap appropriate to its expected execution.
+Check the command's exit status and result before treating the trace as complete.
+Raising one cap can reveal another limit or a guest failure; it does not guarantee
+exit `0`. Use the [stop-code table](../BOUNDED_TRACING.md#stop-codes) to match the
+reported reason to its option, and the
+[limits reference](../BOUNDED_TRACING.md#limits) for accounting and budget rules.
+
+For a trusted local example whose resource use you understand, `--unlimited`
+disables the ordinary default budgets:
+
+```sh
+java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --unlimited > unlimited-trace.json
+```
+
+The same small example should finish with exit `0` and final guest stdout `8\n`.
+Prefer raising an individual cap when that is sufficient. Any explicit budget
+still applies alongside `--unlimited`, regardless of option order; for example,
+adding `--max-snapshots 20000` retains that cap while other omitted budgets are
+unlimited. Fixed representation and thread restrictions also remain active, and
+the command can still fail. Neither approach supplies whole-job isolation or a
+whole-job deadline. Use finite explicit budgets and the
+[runner contract](../RUNNER_CONTRACT.md) for hosted submissions.
+
 ### Keep partial results when a budget stops tracing
 
 Ordinary tracing uses finite default budgets. If a budget stops it, the command
@@ -371,4 +409,6 @@ selected explicitly. Neither inspection policy nor tracing budgets isolate guest
 code, and a tracing timeout does not cover the whole job. See the
 [trace model](../explanation/trace-model.md), [bounded result contract](../BOUNDED_TRACING.md),
 and [runner contract](../RUNNER_CONTRACT.md) for those boundaries. The
-[CLI reference](../reference/cli.md) defines the available flags and default values.
+[CLI reference](../reference/cli.md) defines the flags; the
+[bounded tracing reference](../BOUNDED_TRACING.md#limits) gives budget rules and
+the ordinary defaults listed above its limits table.

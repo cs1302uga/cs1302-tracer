@@ -35,9 +35,20 @@ java -jar code-tracer.jar list-breakpoints -i Loop.java --json --pretty > locati
 ```
 <!-- loop-locations:end -->
 
+A successful command exits with status `0` and writes a nonempty
+`locations.json`. Check the exit status immediately: `echo $?` in Bash,
+`$LASTEXITCODE` in PowerShell, or `echo %ERRORLEVEL%` in Command Prompt. If the
+command reports an error or the file is empty, confirm that `Loop.java` is saved
+beside the JAR in the current directory, then use
+[troubleshooting](../guides/troubleshooting.md#source-paths-or-input-are-rejected)
+before continuing.
+
 Open `locations.json` and find the entry with `lineNumber` equal to `4`.
 Its `lineContent` is the print statement and `validBreakpoint` is `true`.
 Discovery identifies executable locations; it does not execute the loop.
+The single-file entry has `file: null`. The
+[breakpoint listing reference](../reference/cli.md#breakpoint-listing-output)
+defines all four fields, line-ending behavior, and the numbered terminal alternative.
 
 ## Retain the latest visit
 
@@ -48,6 +59,11 @@ Select line 4 and save an ordinary trace:
 java -jar code-tracer.jar trace -i Loop.java --breakpoints 4 --format modern --pretty > latest.json
 ```
 <!-- loop-latest:end -->
+
+Check for exit status `0` and a nonempty output file immediately after this
+command and each remaining trace command. Use
+[troubleshooting](../guides/troubleshooting.md) if either check fails, before
+inspecting or comparing the results.
 
 Open `latest.json`. Its root has a `breakpoints` map, whose `"4"` entry is one
 snapshot. Find the local named `i` in its `main` frame: its value is `2`.
@@ -113,9 +129,7 @@ All three commands run the same loop. Their retention and output shapes differ:
 | `accumulated.json` | `breakpoints["4"]` | Three states grouped at line 4, with `i` equal to `0`, `1`, and `2`. |
 | `chronological.json` | `steps` | The three selected visits in execution order, followed by the final main-exit capture. |
 
-Each of the three trace files should identify `Loop.java` as its `entryFile`, and
-each successful command exits with status `0`. If a command fails or a file is
-empty, use [troubleshooting](../guides/troubleshooting.md) before comparing results.
+Each of the three trace files should identify `Loop.java` as its `entryFile`.
 
 Use [tracing programs](../guides/tracing.md) to choose options for another program,
 or read [How a trace represents execution](../explanation/trace-model.md) to connect

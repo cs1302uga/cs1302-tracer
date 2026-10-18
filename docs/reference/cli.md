@@ -236,6 +236,57 @@ directory and input paths when resolving sources. These options do not isolate
 host parsing/compilation or guest execution; hosted student submissions require
 the [runner contract's whole-job boundary](../RUNNER_CONTRACT.md).
 
+## Breakpoint listing output
+
+`list-breakpoints --json` (alias `-j`) writes a JSON array of source-line entries
+to stdout. It compiles the program to read executable line tables without running
+the guest. `--pretty` (`-p`) indents the array; omitting it produces compact JSON.
+Each entry has all four fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `lineNumber` | Integer | One-based line number within the text being listed. |
+| `validBreakpoint` | Boolean | Whether the listing's matched compiled line table marks this line executable, subject to the path-matching limitation below. A valid location need not be reached during a particular run. |
+| `lineContent` | String | The line text without its LF separator. Remaining characters, including indentation and any trailing carriage return, are preserved. |
+| `file` | String or null | Null when input is parsed as one source file. For multiple submitted files, the portable logical submission path, such as `src/demo/Main.java`, rather than the package-relative debug path used by trace frames. |
+
+When input is parsed as one source file, the listing splits the original complete
+input text at LF (`\n`). This also applies to a bundle containing only one file,
+so its delimiter can appear as a listed line. That case can misalign the displayed
+text with executable line numbers obtained from delimiter-free compilation;
+use ordinary undelimited input when listing a single file. When two or more files
+are submitted, entries are grouped in submission order; each file's delimiter-free
+content is split separately, and line numbering restarts at 1 for each file.
+Every split line is listed, including non-executable lines, with increasing line
+numbers within its group.
+
+For multiple files, executable-line lookup first tries the logical/native path.
+If those lookups yield no lines, it uses the first debug path ending in the
+source basename. That fallback does not require a unique match: logical paths
+such as `src/a/Main.java` and `src/b/Main.java` can both receive the first
+`Main.java` line set even though their debug paths differ. Prefer package-relative
+logical paths such as `a/Main.java` and `b/Main.java` when listing packaged
+sources. A record's `file` still identifies the listed text; it does not prove
+that an ambiguous fallback used that file's executable-line set.
+
+Splitting discards trailing empty elements. A final LF does not create an extra
+entry, and a run of empty LF-separated lines at the end is omitted. CR characters
+are not removed by this split: when `--input` reads a CRLF file, `lineContent`
+retains the `\r` before each LF, encoded as an escape in JSON. A line containing
+only `\r` is not an empty split element. In contrast, stdin for this command is
+read line by line and reconstructed with LF before parsing, so original CRLF
+terminators from stdin are normalized. Treat this output as a location listing,
+not a byte-for-byte source-file archive.
+
+Without `--json`, the command prints a numbered text listing. Executable lines
+have a `b` marker, highlighted green when automatic ANSI styling is enabled;
+other lines have no `b`. Multiple-file text listings include delimiter headings
+with their logical paths. Use the JSON form for a breakpoint picker or other
+structured consumer, and the text form for terminal inspection. The
+[loop tutorial](../tutorials/trace-a-loop.md#find-the-executable-location) shows a
+complete discovery-and-tracing example. See [source input and discovery](#source-input-and-discovery)
+for neighboring-source behavior and [exit statuses](#exit-statuses) for errors.
+
 ## Capture when main does not return
 
 Ordinary tracing with no `--breakpoints` or `--all-breakpoints` expects a main-exit
