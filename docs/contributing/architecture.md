@@ -243,7 +243,13 @@ implementation text. Capture requests observations for a declaring class, method
 argument types, and source line. Method matching and location-sensitive lambda
 selection remain with source analysis, including the first-assignment fallback.
 Lambda rendering uses a call-local parser, so independent workers do not share
-mutable parser state. `AstTypeResolver` holds reusable source-derived type indexes.
+mutable parser state. `AstTypeResolver` holds source-derived type indexes and lazily
+supplements class declarations through the prepared job's binary solver. Its generic
+hierarchy traversal composes superclass and interface arguments; heap inspection
+resolves each instance field against its JDI declaring owner. These declaration
+caches belong to the job, while snapshot-specific bindings remain with the type
+evidence described below. Binary declarations do not add library source listings
+or source-line breakpoints.
 
 `BreakpointReader` uses ASM to read SourceFile and line-number attributes without
 loading or executing guest classes. All compiled classes contribute to its index,

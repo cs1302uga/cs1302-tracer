@@ -22,18 +22,24 @@ import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.ReferenceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.WildcardType;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.types.ResolvedReferenceType;
+import com.github.javaparser.resolution.types.ResolvedType;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Extracts and indexes static type information from JavaParser ASTs to support generic type reification during runtime
- * tracing.
+ * Indexes source type information and lazily reads prepared binary declarations to reconstruct generic type labels
+ * during runtime tracing. Declaration metadata and bindings remain scoped to one tracing job.
  *
  * <p>Normative References: <ul> <li>The Java Language Specification (Java SE 21 Edition), &sect;4.5 (Parameterized
  * Types). <li>The Java Language Specification (Java SE 21 Edition), &sect;4.6 (Type Erasure). <li>The Java Language
@@ -44,7 +50,7 @@ import java.util.regex.Pattern;
 @API(status = API.Status.INTERNAL, since = "4.0.0")
 public class AstTypeResolver {
 
-    /** Source solver retained for invocation-level inference. */
+    /** Prepared source and binary solver retained for invocation and declaration type evidence. */
     public static final com.github.javaparser.ast.DataKey<com.github.javaparser.resolution.TypeSolver> TYPE_SOLVER =
             new com.github.javaparser.ast.DataKey<>() {
             };
@@ -104,6 +110,8 @@ public class AstTypeResolver {
 
     private final List<CompilationUnit> compilationUnits;
     private final Map<String, ClassGenericInfo> classInfoMap = new HashMap<>();
+    private final Map<String, Set<String>> fieldParameters = new HashMap<>();
+    private final Map<String, Set<String>> parentParameters = new HashMap<>();
     private final Map<String, List<VariableInfo>> methodVariablesMap = new HashMap<>();
     private final Map<String, Map<Integer, String>> allocationSiteMap = new HashMap<>();
 
@@ -162,11 +170,29 @@ public class AstTypeResolver {
 
         Map<String, String> fieldTypes = new HashMap<>();
         Map<String, Boolean> fieldIsFinal = new HashMap<>();
+        Set<String> lexicalParameters = new HashSet<>(typeParams);
+        Node enclosing = typeDecl.getParentNode().orElse(null);
+        while (enclosing != null) {
+            if (enclosing instanceof ClassOrInterfaceDeclaration owner) {
+                owner.getTypeParameters().forEach(parameter -> lexicalParameters.add(parameter.getNameAsString()));
+            } // if
+            enclosing = enclosing.getParentNode().orElse(null);
+        } // while
+        if (typeDecl instanceof ClassOrInterfaceDeclaration named) {
+            List<ClassOrInterfaceType> parents = new ArrayList<>(named.getImplementedTypes());
+            parents.addAll(named.getExtendedTypes());
+            for (ClassOrInterfaceType parent : parents) {
+                this.parentParameters.put(classFqn + "#" + resolveAstTypeWithParams(parent, typeParams),
+                        sourceParameters(parent, lexicalParameters));
+            } // for
+        } // if
         for (FieldDeclaration fd : typeDecl.getFields()) {
             boolean isFinal = fd.isFinal();
             for (VariableDeclarator vd : fd.getVariables()) {
                 fieldTypes.put(vd.getNameAsString(), resolveAstTypeWithParams(vd.getType(), typeParams));
                 fieldIsFinal.put(vd.getNameAsString(), isFinal);
+                this.fieldParameters.put(classFqn + "#" + vd.getNameAsString(),
+                        sourceParameters(vd.getType(), lexicalParameters));
             } // for
         } // for
 
@@ -176,6 +202,24 @@ public class AstTypeResolver {
         indexConstructors(classFqn, typeParams, typeDecl);
         indexMethods(classFqn, typeParams, typeDecl);
     } // indexTypeDeclaration
+
+    /**
+     * Finds lexical variables used by a source field or direct parent declaration.
+     *
+     * @param type Declared type syntax.
+     * @param lexicalParameters Type variables visible in its enclosing classes.
+     * @return Variables requiring evidence before this type can be specialized.
+     */
+    private static Set<String> sourceParameters(Type type, Set<String> lexicalParameters) {
+        Set<String> variables = new HashSet<>();
+        for (Type part : TypeTraversal.postorder(type)) {
+            if (part instanceof ClassOrInterfaceType named && named.getScope().isEmpty()
+                    && lexicalParameters.contains(named.getNameAsString())) {
+                variables.add(named.getNameAsString());
+            } // if
+        } // for
+        return variables;
+    } // sourceParameters
 
     /**
      * Index constructors within a type declaration.
@@ -432,7 +476,8 @@ public class AstTypeResolver {
         if (raw1.equals(raw2)) {
             return true;
         } // if
-        return raw1.endsWith("." + raw2) || raw2.endsWith("." + raw1);
+        return raw1.indexOf('.') < 0 && raw2.endsWith("." + raw1)
+                || raw2.indexOf('.') < 0 && raw1.endsWith("." + raw2);
     } // rawTypeMatches
 
     /**
@@ -477,6 +522,10 @@ public class AstTypeResolver {
         if (info != null) {
             return info;
         } // if
+        ClassGenericInfo binary = loadBinaryClassInfo(className);
+        if (binary != null) {
+            return binary;
+        } // if
         for (Map.Entry<String, ClassGenericInfo> entry : classInfoMap.entrySet()) {
             if (rawTypeMatches(entry.getKey(), className)) {
                 return entry.getValue();
@@ -484,6 +533,155 @@ public class AstTypeResolver {
         } // for
         return null;
     } // findClassGenericInfo
+
+    /**
+     * Reads declaration evidence through the prepared job's existing bytecode solver.
+     *
+     * @param className Runtime binary class name.
+     * @return Generic declaration metadata, or null when resolution is unavailable.
+     */
+    private ClassGenericInfo loadBinaryClassInfo(String className) {
+        for (CompilationUnit unit : this.compilationUnits) {
+            if (unit == null || !unit.containsData(TYPE_SOLVER)) {
+                continue;
+            } // if
+            try {
+                ResolvedReferenceTypeDeclaration declaration = unit.getData(TYPE_SOLVER).solveType(className);
+                String qualified = declaration.getQualifiedName();
+                ClassGenericInfo existing = this.classInfoMap.get(qualified);
+                if (existing != null) {
+                    this.classInfoMap.put(className, existing);
+                    return existing;
+                } // if
+                List<String> parameters = declaration.getTypeParameters().stream().map(p -> p.getName()).toList();
+                Map<String, String> fields = new HashMap<>();
+                declaration.getDeclaredFields().forEach(field -> {
+                    ResolvedType type = field.getType();
+                    fields.put(field.getName(), type.describe());
+                    this.fieldParameters.put(qualified + "#" + field.getName(), freeParameters(type));
+                });
+                List<String> interfaces = new ArrayList<>();
+                Optional<String> superclass = Optional.empty();
+                for (ResolvedReferenceType ancestor : declaration.getAncestors()) {
+                    this.parentParameters.put(qualified + "#" + ancestor.describe(), freeParameters(ancestor));
+                    if (ancestor.getTypeDeclaration().map(d -> d.isClass()).orElse(false)) {
+                        superclass = Optional.of(ancestor.describe());
+                    } else {
+                        interfaces.add(ancestor.describe());
+                    } // if
+                } // for
+                ClassGenericInfo info = new ClassGenericInfo(qualified, parameters, fields, Map.of(), interfaces,
+                        superclass);
+                this.classInfoMap.put(className, info);
+                this.classInfoMap.put(qualified, info);
+                return info;
+            } catch (RuntimeException ignored) {
+                // Missing or unsupported binary evidence must retain the erased fallback.
+            } // try
+        } // for
+        return null;
+    } // loadBinaryClassInfo
+
+    /**
+     * Retains the actual free variables in a binary field, including generic enclosing owners.
+     *
+     * @param fieldType Resolved field declaration from the prepared bytecode solver.
+     * @return Variables that need proved bindings before the declaration can be specialized.
+     */
+    private static Set<String> freeParameters(ResolvedType fieldType) {
+        Set<String> variables = new HashSet<>();
+        ArrayDeque<ResolvedType> pending = new ArrayDeque<>();
+        pending.add(fieldType);
+        while (!pending.isEmpty()) {
+            ResolvedType current = pending.removeFirst();
+            if (current.isTypeVariable()) {
+                variables.add(current.describe());
+                continue;
+            } // if
+            if (current.isArray()) {
+                pending.add(current.asArrayType().getComponentType());
+                continue;
+            } // if
+            if (current.isReferenceType()) {
+                pending.addAll(current.asReferenceType().typeParametersValues());
+                continue;
+            } // if
+            if (current.isWildcard() && current.asWildcard().isBounded()) {
+                pending.add(current.asWildcard().getBoundedType());
+            } // if
+        } // while
+        return variables;
+    } // freeParameters
+
+    /**
+     * Describes one owner along a parameterized class/interface hierarchy.
+     *
+     * @param concreteType Concrete type with available argument evidence.
+     * @param targetRaw Requested ancestor's raw name.
+     * @return Composed ancestor type, if a declaration path is available.
+     */
+    private Optional<String> ancestorType(String concreteType, String targetRaw) {
+        ClassGenericInfo target = findClassGenericInfo(targetRaw);
+        String targetName = target == null ? targetRaw : target.classFqn();
+        ArrayDeque<String> pending = new ArrayDeque<>();
+        Set<String> visited = new HashSet<>();
+        pending.add(concreteType);
+        while (!pending.isEmpty()) {
+            String current = pending.removeFirst();
+            String raw = extractRawTypeName(current);
+            ClassGenericInfo info = findClassGenericInfo(raw);
+            String name = info == null ? raw : info.classFqn();
+            if (!visited.add(name)) {
+                continue;
+            } // if
+            if (rawTypeMatches(name, targetName)) {
+                int arguments = current.indexOf('<');
+                return Optional.of(name + (arguments < 0 ? "" : current.substring(arguments)));
+            } // if
+            if (info == null) {
+                continue;
+            } // if
+            Map<String, String> bindings = getTypeBindings(raw, current);
+            List<String> parents = new ArrayList<>(info.implementedTypes());
+            info.extendedType().ifPresent(parents::add);
+            for (String parent : parents) {
+                Set<String> needed = this.parentParameters.getOrDefault(info.classFqn() + "#" + parent, Set.of());
+                pending.add(bindings.keySet().containsAll(needed)
+                        ? substituteType(parent, bindings) : extractRawTypeName(parent));
+            } // for
+        } // while
+        return Optional.empty();
+    } // ancestorType
+
+    /**
+     * Resolves a field using its declaring owner rather than the concrete class's field names.
+     *
+     * @param concreteType Reconstructed runtime type.
+     * @param declaringType Owner reported by JDI for this exact field.
+     * @param fieldName Declared field name.
+     * @return Declared field type when sufficient parameter evidence is available.
+     */
+    Optional<String> fieldType(String concreteType, String declaringType, String fieldName) {
+        ClassGenericInfo owner = findClassGenericInfo(declaringType);
+        if (owner == null) {
+            return Optional.empty();
+        } // if
+        String declared = owner.fieldTypes().get(fieldName);
+        if (declared == null) {
+            return Optional.empty();
+        } // if
+        Set<String> needed = this.fieldParameters.getOrDefault(owner.classFqn() + "#" + fieldName, Set.of());
+        if (needed.isEmpty()) {
+            return Optional.of(declared);
+        } // if
+        Map<String, String> bindings = ancestorType(concreteType, declaringType)
+                .map(type -> getTypeBindings(declaringType, type)).orElseGet(Collections::emptyMap);
+        if (needed.stream().allMatch(parameter -> bindings.containsKey(parameter)
+                && !bindings.get(parameter).startsWith("?"))) {
+            return Optional.of(substituteType(declared, bindings));
+        } // if
+        return Optional.empty();
+    } // fieldType
 
     /**
      * Resolves the concrete subclass's reified type given an interface or superclass type string.
@@ -510,34 +708,55 @@ public class AstTypeResolver {
             return concreteClassFqn;
         } // if
 
-        List<String> normalizedTargetArgs = targetArgs.stream().map(AstTypeResolver::normalizeWildcard).toList();
-
-        List<String> hierarchy = new ArrayList<>(info.implementedTypes());
-        info.extendedType().ifPresent(hierarchy::add);
-
-        for (String parentType : hierarchy) {
-            String parentRaw = extractRawTypeName(parentType);
-            if (rawTypeMatches(parentRaw, targetRaw)) {
-                List<String> parentArgs = extractTypeArguments(parentType);
-                if (parentArgs.size() == normalizedTargetArgs.size()) {
-                    Map<String, String> bindings = new HashMap<>();
-                    for (int i = 0; i < parentArgs.size(); i++) {
-                        String pArg = parentArgs.get(i);
-                        if (info.typeParameters().contains(pArg)) {
-                            bindings.put(pArg, normalizedTargetArgs.get(i));
-                        } // if
-                    } // for
-                    List<String> resolvedArgs = new ArrayList<>();
-                    for (String tp : info.typeParameters()) {
-                        resolvedArgs.add(bindings.getOrDefault(tp, "java.lang.Object"));
-                    } // for
-                    return concreteClassFqn + "<" + String.join(", ", resolvedArgs) + ">";
-                } // if
+        String symbolic = concreteClassFqn + "<" + String.join(", ", info.typeParameters()) + ">";
+        Optional<String> ancestor = ancestorType(symbolic, targetRaw);
+        if (ancestor.isPresent()) {
+            TypeTraversal.validateText(ancestor.get());
+            TypeTraversal.validateText(interfaceOrSuperTypeString);
+            Map<String, String> bindings = new HashMap<>();
+            if (matchTypeArguments(ancestor.get(), interfaceOrSuperTypeString, info.typeParameters(), bindings)
+                    && !bindings.isEmpty()) {
+                return concreteClassFqn + "<" + String.join(", ", info.typeParameters().stream()
+                        .map(parameter -> bindings.getOrDefault(parameter, "?")).toList()) + ">";
             } // if
-        } // for
-
+        } // if
         return concreteClassFqn;
     } // resolveSubclassType
+
+    /**
+     * Matches a symbolic ancestor against declared arguments without guessing unknown parameters.
+     *
+     * @param pattern Ancestor type containing concrete-class parameters.
+     * @param actual Declared reference type evidence.
+     * @param parameters Concrete-class parameter names.
+     * @param bindings Consistent parameter evidence accumulated by this match.
+     * @return Whether all structural constraints agree.
+     */
+    private static boolean matchTypeArguments(String pattern, String actual, List<String> parameters,
+            Map<String, String> bindings) {
+        if (parameters.contains(pattern)) {
+            String previous = bindings.putIfAbsent(pattern, actual);
+            return previous == null || previous.equals(actual);
+        } // if
+        if (pattern.endsWith("[]") && actual.endsWith("[]")) {
+            return matchTypeArguments(pattern.substring(0, pattern.length() - 2),
+                    actual.substring(0, actual.length() - 2), parameters, bindings);
+        } // if
+        if (!rawTypeMatches(extractRawTypeName(pattern), extractRawTypeName(actual))) {
+            return false;
+        } // if
+        List<String> expected = extractTypeArguments(pattern);
+        List<String> supplied = extractTypeArguments(actual);
+        if (expected.size() != supplied.size()) {
+            return false;
+        } // if
+        for (int index = 0; index < expected.size(); index++) {
+            if (!matchTypeArguments(expected.get(index), supplied.get(index), parameters, bindings)) {
+                return false;
+            } // if
+        } // for
+        return true;
+    } // matchTypeArguments
 
     /**
      * Reconciles a concrete runtime class with a declared reference type to produce a fully parameterized concrete type
@@ -651,7 +870,7 @@ public class AstTypeResolver {
      * @return Optional containing {@link ClassGenericInfo} if found.
      */
     public Optional<ClassGenericInfo> getClassGenericInfo(String classFqn) {
-        return Optional.ofNullable(classInfoMap.get(classFqn));
+        return Optional.ofNullable(findClassGenericInfo(classFqn));
     } // getClassGenericInfo
 
     /**
@@ -758,7 +977,7 @@ public class AstTypeResolver {
         if (classFqn == null || reifiedType == null) {
             return Collections.emptyMap();
         } // if
-        ClassGenericInfo info = classInfoMap.get(classFqn);
+        ClassGenericInfo info = findClassGenericInfo(classFqn);
         if (info == null || info.typeParameters().isEmpty()) {
             return Collections.emptyMap();
         } // if

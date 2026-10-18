@@ -77,7 +77,12 @@ links by default, while directory copying rejects encountered links. The optiona
 following setting permits outside targets and rejects broken links or cycles.
 Copying is not an atomic filesystem snapshot or an isolation boundary.</p>
 <p>The same selected binary dependencies support compilation, type analysis, and
-guest execution. Library source-line breakpoints are not added. Source discovery
+guest execution. Generic declarations in those binaries support reconstructed
+heap type labels through superclass and interface hierarchies, including inherited
+fields resolved against their declaring class. Library source and local-variable
+debug tables are not required for those declarations. These labels describe
+available type evidence; they do not make Java's erased type arguments available
+through runtime reflection. Library source-line breakpoints are not added. Source discovery
 and source-byte/file limits remain separate; those limits do not bound binary
 dependencies. Guest compilation disables annotation processing, so required
 generated declarations must be supplied as sources. Existing trace overloads and

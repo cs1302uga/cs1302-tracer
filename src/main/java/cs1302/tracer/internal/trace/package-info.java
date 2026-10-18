@@ -5,8 +5,8 @@
  * The package-private snapshot capture module assembles complete
  * {@link cs1302.tracer.internal.trace.ExecutionSnapshot} values for both guest paths, hiding type prepass ordering
  * and shared heap traversal. Sessions retain budget and admission ownership.
- * Source analysis supplies evidence for runtime type
- * recovery and
+ * Source analysis and prepared binary declarations supply evidence for generic type label
+ * reconstruction and
  * lambda reconstruction. {@link cs1302.tracer.internal.trace.ReifiedTypeMetadata} owns type evidence for one snapshot,
  * while
  * {@link cs1302.tracer.internal.trace.JobOutput} owns each job's captured output and finalization.</p>
@@ -26,6 +26,9 @@
  * archive views and optional dependency copies remain owned by
  * {@link cs1302.tracer.internal.classpath.PreparedClassPath}, held by
  * {@link cs1302.tracer.internal.SourcePreparation} until guest execution and source analysis finish.
+ * Generic superclass and interface bindings compose across hierarchy levels; instance fields use the metadata of
+ * their declaring owner, including inherited and hidden fields. Binary generic declarations do not require library
+ * source or local-variable debug tables. Unresolved arguments retain conservative erased or wildcard labels.
  * Precompiled dependency classes supply runtime behavior and type evidence, but do not add source-line
  * breakpoints to submitted or discovered Java source.</p>
  *

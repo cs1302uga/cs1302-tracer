@@ -116,6 +116,30 @@ The same behavior applies to the batch request's `typeStyle` field and the Java
 API's `TypeStyle` setting. Consumers must regenerate cached traces to obtain the
 updated signature formatting.
 
+## Generic heap type labels
+
+Heap type labels combine source-declared reference types with generic declarations
+from the prepared binary dependencies. For example, a reference declared as
+`Queue<Person>` can describe a `LinkedQueue<Person>` object when its superclass
+and interface declarations prove that relationship. Type arguments compose across
+multiple hierarchy levels, including renamed and reordered parameters. Instance
+fields use their declaring owner's bindings, so an inherited `Node<T>` field can
+display `Node<Person>` even when its value is `null`. Hidden fields retain their
+respective declaring owners' types.
+
+Library source files and local-variable debug tables from `javac -g` are not
+required for binary generic declarations. The tracer uses the class-file generic
+signatures through the prepared dependency solver; it does not execute guest
+methods to obtain type arguments. This reconstructs labels from available evidence
+and does not change Java's type erasure. Fully concrete field declarations such
+as `Node<String>` remain available even for a nongeneric owner. Missing or
+unsupported declarations retain erased labels; a partially determined concrete
+class uses `?` for undetermined arguments, and conflicting evidence does not
+produce a parameterization. Wholly undetermined classes remain raw.
+
+Both JSON formats keep their existing type fields and schemas. Cached traces and
+images must be regenerated to obtain corrected labels.
+
 ## Generic method variable types
 
 Stack variable labels describe source-declared types for the active invocation.
