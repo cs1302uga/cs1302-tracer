@@ -87,6 +87,7 @@ requirements, and JSON/batch schemas are unchanged.
   references, identifying the third-party code in each release asset and how to
   print its notices. Consolidate duplicated envelope and omitted-limit guidance.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
+  Implementation: [c148fa4](https://github.com/cs1302uga/cs1302-tracer/commit/c148fa4e2b85e80b9930863d6306373ddf87c775).
 
 ### Commits
 
@@ -110,6 +111,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`70a1ad9`](https://github.com/cs1302uga/cs1302-tracer/commit/70a1ad908e280decfc21571643136296b94fa21d) Link the rebased documentation audit commits in the changelog.
 
 - [`3570a78`](https://github.com/cs1302uga/cs1302-tracer/commit/3570a789008e208b0060328d7698624a7e381499) Refresh audit provenance after the published-history rebase.
+- [`e3cd608`](https://github.com/cs1302uga/cs1302-tracer/commit/e3cd60874182a271d7b2c28e32bf4a818cece8af) Match displayed changelog IDs to the rebased commits.
+- [`c148fa4`](https://github.com/cs1302uga/cs1302-tracer/commit/c148fa4e2b85e80b9930863d6306373ddf87c775) Document runner, CLI, input, and thread contracts found by the audit.
 
 ## 4.2.1 — 2026-10-18
 
