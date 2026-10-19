@@ -178,12 +178,14 @@ both the retained snapshots and the JSON root shape.
 | --- | --- | --- |
 | Source | Read source text from the tracer's standard input until end-of-input. | `--input Main.java` (alias `-i`); see [source discovery](#source-input-and-discovery) and [program requirements](../guides/tracing.md#program-requirements). |
 | Guest input | Empty input. | `--stdin TEXT` or `--stdin-file FILE`; choose one. |
-| Capture | Final main-exit state when main returns normally; [termination limitations](#capture-when-main-does-not-return) apply. | `--all-breakpoints` (`-a`) for chronological capture, or `--breakpoints` (`-b`) for selected locations. |
+| Capture | Final main-exit state when main returns normally; [termination limitations](#capture-when-main-does-not-return) apply. | `--all-breakpoints` (`-a`) for chronological capture, or `--breakpoints` (`-b`) for selected locations. `--multithread` also implies chronological capture. |
 | Repeated selected hits | Retain the latest hit at each location. | `--accumulate-breakpoints` to retain hits grouped by location. |
 | JSON format | `pytutor`. | `--format modern` (`-f modern`). |
 | Type names | Fully qualified (`fqn`). | `--type-style simple`. |
 | Layout | Compact Python Tutor JSON; ordinary modern JSON is always indented. | `--pretty` (`-p`) indents Python Tutor output and result envelopes. |
 | Binary dependencies | None; the host `CLASSPATH` is not imported. | Repeatable `--class-path`, `-classpath`, or `-cp`. |
+| Inspection | `TRUSTED`; may call guest methods for collection, map, wrapper, and stream inspection, and flushes guest `System.out` and `System.err` at each snapshot. | `--inspection FIELDS`, which requires `--result-envelope`; `--multithread` also selects `FIELDS`. See [inspection policies](../BOUNDED_TRACING.md#inspection-policies). |
+| Enum hash codes | Evaluated (`--eval-enum-hash`) under `TRUSTED` inspection without `--multithread`. | `--no-eval-enum-hash`; when both flags appear, the last one wins. `FIELDS` inspection and `--multithread` never evaluate them. |
 | Budgets | Finite instructor defaults. | Explicit `--max-*` options or `--timeout-ms`; `--result-envelope` switches omitted limits to unlimited. |
 
 `--type-style` also controls the return and parameter types in
@@ -202,6 +204,17 @@ values are supplied. `--max-snapshot-bytes` applies to both capture modes.
 Modern JSON continues to represent strings through references and heap string
 objects, regardless of that flag. See [string representation](output.md) for the
 output contract.
+
+## Option interactions and validation
+
+| Rule | Effect | Details |
+| --- | --- | --- |
+| `--inspection` other than `TRUSTED` requires `--result-envelope`. | Exit status 2: `Inspection controls require --result-envelope`. | [Inspection policies](../BOUNDED_TRACING.md#inspection-policies) |
+| `--multithread` requires `--format modern`. | Exit status 2: `--multithread requires --format modern`. | [Opt-in thread capture](output.md#opt-in-thread-capture) |
+| `--multithread` implies chronological capture and `FIELDS` inspection. | Without capture options, output is a chronological `steps` array instead of one final snapshot; neighboring-source discovery is disabled. | [Opt-in thread capture](output.md#opt-in-thread-capture), [source discovery](#source-input-and-discovery) |
+| `--accumulate-breakpoints` needs an explicit `--breakpoints` selection and non-chronological capture (no `--all-breakpoints` or `--multithread`). | Ignored otherwise; the output is identical to the same command without it. | [Result contracts](output.md#result-contracts) |
+| `--eval-enum-hash` and `--no-eval-enum-hash` are mutually overriding. | The last flag on the command line wins. Neither flag has an effect under `FIELDS` inspection or `--multithread`, which do not invoke guest methods. | [Inspection policies](../BOUNDED_TRACING.md#inspection-policies) |
+| `--stdin` and `--stdin-file` are mutually exclusive. | Exit status 2: `Cannot specify both --stdin and --stdin-file`. | [Trace defaults](#trace-defaults-at-a-glance) |
 
 ## Source input and discovery
 

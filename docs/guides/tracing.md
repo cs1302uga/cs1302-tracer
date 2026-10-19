@@ -19,6 +19,7 @@ read by the traced program.
 | Compare repeated hits at a loop line | [Trace a loop](../tutorials/trace-a-loop.md) |
 | Give the program input | [Supply program input](#supply-program-input) |
 | Submit a program with several source files | [Submit multiple files](#submit-multiple-files) |
+| Show what several threads are doing | [Trace a multithreaded program](#trace-a-multithreaded-program) |
 | Use precompiled classes or a dependency JAR | [Add binary dependencies](#add-binary-dependencies) |
 | Raise a budget for a complete trusted trace | [Tune a tracing budget](#tune-a-tracing-budget) |
 | Change output presentation or keep a partial result | [Choose presentation and budgets](#choose-presentation-and-budgets) |
@@ -108,7 +109,7 @@ blank lines and declarations need not have a location. The
 
 Chronological capture already retains repeated hits. Selected-breakpoint and
 chronological output can have different roots; use the
-[output reference](../reference/output.md#selected-breakpoints-and-envelopes) when
+[output reference](../reference/output.md#result-contracts) when
 comparing their JSON.
 
 ## Supply program input
@@ -219,6 +220,51 @@ boundaries; none of these choices provides host isolation.
 For Java code that assembles bundles programmatically, use the
 [SourceBundle reference](../reference/java-api.md#bundle-source-files), including
 its ordering, validation, file-capture, and link-following rules.
+
+## Trace a multithreaded program
+
+Save this as `Workers.java`:
+
+<!-- recipe-threads-source:start -->
+```java
+public class Workers {
+    public static void main(String[] args) throws InterruptedException {
+        int[] counts = new int[2];
+        Thread worker = new Thread(() -> {
+            counts[0] = 21;
+        }, "worker");
+        worker.start();
+        counts[1] = 21;
+        worker.join();
+        System.out.println(counts[0] + counts[1]);
+    }
+}
+```
+<!-- recipe-threads-source:end -->
+
+Thread capture requires modern JSON and always records a chronological sequence:
+
+<!-- recipe-threads-command:start -->
+```sh
+java -jar code-tracer.jar trace -i Workers.java --multithread --format modern --pretty > threads.json
+```
+<!-- recipe-threads-command:end -->
+
+The trace captures final guest stdout `42` followed by a newline in the last
+step's `stdout`. Every step in `threads.json` has a `threads` array, with each
+thread's `id`, `name`, `state`, and `callStack`, and a `triggeringThreadId` naming
+the thread that stopped. The top-level `callStack` is that triggering thread's
+stack. When `worker` stops at line 5, the `main` entry in `threads` still shows
+`main`'s frame and locals. Steps whose `event` is `thread_start` or
+`thread_death` mark thread lifecycle changes and can have no source location.
+
+Without `--multithread`, this command captures only the final main-exit state.
+With `--all-breakpoints` or `--breakpoints` instead, a stop reached in worker code
+records only the stopping thread's stack and no thread identity, so `main`'s
+frame seems to disappear during those steps. For a program that might never
+finish, add `--result-envelope` and explicit limits such as `--timeout-ms 5000` to
+keep a partial trace. See [opt-in thread capture](../reference/output.md#opt-in-thread-capture)
+for every field, event, and limitation.
 
 ## Add binary dependencies
 

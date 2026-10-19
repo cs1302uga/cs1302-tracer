@@ -5,7 +5,9 @@
 The first-party cs1302-tracer code and documentation are distributed under the MIT License.
 The complete text below is copied from the repository's
 `LICENSE` file. This project license does not replace the licenses of third-party dependencies; see the
-[dependency reference](dependencies.md) for their resolved versions and declared licenses.
+[dependency reference](dependencies.md) for their resolved versions and declared licenses. The
+[installation guide](../guides/installation.md#third-party-code-in-release-assets) identifies which release assets
+contain third-party code and how to print those notices.
 
 ```text
 MIT License

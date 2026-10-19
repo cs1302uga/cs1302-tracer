@@ -34,9 +34,12 @@ line. Consumers must accept a single value or an array in latest mode. Use
 See [uncaught exceptions](#uncaught-exceptions) for final-state capture when the
 entry method does not return normally.
 
-The envelope separates trace-generation status from the payload; its `trace` can
-be `null` when unavailable. It also changes the budget profile: **omitted envelope
-limits are unlimited**, whereas ordinary tracing has finite defaults. Consult
+The envelope separates trace-generation status from the payload: it adds a
+versioned status, effective limits, counters, diagnostics, and bounded guest
+streams around the trace, and its `trace` can be `null` when unavailable. It also
+changes the budget profile: **omitted CLI envelope limits are unlimited**, whereas
+ordinary tracing has finite defaults. Java request convenience constructors use
+finite defaults, and omitted batch limits are unlimited. Consult
 [bounded tracing](../BOUNDED_TRACING.md) for the full limits and partial-result
 contract and the [CLI exit-status lookup](cli.md#exit-statuses) before automating
 these commands. CLI envelopes, Java API outcomes, and the `result` in each batch
@@ -100,9 +103,19 @@ close or retries rendering during recovery.
 Root `stdin` is the input supplied to the guest, separate from source text read
 through the tracer's stdin. Snapshot `stdinConsumed` is the observed consumed
 prefix of that string, and `stdinOffset` is its zero-based UTF-16 code-unit length,
-not a byte offset. Input observation recognizes supported standard-input readers
-and avoids counting nested reads twice; it is not a record of every operating-system
-read or every custom reader's buffering. Each job starts with a fresh cursor.
+not a byte offset. Input observation follows logical reads by `java.util.Scanner`
+(`next*`, `find*`, and `nextLine`), `java.io.BufferedReader.readLine`, and
+`java.lang.IO.readln` on standard input; methods that do not complete one of
+those reads, such as `BufferedReader.read` or `Scanner.skip`, do not move the
+cursor. In a dedicated guest (CLI tracing and multithread jobs), other readers on
+`System.in` are observed at the underlying stream, whose buffering can run ahead of
+the program's logical reads; reads through a separately constructed
+`BufferedInputStream` around `System.in` are not observed. In a reusable guest
+(single-stack Java API and batch jobs), those reads, including `System.in.read()`
+and `System.in.read(byte[], int, int)`, are not observed, so the cursor can lag
+behind them; of the direct stream reads, only `System.in.read(byte[])` advances it. Observation avoids counting nested reads twice; it is not a record of every
+operating-system read or every custom reader's buffering. Each job starts with a
+fresh cursor. See [input as a consumption cursor](../explanation/trace-model.md#input-is-a-consumption-cursor).
 
 Snapshot `stdout` and `stderr` contain cumulative captured output. Chronological
 snapshots record progress; after execution, the final snapshot receives trailing
@@ -940,19 +953,9 @@ Completed partial snapshots receive metadata just like complete traces.
 
 ## Selected breakpoints and envelopes
 
-Non-envelope selected-breakpoint output may be a dictionary of breakpoint results;
-do not assume every invocation has the chronological root shown above. Modern
-selected output has a non-null `breakpoints` mapping. As described in
-[result contracts](#result-contracts), a line key can contain one value or multiple
-files' retained values. Envelope mode always carries a format-specific sequence
-root when a trace is available.
-
-`--result-envelope` adds versioned status, effective limits, counters, diagnostics,
-and bounded guest streams around the trace. `trace` may be null on failure.
-CLI envelope mode leaves omitted budgets unlimited; Java request convenience
-constructors use finite defaults, and omitted batch limits are unlimited. Read the full
-[bounded result contract](../BOUNDED_TRACING.md) for limits, exit codes, stop reasons,
-partial results, and the difference between empty and unavailable traces.
+The [result contracts](#result-contracts) table defines every selected-breakpoint,
+chronological, and envelope root shape, and the notes below it define envelope
+budgets and `null` traces.
 
 ### Null properties in modern output
 

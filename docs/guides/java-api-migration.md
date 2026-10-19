@@ -7,21 +7,25 @@ CLI and NDJSON entry points retain their own contracts; their defaults are not
 inferred from the new Java convenience constructor. The primitive binary metadata
 extension introduced in 4.1.0 remains opt-in.
 
+Before you start, set up the 4.x library artifact and compile classpath as
+shown in the [Java tutorial](../tutorials/java-integration.md) and
+[compile-time dependencies](../reference/java-api.md#stability-and-compile-time-dependencies).
+
 | Previous integration | Replacement |
 | --- | --- |
-| `CompilationHelper` and `App.parseSource` | Submit source text to `Tracer`; compilation and AST ownership are internal. |
-| `DebugTraceHelper` and JDI-based extraction helpers | `Tracer.trace(TraceRequest)` for self-contained jobs. |
+| `CompilationHelper` and `App.parseSource` | Submit source text to [`Tracer`](../reference/java-api.md#trace-a-submitted-program); compilation and AST ownership are internal. |
+| `DebugTraceHelper` and JDI-based extraction helpers | [`Tracer.trace(TraceRequest)`](../reference/java-api.md#trace-a-submitted-program) for self-contained jobs. |
 | `TraceSession` limits, inspection, accumulation, or `enableMultithread()` | Supply the corresponding `TraceRequest` settings: `limits`, `inspection`, `accumulate`, and `multithread`. |
 | `TraceSession.current()` | No supported session accessor replaces this call; one-shot tracing owns and closes its internal session. |
 | `TraceSession.cancel()` | No supported per-trace session handle or cancellation method replaces this call. Use finite limits and, for hosted jobs, the runner's whole-job cancellation boundary. |
 | `execution.TraceResult` | Detached `TraceOutcome` metadata and serialized result/payload JSON. |
-| `PersistentGuestSession.create()` and its tracing methods | Use `Tracer.trace` for a one-shot operation or closeable `BatchTracer` for streamed jobs; no guest/JDI handle is exposed. |
-| `getValidBreakpointLines` and compiled-program inspection | `Tracer.discoverBreakpoints(source)`. |
-| `PyTutorSerializer.getGson().toJson(trace)` or `ModernTraceSerializer.getGson().toJson(trace)` | `TraceOutcome.traceJson()` for the bare trace payload. `json()` and `writeJson(Writer)` produce a result envelope instead. |
-| `BatchTraceService`, including its two-argument constructor | `BatchTracer` with explicit worker, recycling, admission, and ordering settings and the same NDJSON stream protocol. |
-| `execution.TraceLimits` / `execution.InspectionPolicy` | Corresponding types in `cs1302.tracer.api`. |
-| `model.TraceFormat` / `model.TypeStyle` | Corresponding types in `cs1302.tracer.api`. |
-| Internal snapshot or wire records | Consume the documented JSON contract; internal records are not supported DTOs. |
+| `PersistentGuestSession.create()` and its tracing methods | Use `Tracer.trace` for a one-shot operation or closeable [`BatchTracer`](../reference/java-api.md#process-a-batch-stream) for streamed jobs; no guest/JDI handle is exposed. |
+| `getValidBreakpointLines` and compiled-program inspection | [`Tracer.discoverBreakpoints(source)`](../reference/java-api.md#discover-breakpoints). |
+| `PyTutorSerializer.getGson().toJson(trace)` or `ModernTraceSerializer.getGson().toJson(trace)` | [`TraceOutcome.traceJson()`](../reference/java-api.md#trace-a-submitted-program) for the bare trace payload. `json()` and `writeJson(Writer)` produce a result envelope instead. |
+| `BatchTraceService`, including its two-argument constructor | [`BatchTracer`](../reference/java-api.md#process-a-batch-stream) with explicit worker, recycling, admission, and ordering settings and the same NDJSON stream protocol. |
+| `execution.TraceLimits` / `execution.InspectionPolicy` | Corresponding types in `cs1302.tracer.api`: [`TraceLimits`](../reference/java-api.md#build-and-customize-values) and [`InspectionPolicy`](../reference/java-api.md#trace-a-submitted-program). |
+| `model.TraceFormat` / `model.TypeStyle` | Corresponding types in `cs1302.tracer.api`: [`TraceFormat`](../reference/java-api.md#trace-a-submitted-program) and [`TypeStyle`](../reference/java-api.md#trace-a-submitted-program). |
+| Internal snapshot or wire records | Consume the documented [JSON contract](../reference/output.md); internal records are not supported DTOs. |
 
 ## Replace exception-based failure handling
 
@@ -64,7 +68,7 @@ breakpoints. It does not reproduce a 3.x helper's line-keyed snapshot map or the
 ordinary CLI's selected-breakpoint dictionary. Consumers that expect a root such
 as `{"4": ...}` must adapt to the sequence or keep using the CLI entry point
 whose documented output shape they need. See
-[selected breakpoints and envelopes](../reference/output.md#selected-breakpoints-and-envelopes).
+[result contracts](../reference/output.md#result-contracts).
 
 ## Preserve batch settings explicitly
 

@@ -227,6 +227,23 @@ Use documentation matching the downloaded version. The
 [first-trace tutorial](../tutorials/first-trace.md) works beside that JAR or from an
 extracted binary distribution; no source checkout is needed.
 
+### Third-party code in release assets
+
+`code-tracer.jar`, including the copy inside each binary distribution, contains
+the tracer and every dependency in the
+[Runtime group of the dependency reference](../reference/dependencies.md#runtime-dependencies),
+unpacked under their original package names. Their license notices are in that
+JAR's `META-INF/THIRD-PARTY.txt`; print them with
+`java -jar code-tracer.jar show-licenses` (see [`show-licenses`](../reference/cli.md#show-licenses)).
+The library `cs1302-tracer-VERSION.jar` contains no dependency classes; Maven
+resolves its Runtime dependencies for library users. Test dependencies are
+never distributed. The Javadoc JAR (`cs1302-tracer-VERSION-javadoc.jar`) contains
+JDK-generated HTML that includes third-party scripts such as jQuery and jQuery UI;
+their notices are in that JAR's `legal/` directory, and `show-licenses` does not
+print them. Historical guide archives from separate `docs-*` publications are
+documentation-site builds and are not covered here. The
+[project license](../reference/licenses.md) covers the first-party code only.
+
 ### Binary distributions
 
 Releases that include `code-tracer-bin.tar.gz`, `code-tracer-bin.tar.xz`, and

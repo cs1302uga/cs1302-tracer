@@ -63,7 +63,8 @@ cumulative output without pinning heap IDs or snapshot indices. The loop check
 executes discovery, latest-hit, accumulated, and chronological commands and checks
 the documented loop values. The tracing recipes cover final and chronological
 capture, guest input, multiple source files, compiled dependencies, presentation,
-and a controlled budget stop with a partial envelope. Java and batch checks inspect
+multithread capture that keeps the `main` frame in `threads` while the worker runs, and
+a controlled budget stop with a partial envelope. Java and batch checks inspect
 completion and failure outcomes. The README quickstart remains a separate
 checkout-based example.
 

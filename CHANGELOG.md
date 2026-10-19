@@ -77,6 +77,16 @@ requirements, and JSON/batch schemas are unchanged.
   provide budget-tuning recipes, and check tutorial failures before continuing.
   Executable string-inlining help now identifies its Python Tutor-only scope.
   Implementation: [efd38ef](https://github.com/cs1302uga/cs1302-tracer/commit/efd38efac4f87148466d82eb48ff5db777ddaf7e), [81c2217](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9), [830d019](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e), [2501a00](https://github.com/cs1302uga/cs1302-tracer/commit/2501a001648fdf86f8cdf17fb2effe8ac4820c92), [af12d9c](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac), [a04a2e2](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6), [93a5fb9](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47), [8b6b284](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9), and [78d1ee6](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e).
+- **Audit follow-up documentation:** state the runner contract's JDK, loopback
+  debugger transport, temporary-file, and per-integration-mode requirements; add
+  a CLI option-interaction table with the inspection and enum-hash defaults;
+  explain standard input as a consumption cursor, including which reads each
+  guest kind observes; add a verified multithread tracing recipe; link the 3.x
+  migration guide to its reference sections; list the Java runtime requirements;
+  and add an installation section, linked from the license and dependency
+  references, identifying the third-party code in each release asset and how to
+  print its notices. Consolidate duplicated envelope and omitted-limit guidance.
+  Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
 
 ### Commits
 

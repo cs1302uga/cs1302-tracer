@@ -123,7 +123,22 @@ def tutorial_results() -> dict[str, Any]:
         ),
         1,
     )
+    main_thread = {"id": 1, "name": "main", "state": "WAITING", "callStack": [{"methodName": "main"}]}
+    blocked_main = {"id": 1, "name": "main", "state": "RUNNABLE", "callStack": [{"methodName": "<init>"}]}
+    worker = {"id": 2, "name": "worker", "state": "RUNNABLE", "callStack": [{"methodName": "lambda$main$0"}]}
+    idle_worker = {"id": 2, "name": "worker", "state": "RUNNABLE", "callStack": []}
+    thread_steps = [
+        {"event": "thread_start", "threads": [blocked_main], "triggeringThreadId": 1, "stdout": ""},
+        {"event": "step_line", "threads": [blocked_main, idle_worker], "triggeringThreadId": 2, "stdout": ""},
+        {"event": "step_line", "threads": [blocked_main, worker], "triggeringThreadId": 2, "stdout": ""},
+        {"event": "step_line", "threads": [worker], "triggeringThreadId": 2, "stdout": ""},
+        {"event": "step_line", "threads": [main_thread, worker], "triggeringThreadId": 9, "stdout": ""},
+        {"event": "step_line", "threads": [main_thread, worker], "triggeringThreadId": 2, "stdout": ""},
+        {"event": "thread_death", "threads": [main_thread], "triggeringThreadId": 2, "stdout": ""},
+        {"event": "main_exit", "threads": [main_thread], "triggeringThreadId": 1, "stdout": "42\n"},
+    ]
     return {
+        "threads": {"format": "modern", "entryFile": "Workers.java", "steps": thread_steps},
         "first": {"format": "modern", "entryFile": "Main.java", "steps": steps},
         "shared": {"format": "modern", "entryFile": "SharedReferences.java", "steps": shared_steps},
         "latest": {"format": "modern", "entryFile": "Loop.java", "breakpoints": {"4": accumulated[-1]}},
@@ -305,6 +320,11 @@ elif 'UseHelper.java' in sys.argv:
     assert sys.argv[sys.argv.index('--class-path') + 1] == 'helper.jar'
     trace = results['dependency']
     trace['sources'] = {'UseHelper.java': Path('UseHelper.java').read_text()}
+    print(json.dumps(trace))
+elif 'Workers.java' in sys.argv:
+    assert '--multithread' in sys.argv and sys.argv[sys.argv.index('--format') + 1] == 'modern'
+    trace = results['threads']
+    trace['sources'] = {'Workers.java': Path('Workers.java').read_text()}
     print(json.dumps(trace))
 elif 'trace' in sys.argv and 'code-tracer.jar' in sys.argv:
     source = sys.stdin.read()
@@ -725,6 +745,15 @@ else:
         data = json.loads(original)
         data["dependency"]["steps"][0]["file"] = "Helper.java"
         changes.append(("dependency breakpoint", data, "AssertionError"))
+        data = json.loads(original)
+        del data["threads"]["steps"][2]["threads"]
+        changes.append(("missing threads", data, "Thread data is missing"))
+        data = json.loads(original)
+        data["threads"]["steps"][6]["event"] = "step_line"
+        changes.append(("missing lifecycle", data, "lifecycle events are missing"))
+        data = json.loads(original)
+        data["threads"]["steps"][5]["threads"][0]["callStack"] = [{"methodName": "<init>"}]
+        changes.append(("missing main frame", data, "keeps the main frame"))
         data = json.loads(original)
         data["partial"]["status"] = "completed"
         changes.append(("wrong stop", data, "AssertionError"))

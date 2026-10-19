@@ -137,6 +137,39 @@ Preflight and argument errors still use terminal stderr, and an unreadable
 the [CLI exit-status contract](../reference/cli.md#exit-statuses) and
 [envelope contract](../BOUNDED_TRACING.md#envelope).
 
+## Input is a consumption cursor
+
+Guest input is a string separate from the source, supplied with `--stdin`,
+`--stdin-file`, or the corresponding request field. Each job starts a fresh cursor
+at the beginning of that string. A snapshot's `stdinConsumed` shows the prefix the
+program has read so far, and `stdinOffset` is that prefix's length in UTF-16 code
+units, not bytes.
+
+What counts as "read" depends on the reader. For `java.util.Scanner` (`next*`,
+`find*`, and `nextLine`), `java.io.BufferedReader.readLine`, and
+`java.lang.IO.readln` on standard input, the cursor follows the program's logical
+reads. After `Scanner.nextLine()` returns `Ada`, `stdinConsumed` is `Ada` followed
+by a newline, even though the scanner has already buffered more input. Streams
+from `BufferedReader.lines()` or `Scanner.tokens()` move the cursor through those
+same reads. Methods that do not complete one of those reads, such as
+`BufferedReader.read` or `Scanner.skip`, do not move it, so it can lag behind what
+the program has read.
+
+How other readers built on `System.in`, such as an `InputStreamReader`, are
+observed depends on the guest. In a dedicated guest (CLI tracing and multithread
+jobs), they are observed only at the underlying stream. Its buffering can move the
+cursor past text the program has not used yet: one `InputStreamReader.read` of
+three characters can report the entire supplied input as consumed, so treat the
+cursor as an upper bound. Reads through a separately constructed
+`BufferedInputStream` around `System.in` are not observed at all. In a reusable guest (single-stack Java API and batch
+jobs), `InputStreamReader` reads and direct `System.in.read()` or
+`System.in.read(byte[], int, int)` calls are not observed, so the cursor can lag
+behind what the program has read. Of the direct stream reads, only the
+single-argument `System.in.read(byte[])` advances it there.
+
+The [output reference](../reference/output.md#input-and-output-observations) defines
+the snapshot fields.
+
 ## Captured evidence has limits
 
 A trace can end because execution completed, failed, or reached a tracing limit.

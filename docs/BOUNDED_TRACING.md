@@ -21,8 +21,10 @@ reusable guest startup happens before it and is not covered by this deadline.
 
 Use `--unlimited` to disable these defaults. An explicit individual limit still
 applies with `--unlimited`, regardless of option order; zero disables that limit.
-For compatibility, envelope mode retains its existing policy: omitted limits are
-unlimited, and callers should supply their intended budgets explicitly.
+Other entry points have their own omitted-limit profiles: CLI envelope and batch
+requests leave omitted limits unlimited, while Java `TraceRequest` convenience
+constructors use the finite defaults. The [guest modes](#guest-modes) table lists
+each profile; supply intended budgets explicitly.
 `--inspection FIELDS` still requires `--result-envelope`.
 Hosted execution requires the separate [runner contract](RUNNER_CONTRACT.md).
 
@@ -38,7 +40,7 @@ java -jar target/code-tracer.jar trace \
 This is an illustrative teaching-workload profile, not a security guarantee or a
 universal production default. Tune it for your examples and the runner's total
 memory, concurrency, and wall-clock budgets. Supply finite budgets for every
-hosted job. In envelope mode, omitted budget options use zero (unlimited).
+hosted job.
 Negative values, timeouts greater than `Long.MAX_VALUE / 1_000_000` milliseconds,
 and unsupported options are rejected before tracing.
 

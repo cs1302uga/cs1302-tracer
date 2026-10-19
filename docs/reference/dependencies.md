@@ -8,6 +8,9 @@ hide_table_of_contents: true
 
 33 resolved project dependencies for this documentation version, including tests. Versions and declared licenses are visible below. Expand **Details** for full metadata.
 
+The [installation guide](../guides/installation.md#third-party-code-in-release-assets) identifies which release
+assets contain the Runtime dependencies and how to print their license notices.
+
 Jump to: [Runtime (14)](#runtime-dependencies) · [Test (19)](#test-dependencies) · [Dependency tree](#resolved-dependency-tree) · [About this inventory](#about-this-inventory)
 
 <section class="dependency-inventory" aria-labelledby="runtime-dependencies">

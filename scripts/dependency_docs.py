@@ -311,6 +311,9 @@ def pages(root: Path, tree: dict[str, Any], metadata: dict[str, Any], overrides:
         f"{len(resolved)} resolved project dependencies for this documentation version, including tests. "
         "Versions and declared licenses are visible below. Expand **Details** "
         "for full metadata.\n\n"
+        "The [installation guide](../guides/installation.md#third-party-code-in-release-assets)"
+        " identifies which release\n"
+        "assets contain the Runtime dependencies and how to print their license notices.\n\n"
         "Jump to: "
         + " · ".join(jumps)
         + "\n\n"
@@ -348,7 +351,10 @@ def pages(root: Path, tree: dict[str, Any], metadata: dict[str, Any], overrides:
         "The first-party cs1302-tracer code and documentation are distributed under the MIT License.\n"
         "The complete text below is copied from the repository's\n"
         "`LICENSE` file. This project license does not replace the licenses of third-party dependencies; see the\n"
-        "[dependency reference](dependencies.md) for their resolved versions and declared licenses.\n\n"
+        "[dependency reference](dependencies.md) for their resolved versions and declared licenses. The\n"
+        "[installation guide](../guides/installation.md#third-party-code-in-release-assets)"
+        " identifies which release assets\n"
+        "contain third-party code and how to print those notices.\n\n"
         + fenced((root / "LICENSE").read_text(encoding="utf-8", newline=""))
     )
     return {root / "docs/reference/licenses.md": license_page, root / "docs/reference/dependencies.md": dependency_page}

@@ -16,6 +16,19 @@ Run with a full **JDK 21 or later**; CI exercises Java 21 and 25, and `.java-ver
 selects the local development JDK. Submitted-program features depend on the active
 JDK and parser support.
 
+The host JVM must also meet these runtime requirements, which the
+[`Tracer` Javadoc](https://cs1302uga.github.io/cs1302-tracer/api/next/cs1302/tracer/api/Tracer.html)
+states as its class contract:
+
+- Source compilation needs the `jdk.compiler` module, so a JRE is insufficient.
+- Tracing needs the `jdk.jdi` module and permission to launch a child JVM through
+  JDI's default launching connector, which uses the host JVM's `java.home`.
+- The tracer's classes must load from a JAR file or class directory on the
+  filesystem. Nested-archive and other non-filesystem code-source locations are not
+  supported for guest launch.
+- `Tracer.discoverBreakpoints` compiles and inspects submitted classes without
+  launching a guest.
+
 This documentation describes development version `4.2.2-SNAPSHOT`. Features marked 4.1.0 include
 `SourceBundle`, `TraceClassPath`, the builders, and the primitive binary metadata
 overload.

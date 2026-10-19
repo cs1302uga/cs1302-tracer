@@ -326,6 +326,7 @@ def check_recipes(work: Path) -> None:
         ("multifile-source", "submission.txt"),
         ("dependency-source", "Helper.java"),
         ("dependency-main", "UseHelper.java"),
+        ("threads-source", "Workers.java"),
     ):
         (work / filename).write_text(block(guide, "recipe-" + marker) + "\n", encoding="utf-8")
     run(["sh", "-eu", "-c", block(guide, "recipe-dependency-build")], cwd=work)
@@ -337,6 +338,7 @@ def check_recipes(work: Path) -> None:
         ("multifile", "multi-trace.json"),
         ("dependency", "dependency-trace.json"),
         ("presentation", "presentation-trace.json"),
+        ("threads", "threads.json"),
         ("partial", "partial-result.json"),
     ):
         run(
@@ -351,6 +353,7 @@ def check_recipes(work: Path) -> None:
         ("input", "Greeting.java", "Hello, Ada!\n"),
         ("dependency", "UseHelper.java", "42\n"),
         ("presentation", "SnapshotDemo.java", "8\n"),
+        ("threads", "Workers.java", "42\n"),
     ):
         result = outputs[name]
         assert result["format"] == "modern" and result["entryFile"] == filename
@@ -383,6 +386,7 @@ def check_recipes(work: Path) -> None:
     cumulative_output(bundled["steps"], "42\n")
     assert set(outputs["dependency"]["sources"]) == {"UseHelper.java"}
     assert all(step["file"] == "UseHelper.java" for step in outputs["dependency"]["steps"])
+    check_threads(outputs["threads"]["steps"])
     partial = outputs["partial"]
     assert partial["schemaVersion"] == 1 and partial["status"] == "stopped" and not partial["complete"]
     assert partial["stopReason"] == "snapshot_limit" and len(partial["trace"]["steps"]) == 1
@@ -401,6 +405,21 @@ def check_recipes(work: Path) -> None:
         "snapshotBytes",
     }
     assert all(value > 0 for value in partial["limits"].values()), "The partial-result recipe must set every budget"
+
+
+def check_threads(steps: list[dict[str, Any]]) -> None:
+    """Check that a worker stop keeps the main frame in the thread list."""
+    assert all("threads" in step and "triggeringThreadId" in step for step in steps), "Thread data is missing"
+    events = {step["event"] for step in steps}
+    assert {"thread_start", "thread_death"} <= events, "Thread lifecycle events are missing"
+    for step in steps:
+        names = {thread["id"]: thread for thread in step["threads"]}
+        trigger = names.get(step["triggeringThreadId"])
+        main = [thread for thread in step["threads"] if thread["name"] == "main"]
+        if trigger and trigger["name"] == "worker" and trigger["callStack"] and main:
+            if any(frame["methodName"] == "main" for frame in main[0]["callStack"]):
+                return
+    raise AssertionError("No worker step keeps the main frame in threads")
 
 
 def check_jdk(work: Path) -> None:
