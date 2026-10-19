@@ -56,6 +56,7 @@ requirements, and JSON/batch schemas are unchanged.
 ### Commits
 
 - [`0531d34`](https://github.com/cs1302uga/cs1302-tracer/commit/0531d34079c914eaf43aee16d66bc9ebdbbd5953) Prepare the next development iteration, 4.2.2-SNAPSHOT.
+- [`57157db`](https://github.com/cs1302uga/cs1302-tracer/commit/57157dbbe812f000133ba02c4865a7dae4d9aad7) Finalize tracer 4.2.1 release history (#33).
 
 ## 4.2.1 — 2026-10-18
 
@@ -115,7 +116,7 @@ and images to obtain those corrections.
 
 [Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.2.0) · [Compare v4.1.0...v4.2.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.1.0...v4.2.0)
 
-Implementation: [3c9c8a7](https://github.com/cs1302uga/cs1302-tracer/commit/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf)
+Implementation: [bbfe4be](https://github.com/cs1302uga/cs1302-tracer/commit/bbfe4be5dbf5bd314b7c13e53bf65a483d8d3b27) (#29)
 — Consistent lambda signature type presentation across both serializers, preserving bodies.
 
 Implementation: [caeaf76](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae)
@@ -146,19 +147,19 @@ Implementation: [a99e810](https://github.com/cs1302uga/cs1302-tracer/commit/a99e
 Implementation: [0c8c7d7](https://github.com/cs1302uga/cs1302-tracer/commit/0c8c7d75fc88444c13f9b2a8294332010e3b9bdb)
 — Active guide deployment with verified historical archives and retained version routes.
 
-Implementation: [61ab6bd](https://github.com/cs1302uga/cs1302-tracer/commit/61ab6bdabbfdf983b1ff70dec8746541214c47ec)
+Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Download-first documentation, verified offline API guidance, and focused
 maintainer guides with preserved section links.
 
-Implementation: [58e8f8e](https://github.com/cs1302uga/cs1302-tracer/commit/58e8f8e5fc753c51505fe252df798be6dcd9e2e8)
+Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Verified CLI lessons, standalone tracing recipes, result-contract guidance,
 and grouped troubleshooting.
 
-Implementation: [038d59c](https://github.com/cs1302uga/cs1302-tracer/commit/038d59cb9126775d9ddec558e1c88c9c8be1f6d3)
+Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Generated project license and dependency references with compact, accessible
 tables and fresh metadata checks.
 
-Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a571897ea4bf789e18bca7060fbdc06d9455d)
+Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Verified JDK selection and first-run recovery documentation.
 
 ### Breaking changes
@@ -193,7 +194,7 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   for explicit strict validation of staged content. The optional pre-push hook
   remains ordinary working-tree feedback. Java API, CLI, JSON/batch protocol,
   and runtime requirements are unchanged.
-  Implementation: [c90b351](https://github.com/cs1302uga/cs1302-tracer/commit/c90b35182d459a764cca784ef3c9bceac15db650).
+  Implementation: [dc8887f](https://github.com/cs1302uga/cs1302-tracer/commit/dc8887fbad0390957500d929ef904cadad7ae00d) (#28).
 
 - **Regression gates:** the Java CI matrix now enforces 100% production line and
   branch coverage with the existing strict profile. A `Regression gates` check
@@ -210,7 +211,7 @@ Implementation: [0b3a571](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a
   a missing or different checksum in the generated wrapper properties. When
   upgrading Maven, update both POM properties and regenerate the wrapper.
   Java API, CLI, JSON/batch protocol, and runtime requirements are unchanged.
-  Implementation: [d30ca14](https://github.com/cs1302uga/cs1302-tracer/commit/d30ca14a70dccea3f58ec0e9dd26edca774cee87).
+  Implementation: [fe8a93f](https://github.com/cs1302uga/cs1302-tracer/commit/fe8a93f768fab5354e9083be97ba4e5034234ac8) (#26).
 
 - **JDK setup documentation:** add current-session JDK selection and verification
   recipes for Bash, PowerShell, and Command Prompt, with an installation checkpoint
@@ -413,7 +414,6 @@ belongs to Unreleased rather than this tagged range.
 
 - [`8ca280d`](https://github.com/cs1302uga/cs1302-tracer/commit/8ca280dce0bfab6113fdfe2e7953d09452bb0108) [maven-release-plugin] prepare release v4.2.0
 - [`bbfe4be`](https://github.com/cs1302uga/cs1302-tracer/commit/bbfe4be5dbf5bd314b7c13e53bf65a483d8d3b27) Fix lambda signature type names and prepare tracer 4.2.0 (#29)
-
 - [`dc8887f`](https://github.com/cs1302uga/cs1302-tracer/commit/dc8887fbad0390957500d929ef904cadad7ae00d) Keep local commits fast with staged whitespace and style checks (#28)
 - [`0dd30a3`](https://github.com/cs1302uga/cs1302-tracer/commit/0dd30a369409ea49f44e850f8e58c19b2acab061) Require strict regression gates before merging (#27)
 - [`fe8a93f`](https://github.com/cs1302uga/cs1302-tracer/commit/fe8a93f768fab5354e9083be97ba4e5034234ac8) Pin the Maven wrapper checksum in the POM (#26)
@@ -438,6 +438,21 @@ belongs to Unreleased rather than this tagged range.
 - [`75d4c35`](https://github.com/cs1302uga/cs1302-tracer/commit/75d4c35ae2d89417d15a5768ba1855deebfcaf6b) Link the unreleased build and launcher implementation in the changelog
 - [`caeaf76`](https://github.com/cs1302uga/cs1302-tracer/commit/caeaf7650201fa8354d217d49e7caa77ae27cfae) Standardize Maven configuration and package portable tracer launchers
 - [`36dd86a`](https://github.com/cs1302uga/cs1302-tracer/commit/36dd86af48bc419c89808447ce7e266dd8c78f9a) Document the published 4.1.0 release (#19)
+
+### Development history
+
+The published `v4.1.0..v4.2.0` range contains the squash merges listed above.
+The following original pull-request commits are retained as development
+provenance for the implementation references; they are not separate commits in
+that published range.
+
+- [`3c9c8a7`](https://github.com/cs1302uga/cs1302-tracer/commit/3c9c8a794293cf5e5cb60fceb7060c2a3b70f0cf) Fix lambda signature type-style formatting (squashed into `bbfe4be`, #29).
+- [`61ab6bd`](https://github.com/cs1302uga/cs1302-tracer/commit/61ab6bdabbfdf983b1ff70dec8746541214c47ec) Make documentation download-first and split maintainer guides (squashed into `47e7d43`, #23).
+- [`58e8f8e`](https://github.com/cs1302uga/cs1302-tracer/commit/58e8f8e5fc753c51505fe252df798be6dcd9e2e8) Teach CLI tracing with verified lessons and standalone recipes (squashed into `47e7d43`, #23).
+- [`038d59c`](https://github.com/cs1302uga/cs1302-tracer/commit/038d59cb9126775d9ddec558e1c88c9c8be1f6d3) Document project licensing and resolved Maven dependencies (squashed into `47e7d43`, #23).
+- [`0b3a571`](https://github.com/cs1302uga/cs1302-tracer/commit/0b3a571897ea4bf789e18bca7060fbdc06d9455d) Document and verify JDK selection and first-run recovery (squashed into `47e7d43`, #23).
+- [`c90b351`](https://github.com/cs1302uga/cs1302-tracer/commit/c90b35182d459a764cca784ef3c9bceac15db650) Keep local commits fast with staged whitespace and style checks (squashed into `dc8887f`, #28).
+- [`d30ca14`](https://github.com/cs1302uga/cs1302-tracer/commit/d30ca14a70dccea3f58ec0e9dd26edca774cee87) Pin the Maven wrapper checksum in the POM (squashed into `fe8a93f`, #26).
 
 ## 4.1.0 — 2026-10-17
 
