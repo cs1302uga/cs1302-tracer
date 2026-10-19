@@ -217,9 +217,9 @@ That pass left 79 partial or pending findings in the audit. The five baseline me
 
 ### Committed corrections
 
-- [Javadoc contracts](https://github.com/cs1302uga/cs1302-tracer/commit/88afe52b041ec6798a592fa04bee0c2038e91657): supported entry points, budgets, ownership, guest lifetime, result limitations, package summaries, and overview examples.
-- [Result and integration contracts](https://github.com/cs1302uga/cs1302-tracer/commit/1827fcea19936810a00cef52a7f8cb292ac57304): selected-output shapes and projection, source-less thread events, null versus empty payloads, all 24 stop codes, batch parsing and correlation, reusable-guest state, and Java migration behavior.
-- [CLI and user workflows](https://github.com/cs1302uga/cs1302-tracer/commit/6ffe3a6efc4b525c547d064f107d3e9246bcf9ad): source selection, discovery, exit statuses, exceptions, JDK discovery, offline verification prerequisites, whole-job teardown, and a complete separate Maven consumer. The two approved frame/thread help descriptions and generated CLI reference now identify their multithread-only scope.
+- [Javadoc contracts](https://github.com/cs1302uga/cs1302-tracer/commit/20e4a694c6b2bede067680e50a37507c644acab7): supported entry points, budgets, ownership, guest lifetime, result limitations, package summaries, and overview examples.
+- [Result and integration contracts](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9): selected-output shapes and projection, source-less thread events, null versus empty payloads, all 24 stop codes, batch parsing and correlation, reusable-guest state, and Java migration behavior.
+- [CLI and user workflows](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e): source selection, discovery, exit statuses, exceptions, JDK discovery, offline verification prerequisites, whole-job teardown, and a complete separate Maven consumer. The two approved frame/thread help descriptions and generated CLI reference now identify their multithread-only scope.
 
 The first pass's same-page corrections also resolved lower-priority [DX-027](#dx-027), [DX-030](#dx-030), [DX-057](#dx-057), [DX-063](#dx-063), [DX-082](#dx-082), and [DX-121](#dx-121). Ten other lower-priority findings improved partially; the overlay preserves those first-pass statuses alongside later corrections.
 
@@ -261,10 +261,10 @@ unchanged.
 | Java discovery and stream failure | [DX-061](#dx-061) / F19-3, [DX-106](#dx-106) / F28-6 | Document discovery's entry-point prerequisite, stream I/O failure and late writes, writer ownership, and shutdown waits plus cleanup. |
 
 Implementation is recorded in
-[223bc3f](https://github.com/cs1302uga/cs1302-tracer/commit/223bc3f40ee0adb4f69c75cc301c1a9aac552f08),
-[470a5ff](https://github.com/cs1302uga/cs1302-tracer/commit/470a5ff70ef0ebd93569ff2d2e33a5facb1231bf),
-[2e96042](https://github.com/cs1302uga/cs1302-tracer/commit/2e960428ca6b5f23b5e8f198717abf8bcda4d988), and
-[5796651](https://github.com/cs1302uga/cs1302-tracer/commit/5796651661ab593d4ff0997c805208ea3769a785). The follow-up validation record identifies the checked source commit and
+[af12d9c](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac),
+[a04a2e2](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6),
+[93a5fb9](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47), and
+[8b6b284](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9). The follow-up validation record identifies the checked source commit and
 its matching file hashes. These changes clarify existing behavior; they
 preserve runtime tracing logic, Java signatures, CLI arguments and defaults,
 JSON/batch schemas, published snapshots, and existing page routes.
@@ -320,18 +320,31 @@ dated successful rerun; the live run remains authoritative for CI readiness.
 New native Windows prose received static review; no fresh local Windows/JDK 21
 runtime run, CodeQL scan, registry verification, hosted-isolation certification,
 or deployment is asserted here. Desktop and phone-width review found the new
-field/counter tables readable without page-wide overflow. PR creation retains
-the user's explicit final review checkpoint.
+field/counter tables readable without page-wide overflow. At that historical
+preparation stage, PR creation retained the user's final review checkpoint.
 
 ### Pull-request dependency and remaining runtime decision
 
-The audit pull request is prepared to target `main` and depends on
-[#24](https://github.com/cs1302uga/cs1302-tracer/pull/24). Hold its merge until
-#24 lands, then verify the final base/head, mergeability, and required checks on
-its actual commits. Passing checks on prerequisite or historical commits do not
-establish readiness of the final audit head. Approval to create the audit pull
-request remains pending; this record does not assert PR creation, merge, or
-publication.
+The audit pull request [#30](https://github.com/cs1302uga/cs1302-tracer/pull/30)
+exists as a draft targeting `main`. Its prerequisite
+[#24](https://github.com/cs1302uga/cs1302-tracer/pull/24) has merged. On 2026-10-19,
+main fast-forwarded to changelog correction
+[#34](https://github.com/cs1302uga/cs1302-tracer/pull/34), commit
+[`2f46621`](https://github.com/cs1302uga/cs1302-tracer/commit/2f4662139eb3a52873e441eba83095b25191f063),
+and the eleven audit commits were rebased onto that exact base. The
+[post-release rebase record](diataxis-audit/post-release-rebase.json) maps the
+rewritten implementation commits while preserving their original identities.
+The published changelog sections and guide snapshots retain the new base's bytes;
+the audit changes belong to Unreleased.
+
+The correction totals above describe the original approved documentation scope.
+The original findings, residual decisions, probe results, source hashes, and
+validation packets remain frozen at their recorded revisions. Current-facing
+implementation links above identify the rebased equivalents; historical
+validation against `5796651` remains historical. Fresh local and hosted results
+must identify the actual final audit head and are recorded in the pull request.
+Passing prerequisite or earlier-head checks does not establish that head's
+readiness. Keep #30 draft until separately authorized for merge.
 
 A separate, unimplemented proposal addresses the runtime exception-recognition
 defect documented in [DX-129 / FU1-1](#dx-129). It examines persistent-guest event

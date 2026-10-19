@@ -97,6 +97,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`4f67da6`](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9) Clarify breakpoint listings and budget recovery.
 - [`5735ec6`](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e) Record follow-up documentation corrections and fresh validation.
 
+- [`70a1ad9`](https://github.com/cs1302uga/cs1302-tracer/commit/70a1ad908e280decfc21571643136296b94fa21d) Link the rebased documentation audit commits in the changelog.
+
 ## 4.2.1 — 2026-10-18
 
 [Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.2.1) · [Compare v4.2.0...v4.2.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.0...v4.2.1)

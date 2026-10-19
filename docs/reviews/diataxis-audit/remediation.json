@@ -23,7 +23,7 @@
     },
     "remaining_active_documentation_findings": 68,
     "scope_boundary": "DX-095 help correction and ten existing-page findings were separately approved. All original 46 selected findings are corrected. New pages/splits/navigation retain their outline checkpoint; runtime repairs are a separate proposal.",
-    "next_decision": "Review the prepared audit PR against main, dependent on 24. Select remaining 68 documentation findings separately; review runtime compatibility decisions before implementation.",
+    "next_decision": "Review draft PR30 after its rebase onto merged PR34; PR24 has merged. Require fresh validation on the actual final audit head before any separately authorized merge. Select remaining 68 documentation findings separately; runtime changes require separate compatibility decisions.",
     "initial_pass_metadata": {
       "recorded_at": "2026-10-18T13:03:24.084226+00:00",
       "baseline_commit": "0e760d7cab637c413f6eada784addbc592557390",
@@ -79,6 +79,20 @@
         "5796651661ab593d4ff0997c805208ea3769a785"
       ],
       "documentation_corrected": 11
+    },
+    "implementation_commits_scope": "Original correction revisions at recorded_at are retained here as historical provenance. post_release_rebase identifies the current equivalent implementation links; validation source commits and saved evidence are unchanged.",
+    "post_release_rebase": {
+      "recorded_at": "2026-10-19T09:53:53.804144+00:00",
+      "base_commit": "2f4662139eb3a52873e441eba83095b25191f063",
+      "mapping_record": "post-release-rebase.json",
+      "implementation_commits": {
+        "javadoc": "20e4a694c6b2bede067680e50a37507c644acab7",
+        "baseline": "efd38efac4f87148466d82eb48ff5db777ddaf7e",
+        "references": "81c2217b9ad6bdc2dec911ce288be99ab36f94c9",
+        "workflows": "830d01945fa645e1e1599bd8b6b500a66833129e",
+        "inline_strings_help": "af12d9c6b88e20662845718c5fbc7161db66b3ac"
+      },
+      "validation_scope": "Rebase mapping only; fresh final-head validation is reported separately in PR30."
     }
   },
   "findings": [
