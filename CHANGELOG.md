@@ -59,6 +59,7 @@ requirements, and JSON/batch schemas are unchanged.
   presentation options and improve the generated API examples and cross-references.
   These comment corrections preserve Java API signatures, CLI behavior, and
   JSON/batch protocol formats; the documented runtime limitations remain.
+  Implementation: [20e4a69](https://github.com/cs1302uga/cs1302-tracer/commit/20e4a694c6b2bede067680e50a37507c644acab7).
 - **User and integration documentation:** correct selected-output shapes, null and
   empty payloads, exception reporting, exit statuses, source selection and
   discovery, all stop codes, batch request parsing, and reusable-guest state.
@@ -75,11 +76,26 @@ requirements, and JSON/batch schemas are unchanged.
   cleanup. Define breakpoint-listing fields and path/line-ending limitations,
   provide budget-tuning recipes, and check tutorial failures before continuing.
   Executable string-inlining help now identifies its Python Tutor-only scope.
+  Implementation: [efd38ef](https://github.com/cs1302uga/cs1302-tracer/commit/efd38efac4f87148466d82eb48ff5db777ddaf7e), [81c2217](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9), [830d019](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e), [2501a00](https://github.com/cs1302uga/cs1302-tracer/commit/2501a001648fdf86f8cdf17fb2effe8ac4820c92), [af12d9c](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac), [a04a2e2](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6), [93a5fb9](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47), [8b6b284](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9), and [78d1ee6](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e).
 
 ### Commits
 
 - [`0531d34`](https://github.com/cs1302uga/cs1302-tracer/commit/0531d34079c914eaf43aee16d66bc9ebdbbd5953) Prepare the next development iteration, 4.2.2-SNAPSHOT.
 - [`57157db`](https://github.com/cs1302uga/cs1302-tracer/commit/57157dbbe812f000133ba02c4865a7dae4d9aad7) Finalize tracer 4.2.1 release history (#33).
+- [`2f46621`](https://github.com/cs1302uga/cs1302-tracer/commit/2f4662139eb3a52873e441eba83095b25191f063) Link 4.2.0 implementation notes to published commits (#34).
+- [`2926b86`](https://github.com/cs1302uga/cs1302-tracer/commit/2926b86c951edc59b6c48bcef6685f55a194be2e) Teach shared references with a verified tutorial.
+- [`15d1e1a`](https://github.com/cs1302uga/cs1302-tracer/commit/15d1e1a79db38838ac4ae7be160178b3c2d29aa2) Link the shared-reference tutorial in the changelog.
+- [`ccc278b`](https://github.com/cs1302uga/cs1302-tracer/commit/ccc278b12173ef33ed8334905b5455a517fbdef3) Keep the rebased tutorial in the unreleased changelog.
+- [`0e294bc`](https://github.com/cs1302uga/cs1302-tracer/commit/20e4a694c6b2bede067680e50a37507c644acab7) Clarify supported Java API Javadoc contracts.
+- [`350d9c3`](https://github.com/cs1302uga/cs1302-tracer/commit/efd38efac4f87148466d82eb48ff5db777ddaf7e) Record the reviewed Diataxis audit and selected correction scope.
+- [`4ae9b8d`](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9) Correct result, batch, and Java integration documentation.
+- [`70c97ed`](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e) Clarify CLI usage, installation, and integration workflows.
+- [`f8adffe`](https://github.com/cs1302uga/cs1302-tracer/commit/2501a001648fdf86f8cdf17fb2effe8ac4820c92) Record documentation remediation and validation evidence.
+- [`5e6dd26`](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac) Qualify string inlining in executable help.
+- [`11cb361`](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6) Complete the modern JSON field reference.
+- [`c89399c`](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47) Document batch metadata and Java stream failures.
+- [`4f67da6`](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9) Clarify breakpoint listings and budget recovery.
+- [`5735ec6`](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e) Record follow-up documentation corrections and fresh validation.
 
 ## 4.2.1 — 2026-10-18
 
@@ -184,23 +200,6 @@ tables and fresh metadata checks.
 
 Implementation: [47e7d43](https://github.com/cs1302uga/cs1302-tracer/commit/47e7d43a54a08241df1718e66d5d847bf1ad4e9a) (#23)
 — Verified JDK selection and first-run recovery documentation.
-
-Implementation: [88afe52](https://github.com/cs1302uga/cs1302-tracer/commit/88afe52b041ec6798a592fa04bee0c2038e91657)
-— Supported Java API Javadoc contracts, package summaries, and overview examples.
-
-Implementation: [0e760d7](https://github.com/cs1302uga/cs1302-tracer/commit/0e760d7cab637c413f6eada784addbc592557390),
-[1827fce](https://github.com/cs1302uga/cs1302-tracer/commit/1827fcea19936810a00cef52a7f8cb292ac57304), and
-[6ffe3a6](https://github.com/cs1302uga/cs1302-tracer/commit/6ffe3a6efc4b525c547d064f107d3e9246bcf9ad)
-— Reviewed documentation audit, corrected result and integration contracts, and
-verified CLI, installation, offline API, and Maven consumer workflows.
-
-Implementation: [223bc3f](https://github.com/cs1302uga/cs1302-tracer/commit/223bc3f40ee0adb4f69c75cc301c1a9aac552f08),
-[470a5ff](https://github.com/cs1302uga/cs1302-tracer/commit/470a5ff70ef0ebd93569ff2d2e33a5facb1231bf),
-[2e96042](https://github.com/cs1302uga/cs1302-tracer/commit/2e960428ca6b5f23b5e8f198717abf8bcda4d988), and
-[5796651](https://github.com/cs1302uga/cs1302-tracer/commit/5796651661ab593d4ff0997c805208ea3769a785)
-— Format-specific string-inlining help, complete modern output fields, batch
-metadata and process statuses, Java discovery and stream-failure contracts,
-breakpoint listings, budget recipes, and immediate tutorial recovery checks.
 
 ### Breaking changes
 
