@@ -86,18 +86,20 @@ requirements, and JSON/batch schemas are unchanged.
 - [`2926b86`](https://github.com/cs1302uga/cs1302-tracer/commit/2926b86c951edc59b6c48bcef6685f55a194be2e) Teach shared references with a verified tutorial.
 - [`15d1e1a`](https://github.com/cs1302uga/cs1302-tracer/commit/15d1e1a79db38838ac4ae7be160178b3c2d29aa2) Link the shared-reference tutorial in the changelog.
 - [`ccc278b`](https://github.com/cs1302uga/cs1302-tracer/commit/ccc278b12173ef33ed8334905b5455a517fbdef3) Keep the rebased tutorial in the unreleased changelog.
-- [`0e294bc`](https://github.com/cs1302uga/cs1302-tracer/commit/20e4a694c6b2bede067680e50a37507c644acab7) Clarify supported Java API Javadoc contracts.
-- [`350d9c3`](https://github.com/cs1302uga/cs1302-tracer/commit/efd38efac4f87148466d82eb48ff5db777ddaf7e) Record the reviewed Diataxis audit and selected correction scope.
-- [`4ae9b8d`](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9) Correct result, batch, and Java integration documentation.
-- [`70c97ed`](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e) Clarify CLI usage, installation, and integration workflows.
-- [`f8adffe`](https://github.com/cs1302uga/cs1302-tracer/commit/2501a001648fdf86f8cdf17fb2effe8ac4820c92) Record documentation remediation and validation evidence.
-- [`5e6dd26`](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac) Qualify string inlining in executable help.
-- [`11cb361`](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6) Complete the modern JSON field reference.
-- [`c89399c`](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47) Document batch metadata and Java stream failures.
-- [`4f67da6`](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9) Clarify breakpoint listings and budget recovery.
-- [`5735ec6`](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e) Record follow-up documentation corrections and fresh validation.
+- [`20e4a69`](https://github.com/cs1302uga/cs1302-tracer/commit/20e4a694c6b2bede067680e50a37507c644acab7) Clarify supported Java API Javadoc contracts.
+- [`efd38ef`](https://github.com/cs1302uga/cs1302-tracer/commit/efd38efac4f87148466d82eb48ff5db777ddaf7e) Record the reviewed Diataxis audit and selected correction scope.
+- [`81c2217`](https://github.com/cs1302uga/cs1302-tracer/commit/81c2217b9ad6bdc2dec911ce288be99ab36f94c9) Correct result, batch, and Java integration documentation.
+- [`830d019`](https://github.com/cs1302uga/cs1302-tracer/commit/830d01945fa645e1e1599bd8b6b500a66833129e) Clarify CLI usage, installation, and integration workflows.
+- [`2501a00`](https://github.com/cs1302uga/cs1302-tracer/commit/2501a001648fdf86f8cdf17fb2effe8ac4820c92) Record documentation remediation and validation evidence.
+- [`af12d9c`](https://github.com/cs1302uga/cs1302-tracer/commit/af12d9c6b88e20662845718c5fbc7161db66b3ac) Qualify string inlining in executable help.
+- [`a04a2e2`](https://github.com/cs1302uga/cs1302-tracer/commit/a04a2e2f4dbb0098b073ac422401eda52f93e7b6) Complete the modern JSON field reference.
+- [`93a5fb9`](https://github.com/cs1302uga/cs1302-tracer/commit/93a5fb9af01c8f9aea8680f94eab27660fb67b47) Document batch metadata and Java stream failures.
+- [`8b6b284`](https://github.com/cs1302uga/cs1302-tracer/commit/8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9) Clarify breakpoint listings and budget recovery.
+- [`78d1ee6`](https://github.com/cs1302uga/cs1302-tracer/commit/78d1ee630afbd961910c035fe85a26d23dc79b5e) Record follow-up documentation corrections and fresh validation.
 
 - [`70a1ad9`](https://github.com/cs1302uga/cs1302-tracer/commit/70a1ad908e280decfc21571643136296b94fa21d) Link the rebased documentation audit commits in the changelog.
+
+- [`3570a78`](https://github.com/cs1302uga/cs1302-tracer/commit/3570a789008e208b0060328d7698624a7e381499) Refresh audit provenance after the published-history rebase.
 
 ## 4.2.1 — 2026-10-18
 
