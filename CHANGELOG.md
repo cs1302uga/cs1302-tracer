@@ -96,6 +96,7 @@ requirements, and JSON/batch schemas are unchanged.
   visualizer consumes them. Link them from the sidebar, index, runner contract,
   and bounded-tracing reference. Java API, CLI, JSON/batch protocol, and runtime
   behavior are unchanged.
+  Implementation: [c081be2](https://github.com/cs1302uga/cs1302-tracer/commit/c081be2afc082bdf52c03ec0611de8e057fb04ea).
 
 ### Commits
 
@@ -121,6 +122,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`3570a78`](https://github.com/cs1302uga/cs1302-tracer/commit/3570a789008e208b0060328d7698624a7e381499) Refresh audit provenance after the published-history rebase.
 - [`e3cd608`](https://github.com/cs1302uga/cs1302-tracer/commit/e3cd60874182a271d7b2c28e32bf4a818cece8af) Match displayed changelog IDs to the rebased commits.
 - [`c148fa4`](https://github.com/cs1302uga/cs1302-tracer/commit/c148fa4e2b85e80b9930863d6306373ddf87c775) Document runner, CLI, input, and thread contracts found by the audit.
+- [`fba9ef0`](https://github.com/cs1302uga/cs1302-tracer/commit/fba9ef0526f53fcfb0bee05ab3cb7a7b167bf721) Link the audit follow-up documentation in the changelog.
+- [`c081be2`](https://github.com/cs1302uga/cs1302-tracer/commit/c081be2afc082bdf52c03ec0611de8e057fb04ea) Explain the trust model, inspection policies, and trace formats.
 
 ## 4.2.1 — 2026-10-18
 
