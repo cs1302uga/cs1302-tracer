@@ -137,7 +137,46 @@ def tutorial_results() -> dict[str, Any]:
         {"event": "thread_death", "threads": [main_thread], "triggeringThreadId": 2, "stdout": ""},
         {"event": "main_exit", "threads": [main_thread], "triggeringThreadId": 1, "stdout": "42\n"},
     ]
+    scores_frame = {
+        "encoded_locals": {"scores": ["REF", 174], "name": ["REF", 176], "total": 252},
+        "locals_attrs": {"name": {"type": "String"}},
+    }
+    scores_heap = {"174": ["LIST", 90, 85, 77], "176": ["INSTANCE", "String", ["___NO_LABEL!___", "Ada"]]}
+    scores_step = {"stack_to_render": [scores_frame], "heap": scores_heap}
+    recipe_limits = {
+        "timeoutMillis": 5000,
+        "snapshots": 1000,
+        "outputBytes": 65536,
+        "heapObjects": 1000,
+        "elements": 100000,
+        "traceBytes": 67108864,
+        "sourceBytes": 262144,
+        "sourceFiles": 128,
+        "threads": 64,
+        "frames": 4096,
+        "snapshotBytes": 8388608,
+    }
+    array_list = ["INSTANCE", "java.util.ArrayList<java.lang.String>", ["elementData", ["REF", 2]], ["size", 1]]
+    recipe_locals = [{"name": "label", "type": "String"}, {"name": "total", "value": 6, "binary": {"bits": "110"}}]
     return {
+        "java_recipes": {
+            "ServiceBudgets": {
+                "status": "completed",
+                "complete": True,
+                "limits": recipe_limits,
+                "diagnostics": ["FIELDS inspection uses raw fields for collections and wrappers."],
+                "trace": {"trace": [{"heap": {"1": [*array_list, ["modCount", 1]]}}]},
+            },
+            "BundleInput": "completed\nHello, Ada! Hello, Ada!\n",
+            "FormatChoices": {"format": "modern", "steps": [{}, {"callStack": [{"locals": recipe_locals}]}]},
+            "HandleOutcomes": (
+                "completed; snapshots kept: 1\nstopped by snapshot_limit; snapshots kept: 3\n"
+                "failed with compile_error; snapshots kept: 0\n"
+            ),
+            "BatchJobs": "ada: completed\nloop: stopped (snapshot_limit)\n",
+        },
+        "visualize": {"code": "source", "trace": [scores_step]},
+        "visualize_steps": {"code": "source", "trace": [{}, {}, {}, {}, scores_step]},
         "batch_requests": {"default": {"status": "completed", "complete": True, "stdout": "42\n"}},
         "threads": {"format": "modern", "entryFile": "Workers.java", "steps": thread_steps},
         "first": {"format": "modern", "entryFile": "Main.java", "steps": steps},
@@ -215,7 +254,7 @@ class DocumentationChecksTests(unittest.TestCase):
             "batch-jobs",
         ):
             shutil.copy2(SCRIPTS.parent / f"docs/tutorials/{name}.md", self.root / f"docs/tutorials/{name}.md")
-        for name in ("tracing", "installation", "batch-requests"):
+        for name in ("tracing", "installation", "batch-requests", "java-recipes", "visualize-a-trace"):
             shutil.copy2(SCRIPTS.parent / f"docs/guides/{name}.md", self.root / f"docs/guides/{name}.md")
         # Links are tested separately; keep the tutorial example blocks without their prose.
         for path in [*(self.root / "docs/tutorials").glob("*.md"), *(self.root / "docs/guides").glob("*.md")]:
@@ -243,7 +282,7 @@ elif 'Helper.java' in sys.argv:
     Path('classes/teaching').mkdir()
     Path('classes/teaching/Helper.class').touch()
 else:
-    Path('TraceExample.class').touch()
+    Path(sys.argv[-1]).with_suffix('.class').touch()
 """,
         )
         executable(
@@ -283,6 +322,10 @@ elif '--help' in sys.argv:
 elif 'TraceExample' in sys.argv:
     assert Path('TraceExample.class').is_file()
     print(json.dumps({'status': 'completed', 'complete': True, 'stdout': 'hello\\n', 'trace': {'steps': []}}))
+elif sys.argv[-1] in results['java_recipes']:
+    assert Path(sys.argv[-1] + '.class').is_file()
+    output = results['java_recipes'][sys.argv[-1]]
+    print(output if isinstance(output, str) else json.dumps(output), end='' if isinstance(output, str) else '\\n')
 elif 'Main.java' in sys.argv:
     trace = results['first']
     trace['sources'] = {'Main.java': Path('Main.java').read_text()}
@@ -327,6 +370,9 @@ elif 'Workers.java' in sys.argv:
     trace = results['threads']
     trace['sources'] = {'Workers.java': Path('Workers.java').read_text()}
     print(json.dumps(trace))
+elif 'Scores.java' in sys.argv:
+    assert '--remove-main-args' in sys.argv and sys.argv[sys.argv.index('--type-style') + 1] == 'simple'
+    print(json.dumps(results['visualize_steps' if '--all-breakpoints' in sys.argv else 'visualize']))
 elif 'trace' in sys.argv and 'code-tracer.jar' in sys.argv:
     source = sys.stdin.read()
     assert source == Path('submission.txt').read_text()
@@ -764,6 +810,33 @@ else:
         data = json.loads(original)
         data["batch_requests"]["alan"] = {"status": "failed", "complete": False, "stdout": ""}
         changes.append(("failed batch request", data, "complete with 42"))
+        data = json.loads(original)
+        data["java_recipes"]["ServiceBudgets"]["diagnostics"] = []
+        changes.append(("trusted recipe", data, "must use FIELDS inspection"))
+        data = json.loads(original)
+        data["java_recipes"]["ServiceBudgets"]["trace"]["trace"][0]["heap"]["1"] = ["LIST", "Ada"]
+        changes.append(("logical list", data, "stored fields"))
+        data = json.loads(original)
+        del data["java_recipes"]["FormatChoices"]["steps"][1]["callStack"][0]["locals"][1]["binary"]
+        changes.append(("missing binary", data, "binary metadata"))
+        data = json.loads(original)
+        data["java_recipes"]["HandleOutcomes"] = "completed; snapshots kept: 1\n"
+        changes.append(("changed outcomes", data, "HandleOutcomes output"))
+        data = json.loads(original)
+        data["visualize"] = {"schemaVersion": 1, "trace": data["visualize"]}
+        changes.append(("visualizer envelope", data, "bare Python Tutor payload"))
+        data = json.loads(original)
+        data["visualize_steps"]["trace"].pop(0)
+        changes.append(("missing step", data, "steps.json must hold 5 snapshots"))
+        data = json.loads(original)
+        data["visualize"]["trace"][0]["heap"]["174"] = ["LIST", 90]
+        changes.append(("wrong array", data, "scores array"))
+        data = json.loads(original)
+        data["visualize"]["trace"][0]["heap"]["176"] = ["INSTANCE", "String", ["___NO_LABEL!___", "Alan"]]
+        changes.append(("wrong string", data, "string Ada"))
+        data = json.loads(original)
+        data["java_recipes"]["ServiceBudgets"]["limits"]["snapshots"] = 0
+        changes.append(("unlimited snapshots", data, "keep the other instructor defaults"))
         data = json.loads(original)
         data["partial"]["status"] = "completed"
         changes.append(("wrong stop", data, "AssertionError"))

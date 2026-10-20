@@ -449,6 +449,86 @@ def check_batch_requests(work: Path) -> None:
         )
 
 
+def check_java_recipes(work: Path) -> None:
+    """Compile and run every Java recipe beside the packaged JAR and check its documented result."""
+    guide = (ROOT / "docs/guides/java-recipes.md").read_text()
+    for marker, filename in (
+        ("budgets", "ServiceBudgets.java"),
+        ("main", "submission/demo/Main.java"),
+        ("greeter", "submission/demo/Greeter.java"),
+        ("bundle", "BundleInput.java"),
+        ("format", "FormatChoices.java"),
+        ("outcomes", "HandleOutcomes.java"),
+        ("batch", "BatchJobs.java"),
+    ):
+        path = work / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(block(guide, "java-recipes-" + marker) + "\n", encoding="utf-8")
+    command = block(guide, "java-recipes-run")
+    assert command.count("ServiceBudgets") == 2, "The recipe command must compile and run ServiceBudgets"
+
+    def recipe(name: str) -> str:
+        return run(["sh", "-eu", "-c", command.replace("ServiceBudgets", name)], cwd=work)
+
+    envelope = json.loads(recipe("ServiceBudgets"))
+    assert envelope["status"] == "completed" and envelope["complete"], "The budget recipe must complete"
+    assert envelope["limits"] == {
+        "timeoutMillis": 5000,
+        "snapshots": 1000,
+        "outputBytes": 65536,
+        "heapObjects": 1000,
+        "elements": 100000,
+        "traceBytes": 67108864,
+        "sourceBytes": 262144,
+        "sourceFiles": 128,
+        "threads": 64,
+        "frames": 4096,
+        "snapshotBytes": 8388608,
+    }, "The budget recipe must set five budgets and keep the other instructor defaults"
+    assert any("FIELDS inspection" in message for message in envelope["diagnostics"]), (
+        "The budget recipe must use FIELDS inspection"
+    )
+    heap = envelope["trace"]["trace"][-1]["heap"].values()
+    lists = [entry for entry in heap if entry[0] == "INSTANCE" and "ArrayList" in entry[1]]
+    assert lists and {"elementData", "size", "modCount"} <= {field[0] for field in lists[0][2:]}, (
+        "FIELDS inspection must show the ArrayList's stored fields"
+    )
+    equal(recipe("BundleInput"), block(guide, "java-recipes-bundle-output") + "\n", "BundleInput output")
+    payload = json.loads(recipe("FormatChoices"))
+    assert payload["format"] == "modern" and len(payload["steps"]) > 1, "The format recipe must be chronological"
+    variables = {local["name"]: local for local in payload["steps"][-1]["callStack"][0]["locals"]}
+    assert "args" not in variables and variables["label"]["type"] == "String", (
+        "The format recipe must remove args and use simple type names"
+    )
+    assert variables["total"]["value"] == 6 and "binary" in variables["total"], (
+        "The format recipe must add primitive binary metadata"
+    )
+    equal(recipe("HandleOutcomes"), block(guide, "java-recipes-outcomes-output") + "\n", "HandleOutcomes output")
+    equal(recipe("BatchJobs"), block(guide, "java-recipes-batch-output") + "\n", "BatchJobs output")
+
+
+def check_visualizer_traces(work: Path) -> None:
+    """Run the visualizer guide's tracer commands; the external visualizer itself is not run."""
+    guide = (ROOT / "docs/guides/visualize-a-trace.md").read_text()
+    (work / "Scores.java").write_text(block(guide, "visualize-source") + "\n", encoding="utf-8")
+    for marker, filename, count in (("visualize-trace", "scores.json", 1), ("visualize-steps-trace", "steps.json", 5)):
+        run(["sh", "-eu", "-c", block(guide, marker)], cwd=work)
+        assert f"< {filename}" in block(guide, marker.replace("trace", "render")), f"Render {filename}"
+        payload = json.loads((work / filename).read_text())
+        assert "schemaVersion" not in payload and "code" in payload, "The visualizer needs a bare Python Tutor payload"
+        assert len(payload["trace"]) == count, f"{filename} must hold {count} snapshots"
+        frame = payload["trace"][-1]["stack_to_render"][0]
+        assert "args" not in frame["encoded_locals"], "The visualizer trace must remove args"
+        assert frame["locals_attrs"]["name"]["type"] == "String", "The visualizer trace must use simple type names"
+        assert frame["encoded_locals"]["total"] == 252, "The visualizer trace must end with total 252"
+        heap = payload["trace"][-1]["heap"]
+        assert heap[str(frame["encoded_locals"]["scores"][1])] == ["LIST", 90, 85, 77], (
+            "The diagram must show the scores array"
+        )
+        name = heap[str(frame["encoded_locals"]["name"][1])]
+        assert name[:2] == ["INSTANCE", "String"] and name[2][1] == "Ada", "The diagram must show the string Ada"
+
+
 def check_jdk(work: Path) -> None:
     """Exercise the Bash JDK setup in one session with spaces and conflicting prior tool selection."""
     guide = (ROOT / "docs/guides/installation.md").read_text()
@@ -524,6 +604,7 @@ def check_tutorials() -> None:
         check_shared_references(work)
         check_loop(work)
         check_recipes(work)
+        check_visualizer_traces(work)
 
         (work / "TraceExample.java").write_text(block(java, "java-source") + "\n", encoding="utf-8")
         run(["sh", "-eu", "-c", block(java, "java-compile")], cwd=work)
@@ -538,6 +619,7 @@ def check_tutorials() -> None:
         good, bad = (response["result"] for response in responses)
         assert good["status"] == "completed" and good["complete"] and good["stdout"] == "42\n"
         assert bad["status"] == "failed" and not bad["complete"] and bad["diagnostics"]
+        check_java_recipes(work)
         check_batch_requests(work)
 
 

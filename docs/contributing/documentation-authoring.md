@@ -66,8 +66,12 @@ capture, guest input, multiple source files, compiled dependencies, presentation
 multithread capture that keeps the `main` frame in `threads` while the worker runs, and
 a controlled budget stop with a partial envelope. Java and batch checks inspect
 completion and failure outcomes. The batch-requests guide check runs the documented
-Python script on its submission folders and checks both traced jobs. The README quickstart remains a separate
-checkout-based example.
+Python script on its submission folders and checks both traced jobs. The Java
+recipes check compiles and runs every recipe program beside the packaged JAR and
+compares its documented output, effective budgets, inspection, and presentation.
+The visualizer guide check runs its tracer commands and checks the bare Python
+Tutor payloads behind the documented diagram; it does not run the external
+visualizer. The README quickstart remains a separate checkout-based example.
 
 The shared-references tutorial check follows two locals into one heap object
 before and after a field mutation, verifies the unchanged primitive copy, and

@@ -487,8 +487,8 @@ The initial source must be non-null. Required scalar values supplied later are
 validated by the record constructor at `build()`. The breakpoint setter immediately
 copies its list and rejects null lists or entries, as the existing constructor does.
 Parsing and execution validation still happen at their established lifecycle points.
-For example, multithread settings are interpreted by trace-job resolution without
-rewriting the requested inspection or chronological fields in the record.
+For example, a multithread request runs with chronological capture and `FIELDS`
+inspection, but the record keeps the inspection and chronological values you set.
 
 `TraceLimits.builder()` starts from `instructorDefaults()`. To start with no
 budgets, use `TraceLimits.unlimited().toBuilder()`. All limit names retain their
@@ -615,7 +615,10 @@ example, `{"limits":{"timeoutMillis":5000}}` bounds tracing time only, whereas
 instructor budget. Supply all eleven intended [JSON limit fields](batch.md#request-limits)
 and compare admitted jobs' echoed `result.limits` with the intended budgets.
 Optional class-path selections belong to each request. The CLI `batch-trace`
-command uses this same public operation.
+command uses this same public operation. The
+[Java recipes](../guides/java-recipes.md#process-many-jobs-with-batchtracer) show a
+complete program that builds requests from `TraceRequest` values and reads the
+responses.
 
 Single-stack workers can reuse a guest JVM across jobs. See
 [guest reuse](batch.md#guest-reuse-between-jobs) for restored state, persistent

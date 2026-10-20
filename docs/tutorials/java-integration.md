@@ -178,8 +178,10 @@ Guardian transitively; manual compilation can include it to avoid missing
 annotation warnings. See
 [compile-time dependencies](../reference/java-api.md#stability-and-compile-time-dependencies).
 
-Continue with the [Java reference](../reference/java-api.md) for request builders,
-source bundles, binary dependencies, inspection, and ownership. Existing 3.x
+Continue with the [Java recipes](../guides/java-recipes.md) for budgets, input,
+multiple files, outcome handling, and batch processing, and the
+[Java reference](../reference/java-api.md) for request builders, source bundles,
+binary dependencies, inspection, and ownership. Existing 3.x
 consumers should read the [migration guide](../guides/java-api-migration.md).
 Guest execution still requires [external isolation](../RUNNER_CONTRACT.md) for
 untrusted submissions.

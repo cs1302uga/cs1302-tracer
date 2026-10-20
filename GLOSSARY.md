@@ -1,4 +1,12 @@
-# Java execution tracing
+# Contributor glossary
+
+This glossary defines implementation, ownership, and lifecycle terms for people,
+or their agents, changing the tracer's internals. It is not published on the
+documentation site. For terms used when running the CLI, writing batch requests,
+reading trace JSON, or embedding the Java API, see the
+[user glossary](docs/reference/glossary.md). Where the two differ, user
+documentation follows the user glossary; for example, the persistent guest named
+here is the reusable guest there.
 
 The tracer describes guest Java execution as snapshots of stacks and reachable heap objects.
 

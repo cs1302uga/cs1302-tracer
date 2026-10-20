@@ -5,7 +5,9 @@ JDI, captures stacks and reachable heap objects, and renders Python Tutor or mod
 JSON. Guest execution does not establish host isolation. The
 [runner contract](../RUNNER_CONTRACT.md) defines separate hosting requirements.
 
-Shared terms and ownership rules are defined in the repository-root `GLOSSARY.md`.
+Shared implementation terms and ownership rules are defined in the repository-root
+[contributor glossary](https://github.com/cs1302uga/cs1302-tracer/blob/main/GLOSSARY.md);
+user-facing terms are in the [glossary](../reference/glossary.md).
 The [internal tracing guide](../guides/java-module-migration.md) describes contributor
 call conventions; [Java integration](../reference/java-api.md) describes the supported
 consumer interface.

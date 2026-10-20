@@ -265,7 +265,8 @@ The project's visualizer,
 is one such renderer; it creates memory diagrams from Java programs. Its diagram
 frontend derives from Python Tutor and reads Python Tutor JSON directly. It also
 accepts modern JSON, which it first converts to the Python Tutor shape. That
-conversion does not carry modern thread states. When the visualizer traces a
+conversion drops modern thread states and each frame's `this`, and draws boxed
+values such as `Integer` as empty objects. When the visualizer traces a
 program itself, it produces Python Tutor JSON by default: it runs the tracer
 without `--format`, and its batch jobs request `pytutor`. Prefer Python Tutor JSON
 for traces you give it. Its own `--format` option selects an image format, such as
@@ -278,7 +279,8 @@ render only in its inline style. When it traces a program, it runs its own copy 
 the tracer: each visualizer release pins one published tracer release by URL and
 SHA-256 checksum and refuses to run a JAR that fails verification. Its diagrams
 therefore come from the tracer release its own version pins, not from a
-separately installed tracer.
+separately installed tracer. To draw a trace you generated yourself, see
+[Show a trace in a visualizer](../guides/visualize-a-trace.md).
 
 ## Captured evidence has limits
 

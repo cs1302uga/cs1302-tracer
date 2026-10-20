@@ -118,6 +118,15 @@ requirements, and JSON/batch schemas are unchanged.
   reference for JAR location, Java selection, `CODE_TRACER_JAR_DIR`, and quoting.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
   Implementation: [9ade6d7](https://github.com/cs1302uga/cs1302-tracer/commit/9ade6d72aa9d4fac6dedb95e3fc345bf09f436d5).
+- **Java recipes, glossary, and visualizer guide:** add verified Java recipes for
+  budgets and field-only inspection, standard input and source bundles, format and
+  presentation choices, outcome handling with partial traces, and `BatchTracer`
+  request processing. Add a user glossary to the sidebar and label the
+  repository-root glossary for contributors. Add a guide that renders Python Tutor
+  traces as memory diagrams with cs1302-code-visualizer. Correct the source bundle
+  reference: traces and file-qualified breakpoints name files by their
+  package-relative debug source paths, not their bundle paths. Java API, CLI,
+  JSON/batch protocol, and runtime behavior are unchanged.
 
 ### Commits
 

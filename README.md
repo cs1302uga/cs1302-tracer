@@ -77,10 +77,12 @@ library JAR and traces a program using a recursive class-path pattern.
 - [Documentation site](https://cs1302uga.github.io/cs1302-tracer/) — published release guides and **Javadoc**, with development documentation under `/next/`.
 - [Installation](docs/guides/installation.md) and [first trace tutorial](docs/tutorials/first-trace.md).
 - [Read a trace](docs/tutorials/read-a-trace.md), [trace a loop](docs/tutorials/trace-a-loop.md), and [understand the trace model](docs/explanation/trace-model.md).
-- [Trace your own program](docs/guides/tracing.md), [process batch jobs](docs/tutorials/batch-jobs.md), or [integrate with Java](docs/tutorials/java-integration.md).
+- [Trace your own program](docs/guides/tracing.md), [process batch jobs](docs/tutorials/batch-jobs.md), or [integrate with Java](docs/tutorials/java-integration.md) and follow the [Java recipes](docs/guides/java-recipes.md).
+- [Show a trace in a visualizer](docs/guides/visualize-a-trace.md) as a memory diagram.
 - [CLI reference](docs/reference/cli.md), [JSON output](docs/reference/output.md), and [batch protocol](docs/reference/batch.md).
 - [Project license](docs/reference/licenses.md) and [resolved Maven dependencies](docs/reference/dependencies.md), including runtime and test scopes and declared licenses.
 - [Limits and result envelopes](docs/BOUNDED_TRACING.md) and [troubleshooting](docs/guides/troubleshooting.md).
+- [Glossary](docs/reference/glossary.md) of terms such as guest, job, snapshot, result envelope, and budget.
 - [HACKING](HACKING.md) — contributor setup and quality gates.
 
 Historical guide versions retain their existing URLs. Maintainers can follow

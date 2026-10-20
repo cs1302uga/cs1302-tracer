@@ -6,7 +6,8 @@ slug: /
 
 Compile and trace Java programs to inspect their execution, stack frames, and heap.
 The tracer emits JSON for tools such as code visualizers; it does not display an
-interactive visualization itself.
+interactive visualization itself. To draw a trace as a memory diagram, see
+[Show a trace in a visualizer](guides/visualize-a-trace.md).
 
 ## Choose your path
 
@@ -17,8 +18,10 @@ interactive visualization itself.
 | Teach or inspect shared references and mutation | [Trace shared references](tutorials/trace-shared-references.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Teach or inspect repeated execution | [Trace a loop](tutorials/trace-a-loop.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Trace your own program | [Tracing recipes](guides/tracing.md) | [Troubleshooting](guides/troubleshooting.md), [CLI defaults and exit statuses](reference/cli.md#trace-defaults-at-a-glance) |
+| Draw a trace as a memory diagram | [Show a trace in a visualizer](guides/visualize-a-trace.md) | [Two representations of the same trace](explanation/trace-model.md#two-representations-of-the-same-trace) |
 | Consume JSON or process jobs | [Batch tutorial](tutorials/batch-jobs.md) | [JSON output](reference/output.md), [batch protocol](reference/batch.md), [bounded results](BOUNDED_TRACING.md) |
-| Embed tracing in Java | [Java tutorial](tutorials/java-integration.md) | [API reference guide](reference/java-api.md), [3.x migration](guides/java-api-migration.md) |
+| Embed tracing in Java | [Java tutorial](tutorials/java-integration.md) | [Java recipes](guides/java-recipes.md), [API reference guide](reference/java-api.md), [3.x migration](guides/java-api-migration.md) |
+| Look up a term used in these pages | [Glossary](reference/glossary.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Read API documentation without a network connection | [Offline API documentation](guides/offline-javadoc.md) | Download and verify a release bundle before going offline. |
 | Inspect licensing or project dependencies | [Project license](reference/licenses.md) | [Resolved dependencies and declared licenses](reference/dependencies.md) |
 | Contribute a change | [Development workflow](contributing/development.md) | [Architecture](contributing/architecture.md), [documentation maintenance](contributing/documentation.md) |

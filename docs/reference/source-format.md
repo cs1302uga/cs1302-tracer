@@ -52,8 +52,19 @@ after normalization, and end in `.java`. Two files cannot resolve to the same
 path. Any violation rejects the whole bundle with
 `Invalid or duplicate source path` before any file is written.
 
-The resolved paths become the keys of the result's `sources` map, and `FILE:LINE`
-breakpoint selections match against them.
+The resolved path decides where the file is compiled. When a bundle has two or
+more files, `list-breakpoints` reports each file by its resolved path; a one-file
+bundle is listed as undelimited text (see
+[breakpoint listing output](cli.md#breakpoint-listing-output)).
+`Tracer.discoverBreakpoints` and traces instead name each file by its debug source
+path: the declared package directory plus the file name. A file delimited as
+`src/demo/Main.java` that declares `package demo;` appears as `demo/Main.java` in
+the result's `sources` map, `entryFile`, and step and frame `file` fields. A
+file-qualified breakpoint names it by that debug source path, `demo/Main.java:LINE`,
+or by a shorter suffix such as `Main.java:LINE`, which can match more than one
+submitted file. A selection that names the bundle path, `src/demo/Main.java:LINE`,
+matches nothing: the trace has no snapshot for it and reports no error. See
+[shared source metadata](output.md#shared-source-metadata).
 
 ## Single files
 
