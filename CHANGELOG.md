@@ -117,6 +117,7 @@ requirements, and JSON/batch schemas are unchanged.
   submission folders with a standard-library Python script; and add a CLI launcher
   reference for JAR location, Java selection, `CODE_TRACER_JAR_DIR`, and quoting.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
+  Implementation: [9ade6d7](https://github.com/cs1302uga/cs1302-tracer/commit/9ade6d72aa9d4fac6dedb95e3fc345bf09f436d5).
 
 ### Commits
 
@@ -148,6 +149,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`5cdaf25`](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8) Promise independent concurrent Tracer calls.
 - [`b3c72b3`](https://github.com/cs1302uga/cs1302-tracer/commit/b3c72b320fb2aefdc93a8c7a0e8787f2b0c6ac6d) Link the concurrency contract in the changelog.
 - [`e7c9d44`](https://github.com/cs1302uga/cs1302-tracer/commit/e7c9d4463e2ef025565c00b1994feced46722f3d) Explain how embedding applications own tracing resources.
+- [`cb209e4`](https://github.com/cs1302uga/cs1302-tracer/commit/cb209e471be77224d89fbb5a43e384e3232c27a5) Link the embedding lifecycle explanation in the changelog.
+- [`9ade6d7`](https://github.com/cs1302uga/cs1302-tracer/commit/9ade6d72aa9d4fac6dedb95e3fc345bf09f436d5) Add source bundle, batch request, and launcher references.
 
 ## 4.2.1 — 2026-10-18
 
