@@ -12,6 +12,7 @@ interactive visualization itself.
 
 | You want to… | Start here | Then read |
 | --- | --- | --- |
+| Decide whether a program is safe to trace | [Why the tracer is not a sandbox](explanation/trust-model.md) | [Runner contract](RUNNER_CONTRACT.md), [inspection policies](explanation/inspection-policies.md) |
 | Run a Java example locally | [Install](guides/installation.md) → [First trace](tutorials/first-trace.md) | [Read a trace](tutorials/read-a-trace.md) |
 | Teach or inspect shared references and mutation | [Trace shared references](tutorials/trace-shared-references.md) | [How a trace represents execution](explanation/trace-model.md) |
 | Teach or inspect repeated execution | [Trace a loop](tutorials/trace-a-loop.md) | [How a trace represents execution](explanation/trace-model.md) |

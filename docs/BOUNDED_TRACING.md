@@ -112,6 +112,9 @@ identify the normative specifications and informative explanations for the value
 
 ## Inspection policies
 
+For why the policies exist, their trade-offs, and when to choose each, see the
+[inspection policies explanation](explanation/inspection-policies.md).
+
 `TRUSTED` retains existing specialized collection, map, wrapper, and stream
 inspection. It can invoke guest methods (`toArray`, `entrySet`, entry accessors,
 primitive-wrapper getters, lazy enum `hashCode`, a color `getRGB` fallback, and

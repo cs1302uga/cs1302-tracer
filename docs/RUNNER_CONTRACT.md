@@ -1,7 +1,9 @@
 # Contract for a separate Linux submission runner
 
 Status: integration requirements for a future runner. This repository does not
-implement or validate a malicious-code isolation backend.
+implement or validate a malicious-code isolation backend. For why the tracer itself
+cannot contain submitted code, see
+[why the tracer is not a sandbox](explanation/trust-model.md).
 
 Trusted instructor examples may use Tracer directly on supported desktop/server
 platforms. Treat hosted student submissions as malicious by default. Isolate the

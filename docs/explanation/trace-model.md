@@ -170,6 +170,116 @@ single-argument `System.in.read(byte[])` advances it there.
 The [output reference](../reference/output.md#input-and-output-observations) defines
 the snapshot fields.
 
+## Two representations of the same trace
+
+The tracer can write captured states as Python Tutor JSON (`pytutor`) or modern
+JSON (`modern`). Both serializers convert the same completed snapshots and receive
+the same presentation options, so the format changes how a state is written, not
+which states are captured. A result envelope's status and diagnostics are separate
+from its format-specific trace payload. The
+[null local](#null-references-and-local-visibility) described earlier is one
+example: both formats record the same Java `null` and spell it differently.
+
+Python Tutor JSON follows the trace format of **Online Python Tutor**. Each step in
+a `trace` array holds a `stack_to_render` list of frames, whose `encoded_locals`
+contain the values, plus step-level `globals` and `heap`. A reference is the tuple
+`["REF", id]`, and each heap value is a tagged array whose first element names its
+shape, such as `INSTANCE`, `LIST`, `DICT`, or `JAVA_LAMBDA`. `float`, `double`, and
+`char` values are also tagged, for example as `NUMBER-LITERAL` or `CHAR-LITERAL`.
+The tracer adds Java metadata alongside these values: `locals_attrs` and
+`globals_attrs` hold declared types and `final` flags, `heap_attrs` holds heap
+types, steps and frames identify their source `file`, steps record the input
+cursor, and the root carries `sources` and `entryFile`. The
+[Python Tutor format reference](../reference/output.md#python-tutor-format)
+includes a complete example.
+
+Modern JSON names each part explicitly. A modern step has a `callStack` of frames
+whose `locals`, like the step's `statics`, are records with `name`, `type`, `value`,
+and `final`. A reference is the object `{"ref": id}`, and `heap` is a map from
+identity to an entry whose `kind` (`object`, `array`, `string`, `lambda`, `box`, or
+`color`) says which payload field to read. Primitive values are plain JSON: a
+`char` is a one-character string, and
+[non-finite floating-point values](../reference/output.md#floating-point-special-values)
+are the strings `"NaN"`, `"Infinity"`, and `"-Infinity"`. The
+[modern format reference](../reference/output.md#modern-format) defines every field
+and [heap kind](../reference/output.md#heap-fields-and-kinds).
+
+The tutorial's `box` local shows the difference. With `42` as an illustrative
+identity, modern JSON writes `box` as a variable record whose `value` is
+`{"ref": 42}`, and the step's `heap["42"]` is an entry with `"type": "Main$Box"`,
+`"kind": "object"`, and a `fields` array holding the `value` field's record.
+Python Tutor JSON writes `"box": ["REF", 42]` in the `main` frame's
+`encoded_locals`, keeps the declared type `Main.Box` in `locals_attrs`, and stores
+the object as `["INSTANCE", "Main$Box", ["value", 7]]` in `heap["42"]`, with the
+field type in `heap_attrs`. Both describe one reference to one object whose field
+holds `7`.
+
+The formats also differ in how they group snapshots. Ordinary selected-breakpoint
+output in Python Tutor JSON is a root dictionary keyed by line number, whose values
+are complete Python Tutor payloads. Modern JSON instead uses one root with a
+`breakpoints` map. Envelope, Java, and batch payloads use a single sequence root in
+both formats. Ordinary modern output omits unset properties and is always indented;
+Python Tutor output keeps a null local as an explicit JSON null and is indented
+only with `--pretty`. See
+the [result contracts](../reference/output.md#result-contracts) and
+[null-property rules](../reference/output.md#null-properties-in-modern-output).
+
+Most presentation options apply to both formats. `--remove-main-args`,
+`--remove-method-this`, and `--type-style`, along with their request-field
+equivalents, affect either format. Primitive binary metadata is also available in
+both. Each format places it with its other metadata: beside a modern variable or
+heap entry, or inside Python Tutor's `locals_attrs`, `globals_attrs`, and
+`heap_attrs` entries so that its tuples stay unchanged. See
+[primitive binary metadata](../reference/output.md#optional-primitive-binary-metadata).
+Inline strings are the exception. `--inline-strings` replaces each Python Tutor
+string reference with the string's text and omits string heap entries. The output
+then no longer shows which variables share a string object. Modern output ignores
+the option, and its strings remain `string` heap entries reached by reference.
+
+Thread capture has only one representation. Python Tutor JSON supports
+single-stack capture only. The CLI therefore rejects `--multithread` without
+`--format modern` (exit status 2), and batch and Java jobs report a validation
+failure. Modern steps then add `threads`, `triggeringThreadId`, and thread event
+labels such as `thread_start`; see
+[opt-in thread capture](../reference/output.md#opt-in-thread-capture).
+
+Python Tutor JSON came first. The
+[1.0.0 release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v1.0.0)
+emitted only that format.
+[Release 2.0.0](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v2.0.0)
+added modern JSON as a separate object-graph schema that is not interchangeable
+with it. Python Tutor JSON remains the default for the CLI `--format` option, an
+omitted batch `format`, and the Java `TraceRequest(String)` constructor, so existing
+commands keep their output. Neither format is deprecated; both are values of the
+stable `TraceFormat` Java API.
+
+Choose a format according to the program that reads it. Code that parses the JSON
+itself can follow modern JSON's named fields and heap map without decoding tuple
+tags. Thread capture requires modern JSON, and the tutorials and tracing recipes
+also use it. Python Tutor JSON suits renderers built on Python Tutor's trace format
+and consumers already written for it. Because the two schemas are not
+interchangeable, a consumer reads only the format it was written for.
+
+The project's visualizer,
+[**cs1302-code-visualizer**](https://github.com/cs1302uga/cs1302-code-visualizer),
+is one such renderer; it creates memory diagrams from Java programs. Its diagram
+frontend derives from Python Tutor and reads Python Tutor JSON directly. It also
+accepts modern JSON, which it first converts to the Python Tutor shape. That
+conversion does not carry modern thread states. When the visualizer traces a
+program itself, it produces Python Tutor JSON by default: it runs the tracer
+without `--format`, and its batch jobs request `pytutor`. Prefer Python Tutor JSON
+for traces you give it. Its own `--format` option selects an image format, such as
+PNG or SVG, not a trace format.
+
+The visualizer also depends on string identity. Its renderers generate traces
+without inline strings, and its own string-style option controls how strings are
+drawn. Its documentation notes that a trace generated with inline strings can
+render only in its inline style. When it traces a program, it runs its own copy of
+the tracer: each visualizer release pins one published tracer release by URL and
+SHA-256 checksum and refuses to run a JAR that fails verification. Its diagrams
+therefore come from the tracer release its own version pins, not from a
+separately installed tracer.
+
 ## Captured evidence has limits
 
 A trace can end because execution completed, failed, or reached a tracing limit.

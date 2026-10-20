@@ -88,6 +88,14 @@ requirements, and JSON/batch schemas are unchanged.
   print its notices. Consolidate duplicated envelope and omitted-limit guidance.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
   Implementation: [c148fa4](https://github.com/cs1302uga/cs1302-tracer/commit/c148fa4e2b85e80b9930863d6306373ddf87c775).
+- **Explanation pages:** add "Why the tracer is not a sandbox", which follows
+  untrusted code from parsing through the guest JVM and contrasts tracing budgets
+  with the runner contract's whole-job isolation; add an inspection-policies
+  explanation of `TRUSTED` guest calls versus `FIELDS`; and explain the Python
+  Tutor and modern formats in the trace model, including how the project's
+  visualizer consumes them. Link them from the sidebar, index, runner contract,
+  and bounded-tracing reference. Java API, CLI, JSON/batch protocol, and runtime
+  behavior are unchanged.
 
 ### Commits
 
