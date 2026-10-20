@@ -103,6 +103,8 @@ requirements, and JSON/batch schemas are unchanged.
   runs one `processStream` call at a time. Add a concurrent API regression test.
   Java API signatures, CLI behavior, runtime requirements, and JSON/batch protocol
   are unchanged.
+  Implementation: [5cdaf25](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8).
+  Implementation: [3812c43](https://github.com/cs1302uga/cs1302-tracer/commit/3812c43103eadc65af869c8b69f0ba20ee1a7fd2).
 
 ### Commits
 
@@ -130,6 +132,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`c148fa4`](https://github.com/cs1302uga/cs1302-tracer/commit/c148fa4e2b85e80b9930863d6306373ddf87c775) Document runner, CLI, input, and thread contracts found by the audit.
 - [`fba9ef0`](https://github.com/cs1302uga/cs1302-tracer/commit/fba9ef0526f53fcfb0bee05ab3cb7a7b167bf721) Link the audit follow-up documentation in the changelog.
 - [`c081be2`](https://github.com/cs1302uga/cs1302-tracer/commit/c081be2afc082bdf52c03ec0611de8e057fb04ea) Explain the trust model, inspection policies, and trace formats.
+- [`a4330bb`](https://github.com/cs1302uga/cs1302-tracer/commit/a4330bb4ebfd5ce0dc3e15fb44c0cacabcf85c73) Link the explanation pages in the changelog.
+- [`5cdaf25`](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8) Promise independent concurrent Tracer calls.
 
 ## 4.2.1 — 2026-10-18
 
