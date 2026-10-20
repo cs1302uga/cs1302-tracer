@@ -110,6 +110,7 @@ requirements, and JSON/batch schemas are unchanged.
   guest reuse carries between jobs, what the tracing deadline covers, and how
   shutdown drains admitted jobs. Link it from the sidebar and Java reference.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
+  Implementation: [e7c9d44](https://github.com/cs1302uga/cs1302-tracer/commit/e7c9d4463e2ef025565c00b1994feced46722f3d).
 
 ### Commits
 
@@ -139,6 +140,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`c081be2`](https://github.com/cs1302uga/cs1302-tracer/commit/c081be2afc082bdf52c03ec0611de8e057fb04ea) Explain the trust model, inspection policies, and trace formats.
 - [`a4330bb`](https://github.com/cs1302uga/cs1302-tracer/commit/a4330bb4ebfd5ce0dc3e15fb44c0cacabcf85c73) Link the explanation pages in the changelog.
 - [`5cdaf25`](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8) Promise independent concurrent Tracer calls.
+- [`b3c72b3`](https://github.com/cs1302uga/cs1302-tracer/commit/b3c72b320fb2aefdc93a8c7a0e8787f2b0c6ac6d) Link the concurrency contract in the changelog.
+- [`e7c9d44`](https://github.com/cs1302uga/cs1302-tracer/commit/e7c9d4463e2ef025565c00b1994feced46722f3d) Explain how embedding applications own tracing resources.
 
 ## 4.2.1 — 2026-10-18
 
