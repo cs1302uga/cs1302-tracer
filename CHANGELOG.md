@@ -105,6 +105,11 @@ requirements, and JSON/batch schemas are unchanged.
   are unchanged.
   Implementation: [5cdaf25](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8).
   Implementation: [3812c43](https://github.com/cs1302uga/cs1302-tracer/commit/3812c43103eadc65af869c8b69f0ba20ee1a7fd2).
+- **Embedding lifecycle explanation:** explain how `Tracer` calls and
+  `BatchTracer` processors own workers, guest JVMs, and caller streams, what
+  guest reuse carries between jobs, what the tracing deadline covers, and how
+  shutdown drains admitted jobs. Link it from the sidebar and Java reference.
+  Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
 
 ### Commits
 

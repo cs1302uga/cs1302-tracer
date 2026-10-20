@@ -1,7 +1,9 @@
 # Java integration reference
 
 Start with the [complete Java tutorial](../tutorials/java-integration.md) for a runnable example.
-This reference defines the supported contracts and advanced configuration.
+This reference defines the supported contracts and advanced configuration; for how
+the entry points own workers, guests, and streams, see
+[how an embedding application owns tracing resources](../explanation/java-lifecycle.md).
 
 The supported Java interface is `cs1302.tracer.api`, plus the stable CLI launcher
 `cs1302.tracer.App`. Use the regular tracer JAR for library integration and supply
