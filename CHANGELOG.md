@@ -127,6 +127,7 @@ requirements, and JSON/batch schemas are unchanged.
   reference: traces and file-qualified breakpoints name files by their
   package-relative debug source paths, not their bundle paths. Java API, CLI,
   JSON/batch protocol, and runtime behavior are unchanged.
+  Implementation: [5f4aa48](https://github.com/cs1302uga/cs1302-tracer/commit/5f4aa486edfbeb51c7d3aba3d3c07db7d5630adf).
 
 ### Commits
 
@@ -160,6 +161,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`e7c9d44`](https://github.com/cs1302uga/cs1302-tracer/commit/e7c9d4463e2ef025565c00b1994feced46722f3d) Explain how embedding applications own tracing resources.
 - [`cb209e4`](https://github.com/cs1302uga/cs1302-tracer/commit/cb209e471be77224d89fbb5a43e384e3232c27a5) Link the embedding lifecycle explanation in the changelog.
 - [`9ade6d7`](https://github.com/cs1302uga/cs1302-tracer/commit/9ade6d72aa9d4fac6dedb95e3fc345bf09f436d5) Add source bundle, batch request, and launcher references.
+- [`da3ba11`](https://github.com/cs1302uga/cs1302-tracer/commit/da3ba11acd5e5eef1f1b5f75fd6627243933fb62) Link the integrator references in the changelog.
+- [`5f4aa48`](https://github.com/cs1302uga/cs1302-tracer/commit/5f4aa486edfbeb51c7d3aba3d3c07db7d5630adf) Add Java recipes, a user glossary, and a visualizer guide.
 
 ## 4.2.1 — 2026-10-18
 
