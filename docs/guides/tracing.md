@@ -217,7 +217,9 @@ it also disables neighboring discovery. Multithread capture selects that same
 source-discovery policy. See [CLI source discovery](../reference/cli.md#source-input-and-discovery)
 and [inspection policies](../BOUNDED_TRACING.md#inspection-policies) for the exact
 boundaries; none of these choices provides host isolation.
-For Java code that assembles bundles programmatically, use the
+The [delimited source bundle reference](../reference/source-format.md) defines the
+delimiter grammar and path rules. For Java code that assembles bundles
+programmatically, use the
 [SourceBundle reference](../reference/java-api.md#bundle-source-files), including
 its ordering, validation, file-capture, and link-following rules.
 

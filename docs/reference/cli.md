@@ -216,6 +216,49 @@ output contract.
 | `--eval-enum-hash` and `--no-eval-enum-hash` are mutually overriding. | The last flag on the command line wins. Neither flag has an effect under `FIELDS` inspection or `--multithread`, which do not invoke guest methods. | [Inspection policies](../BOUNDED_TRACING.md#inspection-policies) |
 | `--stdin` and `--stdin-file` are mutually exclusive. | Exit status 2: `Cannot specify both --stdin and --stdin-file`. | [Trace defaults](#trace-defaults-at-a-glance) |
 
+## Launchers and environment variables
+
+Binary distributions and source builds include three launchers. Each runs
+`java -jar code-tracer.jar` with every argument forwarded unchanged, preserves the
+caller's working directory and standard streams, and exits with Java's exit
+status. None has launcher-specific flags, and none interprets `JAVA_OPTS`.
+Direct `java -jar code-tracer.jar` invocation does not consult the launcher
+variables below.
+
+| Launcher | Shell | Default JAR location |
+| --- | --- | --- |
+| `code-tracer.sh`, plus the `code-tracer` symlink or copy | Bash 3.2+ on Linux or macOS | Beside the script's resolved path, following symlinks to the launcher. Internal directory resolution ignores `CDPATH`. |
+| `code-tracer.ps1` | PowerShell 7.4+ | Beside the installed script; a file symlink is resolved. |
+| `code-tracer.cmd` | Command Prompt | Beside the invoked batch file. |
+
+**Java selection.** A nonempty `JAVA_HOME` selects `bin/java` under that
+directory (`bin\java.exe` on Windows); that executable and its sibling `javac`
+must exist, and an invalid selection fails without falling back. Otherwise both
+`java` and `javac` must be found on `PATH`. The tracer then runs its own
+[JDK environment preflight](#jdk-environment-preflight).
+
+**`CODE_TRACER_JAR_DIR`** names the directory containing `code-tracer.jar`; the
+filename stays fixed.
+
+| Value | Selected JAR |
+| --- | --- |
+| Unset or empty | `code-tracer.jar` at the launcher's default location. |
+| Absolute directory | `code-tracer.jar` in that directory. |
+| Relative directory | `code-tracer.jar` in that directory, relative to the caller's working directory. |
+
+Values are literal: the launcher does not expand a stored `~`, embedded
+environment-variable names, or shell expressions, although the calling shell may
+expand them when you assign the variable. Spaces and trailing directory
+separators are supported. An invalid nonempty value fails with a diagnostic on
+stderr and exit status 1; it never falls back to the adjacent JAR.
+
+**Quoting.** Quote arguments according to the shell. PowerShell preserves empty
+arguments and embedded quotes; the batch launcher follows Command Prompt's quoting
+and expansion rules. From another batch script, use `call code-tracer.cmd ...`
+when that script must continue afterward. The scripts do not change PowerShell
+execution policy. The [installation guide](../guides/installation.md#advanced-launcher-configuration)
+shows each launcher in use.
+
 ## Source input and discovery
 
 `--input FILE` reads a UTF-8 source file or a text file containing a delimited

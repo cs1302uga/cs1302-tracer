@@ -28,7 +28,7 @@ stream processing does not mean every job completed successfully.
 | Request field | Meaning / omitted behavior |
 | --- | --- |
 | `id` | Optional string correlation identifier, returned unchanged; omitted or null stays null. Supply a distinct value for each job. |
-| `source` | Required, nonblank Java source text, optionally a delimited multi-file bundle. |
+| `source` | Required, nonblank Java source text, optionally a [delimited source bundle](source-format.md). |
 | `format` | Case-insensitive `pytutor` (default) or `modern`; omitted, null, or blank selects the default. |
 | `stdin` | Guest standard input string; omitted or null means empty input. |
 | `breakpoints` | Array of line or file-qualified breakpoint strings, such as `["12", "Helper.java:5"]`; `"-1"` selects main exit. |

@@ -422,6 +422,33 @@ def check_threads(steps: list[dict[str, Any]]) -> None:
     raise AssertionError("No worker step keeps the main frame in threads")
 
 
+def check_batch_requests(work: Path) -> None:
+    """Build NDJSON from the documented submission folders and check both traced jobs."""
+    guide = (ROOT / "docs/guides/batch-requests.md").read_text()
+    for marker, filename in (
+        ("ada-main", "submissions/ada/Main.java"),
+        ("alan-main", "submissions/alan/Main.java"),
+        ("alan-helper", "submissions/alan/Helper.java"),
+        ("script", "make_requests.py"),
+    ):
+        path = work / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(block(guide, "batch-requests-" + marker) + "\n", encoding="utf-8")
+    run(["sh", "-eu", "-c", block(guide, "batch-requests-build")], cwd=work)
+    requests = [json.loads(line) for line in (work / "requests.ndjson").read_text().splitlines()]
+    assert [request["id"] for request in requests] == ["ada", "alan"], "Requests must follow folder order"
+    assert requests[1]["source"].count("// --- ") == 2, "Multi-file submissions must use delimiters"
+    assert all(request["inspection"] == "FIELDS" and len(request["limits"]) == 11 for request in requests)
+    run(["sh", "-eu", "-c", block(guide, "batch-requests-command")], cwd=work)
+    responses = [json.loads(line) for line in (work / "results.ndjson").read_text().splitlines()]
+    assert [response["id"] for response in responses] == ["ada", "alan"]
+    for response in responses:
+        result = response["result"]
+        assert result["status"] == "completed" and result["complete"] and result["stdout"] == "42\n", (
+            "Each batch-request job must complete with 42"
+        )
+
+
 def check_jdk(work: Path) -> None:
     """Exercise the Bash JDK setup in one session with spaces and conflicting prior tool selection."""
     guide = (ROOT / "docs/guides/installation.md").read_text()
@@ -511,6 +538,7 @@ def check_tutorials() -> None:
         good, bad = (response["result"] for response in responses)
         assert good["status"] == "completed" and good["complete"] and good["stdout"] == "42\n"
         assert bad["status"] == "failed" and not bad["complete"] and bad["diagnostics"]
+        check_batch_requests(work)
 
 
 def main() -> None:

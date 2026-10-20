@@ -111,6 +111,12 @@ requirements, and JSON/batch schemas are unchanged.
   shutdown drains admitted jobs. Link it from the sidebar and Java reference.
   Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
   Implementation: [e7c9d44](https://github.com/cs1302uga/cs1302-tracer/commit/e7c9d4463e2ef025565c00b1994feced46722f3d).
+- **Integrator reference and recipes:** add a delimited source bundle reference
+  defining the delimiter grammar, file contents, path rules, entry-file selection,
+  and file counting; add a verified recipe that builds batch requests from
+  submission folders with a standard-library Python script; and add a CLI launcher
+  reference for JAR location, Java selection, `CODE_TRACER_JAR_DIR`, and quoting.
+  Java API, CLI, JSON/batch protocol, and runtime behavior are unchanged.
 
 ### Commits
 

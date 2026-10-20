@@ -68,6 +68,9 @@ jobs need fresh guest JVMs, and read the [reuse and lifetime rules](../reference
 for reset scope, background threads and `System.exit` behavior. Multithread jobs
 use dedicated guests.
 
+To turn existing `.java` files into requests, continue with
+[build batch requests from source files](../guides/batch-requests.md).
+
 The tracer is not a sandbox. Neither reused nor fresh guests isolate the whole
 operation: source parsing and compilation run in the tracer process. Run only
 trusted programs directly. Hosted untrusted submissions require one disposable

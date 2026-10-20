@@ -138,6 +138,7 @@ def tutorial_results() -> dict[str, Any]:
         {"event": "main_exit", "threads": [main_thread], "triggeringThreadId": 1, "stdout": "42\n"},
     ]
     return {
+        "batch_requests": {"default": {"status": "completed", "complete": True, "stdout": "42\n"}},
         "threads": {"format": "modern", "entryFile": "Workers.java", "steps": thread_steps},
         "first": {"format": "modern", "entryFile": "Main.java", "steps": steps},
         "shared": {"format": "modern", "entryFile": "SharedReferences.java", "steps": shared_steps},
@@ -214,7 +215,7 @@ class DocumentationChecksTests(unittest.TestCase):
             "batch-jobs",
         ):
             shutil.copy2(SCRIPTS.parent / f"docs/tutorials/{name}.md", self.root / f"docs/tutorials/{name}.md")
-        for name in ("tracing", "installation"):
+        for name in ("tracing", "installation", "batch-requests"):
             shutil.copy2(SCRIPTS.parent / f"docs/guides/{name}.md", self.root / f"docs/guides/{name}.md")
         # Links are tested separately; keep the tutorial example blocks without their prose.
         for path in [*(self.root / "docs/tutorials").glob("*.md"), *(self.root / "docs/guides").glob("*.md")]:
@@ -332,6 +333,12 @@ elif 'trace' in sys.argv and 'code-tracer.jar' in sys.argv:
     trace = results['multifile']
     trace['sources'] = dict(re.findall(r'^// --- ([^\\n]+) ---\\n(.*?)(?=^// --- |\\Z)', source, re.M | re.S))
     print(json.dumps(trace))
+elif 'batch-trace' in sys.argv and '--input' in sys.argv:
+    assert sys.argv[sys.argv.index('--input') + 1] == 'requests.ndjson'
+    for line in Path('requests.ndjson').read_text().splitlines():
+        request = json.loads(line)
+        outcomes = results['batch_requests']
+        print(json.dumps({'id': request['id'], 'result': outcomes.get(request['id'], outcomes['default'])}))
 elif 'batch-trace' in sys.argv and Path('jobs.ndjson').exists():
     print(json.dumps({'id': 'hello', 'result': {'status': 'completed', 'complete': True, 'stdout': '42\\n'}}))
     print(json.dumps({'id': 'broken', 'result': {'status': 'failed', 'complete': False, 'diagnostics': ['error']}}))
@@ -754,6 +761,9 @@ else:
         data = json.loads(original)
         data["threads"]["steps"][5]["threads"][0]["callStack"] = [{"methodName": "<init>"}]
         changes.append(("missing main frame", data, "keeps the main frame"))
+        data = json.loads(original)
+        data["batch_requests"]["alan"] = {"status": "failed", "complete": False, "stdout": ""}
+        changes.append(("failed batch request", data, "complete with 42"))
         data = json.loads(original)
         data["partial"]["status"] = "completed"
         changes.append(("wrong stop", data, "AssertionError"))

@@ -65,7 +65,8 @@ the documented loop values. The tracing recipes cover final and chronological
 capture, guest input, multiple source files, compiled dependencies, presentation,
 multithread capture that keeps the `main` frame in `threads` while the worker runs, and
 a controlled budget stop with a partial envelope. Java and batch checks inspect
-completion and failure outcomes. The README quickstart remains a separate
+completion and failure outcomes. The batch-requests guide check runs the documented
+Python script on its submission folders and checks both traced jobs. The README quickstart remains a separate
 checkout-based example.
 
 The shared-references tutorial check follows two locals into one heap object

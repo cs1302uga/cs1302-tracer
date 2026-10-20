@@ -376,7 +376,9 @@ checkpoint succeeds. Keep using this terminal so the session's JDK selection sta
 ## Advanced launcher configuration
 
 The following sections describe shell behavior and relocation. They are optional
-for a first run with the launcher and JAR kept together.
+for a first run with the launcher and JAR kept together. The
+[launcher reference](../reference/cli.md#launchers-and-environment-variables)
+summarizes every launcher's JAR and Java selection rules.
 
 ### Bash launcher
 
@@ -447,18 +449,11 @@ All three launchers accept **`CODE_TRACER_JAR_DIR`**, the directory containing
 `code-tracer.jar`. The filename remains fixed. This allows launchers on `PATH`
 to use a JAR installed elsewhere.
 
-| Variable value | Selected JAR |
-| --- | --- |
-| Unset or empty | `code-tracer.jar` beside the script, using the default symlink behavior described above. |
-| Absolute directory | `code-tracer.jar` in that directory. |
-| Relative directory | `code-tracer.jar` in that directory relative to the caller's working directory. |
-
-An invalid nonempty override fails with a diagnostic on stderr and status `1`;
-it never falls back to the adjacent JAR. Spaces and trailing directory separators
-are supported. Values are literal: the launcher does not expand a stored `~`,
-embedded environment-variable names, or shell expressions. The calling shell may
-perform its own expansion when you assign the variable. Use absolute paths for
-persistent settings so the result does not depend on your current directory.
+An absolute or relative directory works; a relative one is resolved from the
+caller's working directory, and an invalid value fails with status `1` instead of
+falling back. The [launcher reference](../reference/cli.md#launchers-and-environment-variables)
+lists every accepted value. Use absolute paths for persistent settings so the
+result does not depend on your current directory.
 
 From the repository root, these examples select the built JAR using a relative
 directory (replace `./target` with your installation directory as needed):
