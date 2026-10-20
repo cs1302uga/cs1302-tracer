@@ -97,6 +97,12 @@ requirements, and JSON/batch schemas are unchanged.
   and bounded-tracing reference. Java API, CLI, JSON/batch protocol, and runtime
   behavior are unchanged.
   Implementation: [c081be2](https://github.com/cs1302uga/cs1302-tracer/commit/c081be2afc082bdf52c03ec0611de8e057fb04ea).
+- **Java API concurrency contract:** document that every `Tracer.trace` and
+  `Tracer.discoverBreakpoints` overload may be called concurrently from multiple
+  threads in one JVM with independent results, and that a `BatchTracer` processor
+  runs one `processStream` call at a time. Add a concurrent API regression test.
+  Java API signatures, CLI behavior, runtime requirements, and JSON/batch protocol
+  are unchanged.
 
 ### Commits
 

@@ -32,6 +32,16 @@ import cs1302.tracer.internal.serialize.TraceRendering;
  * Both forms return detached {@link TraceOutcome} metadata and JSON. Expected validation, preparation,
  * and execution failures are reported in that outcome rather than as checked exceptions.</p>
  *
+ * <p>Every {@code trace} and {@code discoverBreakpoints} overload may be called concurrently from multiple
+ * threads in one JVM, and each call is independent. A call owns its temporary compilation files and parser
+ * state and, when tracing, its trace session, worker, and guest JVM; its outcome does not depend on other calls
+ * in progress. Requests, limits, dependency selections, outcomes, and discovery results are immutable and may be
+ * shared between threads; builders are not thread-safe. Calls that borrow the same dependency files require
+ * those files to remain available and unchanged until every such call returns. This class applies no
+ * concurrency limit: each concurrent trace launches its own guest JVM, so bound concurrency to the host's
+ * process, memory, and CPU capacity. Concurrent calls in one process are not isolated from each other or
+ * from the host.</p>
+ *
  * <p>Completion metadata reflects failures observed by the tracer. In single-stack reusable-guest execution,
  * an uncaught exception thrown inside JDK or precompiled dependency code can be printed to captured stderr
  * while the outcome still reports {@code completed} and {@code complete=true}. An uncaught throw directly

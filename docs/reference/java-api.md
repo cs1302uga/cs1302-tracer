@@ -555,6 +555,27 @@ Discovery parses and compiles in the calling JVM without configurable source
 budgets. Not launching a guest does not make untrusted input safe: isolate the
 entire parsing/compilation operation under the [runner contract](../RUNNER_CONTRACT.md).
 
+## Concurrent calls
+
+`Tracer.trace` and `Tracer.discoverBreakpoints`, including every overload, may be
+called concurrently from multiple threads in one JVM. Each call is independent: it
+owns its temporary compilation directory and parser state and, when tracing, its
+trace session, worker, and guest JVM. One call's source, standard input, output,
+limits, and failures do not affect another call's outcome. Request, limit,
+dependency-selection, outcome, and discovery values are immutable and can be
+shared between threads; builders are mutable and not thread-safe.
+
+`Tracer` applies no global concurrency limit. Each concurrent trace launches its
+own guest JVM, so size thread pools to the host's process, memory, and CPU
+capacity. Calls that borrow the same dependency files require those files to
+remain available and unchanged until every such call returns. Concurrency in one
+process does not isolate untrusted submissions; hosted jobs still require the
+[runner contract](../RUNNER_CONTRACT.md).
+
+A `BatchTracer` processes one stream at a time: do not overlap `processStream`
+calls on the same processor. Separate processors and `Tracer` calls may run
+concurrently.
+
 ## Process a batch stream
 
 ```java
@@ -583,7 +604,7 @@ The processor owns the worker pool and guest cleanup; call `close()` after strea
 try-with-resources. Stream processing flushes responses but leaves caller-owned
 streams open. Blank input lines are ignored, and successful processing returns after
 EOF and all admitted responses. A processor can handle consecutive streams;
-call `processStream` sequentially and never use a closed processor.
+run one `processStream` call at a time per processor and never use a closed processor.
 The [batch protocol](batch.md) determines the NDJSON request defaults, rather than
 `TraceRequest` defaults. Omitted `limits`, and fields omitted from a partial
 `limits` object, are zero (unlimited); inspection defaults to `TRUSTED`. For

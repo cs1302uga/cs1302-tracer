@@ -14,12 +14,14 @@ batch jobs, and receive Python Tutor or modern JSON output.</p>
 <ul>
   <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest)
   Tracer.trace}: execute one request and receive a detached {@link cs1302.tracer.api.TraceOutcome}.
-  The call owns source preparation and guest cleanup; callers do not close the outcome.</li>
+  The call owns source preparation and guest cleanup; callers do not close the outcome.
+  Calls may run concurrently from multiple threads in one JVM; each call is independent and launches its own guest.</li>
   <li>{@link cs1302.tracer.api.Tracer#discoverBreakpoints(String)
   Tracer.discoverBreakpoints}: compile submitted sources and discover executable locations without
-  launching a guest. Inspect both returned locations and preparation diagnostics.</li>
+  launching a guest. Inspect both returned locations and preparation diagnostics. Concurrent discovery calls are
+  likewise independent.</li>
   <li>{@link cs1302.tracer.api.BatchTracer}: process NDJSON request streams through reusable workers.
-  Use try-with-resources, call {@code processStream} sequentially, and retain ownership of input/output streams.</li>
+  Use try-with-resources, run one {@code processStream} call at a time per processor, and retain ownership of input/output streams.</li>
   <li>{@link cs1302.tracer.App}: invoke the process-facing command line. CLI commands run environment
   preflight, and some command failures terminate the calling JVM. Embedding applications use
   {@code Tracer} or {@code BatchTracer}.</li>

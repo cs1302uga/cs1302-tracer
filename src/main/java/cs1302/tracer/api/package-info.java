@@ -5,11 +5,14 @@
  * <p>Choose the entry point for the work being performed:</p>
  * <ul>
  * <li>{@link cs1302.tracer.api.Tracer#trace(cs1302.tracer.api.TraceRequest) Tracer.trace} executes one request,
- * owns source preparation and guest cleanup, and returns a detached {@link cs1302.tracer.api.TraceOutcome}.</li>
+ * owns source preparation and guest cleanup, and returns a detached {@link cs1302.tracer.api.TraceOutcome}.
+ * Calls may run concurrently from multiple threads; each call is independent and launches its own guest.</li>
  * <li>{@link cs1302.tracer.api.Tracer#discoverBreakpoints(String) Tracer.discoverBreakpoints} compiles submitted
- * sources and returns executable locations or preparation diagnostics without launching a guest.</li>
+ * sources and returns executable locations or preparation diagnostics without launching a guest. Concurrent
+ * discovery calls are likewise independent.</li>
  * <li>{@link cs1302.tracer.api.BatchTracer} processes NDJSON through reusable workers. Close each processor with
- * try-with-resources, call its stream processor sequentially, and retain ownership of input/output streams.</li>
+ * try-with-resources, run one stream-processing call at a time per processor, and retain ownership of
+ * input/output streams.</li>
  * </ul>
  *
  * <p>Outcomes contain detached metadata and serialized JSON without parser, serializer, or debugger objects.
@@ -42,6 +45,8 @@
  * {@code TraceRequest}, {@code TraceLimits}, and {@code TraceOutcome} also support copying through
  * {@code toBuilder()}. Builders are mutable and not thread-safe;
  * immediate collections are detached, while existing constructors retain their ownership contracts.
+ * Built requests, limits, dependency selections, outcomes, and discovery results are immutable and can be shared
+ * between threads.
  * Outcome builders store supplied JSON verbatim, without synchronizing metadata edits. Batch builders require
  * explicit numeric settings and create independently owned processors only when built.</p>
  *

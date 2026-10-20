@@ -9,7 +9,9 @@ import java.io.Writer;
 
 /**
  * Owns a bounded worker pool for the existing NDJSON batch protocol.
- * Use try-with-resources and invoke {@link #processStream(InputStream, Writer)} sequentially.
+ * Use try-with-resources. A processor runs one {@link #processStream(InputStream, Writer)} call at a time;
+ * do not overlap calls on the same processor, even from different threads. Separate processors and
+ * {@link Tracer} calls may run concurrently in one JVM.
  * A processor may handle consecutive streams until closed; caller-owned streams remain open.
  *
  * <p>Worker and admission counts bound scheduling, not each job's execution or resource use.
@@ -137,7 +139,8 @@ public final class BatchTracer implements AutoCloseable {
     /**
      * Processes UTF-8 NDJSON jobs and flushes their responses without closing caller-owned streams.
      * Blank input lines are ignored. The call normally returns after input reaches EOF and every
-     * admitted response has been written. Invoke sequentially; a processor must not be used after closing.
+     * admitted response has been written. Invoke sequentially: calls on one processor must not overlap.
+     * A processor must not be used after closing.
      * Malformed requests and job failures are normally encoded as individual responses; inspect those responses
      * even when this method returns normally. Request and response I/O failures are reported to the caller.
      * An I/O failure does not cancel or wait for all admitted jobs: they can write responses after this method

@@ -67,6 +67,9 @@ it directly to the shared worker, without a wire-model conversion. It closes its
 worker before returning a detached `TraceOutcome`. The Java caller profile selects
 submitted-source discovery with compiled-source resolution. Single-stack requests use a persistent
 guest owned for that operation; multithread requests use a dedicated guest.
+Because each call owns its worker, thread-bound `TraceSession`, source preparation,
+and guest, independent `Tracer` calls may run concurrently; see
+[concurrent calls](../reference/java-api.md#concurrent-calls).
 
 `BatchTracer` owns the NDJSON processor. `BatchTraceService` handles admission,
 worker scheduling, correlation, and response ordering. Each `BatchTraceWorker`
