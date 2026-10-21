@@ -196,6 +196,34 @@
           "sha256": "da91d77bce7196d8c5df31578511cda7d2592405024e3d38de58a8c059de64d3"
         }
       ]
+    },
+    "4.2.0": {
+      "version": "4.2.0",
+      "releaseCommit": "8ca280dce0bfab6113fdfe2e7953d09452bb0108",
+      "sourceDigest": "e20c51a32fc40226b10a789c751d3963195bca2cb5e01610e34e527c274ccacb",
+      "documentationCommit": "42cf6d3be26fe9e86cd263e92e59ba3bb958d13d",
+      "builderCommit": "42cf6d3be26fe9e86cd263e92e59ba3bb958d13d",
+      "publication": "docs-42cf6d3be26fe9e86cd263e92e59ba3bb958d13d",
+      "assets": [
+        {
+          "name": "cs1302-tracer-4.2.0-guides.zip",
+          "url": "https://github.com/cs1302uga/cs1302-tracer/releases/download/docs-42cf6d3be26fe9e86cd263e92e59ba3bb958d13d/cs1302-tracer-4.2.0-guides.zip",
+          "size": 1979315,
+          "sha256": "bdf68d4d8773f778e39216fb364c8b126326326f7fe8127f911102797c17842c"
+        },
+        {
+          "name": "cs1302-tracer-4.2.0-guides.zip.sha256",
+          "url": "https://github.com/cs1302uga/cs1302-tracer/releases/download/docs-42cf6d3be26fe9e86cd263e92e59ba3bb958d13d/cs1302-tracer-4.2.0-guides.zip.sha256",
+          "size": 97,
+          "sha256": "148b65594c1ec5f14424e8ca323c78f40b24b012445338cd42d0119b00173a45"
+        },
+        {
+          "name": "cs1302-tracer-4.2.0-guides.zip.sigstore.json",
+          "url": "https://github.com/cs1302uga/cs1302-tracer/releases/download/docs-42cf6d3be26fe9e86cd263e92e59ba3bb958d13d/cs1302-tracer-4.2.0-guides.zip.sigstore.json",
+          "size": 11074,
+          "sha256": "be7c1d89cae1d344320b4d41f4d579964aa9e8498b51107562cfad64f995a96e"
+        }
+      ]
     }
   }
 }

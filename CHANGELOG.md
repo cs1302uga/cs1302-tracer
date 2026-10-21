@@ -31,7 +31,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v4.2.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.1...HEAD).
+[Changes since v4.3.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.3.0...HEAD).
 
 ### Breaking changes
 
@@ -40,11 +40,36 @@ requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
-- **Release preparation:** select `4.3.0` for the compatible date/time inspection
-  feature and collection fixes, with `4.3.1-SNAPSHOT` as the following development
-  version. Prepare matching documentation for review while preserving published
-  snapshots. The signed stable and next-development transitions and publication
-  occur only after this preparation reaches `main`.
+- **Published guide retention:** pin the verified `4.2.0` guide archive so published
+  documentation can retain its existing routes when `4.3.0` and `4.2.1` become
+  the two active stable guides. Preserve earlier approved archive records and
+  the published software tags, runtime assets, and guide snapshots.
+
+- **Development version:** advance the Maven project to `4.3.1-SNAPSHOT` after
+  the 4.3.0 release. Tracing behavior, the supported Java API, CLI arguments,
+  JSON/batch protocol, and runtime requirements are unchanged. Preserve the
+  retained 4.3.0 guide snapshot.
+
+### Commits
+
+- [`42cf6d3`](https://github.com/cs1302uga/cs1302-tracer/commit/42cf6d3be26fe9e86cd263e92e59ba3bb958d13d) Prepare the next development iteration, 4.3.1-SNAPSHOT.
+
+## 4.3.0 — 2026-10-21
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.3.0) · [Compare v4.2.1...v4.3.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.2.1...v4.3.0)
+
+### Breaking changes
+
+No breaking changes. Supported Java API signatures, CLI arguments, runtime
+requirements, and JSON/batch schemas are unchanged.
+
+### Non-breaking changes
+
+- **Release preparation and publication:** prepared the compatible feature version
+  `4.3.0` and its matching guide while preserving earlier published snapshots.
+  The signed release workflow set the stable Maven version and SCM tag to
+  `4.3.0` and `v4.3.0`. The matching 4.3.0 guide snapshot is retained;
+  verified software and Javadoc assets are published.
 
 - **Set inspection:** verify interface-based capture across JDK and custom sets,
   including unmodifiable views with distinct wrapper identities and live backing
@@ -77,9 +102,11 @@ requirements, and JSON/batch schemas are unchanged.
 - **Development version:** advance the Maven project to `4.2.2-SNAPSHOT` after the
   4.2.1 release. Tracing behavior, the supported Java API, and JSON/batch protocol
   are unchanged.
-- **Development documentation:** align the current Java integration references and
-  CLI version-report example with `4.2.2-SNAPSHOT`. Preserve the published 4.2.1
-  guide snapshot and earlier published documentation.
+- **Development documentation:** initially aligned Java integration references
+  and the CLI version-report example with the intermediate `4.2.2-SNAPSHOT`
+  version, then prepared the `4.3.0-SNAPSHOT` development line and matching
+  stable guide. Preserved the published 4.2.1 guide snapshot and earlier
+  published documentation.
 - **Java API documentation:** clarify entry-point selection, runtime and packaging
   requirements, result metadata, per-job budgets, and resource ownership. Describe
   CLI launcher termination, reusable-guest state, stream-processing failures, and
@@ -191,6 +218,8 @@ requirements, and JSON/batch schemas are unchanged.
 - [`da3ba11`](https://github.com/cs1302uga/cs1302-tracer/commit/da3ba11acd5e5eef1f1b5f75fd6627243933fb62) Link the integrator references in the changelog.
 - [`5f4aa48`](https://github.com/cs1302uga/cs1302-tracer/commit/5f4aa486edfbeb51c7d3aba3d3c07db7d5630adf) Add Java recipes, a user glossary, and a visualizer guide.
 - [`9d31ff6`](https://github.com/cs1302uga/cs1302-tracer/commit/9d31ff6929580fa8d35dd855d9eb27e626668135) Link the recipes, glossary, and visualizer guide in the changelog.
+- [`f89dc1b`](https://github.com/cs1302uga/cs1302-tracer/commit/f89dc1b4a42a41425eac56aa28cc27c5eccefdb6) Support Java time and Set values; prepare 4.3.0 (#42).
+- [`c1421f6`](https://github.com/cs1302uga/cs1302-tracer/commit/c1421f6503f100094be9fe2c1fad752f00a768eb) Prepare the signed 4.3.0 release.
 
 ## 4.2.1 — 2026-10-18
 
