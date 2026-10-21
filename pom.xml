@@ -5,7 +5,7 @@
   <groupId>cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
-  <version>4.3.0</version>
+  <version>4.3.1-SNAPSHOT</version>
 
   <name>cs1302-tracer</name>
   <description>Compiles Java programs, traces execution through JDI, and emits Python Tutor or modern JSON.</description>
@@ -17,7 +17,7 @@
     <connection>scm:git:https://github.com/cs1302uga/cs1302-tracer.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/cs1302uga/cs1302-tracer.git</developerConnection>
     <url>https://github.com/cs1302uga/cs1302-tracer</url>
-    <tag>v4.3.0</tag>
+    <tag>v4.2.1</tag>
   </scm>
   <issueManagement>
     <system>GitHub</system>
