@@ -1,0 +1,153 @@
+{
+  "projection_hits": [
+    {
+      "file": "Main.java",
+      "line": 4,
+      "stdout": "a"
+    },
+    {
+      "file": "Helper.java",
+      "line": 4,
+      "stdout": "abcd"
+    }
+  ],
+  "snapshot_free_exit": {
+    "cli": {
+      "status": "completed",
+      "stopReason": null,
+      "phase": "trace",
+      "complete": true,
+      "snapshotsCaptured": 0,
+      "payload_null": false,
+      "step_count": 0
+    },
+    "batch": {
+      "status": "failed",
+      "stopReason": "guest_exit",
+      "phase": "serialize",
+      "complete": false,
+      "snapshotsCaptured": 0,
+      "payload_null": false,
+      "step_count": 0
+    },
+    "api": {
+      "status": "failed",
+      "stopReason": "guest_exit",
+      "phase": "serialize",
+      "complete": false,
+      "snapshotsCaptured": 0,
+      "payload_null": false,
+      "step_count": 0
+    }
+  },
+  "ordinary_exit": 1,
+  "commands": [
+    {
+      "name": "projection-shared-line",
+      "argv": [
+        "java",
+        "-jar",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "trace",
+        "-f",
+        "modern",
+        "-b",
+        "Main.java:4,Helper.java:4"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "exit-ordinary",
+      "argv": [
+        "java",
+        "-jar",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "trace",
+        "-f",
+        "modern"
+      ],
+      "exit": 1
+    },
+    {
+      "name": "exit-envelope",
+      "argv": [
+        "java",
+        "-jar",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "trace",
+        "-f",
+        "modern",
+        "--result-envelope"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "exit-batch",
+      "argv": [
+        "java",
+        "-jar",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "batch-trace",
+        "--workers",
+        "1"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "exit-api-compile",
+      "argv": [
+        "javac",
+        "--release",
+        "21",
+        "-cp",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "-d",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/ExitProbe.java"
+      ],
+      "exit": 0
+    },
+    {
+      "name": "exit-api",
+      "argv": [
+        "java",
+        "-cp",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+        "ExitProbe",
+        "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/exit-source.txt"
+      ],
+      "exit": 0
+    }
+  ],
+  "metadata": {
+    "validated_source_commit": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad",
+    "jar_sha256": "babef760316b750d54a83826848bd8a86987f31117960fda3203ac1a9b785e42",
+    "environment": {
+      "platform": "Darwin arm64",
+      "java": "openjdk 25.0.4.1 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 25.0.4.1)\nOpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)",
+      "javac": "javac 25.0.4.1"
+    },
+    "scope": "Two focused serial caller-contract probes; no runtime changes."
+  },
+  "text_evidence": {
+    "ExitProbe.java": "import cs1302.tracer.api.*;\nimport java.nio.file.*;\npublic class ExitProbe {\n public static void main(String[] args) throws Exception {\n  var request=TraceRequest.builder(Files.readString(Path.of(args[0]))).format(TraceFormat.MODERN).build();\n  System.out.println(Tracer.trace(request).json());\n }\n}\n",
+    "consumer-0.stderr": "",
+    "consumer-0.stdout": "[INFO] Scanning for projects...\n[INFO] Loaded 24127 auto-discovered prefixes for remote repository central (prefixes-central.txt)\n[INFO] \n[INFO] ----------------------< example:tracer-consumer >-----------------------\n[INFO] Building tracer-consumer 1.0-SNAPSHOT\n[INFO]   from pom.xml\n[INFO] --------------------------------[ jar ]---------------------------------\n[INFO] \n[INFO] --- resources:3.5.0:resources (default-resources) @ tracer-consumer ---\n[INFO] skip non existing resourceDirectory /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4/src/main/resources\n[INFO] \n[INFO] --- compiler:3.16.0:compile (default-compile) @ tracer-consumer ---\n[INFO] Loaded 74 auto-discovered prefixes for remote repository apache.snapshots (prefixes-apache.snapshots.txt)\n[INFO] Recompiling the module because of changed source code.\n[INFO] Compiling 1 source file with javac [debug release 21] to target/classes\n[INFO] \n[INFO] --- resources:3.5.0:testResources (default-testResources) @ tracer-consumer ---\n[INFO] skip non existing resourceDirectory /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4/src/test/resources\n[INFO] \n[INFO] --- compiler:3.16.0:testCompile (default-testCompile) @ tracer-consumer ---\n[INFO] No sources to compile\n[INFO] \n[INFO] --- surefire:3.6.0:test (default-test) @ tracer-consumer ---\n[INFO] No tests to run.\n[INFO] \n[INFO] --- jar:3.5.1:jar (default-jar) @ tracer-consumer ---\n[INFO] Building jar: /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/remediation-20261018/tracer-consumer-48ol_ok4/target/tracer-consumer-1.0-SNAPSHOT.jar\n[INFO] \n[INFO] --- dependency:3.11.0:copy-dependencies (default-cli) @ tracer-consumer ---\n[INFO] ------------------------------------------------------------------------\n[INFO] BUILD SUCCESS\n[INFO] ------------------------------------------------------------------------\n[INFO] Total time:  2.157 s\n[INFO] Finished at: 2026-10-18T09:01:11-04:00\n[INFO] ------------------------------------------------------------------------\n",
+    "consumer-1.stderr": "",
+    "consumer-1.stdout": "{\"schemaVersion\":1,\"format\":\"pytutor\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"serialize\",\"complete\":true,\"trace\":{\"code\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.println(\\\"hello\\\");\\n    }\\n}\\n\",\"stdin\":\"\",\"trace\":[{\"stdout\":\"hello\\n\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":4,\"stack_to_render\":[{\"func_name\":\"main:4\",\"encoded_locals\":{\"args\":[\"REF\",494]},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false}},\"ordered_varnames\":[\"args\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"494\":[\"LIST\"]},\"heap_attrs\":{\"494\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0}],\"userlog\":\"\",\"sources\":{\"Main.java\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.println(\\\"hello\\\");\\n    }\\n}\\n\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":10000,\"snapshots\":10000,\"outputBytes\":1048576,\"heapObjects\":10000,\"elements\":100000,\"traceBytes\":67108864,\"sourceBytes\":1048576,\"sourceFiles\":128,\"threads\":64,\"frames\":4096,\"snapshotBytes\":8388608},\"counters\":{\"snapshotsCaptured\":1,\"snapshotsRetained\":1,\"retainedBytes\":1134,\"droppedSnapshots\":0,\"elapsedMillis\":194,\"stderrBytes\":0,\"stdoutBytes\":6},\"diagnostics\":[],\"stdout\":\"hello\\n\",\"stderr\":\"\"}\n",
+    "exit-api-compile.stderr": "",
+    "exit-api-compile.stdout": "",
+    "exit-api.stderr": "",
+    "exit-api.stdout": "{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"failed\",\"stopReason\":\"guest_exit\",\"phase\":\"serialize\",\"complete\":false,\"trace\":{\"code\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":10000,\"snapshots\":10000,\"outputBytes\":1048576,\"heapObjects\":10000,\"elements\":100000,\"traceBytes\":67108864,\"sourceBytes\":1048576,\"sourceFiles\":128,\"threads\":64,\"frames\":4096,\"snapshotBytes\":8388608},\"counters\":{\"guestExitCode\":0,\"snapshotsCaptured\":0,\"snapshotsRetained\":0,\"retainedBytes\":0,\"droppedSnapshots\":0,\"elapsedMillis\":216,\"stderrBytes\":0,\"stdoutBytes\":0},\"diagnostics\":[],\"stdout\":\"\",\"stderr\":\"\"}\n",
+    "exit-batch.stderr": "",
+    "exit-batch.stdout": "{\"id\":\"exit\",\"result\":{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"failed\",\"stopReason\":\"guest_exit\",\"phase\":\"serialize\",\"complete\":false,\"trace\":{\"code\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"guestExitCode\":0,\"snapshotsCaptured\":0,\"snapshotsRetained\":0,\"retainedBytes\":0,\"droppedSnapshots\":0,\"elapsedMillis\":244,\"stderrBytes\":0,\"stdoutBytes\":0},\"diagnostics\":[],\"stdout\":\"\",\"stderr\":\"\"}}\n",
+    "exit-envelope.stderr": "",
+    "exit-envelope.stdout": "{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"trace\",\"complete\":true,\"trace\":{\"code\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] args) { System.exit(0); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"guestExitCode\":0,\"snapshotsCaptured\":0,\"snapshotsRetained\":0,\"retainedBytes\":0,\"droppedSnapshots\":0,\"elapsedMillis\":199,\"stderrBytes\":0,\"stdoutBytes\":0},\"diagnostics\":[],\"stdout\":\"\",\"stderr\":\"\"}\n",
+    "exit-ordinary.stderr": "Unable to generate trace! Cannot invoke \"java.util.List.getLast()\" because the return value of \"java.util.Map.get(Object)\" is null\n",
+    "exit-ordinary.stdout": "",
+    "exit-source.txt": "public class Main { public static void main(String[] args) { System.exit(0); } }",
+    "projection-shared-line.stderr": "",
+    "projection-shared-line.stdout": "{\n  \"code\": \"// --- Main.java ---\\npublic class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"a\\\");\\n        Helper.work();\\n        System.out.print(\\\"d\\\");\\n    }\\n}\\n// --- Helper.java ---\\npublic class Helper {\\n    public static void work() {\\n        System.out.print(\\\"b\\\");\\n        int value \\u003d 1;\\n        System.out.print(\\\"c\\\");\\n    }\\n}\\n\",\n  \"format\": \"modern\",\n  \"stdin\": \"\",\n  \"breakpoints\": {\n    \"4\": [\n      {\n        \"step\": 1,\n        \"line\": 4,\n        \"file\": \"Main.java\",\n        \"event\": \"step_line\",\n        \"method\": \"main\",\n        \"callStack\": [\n          {\n            \"methodName\": \"main\",\n            \"line\": 4,\n            \"file\": \"Main.java\",\n            \"isHighlighted\": true,\n            \"locals\": [\n              {\n                \"name\": \"args\",\n                \"type\": \"java.lang.String[]\",\n                \"value\": {\n                  \"ref\": 54\n                },\n                \"final\": false\n              }\n            ]\n          }\n        ],\n        \"statics\": [],\n        \"heap\": {\n          \"54\": {\n            \"id\": 54,\n            \"type\": \"java.lang.String[]\",\n            \"kind\": \"array\",\n            \"elements\": []\n          }\n        },\n        \"stdout\": \"a\",\n        \"stderr\": \"\",\n        \"stdinConsumed\": \"\",\n        \"stdinOffset\": 0\n      },\n      {\n        \"step\": 2,\n        \"line\": 4,\n        \"file\": \"Helper.java\",\n        \"event\": \"step_line\",\n        \"method\": \"work\",\n        \"callStack\": [\n          {\n            \"methodName\": \"main\",\n            \"line\": 4,\n            \"file\": \"Main.java\",\n            \"isHighlighted\": false,\n            \"locals\": [\n              {\n                \"name\": \"args\",\n                \"type\": \"java.lang.String[]\",\n                \"value\": {\n                  \"ref\": 54\n                },\n                \"final\": false\n              }\n            ]\n          },\n          {\n            \"methodName\": \"work\",\n            \"line\": 4,\n            \"file\": \"Helper.java\",\n            \"isHighlighted\": true,\n            \"locals\": []\n          }\n        ],\n        \"statics\": [],\n        \"heap\": {\n          \"54\": {\n            \"id\": 54,\n            \"type\": \"java.lang.String[]\",\n            \"kind\": \"array\",\n            \"elements\": []\n          }\n        },\n        \"stdout\": \"abcd\",\n        \"stderr\": \"\",\n        \"stdinConsumed\": \"\",\n        \"stdinOffset\": 0\n      }\n    ]\n  },\n  \"sources\": {\n    \"Main.java\": \"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"a\\\");\\n        Helper.work();\\n        System.out.print(\\\"d\\\");\\n    }\\n}\\n\",\n    \"Helper.java\": \"public class Helper {\\n    public static void work() {\\n        System.out.print(\\\"b\\\");\\n        int value \\u003d 1;\\n        System.out.print(\\\"c\\\");\\n    }\\n}\\n\"\n  },\n  \"entryFile\": \"Main.java\"\n}\n",
+    "projection-source.txt": "// --- Main.java ---\npublic class Main {\n    public static void main(String[] args) {\n        System.out.print(\"a\");\n        Helper.work();\n        System.out.print(\"d\");\n    }\n}\n// --- Helper.java ---\npublic class Helper {\n    public static void work() {\n        System.out.print(\"b\");\n        int value = 1;\n        System.out.print(\"c\");\n    }\n}\n"
+  }
+}

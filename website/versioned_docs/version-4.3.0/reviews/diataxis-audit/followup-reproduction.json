@@ -1,0 +1,1090 @@
+{
+  "reviewed_at": "2026-10-18T12:18:58.012604+00:00",
+  "reviewed_head": "389f16fe7b883170f268c368406172e0459ba13e",
+  "provenance": {
+    "jar": "target/code-tracer.jar",
+    "sha256": "61efe29f5c5338cca6c8d748404b0e243ab0ba26cd2e3a18ee106e5179c9f370",
+    "embedded_version_properties": "version=4.2.0-SNAPSHOT\ngit.commit=64347dc3955dc6e2f550b3bb2a8f92c2d31d77bb\ngit.dirty=false\n",
+    "source_identity_command": "git diff 64347dc..HEAD -- src/main/java src/main/resources pom.xml src/assembly",
+    "source_identity_diff": "",
+    "rebuilt_at_current_head": false,
+    "note": "Existing packaged JAR built from 64347dc was reused only after checking unchanged Java/resources/POM/assembly inputs against rebased HEAD; no Maven rebuild was performed. Runtime JDK is 25.0.4.1 on macOS."
+  },
+  "execution_policy": "All javac/java/guest commands ran sequentially with 60-second subprocess timeouts and real target-owned process working directories. No full tests, Maven, npm, source edits, or commits.",
+  "votes": [
+    {
+      "id": "FU1-1",
+      "verdict": "confirm",
+      "severity": "S1",
+      "rationale": "Reproduced with Integer.parseInt(\"bad\"): default single-stack persistent batch and Java API jobs report completed/complete=true/stopReason=null despite NumberFormatException in guest stderr. The default API main-exit capture retains zero snapshots. Chronological batch capture retains a step but still misclassifies success. Dedicated CLI envelope correctly reports failed/guest_exception. This contradicts the explicit uncaught-entry-point exception contract. The submitted-class throw path is separately verified to report failed.",
+      "current_locations": [
+        "docs/reference/batch.md:165",
+        "docs/BOUNDED_TRACING.md:114",
+        "docs/reference/java-api.md:124",
+        "src/main/java/cs1302/tracer/internal/trace/PersistentGuestSession.java:836",
+        "src/main/java/cs1302/tracer/internal/guest/GuestHarness.java:215"
+      ],
+      "evidence": [
+        {
+          "name": "batch-jdk-throw",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:26.790499+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-jdk-throw.stdout",
+          "stderr": "probes/batch-jdk-throw.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 5883,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 193,
+              "stderrBytes": 321,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "Exception in thread \"main\" java.lang.NumberFormatException: For input string: \"bad\"\n\tat java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:565)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:662)\n\tat Main.main(Main.java:3)\n",
+            "steps": [
+              {
+                "line": 3,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": "Exception in thread \"main\" java.lang.NumberFormatException: For input string: \"bad\"\n\tat java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:565)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:662)\n\tat Main.main(Main.java:3)\n"
+              }
+            ]
+          }
+        },
+        {
+          "name": "api-jdk-throw",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "ApiProbe",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/jdk-throw.txt",
+            ""
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:33.850273+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/api-jdk-throw.stdout",
+          "stderr": "probes/api-jdk-throw.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 137,
+              "stderrBytes": 321,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "Exception in thread \"main\" java.lang.NumberFormatException: For input string: \"bad\"\n\tat java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:565)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:662)\n\tat Main.main(Main.java:3)\n",
+            "steps": []
+          }
+        },
+        {
+          "name": "cli-jdk-throw",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--all-breakpoints",
+            "--format",
+            "modern"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:28.605133+00:00",
+          "timeout_seconds": 60,
+          "exit": 1,
+          "stdout": "probes/cli-jdk-throw.stdout",
+          "stderr": "probes/cli-jdk-throw.stderr",
+          "summary": {
+            "status": "failed",
+            "stopReason": "guest_exception",
+            "complete": false,
+            "phase": "trace",
+            "diagnostics": [
+              "java.lang.NumberFormatException"
+            ],
+            "counters": {
+              "guestExitCode": 1,
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 5877,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 132,
+              "stderrBytes": 321,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "Exception in thread \"main\" java.lang.NumberFormatException: For input string: \"bad\"\n\tat java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:565)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:662)\n\tat Main.main(Main.java:3)\n",
+            "steps": [
+              {
+                "line": 3,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": "Exception in thread \"main\" java.lang.NumberFormatException: For input string: \"bad\"\n\tat java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:565)\n\tat java.base/java.lang.Integer.parseInt(Integer.java:662)\n\tat Main.main(Main.java:3)\n"
+              }
+            ]
+          }
+        },
+        {
+          "name": "batch-direct-throw",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:27.696458+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-direct-throw.stdout",
+          "stderr": "probes/batch-direct-throw.stderr",
+          "summary": {
+            "status": "failed",
+            "stopReason": "guest_exception",
+            "complete": false,
+            "phase": "serialize",
+            "diagnostics": [
+              "java.lang.IllegalArgumentException"
+            ],
+            "counters": {
+              "snapshotsCaptured": 3,
+              "snapshotsRetained": 3,
+              "retainedBytes": 5046,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 220,
+              "stderrBytes": 94,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "Exception in thread \"main\" java.lang.IllegalArgumentException: bad\n\tat Main.main(Main.java:4)\n",
+            "steps": [
+              {
+                "line": 3,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": ""
+              },
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": ""
+              },
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": "Exception in thread \"main\" java.lang.IllegalArgumentException: bad\n\tat Main.main(Main.java:4)\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "FU1-2",
+      "verdict": "confirm",
+      "severity": "S2",
+      "rationale": "Modern single-stack batch output for a submitted throw on line 4 contains events (3,step_line), (4,step_line), and terminal (4,step_line), with the uncaught stack trace only on the terminal step. The modern serializer defaults a null snapshot event to step_line; threadCapture is null in single-stack capture. Qualify both formats consistently. Overlaps F27-2 and should be merged instead of counted as independent additional impact.",
+      "current_locations": [
+        "docs/reference/batch.md:173",
+        "src/main/java/cs1302/tracer/internal/trace/SnapshotCapture.java:63",
+        "src/main/java/cs1302/tracer/internal/trace/SnapshotCapture.java:88",
+        "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:313"
+      ],
+      "evidence": [
+        {
+          "name": "batch-direct-throw",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:27.696458+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-direct-throw.stdout",
+          "stderr": "probes/batch-direct-throw.stderr",
+          "summary": {
+            "status": "failed",
+            "stopReason": "guest_exception",
+            "complete": false,
+            "phase": "serialize",
+            "diagnostics": [
+              "java.lang.IllegalArgumentException"
+            ],
+            "counters": {
+              "snapshotsCaptured": 3,
+              "snapshotsRetained": 3,
+              "retainedBytes": 5046,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 220,
+              "stderrBytes": 94,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "Exception in thread \"main\" java.lang.IllegalArgumentException: bad\n\tat Main.main(Main.java:4)\n",
+            "steps": [
+              {
+                "line": 3,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": ""
+              },
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": ""
+              },
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": "Exception in thread \"main\" java.lang.IllegalArgumentException: bad\n\tat Main.main(Main.java:4)\n"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "FU2-1",
+      "verdict": "confirm",
+      "severity": "S2",
+      "rationale": "Missing --stdin-file exits 1, writes zero stdout bytes, and emits RuntimeException with stack trace on stderr. Missing --input instead emits failed/source/compile_error JSON and exit 1. File-stdin resolution precedes the bounded session. Reproduced behavior is real; original S1 rationale overstates the current CLI table because it already says \"if an envelope was produced\" and does not promise that preflight is the only no-envelope case. Add the concrete early I/O case as a normal reference correction.",
+      "current_locations": [
+        "docs/reference/cli.md:201",
+        "docs/reference/cli.md:205",
+        "docs/BOUNDED_TRACING.md:155",
+        "src/main/java/cs1302/tracer/internal/App.java:314",
+        "src/main/java/cs1302/tracer/internal/App.java:333",
+        "src/main/java/cs1302/tracer/internal/App.java:409"
+      ],
+      "evidence": [
+        {
+          "name": "missing-stdin",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--input",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/Main.java",
+            "--stdin-file",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/missing.txt"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:29.284991+00:00",
+          "timeout_seconds": 60,
+          "exit": 1,
+          "stdout": "probes/missing-stdin.stdout",
+          "stderr": "probes/missing-stdin.stderr",
+          "summary": {
+            "stdout_bytes": 0,
+            "stderr_first_lines": [
+              "java.lang.RuntimeException: Failed to read stdin file: /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/missing.txt",
+              "\tat cs1302.tracer.internal.App$Trace.resolveGuestStdin(App.java:322)",
+              "\tat cs1302.tracer.internal.App$Trace.run(App.java:333)",
+              "\tat picocli.CommandLine.executeUserObject(CommandLine.java:2045)",
+              "\tat picocli.CommandLine.access$1500(CommandLine.java:148)",
+              "\tat picocli.CommandLine$RunLast.executeUserObjectOfLastSubcommandWithSameParent(CommandLine.java:2469)"
+            ]
+          }
+        },
+        {
+          "name": "missing-source",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--input",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/Missing.java"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:29.566309+00:00",
+          "timeout_seconds": 60,
+          "exit": 1,
+          "stdout": "probes/missing-source.stdout",
+          "stderr": "probes/missing-source.stderr",
+          "summary": {
+            "status": "failed",
+            "stopReason": "compile_error",
+            "complete": false,
+            "phase": "source",
+            "diagnostics": [
+              "java.nio.file.NoSuchFileException: /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/Missing.java"
+            ],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "FU2-2",
+      "verdict": "confirm",
+      "severity": "S3",
+      "rationale": "Completed CLI envelope reports phase trace while equivalent batch and Java API report serialize. Two-source submission with sourceFiles=1 reports CLI phase compile and batch/API phase source. These differences reproduce across all three entry points. The schema is shared but phase is documented only as usually one of these values; it does not currently promise identical transitions, so this is a useful caller-specific clarification rather than a schema contradiction.",
+      "current_locations": [
+        "docs/BOUNDED_TRACING.md:111",
+        "src/main/java/cs1302/tracer/internal/App.java:411",
+        "src/main/java/cs1302/tracer/internal/App.java:473",
+        "src/main/java/cs1302/tracer/internal/batch/BatchTraceWorker.java:194",
+        "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:100",
+        "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:124"
+      ],
+      "evidence": [
+        {
+          "name": "cli-completed",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:29.834996+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/cli-completed.stdout",
+          "stderr": "probes/cli-completed.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "trace",
+            "diagnostics": [],
+            "counters": {
+              "guestExitCode": 0,
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 1092,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 132,
+              "stderrBytes": 0,
+              "stdoutBytes": 3
+            },
+            "stdout": "ok\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "ok\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "batch-completed",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:30.511912+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-completed.stdout",
+          "stderr": "probes/batch-completed.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 1098,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 187,
+              "stderrBytes": 0,
+              "stdoutBytes": 3
+            },
+            "stdout": "ok\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "ok\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "api-completed",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "ApiProbe",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/Main.java",
+            ""
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:34.465012+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/api-completed.stdout",
+          "stderr": "probes/api-completed.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 1098,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 177,
+              "stderrBytes": 0,
+              "stdoutBytes": 3
+            },
+            "stdout": "ok\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "ok\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "cli-sourcefiles",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern",
+            "--max-source-files",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:31.324443+00:00",
+          "timeout_seconds": 60,
+          "exit": 3,
+          "stdout": "probes/cli-sourcefiles.stdout",
+          "stderr": "probes/cli-sourcefiles.stderr",
+          "summary": {
+            "status": "stopped",
+            "stopReason": "source_file_limit",
+            "complete": false,
+            "phase": "compile",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "batch-sourcefiles",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:31.607807+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-sourcefiles.stdout",
+          "stderr": "probes/batch-sourcefiles.stderr",
+          "summary": {
+            "status": "stopped",
+            "stopReason": "source_file_limit",
+            "complete": false,
+            "phase": "source",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "api-sourcefiles",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "ApiProbe",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/bundle.txt",
+            "files"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:35.079429+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/api-sourcefiles.stdout",
+          "stderr": "probes/api-sourcefiles.stderr",
+          "summary": {
+            "status": "stopped",
+            "stopReason": "source_file_limit",
+            "complete": false,
+            "phase": "source",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "FU2-3",
+      "verdict": "confirm",
+      "severity": "S2",
+      "rationale": "With selected locations 4 and 6, CLI result-envelope retains empty stdout at line 4 and both printed lines at line 6, whereas equivalent batch and Java API traces contain both printed lines at each selected location. The unconditional selected-breakpoint final-output refresh statement is false for CLI envelopes. This direct output-contract documentation error warrants correction. The probe covers ordinary two-location selection, not every accumulation or interrupted-history variant.",
+      "current_locations": [
+        "docs/reference/output.md:76",
+        "src/main/java/cs1302/tracer/internal/App.java:471",
+        "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:93",
+        "src/main/java/cs1302/tracer/internal/execution/TraceCompletion.java:162",
+        "src/main/java/cs1302/tracer/internal/execution/SnapshotRetention.java:84",
+        "src/main/java/cs1302/tracer/internal/execution/SnapshotRetention.java:186"
+      ],
+      "evidence": [
+        {
+          "name": "cli-projection",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern",
+            "--breakpoints",
+            "4,6"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:31.980422+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/cli-projection.stdout",
+          "stderr": "probes/cli-projection.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "trace",
+            "diagnostics": [],
+            "counters": {
+              "guestExitCode": 0,
+              "snapshotsCaptured": 2,
+              "snapshotsRetained": 2,
+              "retainedBytes": 2781,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 184,
+              "stderrBytes": 0,
+              "stdoutBytes": 18
+            },
+            "stdout": "from-4:1\nfrom-6:2\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "",
+                "stderr": ""
+              },
+              {
+                "line": 6,
+                "event": "step_line",
+                "stdout": "from-4:1\nfrom-6:2\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "batch-projection",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:32.703471+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/batch-projection.stdout",
+          "stderr": "probes/batch-projection.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 2,
+              "snapshotsRetained": 2,
+              "retainedBytes": 2793,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 218,
+              "stderrBytes": 0,
+              "stdoutBytes": 18
+            },
+            "stdout": "from-4:1\nfrom-6:2\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "from-4:1\nfrom-6:2\n",
+                "stderr": ""
+              },
+              {
+                "line": 6,
+                "event": "step_line",
+                "stdout": "from-4:1\nfrom-6:2\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "api-projection",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "ApiProbe",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/project.txt",
+            "project"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:35.274306+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/api-projection.stdout",
+          "stderr": "probes/api-projection.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 2,
+              "snapshotsRetained": 2,
+              "retainedBytes": 2793,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 220,
+              "stderrBytes": 0,
+              "stdoutBytes": 18
+            },
+            "stdout": "from-4:1\nfrom-6:2\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 4,
+                "event": "step_line",
+                "stdout": "from-4:1\nfrom-6:2\n",
+                "stderr": ""
+              },
+              {
+                "line": 6,
+                "event": "step_line",
+                "stdout": "from-4:1\nfrom-6:2\n",
+                "stderr": ""
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "FU3-1",
+      "verdict": "confirm",
+      "severity": "S3",
+      "rationale": "Code inspection confirms ToolProvider.getSystemJavaCompiler for source compilation; JDI default LaunchingConnector for child JVMs; and Path.of(GuestHarness CodeSource URI) for persistent guest startup. Runtime probe confirms compiler module jdk.compiler, Bootstrap module jdk.jdi, and connector default home equal to active java.home. A synthetic classloader that assigns GuestHarness a jar:file:...!/BOOT-INF/lib/tracer.jar CodeSource makes the public API return failed/tracer_error/phase tracer with null trace. Full-JDK and regular-JAR requirements are already stated, so document practical subprocess/direct-filesystem packaging implications without presenting module names as new requirements for standard full JDK users. Actual Spring Boot, custom jlink images, and alternate vendor JDKs were not exercised.",
+      "current_locations": [
+        "docs/reference/java-api.md:7",
+        "docs/reference/java-api.md:15",
+        "docs/reference/java-api.md:119",
+        "src/main/java/cs1302/tracer/internal/CompilationHelper.java:411",
+        "src/main/java/cs1302/tracer/internal/trace/GuestLauncher.java:91",
+        "src/main/java/cs1302/tracer/internal/trace/GuestLauncher.java:70",
+        "src/main/java/cs1302/tracer/internal/trace/PersistentGuestSession.java:111"
+      ],
+      "evidence": [
+        {
+          "name": "api-compile",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/javac",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "-d",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/ApiProbe.java"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:33.552772+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/api-compile.stdout",
+          "stderr": "probes/api-compile.stderr",
+          "summary": {
+            "stdout_bytes": 0,
+            "stderr_first_lines": []
+          }
+        },
+        {
+          "name": "host-requirements",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "HostProbe"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "exit": 0,
+          "timeout_seconds": 60,
+          "stdout": "probes/host-requirements.stdout",
+          "stderr": "probes/host-requirements.stderr",
+          "at": "2026-10-18T12:18:04.948225+00:00"
+        },
+        {
+          "name": "api-non-file-codesource",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-cp",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+            "NonFileSourceProbe",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "exit": 0,
+          "timeout_seconds": 60,
+          "stdout": "probes/api-non-file-codesource.stdout",
+          "stderr": "probes/api-non-file-codesource.stderr",
+          "at": "2026-10-18T12:18:05.055475+00:00"
+        }
+      ]
+    },
+    {
+      "id": "FU3-2",
+      "verdict": "downgrade",
+      "severity": "S4",
+      "merge_into": "F30-4",
+      "rationale": "The fixed nesting codes and safety checks are real. A legal 70-level nested generic declaration reproduces stopped/type_nesting_limit/phase trace/droppedSnapshots=0 before any retained snapshots in both CLI and batch. Current code sets extracting=true in beginSnapshot and clears it only after successful retention, while result copies extracting into droppedSnapshots; ValueTraversal validates both retention and serializer entry. These facts support the phase/drop distinction, but an externally reachable serializer-only or inline-cycle request was not constructed, and snapshots are internal structures with a documented no-mutation rule. The raw report also uses stale implementation names ValueNesting/afterSnapshot/substituteTypeParams, now ValueTraversal/commit/substituteType. Existing nesting-boundaries explanation plus F30-4 already covers code consolidation. Do not create another standalone finding; include concise distinctions only where needed in that table.",
+      "current_locations": [
+        "docs/BOUNDED_TRACING.md:206",
+        "docs/contributing/security-analysis.md:60",
+        "src/main/java/cs1302/tracer/internal/trace/TypeTraversal.java:30",
+        "src/main/java/cs1302/tracer/internal/trace/AstTypeResolver.java:828",
+        "src/main/java/cs1302/tracer/internal/execution/TraceSession.java:313",
+        "src/main/java/cs1302/tracer/internal/execution/TraceSession.java:388",
+        "src/main/java/cs1302/tracer/internal/execution/TraceSession.java:468",
+        "src/main/java/cs1302/tracer/internal/execution/SnapshotRetention.java:158",
+        "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:279"
+      ],
+      "evidence": [
+        {
+          "name": "type-nesting-cli",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:37.820009+00:00",
+          "timeout_seconds": 60,
+          "exit": 3,
+          "stdout": "probes/type-nesting-cli.stdout",
+          "stderr": "probes/type-nesting-cli.stderr",
+          "summary": {
+            "status": "stopped",
+            "stopReason": "type_nesting_limit",
+            "complete": false,
+            "phase": "trace",
+            "diagnostics": [
+              "cs1302.tracer.internal.execution.NestingException: type_nesting_limit"
+            ],
+            "counters": {
+              "guestExitCode": 137,
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 81,
+              "stderrBytes": 0,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": "",
+            "steps": []
+          }
+        },
+        {
+          "name": "type-nesting-batch",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes",
+          "started": "2026-10-18T12:17:38.456718+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/type-nesting-batch.stdout",
+          "stderr": "probes/type-nesting-batch.stderr",
+          "summary": {
+            "status": "stopped",
+            "stopReason": "type_nesting_limit",
+            "complete": false,
+            "phase": "trace",
+            "diagnostics": [
+              "cs1302.tracer.internal.execution.NestingException: type_nesting_limit"
+            ],
+            "counters": {
+              "guestExitCode": 137,
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 32,
+              "stderrBytes": 0,
+              "stdoutBytes": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "F26-5",
+      "verdict": "refute",
+      "severity": "S4",
+      "rationale": "Runtime behavior confirms the quoted current documentation: packaged TRUSTED batch source discovers src/main/java/demo/Helper.java in the process working directory and prints 42; FIELDS fails compile_error without that submitted helper. docs/reference/batch.md:52-54 already explicitly documents this immediately below the table. Original F26-5 acknowledges the existing statement and proposes repeating it in more locations; it is not an undisclosed behavioral contract and does not justify S1/S2 severity. A request-table cross-reference could be optional findability work. Separately, CLI packaged stdin discovery succeeds and default-package file sibling discovery fails as findSourceRoot specifies, but those are distinct claims and do not revive the original batch omission finding.",
+      "current_locations": [
+        "docs/reference/batch.md:52",
+        "docs/guides/tracing.md:163",
+        "src/main/java/cs1302/tracer/internal/execution/TraceJob.java:166",
+        "src/main/java/cs1302/tracer/internal/CompilationHelper.java:271"
+      ],
+      "evidence": [
+        {
+          "name": "neighbor-trusted-batch",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/neighbors",
+          "started": "2026-10-18T12:17:35.969684+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/neighbor-trusted-batch.stdout",
+          "stderr": "probes/neighbor-trusted-batch.stderr",
+          "summary": {
+            "status": "completed",
+            "stopReason": null,
+            "complete": true,
+            "phase": "serialize",
+            "diagnostics": [],
+            "counters": {
+              "snapshotsCaptured": 1,
+              "snapshotsRetained": 1,
+              "retainedBytes": 1122,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 179,
+              "stderrBytes": 0,
+              "stdoutBytes": 3
+            },
+            "stdout": "42\n",
+            "stderr": "",
+            "steps": [
+              {
+                "line": 1,
+                "event": "step_line",
+                "stdout": "42\n",
+                "stderr": ""
+              }
+            ]
+          }
+        },
+        {
+          "name": "neighbor-fields-batch",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "batch-trace",
+            "--workers",
+            "1"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/neighbors",
+          "started": "2026-10-18T12:17:37.216196+00:00",
+          "timeout_seconds": 60,
+          "exit": 0,
+          "stdout": "probes/neighbor-fields-batch.stdout",
+          "stderr": "probes/neighbor-fields-batch.stderr",
+          "summary": {
+            "status": "failed",
+            "stopReason": "compile_error",
+            "complete": false,
+            "phase": "compile",
+            "diagnostics": [
+              "FIELDS inspection uses raw fields for collections and wrappers; guest methods and stream flush are not invoked.",
+              "java.lang.IllegalArgumentException: Compilation of provided Java source code failed with the following messages:\n/var/folders/y6/fbd3z61533s81sht64lrwnydrssdmg/T/code-tracer12498640154557495541/demo/Main.java:1: error: cannot find symbol\npackage demo; public class Main { public static void main(String[] args) { System.out.println(Helper.value()); } }\n                                                                                              ^\n  symbol:   variable Helper\n  location: class demo.Main"
+            ],
+            "counters": {
+              "snapshotsCaptured": 0,
+              "snapshotsRetained": 0,
+              "retainedBytes": 0,
+              "droppedSnapshots": 0,
+              "elapsedMillis": 0
+            },
+            "stdout": "",
+            "stderr": ""
+          }
+        },
+        {
+          "name": "neighbor-trusted-stdin",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/neighbors",
+          "exit": 0,
+          "timeout_seconds": 60,
+          "stdout": "probes/neighbor-trusted-stdin.stdout",
+          "stderr": "probes/neighbor-trusted-stdin.stderr",
+          "at": "2026-10-18T12:18:05.772558+00:00"
+        },
+        {
+          "name": "neighbor-default-file",
+          "command": [
+            "/opt/homebrew/opt/openjdk@25/libexec/openjdk.jdk/Contents/Home/bin/java",
+            "-jar",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+            "trace",
+            "--result-envelope",
+            "--format",
+            "modern",
+            "-i",
+            "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/default-neighbors/Main.java"
+          ],
+          "cwd": "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/rebase-20261018/probes/default-neighbors",
+          "exit": 1,
+          "timeout_seconds": 60,
+          "stdout": "probes/neighbor-default-file.stdout",
+          "stderr": "probes/neighbor-default-file.stderr",
+          "at": "2026-10-18T12:18:06.299483+00:00"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Runtime claims exercised on local macOS aarch64 JDK25 only.",
+    "No JDK21 or native Windows runtime pass.",
+    "No full regression, coverage, or commit hook run; root owns subsequent gating.",
+    "Non-file CodeSource test is synthetic and is not a real Spring Boot deployment.",
+    "Nesting serializer-only and snapshot-extraction rejection variants assessed statically; only initial type-indexing rejection reproduced."
+  ]
+}

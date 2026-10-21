@@ -141,8 +141,8 @@ the [CLI exit-status contract](../reference/cli.md#exit-statuses) and
 
 Guest input is a string separate from the source, supplied with `--stdin`,
 `--stdin-file`, or the corresponding request field. Each job starts a fresh cursor
-at the beginning of that string. A snapshot's `stdinConsumed` shows the prefix the
-program has read so far, and `stdinOffset` is that prefix's length in UTF-16 code
+at the beginning of that string. A snapshot's `stdinConsumed` shows the observed
+consumed prefix, and `stdinOffset` is that prefix's length in UTF-16 code
 units, not bytes.
 
 What counts as "read" depends on the reader. For `java.util.Scanner` (`next*`,
@@ -166,6 +166,12 @@ jobs), `InputStreamReader` reads and direct `System.in.read()` or
 `System.in.read(byte[], int, int)` calls are not observed, so the cursor can lag
 behind what the program has read. Of the direct stream reads, only the
 single-argument `System.in.read(byte[])` advances it there.
+
+Trusted collection inspection pauses reader observation during `toArray()`.
+Those accessor reads consume guest input without moving the cursor, and later
+observed reads may not recover the skipped input. `FIELDS` avoids those calls;
+the [output reference](../reference/output.md#input-and-output-observations) defines
+this observation boundary.
 
 The [output reference](../reference/output.md#input-and-output-observations) defines
 the snapshot fields.

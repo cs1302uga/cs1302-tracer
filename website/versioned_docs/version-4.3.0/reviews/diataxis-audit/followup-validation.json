@@ -1,0 +1,764 @@
+{
+  "recorded_at": "2026-10-18T14:00:15.809781+00:00",
+  "validated_source_commit": "5796651661ab593d4ff0997c805208ea3769a785",
+  "source_paths_sha256": {
+    "docs/BOUNDED_TRACING.md": "3cae38565fa282cac8467f3842c0e4a98de63d7e766cbf6528d76d15459a310b",
+    "docs/explanation/trace-model.md": "2bebeaf643d338629733bed8debb78ff314fd9e191269b3eb8f0ea736c9afb52",
+    "docs/guides/tracing.md": "680963c5956bc28547cbc4ddac8267fd4722fd1e8e6ffe8f0744028eed977eb3",
+    "docs/reference/batch.md": "deae7f8747c453e4298338b432d810f6edd1f8c8b367191819e3b271b14f3327",
+    "docs/reference/cli.md": "5b268ff78401975fcacba754ad7fc64705182c0f6c3db9fee53d8720e755f110",
+    "docs/reference/java-api.md": "d03b7d289a238b2dbaecf8407f660f5db9227e94d07b7f895c7af6191454bc94",
+    "docs/reference/output.md": "83cad88595e7f7c542625d8f654e6d9f9226a01848899b7a05fb3cc4d8c0ecdf",
+    "docs/tutorials/read-a-trace.md": "b1e8cf33da80334dc2af939a58b8051590b1af0295e164a90e19f87d75201220",
+    "docs/tutorials/trace-a-loop.md": "29c2ad398f912364d1bf2b9b2a1ca4831eb8a20b358b4f9edb5ed027349bf29f",
+    "src/main/java/cs1302/tracer/internal/App.java": "684387658beb0e294c1756f7c3c6a51dfc5c2575e5ca66128c92695f8959243f"
+  },
+  "source_paths_scope": "Committed file bytes at validated_source_commit; generated overlay/validation outputs excluded.",
+  "validation_input": {
+    "path": "target/audit/next-pass/fresh-validation-input.json",
+    "sha256": "a0ced842870009d3985515e9cd164070779fb8e9e6bc8ffd560137cef125b3ad"
+  },
+  "selection": {
+    "original46": "all corrected",
+    "followup_ids": [
+      "F13-3",
+      "F17-4",
+      "F19-3",
+      "F22-5",
+      "F28-6",
+      "F6-1",
+      "F8-1",
+      "F8-2",
+      "F9-4",
+      "FU2-2"
+    ],
+    "help_id": "F27-1"
+  },
+  "strict_java": {
+    "command": "./mvnw -B -ntp -Ppre-commit-coverage package",
+    "status": "passed",
+    "tests": 1248,
+    "coverage": {
+      "INSTRUCTION": {
+        "missed": 0,
+        "covered": 32384
+      },
+      "BRANCH": {
+        "missed": 0,
+        "covered": 3684
+      },
+      "LINE": {
+        "missed": 0,
+        "covered": 6484
+      },
+      "COMPLEXITY": {
+        "missed": 0,
+        "covered": 3094
+      },
+      "METHOD": {
+        "missed": 0,
+        "covered": 1187
+      },
+      "CLASS": {
+        "missed": 0,
+        "covered": 185
+      }
+    },
+    "freshness": {
+      "status": "fresh",
+      "sourceCommit": "5796651661ab593d4ff0997c805208ea3769a785",
+      "evidence": [
+        "target/jacoco.exec was absent before Maven started; prior data was archived separately.",
+        "The previous coverage XML was moved away before invocation.",
+        "New JaCoCo execution data, XML and every Surefire report postdate the recorded start.",
+        "No other guest-executing build or documentation checks ran concurrently."
+      ],
+      "startedAtEpoch": 1792331603.0271418,
+      "finishedAtEpoch": 1792331912.455629
+    },
+    "logPath": "target/audit/next-pass/fresh-package-strict.log",
+    "logSha256": "8df06bbd05dc52acfdb39b34624c9d6b33e3577e5846ac5d6e84210eb7512740",
+    "coverageXmlPath": "target/audit/next-pass/fresh-jacoco.xml",
+    "coverageXmlSha256": "821ed2373e48d0bcb4f82c08c5ad2cf12a80239f3634eaafb79c4065dbad7300"
+  },
+  "coverage_correction": {
+    "statement": "The fresh, commit-specific strict_java evidence supersedes the earlier Java coverage/freshness claims. The earlier validation and frozen findings remain preserved historical evidence, not a fresh coverage gate.",
+    "supersedes": {
+      "path": "docs/reviews/diataxis-audit/remediation-validation.json",
+      "commit": "b42dad1",
+      "sha256": "93a7270f13b4ed996f92598c93b3b868728443f0e42ad9593b22843f770421ae",
+      "validated_source_commit": "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad",
+      "claims": [
+        "commands: strict Java coverage",
+        "commands: documentation build reused fresh strict Java coverage"
+      ]
+    },
+    "investigation": {
+      "outcome": "Not reproduced in two independent clean local builds; the unchanged hosted macOS Java25 rerun also passed. No targeted fix or commit was made, and the original failure root cause remains unidentified.",
+      "sourceTree": {
+        "prHead": "0235c0fe514acff09d8c208dcbeab203435582a4",
+        "ciMerge": "313ea4e913c806e2532b8737ed7c7d83d68011d1",
+        "identicalTree": "3cd644571c037d70e39adb34bf46217ba996d8ac",
+        "comparison": {
+          "ahead_by": 1,
+          "behind_by": 0,
+          "files": [],
+          "status": "ahead",
+          "total_commits": 1
+        }
+      },
+      "environments": {
+        "ci": "macOS 26.6.2 build 25G83; Darwin 25.6.0 arm64; Temurin 25.0.4.1+1-LTS",
+        "local": "macOS 26.7.1 build 25G241; Darwin 25.6.0 arm64; Homebrew OpenJDK 25.0.4.1",
+        "qualification": "Verified differences do not establish a cause."
+      },
+      "runs": [
+        {
+          "name": "baseline-1",
+          "commit": "0235c0fe514acff09d8c208dcbeab203435582a4",
+          "command": "./mvnw -B -ntp -Ppre-commit-coverage clean package",
+          "status": "passed",
+          "tests": 1248,
+          "coverage": {
+            "INSTRUCTION": {
+              "missed": 0,
+              "covered": 32384
+            },
+            "BRANCH": {
+              "missed": 0,
+              "covered": 3684
+            },
+            "LINE": {
+              "missed": 0,
+              "covered": 6484
+            },
+            "COMPLEXITY": {
+              "missed": 0,
+              "covered": 3094
+            },
+            "METHOD": {
+              "missed": 0,
+              "covered": 1187
+            },
+            "CLASS": {
+              "missed": 0,
+              "covered": 185
+            }
+          },
+          "artifacts": {
+            "maven.log": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-1/maven.log",
+              "sha256": "4d82c35f8fd9b6a78ade3933b833311ff72ee5f82b768f88798436c8e05dd487"
+            },
+            "jacoco.xml": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-1/jacoco.xml",
+              "sha256": "7c8a70b760b7bc2ba4f03b56da17c2e3d059750c9ebed5d8929b7aa081827b55"
+            },
+            "jacoco.exec": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-1/jacoco.exec",
+              "sha256": "0736291b2842c51e72f508c74ed1d6ffcb83c3419bb021c455c5669857522efe"
+            }
+          }
+        },
+        {
+          "name": "baseline-2",
+          "commit": "0235c0fe514acff09d8c208dcbeab203435582a4",
+          "command": "./mvnw -B -ntp -Ppre-commit-coverage clean package",
+          "status": "passed",
+          "tests": 1248,
+          "coverage": {
+            "INSTRUCTION": {
+              "missed": 0,
+              "covered": 32384
+            },
+            "BRANCH": {
+              "missed": 0,
+              "covered": 3684
+            },
+            "LINE": {
+              "missed": 0,
+              "covered": 6484
+            },
+            "COMPLEXITY": {
+              "missed": 0,
+              "covered": 3094
+            },
+            "METHOD": {
+              "missed": 0,
+              "covered": 1187
+            },
+            "CLASS": {
+              "missed": 0,
+              "covered": 185
+            }
+          },
+          "artifacts": {
+            "maven.log": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-2/maven.log",
+              "sha256": "4ea1a5c3bdaf5ac36efffd0566f0ffbe46c3b13928041ee589e17b8ec0bdb905"
+            },
+            "jacoco.xml": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-2/jacoco.xml",
+              "sha256": "015c2158beec45fc2e6073bf34c001d1094f27d0d77eefafe96b78cebb86c14b"
+            },
+            "jacoco.exec": {
+              "path": "/tmp/pr24-coverage-9b070643/baseline-2/jacoco.exec",
+              "sha256": "475280f4f28d9cc215bdb8d23e78e8caf2cb1279578559f9ce89375a6d9407af"
+            }
+          }
+        }
+      ],
+      "failedCiJob": {
+        "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117687995250",
+        "tests": 1248,
+        "assertion": "Strict LINE ratio0.99 versus minimum1.00; missed-line details were not available.",
+        "logSha256": "9eee4679dc568f7a31a99f00730efbd286bc63eec0475f5125958d4e241bea39"
+      },
+      "hostedRerun": {
+        "attempt": 2,
+        "scope": "One diagnostic rerun of failed and cancelled jobs at unchanged PR head; no workflow/gate changes.",
+        "status": "completed",
+        "recordedAt": "2026-10-18T14:00:14.596888+00:00",
+        "headSha": "0235c0fe514acff09d8c208dcbeab203435582a4",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Java (macos-latest, 25)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692904605"
+          },
+          {
+            "name": "Java (ubuntu-latest, 21)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692904761"
+          },
+          {
+            "name": "Java (macos-latest, 21)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692904916"
+          },
+          {
+            "name": "Windows packaging and launchers (Java 25)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692905225"
+          },
+          {
+            "name": "Scripts quality",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692905888"
+          },
+          {
+            "name": "Windows packaging and launchers (Java 21)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692932612"
+          },
+          {
+            "name": "Java (ubuntu-latest, 25)",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692933706"
+          },
+          {
+            "name": "Documentation",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117692934256"
+          },
+          {
+            "name": "Regression gates",
+            "status": "completed",
+            "conclusion": "success",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117694574870"
+          },
+          {
+            "name": "release",
+            "status": "completed",
+            "conclusion": "skipped",
+            "url": "https://github.com/cs1302uga/cs1302-tracer/actions/runs/39131689440/job/117694602224"
+          }
+        ]
+      },
+      "nextDiagnosticIfRepeated": "Use matching Temurin25.0.4.1+1 with one fresh strict build and retain/parse XML. If the missed path remains unavailable, obtain hosted JaCoCo report before selecting a test fix.",
+      "priorRootCoverageCorrection": "Prior root package runs could append to retained execution data; their 100% report was aggregate, not proof of a fresh invocation."
+    }
+  },
+  "original_sources": {
+    "findings_sha256": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
+    "overlay_commit": "b42dad1",
+    "overlay_sha256": "37fd2fa80e5bf90d04b7a698a60c3e3dc7f208022a5741c345e0cbf314727572",
+    "historical_validation_sha256": "93a7270f13b4ed996f92598c93b3b868728443f0e42ad9593b22843f770421ae"
+  },
+  "cli_reference": {
+    "command": "./scripts/uv run --locked python scripts/check_docs.py --update-cli",
+    "status": "passed",
+    "scope": "Previously recorded help regeneration; current documentation validation is qualified under full_docs."
+  },
+  "full_docs": {
+    "command": "./mvnw -B -ntp -Pdocsite -DskipTests verify",
+    "status": "passed",
+    "rendered_pages": 1280,
+    "scope": "Saved full workflow passed executable examples, dependency inventory, release metadata, current and seven historical APIs, Docusaurus and rendered links before final evidence bookkeeping and the last tutorial-checkpoint wording. It skipped Java tests and reused the then-existing aggregate coverage; this is not fresh Java proof. The separate strict run supplies fresh Java evidence. Final help and site checks follow packet generation.",
+    "logSha256": "a3349c315bed552b28c13caae8e7cd4428386c1b56a095483e32aca248c610c5",
+    "websiteTests": {
+      "command": "target/frontend/node/node --test --experimental-test-coverage website/tests/*.test.cjs",
+      "status": "passed",
+      "tests": 18,
+      "scope": "Existing dependency controls, guide selection/navigation and Details tests; not coverage proof for every frontend module.",
+      "logSha256": "1522e39658921136ce7110468bf05a0bd757f42011458cfd1875fd3fd014a875"
+    },
+    "finalExecutableCheck": {
+      "command": "./scripts/uv run --locked python scripts/check_docs.py",
+      "status": "passed",
+      "sourceCommit": "5796651661ab593d4ff0997c805208ea3769a785",
+      "logSha256": "060a4fce4c83a63941a8b764e0f8d8a9764557e7e4e5de3ffbd59b57c259b19a",
+      "scope": "Final generated-help agreement, local Markdown links and all executable documentation examples after the follow-up packet was generated."
+    },
+    "current_prose_sha256": {
+      "CHANGELOG.md": "961530bca1a399c12e56fcf8a6159deadc82b3e1e933c6c91c36a4de9f763b00",
+      "docs/BOUNDED_TRACING.md": "3cae38565fa282cac8467f3842c0e4a98de63d7e766cbf6528d76d15459a310b",
+      "docs/explanation/trace-model.md": "2bebeaf643d338629733bed8debb78ff314fd9e191269b3eb8f0ea736c9afb52",
+      "docs/guides/tracing.md": "680963c5956bc28547cbc4ddac8267fd4722fd1e8e6ffe8f0744028eed977eb3",
+      "docs/reference/batch.md": "deae7f8747c453e4298338b432d810f6edd1f8c8b367191819e3b271b14f3327",
+      "docs/reference/cli.md": "5b268ff78401975fcacba754ad7fc64705182c0f6c3db9fee53d8720e755f110",
+      "docs/reference/java-api.md": "d03b7d289a238b2dbaecf8407f660f5db9227e94d07b7f895c7af6191454bc94",
+      "docs/reference/output.md": "83cad88595e7f7c542625d8f654e6d9f9226a01848899b7a05fb3cc4d8c0ecdf",
+      "docs/reviews/diataxis-audit.md": "3080d0f2cd9f186cc20246ddaece1577fe2c001a278e508c87a371135e1bee13",
+      "docs/tutorials/read-a-trace.md": "b1e8cf33da80334dc2af939a58b8051590b1af0295e164a90e19f87d75201220",
+      "docs/tutorials/trace-a-loop.md": "29c2ad398f912364d1bf2b9b2a1ca4831eb8a20b358b4f9edb5ed027349bf29f"
+    },
+    "java_coverage_qualification": "This documentation command does not independently establish fresh Java coverage. The separately attested strict_java record supplies the current coverage evidence."
+  },
+  "contract_probes": {
+    "commands": [
+      {
+        "name": "listing-crlf-file",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "-i",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/next-pass/contract-probes-nvl_hwtu/Main.java",
+          "--json"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "listing-crlf-stdin",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "--json"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "listing-one-file-bundle",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "--json"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "listing-multi-file-bundle",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "--json"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "listing-terminal",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "-i",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/next-pass/contract-probes-nvl_hwtu/Main.java"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "phase-cli-completed",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "trace",
+          "--format",
+          "modern",
+          "--result-envelope"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "phase-cli-source-files",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "trace",
+          "--format",
+          "modern",
+          "--result-envelope",
+          "--max-source-files",
+          "1"
+        ],
+        "exit": 3
+      },
+      {
+        "name": "batch-status-and-phases",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "batch-trace",
+          "--workers",
+          "1"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "batch-empty",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "batch-trace"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "batch-workers-error",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "batch-trace",
+          "--workers",
+          "0"
+        ],
+        "exit": 1
+      },
+      {
+        "name": "batch-argument-error",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "batch-trace",
+          "--workers",
+          "bad"
+        ],
+        "exit": 2
+      },
+      {
+        "name": "batch-preflight-error",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "batch-trace"
+        ],
+        "exit": 1
+      },
+      {
+        "name": "null-modern-ordinary",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "trace",
+          "--format",
+          "modern",
+          "--all-breakpoints"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "null-modern-envelope",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "trace",
+          "--format",
+          "modern",
+          "--all-breakpoints",
+          "--result-envelope"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "null-pytutor",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "trace",
+          "--all-breakpoints"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "api-compile",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/javac",
+          "--release",
+          "21",
+          "-cp",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "ApiProbe.java"
+        ],
+        "exit": 0
+      },
+      {
+        "name": "api-contracts",
+        "argv": [
+          "/opt/homebrew/Cellar/openjdk@25/25.0.4.1/libexec/openjdk.jdk/Contents/Home/bin/java",
+          "-cp",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/next-pass/contract-probes-nvl_hwtu:/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "ApiProbe"
+        ],
+        "exit": 0
+      }
+    ],
+    "listing": {
+      "fileRows": 6,
+      "stdinRows": 5,
+      "oneFileBundleIncludesDelimiter": true,
+      "multiFilePaths": [
+        "Helper.java",
+        "Main.java"
+      ]
+    },
+    "phases": {
+      "cliCompleted": "trace",
+      "cliSourceFileLimit": "compile",
+      "batchCompleted": "serialize",
+      "batchSourceFileLimit": "source"
+    },
+    "nullVariables": {
+      "ordinary": {
+        "name": "value",
+        "type": "java.lang.String",
+        "final": false
+      },
+      "envelope": {
+        "name": "value",
+        "type": "java.lang.String",
+        "value": null,
+        "final": false
+      },
+      "pytutorNull": true
+    },
+    "api": {
+      "missingDiagnostics": 1,
+      "ambiguousDiagnostics": 1,
+      "missingLocations": 0,
+      "ambiguousLocations": 0,
+      "normalPhase": "serialize",
+      "inputFailureReported": true,
+      "responseAfterFailure": "{\"id\":\"late\",\"result\":{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"serialize\",\"complete\":true,\"trace\":{\"code\":\"public class Main { public static void main(String[] a) throws Exception { Thread.sleep(100); System.out.print(42); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[{\"step\":1,\"line\":1,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":1,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"a\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":496},\"final\":false}]}],\"statics\":[],\"heap\":{\"496\":{\"id\":496,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"42\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null}],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] a) throws Exception { Thread.sleep(100); System.out.print(42); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":5000,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"snapshotsCaptured\":1,\"snapshotsRetained\":1,\"retainedBytes\":1074,\"droppedSnapshots\":0,\"elapsedMillis\":236,\"stderrBytes\":0,\"stdoutBytes\":2},\"diagnostics\":[],\"stdout\":\"42\",\"stderr\":\"\"}}\n",
+      "inputClosed": false,
+      "writerClosed": false
+    },
+    "jarSha256": "f1ceb563282e83d49355045ae0b8bcbe62545feeb3834dcbb9804c14ae744876"
+  },
+  "recipe_probes": {
+    "commands": [
+      {
+        "name": "budget-recipe-0",
+        "command": "java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --max-snapshots 20000 > raised-limit.json",
+        "exit": 0,
+        "stdoutBytes": 4186,
+        "stderr": ""
+      },
+      {
+        "name": "budget-recipe-1",
+        "command": "java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --unlimited > unlimited-trace.json",
+        "exit": 0,
+        "stdoutBytes": 4186,
+        "stderr": ""
+      },
+      {
+        "name": "budget-explicit-precedence-0",
+        "command": "java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --unlimited --max-snapshots 1",
+        "exit": 3,
+        "stdoutBytes": 0,
+        "stderr": "Trace stopped: snapshot_limit. Increase the limit or use --unlimited; use --result-envelope for partial traces.\n"
+      },
+      {
+        "name": "budget-explicit-precedence-1",
+        "command": "java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern --max-snapshots 1 --unlimited",
+        "exit": 3,
+        "stdoutBytes": 0,
+        "stderr": "Trace stopped: snapshot_limit. Increase the limit or use --unlimited; use --result-envelope for partial traces.\n"
+      },
+      {
+        "name": "loop-checkpoint",
+        "command": "java -jar code-tracer.jar list-breakpoints -i Loop.java --json --pretty > locations.json",
+        "exit": 0,
+        "stdoutBytes": 848,
+        "stderr": ""
+      },
+      {
+        "name": "loop-missing-input",
+        "command": "java -jar code-tracer.jar list-breakpoints -i Loop.java --json --pretty > locations.json",
+        "exit": 1,
+        "stdoutBytes": 0,
+        "stderr": "java.lang.RuntimeException: java.nio.file.NoSuchFileException: Loop.java\n\tat cs1302.tracer.internal.App$CommandBase.readInputFile(App.java:216)\n\tat cs1302.tracer.internal.App$ListBreakpoints.run(App.java:554)\n\tat picocli.CommandLine.executeUserObject(CommandLine.java:2045)\n\tat picocli.CommandLine.access$1500(CommandLine.java:148)\n\tat picocli.CommandLine$RunLast.executeUserObjectOfLastSubcommandWithSameParent(CommandLine.java:2469)\n\tat picocli.CommandLine$RunLast.handle(CommandLine.java:2461)\n\tat picocli.CommandLine$RunLast.handle(CommandLine.java:2423)\n\tat picocli.CommandLine$AbstractParseResultHandler.execute(CommandLine.java:2277)\n\tat picocli.CommandLine$RunLast.execute(CommandLine.java:2425)\n\tat picocli.CommandLine.execute(CommandLine.java:2174)\n\tat cs1302.tracer.internal.App.execute(App.java:139)\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:565)\n\tat cs1302.tracer.internal.CliBootstrap.main(CliBootstrap.java:28)\nCaused by: java.nio.file.NoSuchFileException: Loop.java\n\tat java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:106)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:111)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newFileChannel(UnixFileSystemProvider.java:213)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:244)\n\tat java.base/java.nio.file.Files.newByteChannel(Files.java:357)\n\tat java.base/java.nio.file.Files.newByteChannel(Files.java:399)\n\tat java.base/java.nio.file.Files.readAllBytes(Files.java:2973)\n\tat java.base/java.nio.file.Files.readString(Files.java:3043)\n\tat java.base/java.nio.file.Files.readString(Files.java:3006)\n\tat cs1302.tracer.internal.App$CommandBase.readInputFile(App.java:214)\n\t... 13 more\n"
+      }
+    ],
+    "sourceInputs": {
+      "SnapshotDemo.java": "public class SnapshotDemo {\n    public static void main(String[] args) {\n        int value = 7;\n        value++;\n        System.out.println(value);\n    }\n}",
+      "Loop.java": "public class Loop {\n    public static void main(String[] args) {\n        for (int i = 0; i < 3; i++) {\n            System.out.println(i);\n        }\n    }\n}"
+    },
+    "nativeWindows": "Static review only"
+  },
+  "listing_path_probes": {
+    "commands": [
+      {
+        "name": "exact",
+        "argv": [
+          "java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "--json"
+        ],
+        "exit": 0,
+        "source": "// --- a/Main.java ---\npackage a;\npublic class Main {\n    public static void main(String[] args) {\n        int value = 1;\n        System.out.println(value);\n    }\n}\n// --- b/Main.java ---\npackage b;\npublic class Main {\n\n\n    public static void helper() {\n        System.out.println(2);\n    }\n}\n",
+        "validLines": {
+          "a/Main.java": [
+            2,
+            4,
+            5,
+            6
+          ],
+          "b/Main.java": [
+            2,
+            6,
+            7
+          ]
+        }
+      },
+      {
+        "name": "prefixed",
+        "argv": [
+          "java",
+          "-jar",
+          "/Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/code-tracer.jar",
+          "list-breakpoints",
+          "--json"
+        ],
+        "exit": 0,
+        "source": "// --- src/a/Main.java ---\npackage a;\npublic class Main {\n    public static void main(String[] args) {\n        int value = 1;\n        System.out.println(value);\n    }\n}\n// --- src/b/Main.java ---\npackage b;\npublic class Main {\n\n\n    public static void helper() {\n        System.out.println(2);\n    }\n}\n",
+        "validLines": {
+          "src/a/Main.java": [
+            2,
+            4,
+            5,
+            6
+          ],
+          "src/b/Main.java": [
+            2,
+            4,
+            5,
+            6
+          ]
+        }
+      }
+    ],
+    "jarSha256": "9babede11b023e4ff5993a923b69aca03ee5758ca14b8a9560bdb5e5297fa8e5",
+    "result": "Prefixed duplicate basenames reuse the first debug line table; package-relative logical paths select distinct correct tables."
+  },
+  "text_evidence": {
+    "api-compile.stderr": "",
+    "api-compile.stdout": "",
+    "api-contracts.stderr": "",
+    "api-contracts.stdout": "{\"missingDiagnostics\":1,\"ambiguousDiagnostics\":1,\"missingLocations\":0,\"ambiguousLocations\":0,\"normalPhase\":\"serialize\",\"inputFailureReported\":true,\"responseAfterFailure\":\"{\\\"id\\\":\\\"late\\\",\\\"result\\\":{\\\"schemaVersion\\\":1,\\\"format\\\":\\\"modern\\\",\\\"status\\\":\\\"completed\\\",\\\"stopReason\\\":null,\\\"phase\\\":\\\"serialize\\\",\\\"complete\\\":true,\\\"trace\\\":{\\\"code\\\":\\\"public class Main { public static void main(String[] a) throws Exception { Thread.sleep(100); System.out.print(42); } }\\\",\\\"format\\\":\\\"modern\\\",\\\"stdin\\\":\\\"\\\",\\\"steps\\\":[{\\\"step\\\":1,\\\"line\\\":1,\\\"file\\\":\\\"Main.java\\\",\\\"event\\\":\\\"step_line\\\",\\\"method\\\":\\\"main\\\",\\\"callStack\\\":[{\\\"methodName\\\":\\\"main\\\",\\\"line\\\":1,\\\"file\\\":\\\"Main.java\\\",\\\"isHighlighted\\\":true,\\\"this\\\":null,\\\"locals\\\":[{\\\"name\\\":\\\"a\\\",\\\"type\\\":\\\"java.lang.String[]\\\",\\\"value\\\":{\\\"ref\\\":496},\\\"final\\\":false}]}],\\\"statics\\\":[],\\\"heap\\\":{\\\"496\\\":{\\\"id\\\":496,\\\"type\\\":\\\"java.lang.String[]\\\",\\\"kind\\\":\\\"array\\\",\\\"fields\\\":null,\\\"elements\\\":[],\\\"value\\\":null,\\\"sam\\\":null}},\\\"stdout\\\":\\\"42\\\",\\\"stderr\\\":\\\"\\\",\\\"stdinConsumed\\\":\\\"\\\",\\\"stdinOffset\\\":0,\\\"threads\\\":null,\\\"triggeringThreadId\\\":null}],\\\"breakpoints\\\":null,\\\"sources\\\":{\\\"Main.java\\\":\\\"public class Main { public static void main(String[] a) throws Exception { Thread.sleep(100); System.out.print(42); } }\\\"},\\\"entryFile\\\":\\\"Main.java\\\"},\\\"limits\\\":{\\\"timeoutMillis\\\":5000,\\\"snapshots\\\":0,\\\"outputBytes\\\":0,\\\"heapObjects\\\":0,\\\"elements\\\":0,\\\"traceBytes\\\":0,\\\"sourceBytes\\\":0,\\\"sourceFiles\\\":0,\\\"threads\\\":0,\\\"frames\\\":0,\\\"snapshotBytes\\\":0},\\\"counters\\\":{\\\"snapshotsCaptured\\\":1,\\\"snapshotsRetained\\\":1,\\\"retainedBytes\\\":1074,\\\"droppedSnapshots\\\":0,\\\"elapsedMillis\\\":236,\\\"stderrBytes\\\":0,\\\"stdoutBytes\\\":2},\\\"diagnostics\\\":[],\\\"stdout\\\":\\\"42\\\",\\\"stderr\\\":\\\"\\\"}}\\n\",\"inputClosed\":false,\"writerClosed\":false}\n",
+    "batch-argument-error.stderr": "Invalid value for option '--workers': 'bad' is not an int\nUsage: code-tracer batch-trace [-hV] [--completion-order] [-i=<input>]\n                               [--max-in-flight=<maxInFlight>]\n                               [--max-jobs-per-worker=<maxJobsPerWorker>]\n                               [-w=<workers>]\nExecute independent trace jobs concurrently over an NDJSON stream.\n      --completion-order    Emit results as jobs finish; default is submission\n                              order.\n  -h, --help                Show this help message and exit.\n  -i, --input=<input>       Input path to NDJSON file (defaults to stdin if\n                              omitted).\n      --max-in-flight=<maxInFlight>\n                            Maximum admitted jobs and buffered results\n                              (default: 16).\n      --max-jobs-per-worker=<maxJobsPerWorker>\n                            Maximum jobs before recycling a worker process\n                              (default: 100).\n  -V, --version             Print version information and exit.\n  -w, --workers=<workers>   Number of concurrent worker sessions (default: 1).\n",
+    "batch-argument-error.stdout": "",
+    "batch-empty.stderr": "",
+    "batch-empty.stdout": "",
+    "batch-preflight-error.stderr": "code-tracer: JDK environment check failed: JAVA_HOME does not select an executable java: /Users/mepcott/.t3/worktrees/cs1302-tracer/t3-e3d60720/target/audit/next-pass/contract-probes-nvl_hwtu/missing-jdk/bin/java. Set JAVA_HOME to a full stable JDK 21 or later, or unset it and put that JDK's bin directory first on PATH.\n",
+    "batch-preflight-error.stdout": "",
+    "batch-status-and-phases.stderr": "",
+    "batch-status-and-phases.stdout": "{\"id\":null,\"result\":{\"schemaVersion\":1,\"format\":\"unknown\",\"status\":\"failed\",\"stopReason\":\"parse_error\",\"phase\":\"parse\",\"complete\":false,\"trace\":null,\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{},\"diagnostics\":[\"Malformed JSON request: End of input at line 1 column 2 path $.\"],\"stdout\":\"\",\"stderr\":\"\"}}\n{\"id\":\"invalid\",\"result\":{\"schemaVersion\":1,\"format\":\"pytutor\",\"status\":\"failed\",\"stopReason\":\"validation_error\",\"phase\":\"validation\",\"complete\":false,\"trace\":null,\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{},\"diagnostics\":[\"Unsupported trace format: bad\"],\"stdout\":\"\",\"stderr\":\"\"}}\n{\"id\":\"files\",\"result\":{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"stopped\",\"stopReason\":\"source_file_limit\",\"phase\":\"source\",\"complete\":false,\"trace\":null,\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":1,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"snapshotsCaptured\":0,\"snapshotsRetained\":0,\"retainedBytes\":0,\"droppedSnapshots\":0,\"elapsedMillis\":0},\"diagnostics\":[],\"stdout\":\"\",\"stderr\":\"\"}}\n{\"id\":\"ok\",\"result\":{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"serialize\",\"complete\":true,\"trace\":{\"code\":\"public class Main { public static void main(String[] args) { System.out.println(42); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[{\"step\":1,\"line\":1,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":1,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":494},\"final\":false}]}],\"statics\":[],\"heap\":{\"494\":{\"id\":494,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"42\\n\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null}],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] args) { System.out.println(42); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":5000,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"snapshotsCaptured\":1,\"snapshotsRetained\":1,\"retainedBytes\":1092,\"droppedSnapshots\":0,\"elapsedMillis\":171,\"stderrBytes\":0,\"stdoutBytes\":3},\"diagnostics\":[],\"stdout\":\"42\\n\",\"stderr\":\"\"}}\n",
+    "batch-workers-error.stderr": "Batch trace failed: Worker, in-flight, and recycling limits must be positive\n",
+    "batch-workers-error.stdout": "",
+    "budget-explicit-precedence-0.stderr": "Trace stopped: snapshot_limit. Increase the limit or use --unlimited; use --result-envelope for partial traces.\n",
+    "budget-explicit-precedence-0.stdout": "",
+    "budget-explicit-precedence-1.stderr": "Trace stopped: snapshot_limit. Increase the limit or use --unlimited; use --result-envelope for partial traces.\n",
+    "budget-explicit-precedence-1.stdout": "",
+    "budget-recipe-0.stderr": "",
+    "budget-recipe-0.stdout": "{\n  \"code\": \"public class SnapshotDemo {\\n    public static void main(String[] args) {\\n        int value \\u003d 7;\\n        value++;\\n        System.out.println(value);\\n    }\\n}\",\n  \"format\": \"modern\",\n  \"stdin\": \"\",\n  \"steps\": [\n    {\n      \"step\": 1,\n      \"line\": 3,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 3,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 2,\n      \"line\": 4,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 4,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 7,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 3,\n      \"line\": 5,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 5,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 8,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 4,\n      \"line\": 6,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 6,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 8,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"8\\n\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    }\n  ],\n  \"sources\": {\n    \"SnapshotDemo.java\": \"public class SnapshotDemo {\\n    public static void main(String[] args) {\\n        int value \\u003d 7;\\n        value++;\\n        System.out.println(value);\\n    }\\n}\"\n  },\n  \"entryFile\": \"SnapshotDemo.java\"\n}\n",
+    "budget-recipe-1.stderr": "",
+    "budget-recipe-1.stdout": "{\n  \"code\": \"public class SnapshotDemo {\\n    public static void main(String[] args) {\\n        int value \\u003d 7;\\n        value++;\\n        System.out.println(value);\\n    }\\n}\",\n  \"format\": \"modern\",\n  \"stdin\": \"\",\n  \"steps\": [\n    {\n      \"step\": 1,\n      \"line\": 3,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 3,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 2,\n      \"line\": 4,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 4,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 7,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 3,\n      \"line\": 5,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 5,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 8,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 4,\n      \"line\": 6,\n      \"file\": \"SnapshotDemo.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 6,\n          \"file\": \"SnapshotDemo.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"int\",\n              \"value\": 8,\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"8\\n\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    }\n  ],\n  \"sources\": {\n    \"SnapshotDemo.java\": \"public class SnapshotDemo {\\n    public static void main(String[] args) {\\n        int value \\u003d 7;\\n        value++;\\n        System.out.println(value);\\n    }\\n}\"\n  },\n  \"entryFile\": \"SnapshotDemo.java\"\n}\n",
+    "listing-crlf-file.stderr": "",
+    "listing-crlf-file.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\\r\",\"file\":null},{\"lineNumber\":2,\"validBreakpoint\":false,\"lineContent\":\"    public static void main(String[] args) {\\r\",\"file\":null},{\"lineNumber\":3,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(42);\\r\",\"file\":null},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"    }\\r\",\"file\":null},{\"lineNumber\":5,\"validBreakpoint\":false,\"lineContent\":\"}\\r\",\"file\":null},{\"lineNumber\":6,\"validBreakpoint\":false,\"lineContent\":\"\\r\",\"file\":null}]\n",
+    "listing-crlf-stdin.stderr": "",
+    "listing-crlf-stdin.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":null},{\"lineNumber\":2,\"validBreakpoint\":false,\"lineContent\":\"    public static void main(String[] args) {\",\"file\":null},{\"lineNumber\":3,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(42);\",\"file\":null},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"    }\",\"file\":null},{\"lineNumber\":5,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":null}]\n",
+    "listing-multi-file-bundle.stderr": "",
+    "listing-multi-file-bundle.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":\"Main.java\"},{\"lineNumber\":2,\"validBreakpoint\":false,\"lineContent\":\"    public static void main(String[] args) {\",\"file\":\"Main.java\"},{\"lineNumber\":3,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(42);\",\"file\":\"Main.java\"},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"    }\",\"file\":\"Main.java\"},{\"lineNumber\":5,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":\"Main.java\"},{\"lineNumber\":1,\"validBreakpoint\":true,\"lineContent\":\"public class Helper {}\",\"file\":\"Helper.java\"}]\n",
+    "listing-one-file-bundle.stderr": "",
+    "listing-one-file-bundle.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":true,\"lineContent\":\"// --- Main.java ---\",\"file\":null},{\"lineNumber\":2,\"validBreakpoint\":false,\"lineContent\":\"public class Main {\",\"file\":null},{\"lineNumber\":3,\"validBreakpoint\":true,\"lineContent\":\"    public static void main(String[] args) {\",\"file\":null},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(42);\",\"file\":null},{\"lineNumber\":5,\"validBreakpoint\":false,\"lineContent\":\"    }\",\"file\":null},{\"lineNumber\":6,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":null}]\n",
+    "listing-paths-exact.stderr": "",
+    "listing-paths-exact.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":false,\"lineContent\":\"package a;\",\"file\":\"a/Main.java\"},{\"lineNumber\":2,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":\"a/Main.java\"},{\"lineNumber\":3,\"validBreakpoint\":false,\"lineContent\":\"    public static void main(String[] args) {\",\"file\":\"a/Main.java\"},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"        int value = 1;\",\"file\":\"a/Main.java\"},{\"lineNumber\":5,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(value);\",\"file\":\"a/Main.java\"},{\"lineNumber\":6,\"validBreakpoint\":true,\"lineContent\":\"    }\",\"file\":\"a/Main.java\"},{\"lineNumber\":7,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":\"a/Main.java\"},{\"lineNumber\":1,\"validBreakpoint\":false,\"lineContent\":\"package b;\",\"file\":\"b/Main.java\"},{\"lineNumber\":2,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":\"b/Main.java\"},{\"lineNumber\":3,\"validBreakpoint\":false,\"lineContent\":\"\",\"file\":\"b/Main.java\"},{\"lineNumber\":4,\"validBreakpoint\":false,\"lineContent\":\"\",\"file\":\"b/Main.java\"},{\"lineNumber\":5,\"validBreakpoint\":false,\"lineContent\":\"    public static void helper() {\",\"file\":\"b/Main.java\"},{\"lineNumber\":6,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(2);\",\"file\":\"b/Main.java\"},{\"lineNumber\":7,\"validBreakpoint\":true,\"lineContent\":\"    }\",\"file\":\"b/Main.java\"},{\"lineNumber\":8,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":\"b/Main.java\"}]\n",
+    "listing-paths-prefixed.stderr": "",
+    "listing-paths-prefixed.stdout": "[{\"lineNumber\":1,\"validBreakpoint\":false,\"lineContent\":\"package a;\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":2,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":3,\"validBreakpoint\":false,\"lineContent\":\"    public static void main(String[] args) {\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"        int value = 1;\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":5,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(value);\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":6,\"validBreakpoint\":true,\"lineContent\":\"    }\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":7,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":\"src/a/Main.java\"},{\"lineNumber\":1,\"validBreakpoint\":false,\"lineContent\":\"package b;\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":2,\"validBreakpoint\":true,\"lineContent\":\"public class Main {\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":3,\"validBreakpoint\":false,\"lineContent\":\"\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":4,\"validBreakpoint\":true,\"lineContent\":\"\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":5,\"validBreakpoint\":true,\"lineContent\":\"    public static void helper() {\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":6,\"validBreakpoint\":true,\"lineContent\":\"        System.out.println(2);\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":7,\"validBreakpoint\":false,\"lineContent\":\"    }\",\"file\":\"src/b/Main.java\"},{\"lineNumber\":8,\"validBreakpoint\":false,\"lineContent\":\"}\",\"file\":\"src/b/Main.java\"}]\n",
+    "listing-terminal.stderr": "",
+    "listing-terminal.stdout": "b 1 | public class Main {\n  2 |     public static void main(String[] args) {\nb 3 |         System.out.println(42);\nb 4 |     }\n  5 | }\n  6 | \n",
+    "loop-checkpoint.stderr": "",
+    "loop-checkpoint.stdout": "[\n  {\n    \"lineNumber\": 1,\n    \"validBreakpoint\": true,\n    \"lineContent\": \"public class Loop {\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 2,\n    \"validBreakpoint\": false,\n    \"lineContent\": \"    public static void main(String[] args) {\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 3,\n    \"validBreakpoint\": true,\n    \"lineContent\": \"        for (int i = 0; i < 3; i++) {\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 4,\n    \"validBreakpoint\": true,\n    \"lineContent\": \"            System.out.println(i);\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 5,\n    \"validBreakpoint\": false,\n    \"lineContent\": \"        }\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 6,\n    \"validBreakpoint\": true,\n    \"lineContent\": \"    }\",\n    \"file\": null\n  },\n  {\n    \"lineNumber\": 7,\n    \"validBreakpoint\": false,\n    \"lineContent\": \"}\",\n    \"file\": null\n  }\n]\n",
+    "loop-missing-input.stderr": "java.lang.RuntimeException: java.nio.file.NoSuchFileException: Loop.java\n\tat cs1302.tracer.internal.App$CommandBase.readInputFile(App.java:216)\n\tat cs1302.tracer.internal.App$ListBreakpoints.run(App.java:554)\n\tat picocli.CommandLine.executeUserObject(CommandLine.java:2045)\n\tat picocli.CommandLine.access$1500(CommandLine.java:148)\n\tat picocli.CommandLine$RunLast.executeUserObjectOfLastSubcommandWithSameParent(CommandLine.java:2469)\n\tat picocli.CommandLine$RunLast.handle(CommandLine.java:2461)\n\tat picocli.CommandLine$RunLast.handle(CommandLine.java:2423)\n\tat picocli.CommandLine$AbstractParseResultHandler.execute(CommandLine.java:2277)\n\tat picocli.CommandLine$RunLast.execute(CommandLine.java:2425)\n\tat picocli.CommandLine.execute(CommandLine.java:2174)\n\tat cs1302.tracer.internal.App.execute(App.java:139)\n\tat java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)\n\tat java.base/java.lang.reflect.Method.invoke(Method.java:565)\n\tat cs1302.tracer.internal.CliBootstrap.main(CliBootstrap.java:28)\nCaused by: java.nio.file.NoSuchFileException: Loop.java\n\tat java.base/sun.nio.fs.UnixException.translateToIOException(UnixException.java:92)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:106)\n\tat java.base/sun.nio.fs.UnixException.rethrowAsIOException(UnixException.java:111)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newFileChannel(UnixFileSystemProvider.java:213)\n\tat java.base/sun.nio.fs.UnixFileSystemProvider.newByteChannel(UnixFileSystemProvider.java:244)\n\tat java.base/java.nio.file.Files.newByteChannel(Files.java:357)\n\tat java.base/java.nio.file.Files.newByteChannel(Files.java:399)\n\tat java.base/java.nio.file.Files.readAllBytes(Files.java:2973)\n\tat java.base/java.nio.file.Files.readString(Files.java:3043)\n\tat java.base/java.nio.file.Files.readString(Files.java:3006)\n\tat cs1302.tracer.internal.App$CommandBase.readInputFile(App.java:214)\n\t... 13 more\n",
+    "loop-missing-input.stdout": "",
+    "null-modern-envelope.stderr": "",
+    "null-modern-envelope.stdout": "{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"trace\",\"complete\":true,\"trace\":{\"code\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value = null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[{\"step\":1,\"line\":3,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":3,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null},{\"step\":2,\"line\":4,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":4,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"before\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null},{\"step\":3,\"line\":5,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":5,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false},{\"name\":\"value\",\"type\":\"java.lang.String\",\"value\":null,\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"before\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null},{\"step\":4,\"line\":6,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":6,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false},{\"name\":\"value\",\"type\":\"java.lang.String\",\"value\":null,\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"beforeafter\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null},{\"step\":5,\"line\":7,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":7,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false},{\"name\":\"value\",\"type\":\"java.lang.String\",\"value\":null,\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"beforeafternull\\n\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null},{\"step\":6,\"line\":7,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":7,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":49},\"final\":false},{\"name\":\"value\",\"type\":\"java.lang.String\",\"value\":null,\"final\":false}]}],\"statics\":[],\"heap\":{\"49\":{\"id\":49,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"beforeafternull\\n\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null}],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value = null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"guestExitCode\":0,\"snapshotsCaptured\":6,\"snapshotsRetained\":6,\"retainedBytes\":7947,\"droppedSnapshots\":0,\"elapsedMillis\":262,\"stderrBytes\":0,\"stdoutBytes\":16},\"diagnostics\":[],\"stdout\":\"beforeafternull\\n\",\"stderr\":\"\"}\n",
+    "null-modern-ordinary.stderr": "",
+    "null-modern-ordinary.stdout": "{\n  \"code\": \"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value \\u003d null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\",\n  \"format\": \"modern\",\n  \"stdin\": \"\",\n  \"steps\": [\n    {\n      \"step\": 1,\n      \"line\": 3,\n      \"file\": \"Main.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 3,\n          \"file\": \"Main.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 2,\n      \"line\": 4,\n      \"file\": \"Main.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 4,\n          \"file\": \"Main.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"before\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 3,\n      \"line\": 5,\n      \"file\": \"Main.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 5,\n          \"file\": \"Main.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"java.lang.String\",\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"before\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 4,\n      \"line\": 6,\n      \"file\": \"Main.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 6,\n          \"file\": \"Main.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"java.lang.String\",\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"beforeafter\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    },\n    {\n      \"step\": 5,\n      \"line\": 7,\n      \"file\": \"Main.java\",\n      \"event\": \"step_line\",\n      \"method\": \"main\",\n      \"callStack\": [\n        {\n          \"methodName\": \"main\",\n          \"line\": 7,\n          \"file\": \"Main.java\",\n          \"isHighlighted\": true,\n          \"locals\": [\n            {\n              \"name\": \"args\",\n              \"type\": \"java.lang.String[]\",\n              \"value\": {\n                \"ref\": 49\n              },\n              \"final\": false\n            },\n            {\n              \"name\": \"value\",\n              \"type\": \"java.lang.String\",\n              \"final\": false\n            }\n          ]\n        }\n      ],\n      \"statics\": [],\n      \"heap\": {\n        \"49\": {\n          \"id\": 49,\n          \"type\": \"java.lang.String[]\",\n          \"kind\": \"array\",\n          \"elements\": []\n        }\n      },\n      \"stdout\": \"beforeafternull\\n\",\n      \"stderr\": \"\",\n      \"stdinConsumed\": \"\",\n      \"stdinOffset\": 0\n    }\n  ],\n  \"sources\": {\n    \"Main.java\": \"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value \\u003d null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\"\n  },\n  \"entryFile\": \"Main.java\"\n}\n",
+    "null-pytutor.stderr": "",
+    "null-pytutor.stdout": "{\"code\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value = null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\",\"stdin\":\"\",\"trace\":[{\"stdout\":\"\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":3,\"stack_to_render\":[{\"func_name\":\"main:3\",\"encoded_locals\":{\"args\":[\"REF\",49]},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false}},\"ordered_varnames\":[\"args\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"49\":[\"LIST\"]},\"heap_attrs\":{\"49\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0},{\"stdout\":\"before\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":4,\"stack_to_render\":[{\"func_name\":\"main:4\",\"encoded_locals\":{\"args\":[\"REF\",49]},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false}},\"ordered_varnames\":[\"args\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"49\":[\"LIST\"]},\"heap_attrs\":{\"49\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0},{\"stdout\":\"before\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":5,\"stack_to_render\":[{\"func_name\":\"main:5\",\"encoded_locals\":{\"args\":[\"REF\",49],\"value\":null},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false},\"value\":{\"type\":\"java.lang.String\",\"final\":false}},\"ordered_varnames\":[\"args\",\"value\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"49\":[\"LIST\"]},\"heap_attrs\":{\"49\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0},{\"stdout\":\"beforeafter\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":6,\"stack_to_render\":[{\"func_name\":\"main:6\",\"encoded_locals\":{\"args\":[\"REF\",49],\"value\":null},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false},\"value\":{\"type\":\"java.lang.String\",\"final\":false}},\"ordered_varnames\":[\"args\",\"value\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"49\":[\"LIST\"]},\"heap_attrs\":{\"49\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0},{\"stdout\":\"beforeafternull\\n\",\"stderr\":\"\",\"event\":\"step_line\",\"func_name\":\"main\",\"line\":7,\"stack_to_render\":[{\"func_name\":\"main:7\",\"encoded_locals\":{\"args\":[\"REF\",49],\"value\":null},\"locals_attrs\":{\"args\":{\"type\":\"java.lang.String[]\",\"final\":false},\"value\":{\"type\":\"java.lang.String\",\"final\":false}},\"ordered_varnames\":[\"args\",\"value\"],\"parent_frame_id_list\":[],\"is_highlighted\":true,\"is_zombie\":false,\"is_parent\":false,\"unique_hash\":\"0\",\"frame_id\":0,\"file\":\"Main.java\"}],\"globals\":{},\"globals_attrs\":{},\"ordered_globals\":[],\"heap\":{\"49\":[\"LIST\"]},\"heap_attrs\":{\"49\":{\"type\":\"java.lang.String[]\"}},\"file\":\"Main.java\",\"stdinConsumed\":\"\",\"stdinOffset\":0}],\"userlog\":\"\",\"sources\":{\"Main.java\":\"public class Main {\\n    public static void main(String[] args) {\\n        System.out.print(\\\"before\\\");\\n        String value = null;\\n        System.out.print(\\\"after\\\");\\n        System.out.println(value);\\n    }\\n}\\n\"},\"entryFile\":\"Main.java\"}\n",
+    "phase-cli-completed.stderr": "",
+    "phase-cli-completed.stdout": "{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"completed\",\"stopReason\":null,\"phase\":\"trace\",\"complete\":true,\"trace\":{\"code\":\"public class Main { public static void main(String[] args) { System.out.println(42); } }\",\"format\":\"modern\",\"stdin\":\"\",\"steps\":[{\"step\":1,\"line\":1,\"file\":\"Main.java\",\"event\":\"step_line\",\"method\":\"main\",\"callStack\":[{\"methodName\":\"main\",\"line\":1,\"file\":\"Main.java\",\"isHighlighted\":true,\"this\":null,\"locals\":[{\"name\":\"args\",\"type\":\"java.lang.String[]\",\"value\":{\"ref\":54},\"final\":false}]}],\"statics\":[],\"heap\":{\"54\":{\"id\":54,\"type\":\"java.lang.String[]\",\"kind\":\"array\",\"fields\":null,\"elements\":[],\"value\":null,\"sam\":null}},\"stdout\":\"42\\n\",\"stderr\":\"\",\"stdinConsumed\":\"\",\"stdinOffset\":0,\"threads\":null,\"triggeringThreadId\":null}],\"breakpoints\":null,\"sources\":{\"Main.java\":\"public class Main { public static void main(String[] args) { System.out.println(42); } }\"},\"entryFile\":\"Main.java\"},\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":0,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"guestExitCode\":0,\"snapshotsCaptured\":1,\"snapshotsRetained\":1,\"retainedBytes\":1086,\"droppedSnapshots\":0,\"elapsedMillis\":134,\"stderrBytes\":0,\"stdoutBytes\":3},\"diagnostics\":[],\"stdout\":\"42\\n\",\"stderr\":\"\"}\n",
+    "phase-cli-source-files.stderr": "",
+    "phase-cli-source-files.stdout": "{\"schemaVersion\":1,\"format\":\"modern\",\"status\":\"stopped\",\"stopReason\":\"source_file_limit\",\"phase\":\"compile\",\"complete\":false,\"trace\":null,\"limits\":{\"timeoutMillis\":0,\"snapshots\":0,\"outputBytes\":0,\"heapObjects\":0,\"elements\":0,\"traceBytes\":0,\"sourceBytes\":0,\"sourceFiles\":1,\"threads\":0,\"frames\":0,\"snapshotBytes\":0},\"counters\":{\"snapshotsCaptured\":0,\"snapshotsRetained\":0,\"retainedBytes\":0,\"droppedSnapshots\":0,\"elapsedMillis\":0},\"diagnostics\":[],\"stdout\":\"\",\"stderr\":\"\"}\n",
+    "probe_contracts.py": "\"\"\"Serial executable evidence for the approved existing-page documentation pass.\"\"\"\n\nimport hashlib\nimport json\nimport os\nimport re\nimport subprocess\nimport tempfile\nfrom pathlib import Path\n\nroot = Path.cwd()\naudit = root / \"target/audit/next-pass\"\njar = root / \"target/code-tracer.jar\"\nwork = Path(tempfile.mkdtemp(prefix=\"contract-probes-\", dir=audit))\nsettings = subprocess.run([\"java\", \"-XshowSettings:properties\", \"-version\"], capture_output=True, text=True, check=True)\nhome = Path(re.search(r\"^\\s*java.home = (.+)$\", settings.stderr, re.M)[1])\njava, javac = str(home / \"bin/java\"), str(home / \"bin/javac\")\ncommands = []\n\n\ndef run(name, args, data=None, expected=0, env=None):\n    result = subprocess.run(args, input=data, capture_output=True, text=True, cwd=work,\n                            timeout=90, env=env)\n    (audit / f\"{name}.stdout\").write_text(result.stdout)\n    (audit / f\"{name}.stderr\").write_text(result.stderr)\n    commands.append({\"name\": name, \"argv\": args, \"exit\": result.returncode})\n    assert result.returncode == expected, (name, result.returncode, result.stderr[:2000])\n    return result\n\n\ndef cli(name, args, **kwargs):\n    return run(name, [java, \"-jar\", str(jar), *args], **kwargs)\n\n\nsource = \"public class Main { public static void main(String[] args) { System.out.println(42); } }\"\nmain = \"public class Main {\\n    public static void main(String[] args) {\\n        System.out.println(42);\\n    }\\n}\\n\\n\"\npath = work / \"Main.java\"\npath.write_bytes(main.replace(\"\\n\", \"\\r\\n\").encode())\nlisting = json.loads(cli(\"listing-crlf-file\", [\"list-breakpoints\", \"-i\", str(path), \"--json\"]).stdout)\nassert len(listing) == 6 and listing[-1][\"lineContent\"] == \"\\r\"\nassert all(set(v) == {\"lineNumber\", \"validBreakpoint\", \"lineContent\", \"file\"} for v in listing)\nassert all(v[\"file\"] is None and v[\"lineContent\"].endswith(\"\\r\") for v in listing)\nstdin_listing = json.loads(cli(\"listing-crlf-stdin\", [\"list-breakpoints\", \"--json\"], data=path.read_bytes().decode()).stdout)\nassert len(stdin_listing) == 5 and all(\"\\r\" not in v[\"lineContent\"] for v in stdin_listing)\nbundle = \"// --- Main.java ---\\n\" + main\nsingle_bundle = json.loads(cli(\"listing-one-file-bundle\", [\"list-breakpoints\", \"--json\"], data=bundle).stdout)\nassert single_bundle[0][\"lineContent\"] == \"// --- Main.java ---\" and all(v[\"file\"] is None for v in single_bundle)\nmulti = bundle + \"// --- Helper.java ---\\npublic class Helper {}\\n\"\nmulti_listing = json.loads(cli(\"listing-multi-file-bundle\", [\"list-breakpoints\", \"--json\"], data=multi).stdout)\nassert {v[\"file\"] for v in multi_listing} == {\"Main.java\", \"Helper.java\"}\nassert all(not v[\"lineContent\"].startswith(\"// ---\") for v in multi_listing)\nterminal = cli(\"listing-terminal\", [\"list-breakpoints\", \"-i\", str(path)]).stdout\nassert \"System.out.println(42)\" in terminal\n\nnormal = json.loads(cli(\"phase-cli-completed\", [\"trace\", \"--format\", \"modern\", \"--result-envelope\"], data=source).stdout)\nassert normal[\"status\"] == \"completed\" and normal[\"phase\"] == \"trace\"\nlimited = json.loads(cli(\"phase-cli-source-files\", [\"trace\", \"--format\", \"modern\", \"--result-envelope\", \"--max-source-files\", \"1\"], data=multi, expected=3).stdout)\nassert limited[\"stopReason\"] == \"source_file_limit\" and limited[\"phase\"] == \"compile\"\njobs = [{\"id\": \"parse-placeholder\"}, {\"id\": \"invalid\", \"source\": source, \"format\": \"bad\"},\n        {\"id\": \"files\", \"source\": multi, \"format\": \"modern\", \"limits\": {\"sourceFiles\": 1}},\n        {\"id\": \"ok\", \"source\": source, \"format\": \"modern\", \"limits\": {\"timeoutMillis\": 5000}}]\nbatch_data = \"{\\n\" + \"\\n\".join(json.dumps(x) for x in jobs[1:]) + \"\\n\"\nresponses = [json.loads(s) for s in cli(\"batch-status-and-phases\", [\"batch-trace\", \"--workers\", \"1\"], data=batch_data).stdout.splitlines()]\nassert len(responses) == 4\nassert responses[0][\"result\"][\"counters\"] == {} and responses[1][\"result\"][\"counters\"] == {}\nassert responses[2][\"result\"][\"phase\"] == \"source\" and responses[2][\"result\"][\"stopReason\"] == \"source_file_limit\"\nassert responses[3][\"result\"][\"phase\"] == \"serialize\" and responses[3][\"result\"][\"complete\"]\ncore = {\"snapshotsCaptured\", \"snapshotsRetained\", \"retainedBytes\", \"droppedSnapshots\", \"elapsedMillis\"}\nassert core <= responses[2][\"result\"][\"counters\"].keys()\nassert core <= responses[3][\"result\"][\"counters\"].keys()\nassert \"guestExitCode\" not in responses[3][\"result\"][\"counters\"]\nassert cli(\"batch-empty\", [\"batch-trace\"], data=\"\").stdout == \"\"\nassert \"Batch trace failed:\" in cli(\"batch-workers-error\", [\"batch-trace\", \"--workers\", \"0\"], data=\"\", expected=1).stderr\ncli(\"batch-argument-error\", [\"batch-trace\", \"--workers\", \"bad\"], data=\"\", expected=2)\nbad_env = dict(os.environ, JAVA_HOME=str(work / \"missing-jdk\"))\npreflight = run(\"batch-preflight-error\", [java, \"-jar\", str(jar), \"batch-trace\"], data=\"\", expected=1, env=bad_env)\nassert \"JDK environment check failed\" in preflight.stderr and \"Batch trace failed:\" not in preflight.stderr\n\nnull_source = \"\"\"public class Main {\n    public static void main(String[] args) {\n        System.out.print(\"before\");\n        String value = null;\n        System.out.print(\"after\");\n        System.out.println(value);\n    }\n}\n\"\"\"\nordinary = json.loads(cli(\"null-modern-ordinary\", [\"trace\", \"--format\", \"modern\", \"--all-breakpoints\"], data=null_source).stdout)\nenvelope = json.loads(cli(\"null-modern-envelope\", [\"trace\", \"--format\", \"modern\", \"--all-breakpoints\", \"--result-envelope\"], data=null_source).stdout)\npytutor = json.loads(cli(\"null-pytutor\", [\"trace\", \"--all-breakpoints\"], data=null_source).stdout)\n\n\ndef locals_at(payload, line):\n    step = next(s for s in payload[\"steps\"] if s[\"line\"] == line and s.get(\"file\", \"\").endswith(\"Main.java\"))\n    return next(f for f in step[\"callStack\"] if f[\"methodName\"] == \"main\")[\"locals\"]\n\n\nassert not any(v[\"name\"] == \"value\" for v in locals_at(ordinary, 3))\nordinary_null = next(v for v in locals_at(ordinary, 5) if v[\"name\"] == \"value\")\nenvelope_null = next(v for v in locals_at(envelope[\"trace\"], 5) if v[\"name\"] == \"value\")\nassert \"value\" not in ordinary_null and envelope_null[\"value\"] is None\nassert any(f.get(\"encoded_locals\", {}).get(\"value\", \"missing\") is None for s in pytutor[\"trace\"] for f in s[\"stack_to_render\"])\n\napi_source = r'''import cs1302.tracer.api.*;\nimport java.io.*;\nimport java.nio.charset.StandardCharsets;\nimport java.util.*;\nimport com.google.gson.Gson;\npublic class ApiProbe {\n    public static void main(String[] args) throws Exception {\n        Map<String,Object> report = new LinkedHashMap<>();\n        var missing = Tracer.discoverBreakpoints(\"public class Main { int value; }\");\n        var ambiguous = Tracer.discoverBreakpoints(\"public class Main { public static void main(String[] a) {} public static void main() {} }\");\n        report.put(\"missingDiagnostics\", missing.diagnostics().size());\n        report.put(\"ambiguousDiagnostics\", ambiguous.diagnostics().size());\n        report.put(\"missingLocations\", missing.breakpoints().size());\n        report.put(\"ambiguousLocations\", ambiguous.breakpoints().size());\n        String source = \"public class Main { public static void main(String[] a) { System.out.print(42); } }\";\n        var normal = Tracer.trace(TraceRequest.builder(source).format(TraceFormat.MODERN).build());\n        report.put(\"normalPhase\", normal.phase());\n        String job = \"{\\\"id\\\":\\\"late\\\",\\\"source\\\":\\\"public class Main { public static void main(String[] a) throws Exception { Thread.sleep(100); System.out.print(42); } }\\\",\\\"format\\\":\\\"modern\\\",\\\"limits\\\":{\\\"timeoutMillis\\\":5000}}\\n\";\n        byte[] data = job.getBytes(StandardCharsets.UTF_8);\n        boolean[] closed = {false, false};\n        InputStream input = new InputStream() {\n            int position;\n            public int read() throws IOException {\n                if (position == data.length) throw new IOException(\"input disconnected\");\n                return data[position++] & 255;\n            }\n            public int read(byte[] b, int off, int len) throws IOException {\n                if (position == data.length) throw new IOException(\"input disconnected\");\n                int n = Math.min(len, data.length - position);\n                System.arraycopy(data, position, b, off, n); position += n; return n;\n            }\n            public void close() { closed[0] = true; }\n        };\n        StringWriter output = new StringWriter() { public void close() { closed[1] = true; } };\n        boolean failed = false;\n        try (var tracer = BatchTracer.builder().workers(1).maxJobsPerWorker(1).maxInFlight(4).build()) {\n            try { tracer.processStream(input, output); }\n            catch (IOException expected) { failed = true; }\n        }\n        report.put(\"inputFailureReported\", failed);\n        report.put(\"responseAfterFailure\", output.toString());\n        report.put(\"inputClosed\", closed[0]); report.put(\"writerClosed\", closed[1]);\n        System.out.println(new Gson().toJson(report));\n    }\n}\n'''\n(work / \"ApiProbe.java\").write_text(api_source)\nrun(\"api-compile\", [javac, \"--release\", \"21\", \"-cp\", str(jar), \"ApiProbe.java\"])\napi = json.loads(run(\"api-contracts\", [java, \"-cp\", os.pathsep.join([str(work), str(jar)]), \"ApiProbe\"]).stdout)\nassert api[\"missingDiagnostics\"] and api[\"ambiguousDiagnostics\"]\nassert api[\"missingLocations\"] == api[\"ambiguousLocations\"] == 0\nassert api[\"normalPhase\"] == \"serialize\" and api[\"inputFailureReported\"]\nassert not api[\"inputClosed\"] and not api[\"writerClosed\"]\nlate = json.loads(api[\"responseAfterFailure\"])\nassert late[\"id\"] == \"late\" and late[\"result\"][\"complete\"]\n\nsummary = {\"commands\": commands, \"listing\": {\"fileRows\": len(listing), \"stdinRows\": len(stdin_listing),\n           \"oneFileBundleIncludesDelimiter\": True, \"multiFilePaths\": sorted({x[\"file\"] for x in multi_listing})},\n           \"phases\": {\"cliCompleted\": normal[\"phase\"], \"cliSourceFileLimit\": limited[\"phase\"],\n                      \"batchCompleted\": responses[3][\"result\"][\"phase\"], \"batchSourceFileLimit\": responses[2][\"result\"][\"phase\"]},\n           \"nullVariables\": {\"ordinary\": ordinary_null, \"envelope\": envelope_null, \"pytutorNull\": True},\n           \"api\": api, \"jarSha256\": hashlib.sha256(jar.read_bytes()).hexdigest()}\n(audit / \"contract-probes.json\").write_text(json.dumps(summary, indent=2) + \"\\n\")\nprint(json.dumps({\"commandsPassed\": len(commands), \"work\": str(work), \"phases\": summary[\"phases\"]}, indent=2))\n",
+    "probe_listing_paths.py": "\"\"\"Verify the documented multi-file basename-fallback limitation.\"\"\"\n\nimport hashlib\nimport json\nimport subprocess\nfrom pathlib import Path\n\nroot = Path.cwd()\naudit = root / \"target/audit/next-pass\"\na = \"\"\"package a;\npublic class Main {\n    public static void main(String[] args) {\n        int value = 1;\n        System.out.println(value);\n    }\n}\n\"\"\"\nb = \"\"\"package b;\npublic class Main {\n\n\n    public static void helper() {\n        System.out.println(2);\n    }\n}\n\"\"\"\nrecords = []\nfor label, prefix in [(\"exact\", \"\"), (\"prefixed\", \"src/\")]:\n    source = f\"// --- {prefix}a/Main.java ---\\n{a}// --- {prefix}b/Main.java ---\\n{b}\"\n    command = [\"java\", \"-jar\", str(root / \"target/code-tracer.jar\"), \"list-breakpoints\", \"--json\"]\n    run = subprocess.run(command, cwd=audit, input=source, capture_output=True, text=True, timeout=60)\n    (audit / (\"listing-paths-\" + label + \".stdout\")).write_text(run.stdout)\n    (audit / (\"listing-paths-\" + label + \".stderr\")).write_text(run.stderr)\n    assert run.returncode == 0, run.stderr\n    entries = json.loads(run.stdout)\n    lines = {path: [x[\"lineNumber\"] for x in entries if x[\"file\"] == path and x[\"validBreakpoint\"]]\n             for path in sorted({x[\"file\"] for x in entries})}\n    records.append({\"name\": label, \"argv\": command, \"exit\": run.returncode, \"source\": source,\n                    \"validLines\": lines})\nexact, prefixed = [list(x[\"validLines\"].values()) for x in records]\nassert exact[0] != exact[1]\nassert prefixed[0] == prefixed[1] and prefixed[1] != exact[1]\n(audit / \"listing-path-probes.json\").write_text(json.dumps({\"commands\": records,\n    \"jarSha256\": hashlib.sha256((root / \"target/code-tracer.jar\").read_bytes()).hexdigest(),\n    \"result\": \"Prefixed duplicate basenames reuse the first debug line table; package-relative logical paths select distinct correct tables.\"}, indent=2) + \"\\n\")\nprint(json.dumps({\"commandsPassed\": len(records), \"validLines\": [x[\"validLines\"] for x in records]}, indent=2))\n",
+    "probe_recipes.py": "\"\"\"Run the added budget recipes and immediate loop recovery checkpoint.\"\"\"\n\nimport json\nimport re\nimport shlex\nimport shutil\nimport subprocess\nimport sys\nimport tempfile\nfrom pathlib import Path\n\nroot = Path.cwd()\nsys.path.insert(0, str(root / \"scripts\"))\nfrom check_docs import block\n\naudit = root / \"target/audit/next-pass\"\nwork = Path(tempfile.mkdtemp(prefix=\"recipe-probes-\", dir=audit))\nshutil.copyfile(root / \"target/code-tracer.jar\", work / \"code-tracer.jar\")\nguide = (root / \"docs/guides/tracing.md\").read_text()\nloop = (root / \"docs/tutorials/trace-a-loop.md\").read_text()\n(work / \"SnapshotDemo.java\").write_text(block(guide, \"recipe-snapshots-source\"))\n(work / \"Loop.java\").write_text(block(loop, \"loop-source\"))\nrecords = []\n\n\ndef run(name, command, expected=0):\n    args = shlex.split(command)\n    filename = None\n    if \">\" in args:\n        i = args.index(\">\")\n        filename = work / args[i+1]\n        args = args[:i]\n    p = subprocess.run(args, cwd=work, capture_output=True, text=True, timeout=60)\n    (audit / (name + \".stdout\")).write_text(p.stdout)\n    (audit / (name + \".stderr\")).write_text(p.stderr)\n    if filename:\n        filename.write_text(p.stdout)\n    assert p.returncode == expected, (name, p.returncode, p.stderr)\n    records.append({\"name\": name, \"command\": command, \"exit\": p.returncode,\n                    \"stdoutBytes\": len(p.stdout.encode()), \"stderr\": p.stderr})\n    return p\n\n\ncommands = re.findall(r\"^java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern (?:--max-snapshots 20000|--unlimited) > (?:raised-limit|unlimited-trace).json$\", guide, re.M)\nassert len(commands) == 2\nfor index, cmd in enumerate(commands):\n    data = json.loads(run(\"budget-recipe-\" + str(index), cmd).stdout)\n    assert data[\"steps\"] and data[\"steps\"][-1][\"stdout\"] == \"8\\n\"\nfor index, flags in enumerate([\"--unlimited --max-snapshots 1\", \"--max-snapshots 1 --unlimited\"]):\n    p = run(\"budget-explicit-precedence-\" + str(index),\n            \"java -jar code-tracer.jar trace -i SnapshotDemo.java --all-breakpoints --format modern \" + flags, 3)\n    assert not p.stdout\nlocations = json.loads(run(\"loop-checkpoint\", block(loop, \"loop-locations\")).stdout)\nassert locations and next(x for x in locations if x[\"lineNumber\"] == 4)[\"validBreakpoint\"]\n(work / \"Loop.java\").unlink()\np = run(\"loop-missing-input\", block(loop, \"loop-locations\"), 1)\nassert not p.stdout and (work / \"locations.json\").stat().st_size == 0\n(audit / \"recipe-probes.json\").write_text(json.dumps({\"commands\": records,\n    \"sourceInputs\": {\"SnapshotDemo.java\": block(guide, \"recipe-snapshots-source\"),\n                     \"Loop.java\": block(loop, \"loop-source\")},\n    \"nativeWindows\": \"Static review only\"}, indent=2) + \"\\n\")\nprint(json.dumps({\"commandsPassed\": len(records), \"work\": str(work)}, indent=2))\n"
+  },
+  "reviews": [
+    "Independent modern/null review corrected the zero-line rule to an empty callStack.",
+    "Independent CLI review identified ambiguous basename fallback; reference qualified and paired executable probes confirmed it.",
+    "Independent batch/counter/phase and Java discovery/I/O reviews found no other actionable factual errors.",
+    "Final independent review of all four implementation commits through 5796651 and report/changelog wording found no new actionable factual issues; separately recomputed 11 closures, 62/7/61 totals and 68 residual findings."
+  ],
+  "overview_package_review": "Overview and relevant package summaries remain accurate without edits; no ownership/interface/usage behavior changed.",
+  "limits": [
+    "New native Windows prose received static review only; no fresh local Windows/JDK 21 execution.",
+    "No fresh CodeQL scan or runtime defect repair is claimed.",
+    "Published snapshots, hooks, CI workflows and release gates unchanged.",
+    "The runtime exception-recognition plan remains an unimplemented proposal."
+  ],
+  "environment": {
+    "java": "openjdk 25.0.4.1 2026-08-18\nOpenJDK Runtime Environment Homebrew (build 25.0.4.1)\nOpenJDK 64-Bit Server VM Homebrew (build 25.0.4.1, mixed mode, sharing)",
+    "platform": "Darwin arm64"
+  }
+}

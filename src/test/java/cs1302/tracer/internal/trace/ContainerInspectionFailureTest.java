@@ -21,6 +21,11 @@ class ContainerInspectionFailureTest {
     }
 
     private static ObjectReference container(String kind, Exception failure) {
+        return container(kind, failure, List.of());
+    }
+
+    private static ObjectReference container(String kind, Exception failure,
+            List<com.sun.jdi.request.ExceptionRequest> requests) {
         var contract = mirror(InterfaceType.class, Map.of());
         var name = "java.util.Test" + kind;
         var type = mirror(ClassType.class, Map.of("name", name, "signature", "L" + name.replace('.', '/') + ";",
@@ -28,10 +33,43 @@ class ContainerInspectionFailureTest {
                 "isEnum", false));
         var vm = (VirtualMachine) Proxy.newProxyInstance(VirtualMachine.class.getClassLoader(),
                 new Class<?>[] { VirtualMachine.class }, (self, method, args) ->
-                        method.getName().equals("classesByName") && args[0].equals("java.util." + kind)
+                        method.getName().equals("eventRequestManager")
+                                ? mirror(com.sun.jdi.request.EventRequestManager.class,
+                                        Map.of("exceptionRequests", requests, "breakpointRequests", List.of(),
+                                                "methodExitRequests", List.of()))
+                                : method.getName().equals("classesByName") && args[0].equals("java.util." + kind)
                                 ? List.of(contract) : List.of());
-        return mirror(ObjectReference.class, Map.of("uniqueID", 1L, "referenceType", type, "type", type,
-                "virtualMachine", vm, "invokeMethod", failure));
+        var attributes = new java.util.HashMap<String, Object>(Map.of("uniqueID", 1L, "referenceType", type,
+                "type", type, "virtualMachine", vm));
+        if (failure != null) attributes.put("invokeMethod", failure);
+        return mirror(ObjectReference.class, attributes);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "throws", "disconnect"})
+    void collectionInvocationRestoresOnlyPreviouslyEnabledExceptionRequests(String mode) {
+        var calls = new java.util.ArrayList<String>();
+        var requestType = com.sun.jdi.request.ExceptionRequest.class;
+        var enabled = (com.sun.jdi.request.ExceptionRequest) Proxy.newProxyInstance(requestType.getClassLoader(),
+                new Class<?>[] {requestType}, (self, method, args) -> {
+                    if (method.getName().equals("isEnabled")) return true;
+                    calls.add(method.getName());
+                    return null;
+                });
+        var disabled = (com.sun.jdi.request.ExceptionRequest) Proxy.newProxyInstance(requestType.getClassLoader(),
+                new Class<?>[] {requestType}, (self, method, args) -> {
+                    assertThat(method.getName()).isEqualTo("isEnabled");
+                    return false;
+                });
+        Exception failure = switch (mode) {
+            case "throws" -> new InvocationException(mirror(ObjectReference.class, Map.of()));
+            case "disconnect" -> new VMDisconnectedException();
+            default -> null;
+        };
+        var object = container("Collection", failure, List.of(enabled, disabled));
+        if (mode.equals("disconnect")) assertThatThrownBy(() -> inspect(object)).isSameAs(failure);
+        else assertThat(inspect(object)).isEqualTo(new TraceValue.Object("java.util.TestCollection", List.of()));
+        assertThat(calls).containsExactly("disable", "enable");
     }
 
     @ParameterizedTest

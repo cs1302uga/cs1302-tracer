@@ -16,7 +16,8 @@ public enum InspectionPolicy {
 
     /**
      * Uses specialized collection, map, wrapper, and stream inspection that can invoke guest methods.
-     * Such calls can mutate guest state or block; finite tracing budgets are recommended.
+     * Such calls can mutate state or block; collection accessors pause input observation. Use finite budgets.
+     * Supported {@code java.time} value objects expose selected stored components without guest calls.
      * Source preparation may resolve supporting source or binary type information under the
      * calling entry point's discovery policy.
      */

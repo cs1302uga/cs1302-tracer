@@ -1,0 +1,125 @@
+# Contract for a separate Linux submission runner
+
+Status: integration requirements for a future runner. This repository does not
+implement or validate a malicious-code isolation backend. For why the tracer itself
+cannot contain submitted code, see
+[why the tracer is not a sandbox](explanation/trust-model.md).
+
+Trusted instructor examples may use Tracer directly on supported desktop/server
+platforms. Treat hosted student submissions as malicious by default. Isolate the
+whole job, including source parsing and compilation, on Linux before starting
+Tracer. Tracing limits and `FIELDS` inspection are useful controls inside that
+boundary; they are not the boundary itself.
+
+## Backend responsibilities
+
+Both a disposable container/VM backend and direct Linux execution must provide:
+
+1. A private, disposable workspace with no concurrent writers during source
+   preparation. Validate file destinations and avoid shared writable mounts.
+2. A nonprivileged execution identity, a minimal environment without secrets, and
+   access only to required runtime files, submitted sources, and approved binary dependencies. Do not expose
+   host credentials, application state, container-management sockets, or other jobs.
+   "Minimal" still includes Tracer's runtime: a full stable JDK 21 or later with
+   `java`, `javac`, and the `jdk.jdi` module. For CLI `trace` and `batch-trace`
+   jobs, set `JAVA_HOME` to that JDK, or leave `JAVA_HOME` unset or empty and put
+   that JDK's `bin` directory first on `PATH`, and run Tracer with that JDK's
+   `java`. Otherwise every CLI job fails the
+   [JDK environment preflight](reference/cli.md#jdk-environment-preflight) with exit
+   status 1 and no envelope. Java API callers skip that preflight; the embedding
+   JVM itself must be the full JDK, because compilation and guest launch use its
+   `jdk.compiler`, `jdk.jdi`, and `java.home`.
+3. Enforced CPU, memory, process/thread, disk, and output/artifact limits for the
+   entire job and its descendants: the tracer JVM, which parses and compiles
+   source in-process; the guest JVM launched through JDI; and the CLI's short-lived
+   Java/compiler version-probe processes.
+4. A whole-job deadline independent of Tracer's threads and guest debugger state.
+   Bound queue time, input transport, compilation, execution, and result handling
+   according to the service's lifecycle policy.
+5. Filesystem and network restrictions appropriate to student code, including
+   restrictions on communication with the host, other jobs, and control services.
+   Permit necessary intra-job JDI transport without exposing debugger endpoints
+   outside the containment unit. JDI uses a loopback TCP connection: while
+   launching each guest, Tracer listens on `127.0.0.1` at an ephemeral port and
+   the guest JVM connects to `localhost` on that port. The job's network
+   namespace needs loopback up and `localhost` resolving to `127.0.0.1`. Give
+   each job its own network namespace, because any process that shares the
+   loopback interface can connect to the listener while a guest launches.
+6. Reliable termination of the entire containment unit on timeout, cancellation,
+   crash, disconnect, or service shutdown, followed by workspace/artifact cleanup.
+   Killing only the tracer PID can leave its guest JVM running after reparenting.
+   Terminate the enforced containment unit, such as the job's cgroup, container,
+   or VM, and verify that no job descendants remain before releasing the workspace.
+   Process-group teardown is sufficient only when the backend prevents descendants
+   from escaping into another group or session. Tracer writes prepared sources
+   and compiled classes, and optional dependency copies, under temporary
+   directories in the tracer JVM's `java.io.tmpdir`; a killed job leaves them
+   behind. The guest JVM does not inherit a tracer `-Djava.io.tmpdir` setting, so
+   guest temporary files use the platform default. Give each job a private
+   temporary filesystem (for example, a private `/tmp` mount on Linux) and
+   remove it with the workspace.
+7. Resource admission control so many individually bounded jobs cannot exhaust
+   the server. Enforce per-user and service-wide concurrency/queue budgets.
+
+A direct backend needs an independently reviewed OS-enforced sandbox satisfying
+these requirements. Running an ordinary Java process under the web server's
+account is not a supported alternative. Container/VM deployment also requires
+correct configuration; its name alone is not evidence of isolation.
+
+## Job interface
+
+- Accept a bounded UTF-8 source bundle and an allowlisted configuration. Students
+  must not select arbitrary CLI flags, host source roots or binary dependency paths, executables, environment
+  variables, mounts, or output locations.
+- Run one disposable Tracer process per job. Prefer `--result-envelope`, `FIELDS`,
+  and explicit finite values for all limits described in
+  [bounded tracing](BOUNDED_TRACING.md). The same rule applies to every
+  integration mode:
+  - **CLI `trace`:** start one Tracer process per job, as above.
+  - **`batch-trace`:** use one disposable batch process per untrusted job rather
+    than a long-lived shared stream. Its results are always version 1 envelopes,
+    and the CLI flags above do not apply. Set `"inspection": "FIELDS"` and finite
+    values for every [request limit](reference/batch.md#request-limits) in each
+    request: omitted limits are unlimited and inspection defaults to `TRUSTED`.
+  - **Java API:** `Tracer.trace` parses, compiles, and launches the guest from the
+    calling JVM. Call it from a disposable per-job JVM inside the containment unit,
+    with `InspectionPolicy.FIELDS` and explicit finite `TraceLimits`, and treat
+    `TraceOutcome.json()` as untrusted output. See the
+    [Java integration reference](reference/java-api.md#trace-a-submitted-program).
+- Mount/provide submitted sources and only service-approved binary directories/JARs.
+  Class-path paths and globs are interpreted on the tracer's filesystem; manifests
+  and opt-in link following can reference other locations. The runner must bound
+  their filesystem access and staged/captured sizes through its containment policy.
+  Source-byte/file limits do not account for binary dependencies or copied resource
+  trees. Stage input fully before launching Tracer; do not leave unbounded source
+  streams open. Dependency copying is a lifecycle option, not an isolation boundary.
+- Keep runner status and artifacts outside the writable guest containment unit.
+  Since Tracer and guest execute within the same job boundary, treat the entire
+  job's stdout and result JSON as untrusted data, not an attestation of success.
+- Bound result size while reading, validate JSON/schema/version, and sanitize
+  source/output text in downstream visualizers. Do not interpret result text as
+  HTML, shell commands, paths, or runner instructions.
+- Record the runner's own exit/termination cause. It takes precedence over any
+  claimed Tracer completion status.
+
+## Result handling
+
+A normally returned v1 envelope may contain a partial trace with an explicit stop
+reason. Preserve it when valid and permitted by the service's artifact policy.
+
+If the job is killed, runs out of memory, produces invalid/truncated JSON, or loses
+its connection, the runner must create its own failure record. Do not fabricate a
+successful Tracer envelope or promise a partial trace when no valid artifact exists.
+Use separate runner reason codes, such as `runner_deadline` or
+`runner_memory_limit`, rather than attributing unobserved reasons to Tracer.
+
+## Backend acceptance gate
+
+Before enabling student submissions, demonstrate that both supported backends
+contain attempts to access host/other-job files, use forbidden networking, create
+unbounded processes/threads, exhaust memory/disk/output, and survive cancellation
+or runner restart without leaving processes or workspaces behind. Run concurrency
+and teardown tests. Review the boundary independently of trace-format tests.
+
+The runner's implementation, deployment settings, and isolation test suite belong
+to the follow-up project. No hosted isolation claim is made by this Tracer release.

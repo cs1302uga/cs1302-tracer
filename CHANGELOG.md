@@ -40,6 +40,34 @@ requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
+- **Release preparation:** select `4.3.0` for the compatible date/time inspection
+  feature and collection fixes, with `4.3.1-SNAPSHOT` as the following development
+  version. Prepare matching documentation for review while preserving published
+  snapshots. The signed stable and next-development transitions and publication
+  occur only after this preparation reaches `main`.
+
+- **Set inspection:** verify interface-based capture across JDK and custom sets,
+  including unmodifiable views with distinct wrapper identities and live backing
+  membership. Preserve modern arrays, Python Tutor `SET`, element order, nulls,
+  and shared references. A null `toArray()` result now uses the same object
+  fallback as a guest exception, for lists and other collections as well as sets.
+  Collection accessor exceptions can now reach that fallback without blocking
+  on the tracer's own breakpoint, method-exit, or exception requests; normal source capture
+  and program exception observation resume after the call.
+  Input observation is paused during collection accessor calls: input consumed
+  there can be absent from the logical cursor, even after later observed reads.
+  Reader observation resumes when the accessor finishes.
+  Field-only and multithread capture retain raw fields. No Java API, CLI,
+  JSON/batch schema, or runtime requirement changes.
+
+- **Date/time inspection:** expose stored components of core `java.time` values,
+  including `Duration`, under trusted inspection without invoking their methods.
+  Preserve guest identity, primitive types, and both existing JSON object formats.
+  Unknown layouts retain opaque fallback; field-only and multithread inspection
+  retain raw fields. Previously opaque entries now have fields and can consume
+  additional heap/element budget. Java API signatures, CLI arguments, JSON/batch
+  schemas, and runtime requirements are unchanged.
+
 - **Shared-reference tutorial:** add a runnable lesson that follows two local
   references into one object, observes a field mutation, and distinguishes it
   from an earlier primitive copy. Executable documentation checks verify the
@@ -104,7 +132,6 @@ requirements, and JSON/batch schemas are unchanged.
   Java API signatures, CLI behavior, runtime requirements, and JSON/batch protocol
   are unchanged.
   Implementation: [5cdaf25](https://github.com/cs1302uga/cs1302-tracer/commit/5cdaf25ce0508692d90ca29e67c2cdad152631b8).
-  Implementation: [3812c43](https://github.com/cs1302uga/cs1302-tracer/commit/3812c43103eadc65af869c8b69f0ba20ee1a7fd2).
 - **Embedding lifecycle explanation:** explain how `Tracer` calls and
   `BatchTracer` processors own workers, guest JVMs, and caller streams, what
   guest reuse carries between jobs, what the tracing deadline covers, and how
@@ -163,6 +190,7 @@ requirements, and JSON/batch schemas are unchanged.
 - [`9ade6d7`](https://github.com/cs1302uga/cs1302-tracer/commit/9ade6d72aa9d4fac6dedb95e3fc345bf09f436d5) Add source bundle, batch request, and launcher references.
 - [`da3ba11`](https://github.com/cs1302uga/cs1302-tracer/commit/da3ba11acd5e5eef1f1b5f75fd6627243933fb62) Link the integrator references in the changelog.
 - [`5f4aa48`](https://github.com/cs1302uga/cs1302-tracer/commit/5f4aa486edfbeb51c7d3aba3d3c07db7d5630adf) Add Java recipes, a user glossary, and a visualizer guide.
+- [`9d31ff6`](https://github.com/cs1302uga/cs1302-tracer/commit/9d31ff6929580fa8d35dd855d9eb27e626668135) Link the recipes, glossary, and visualizer guide in the changelog.
 
 ## 4.2.1 — 2026-10-18
 
