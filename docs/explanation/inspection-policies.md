@@ -47,6 +47,14 @@ wrappers. Flushing lets buffered text, such as a prompt printed without a traili
 newline, appear in snapshots before a newline is printed. Examples 21, 29, and 30
 in the repository illustrate prompt flushing and wrapper representations.
 
+Sets, including `Collections.unmodifiableSet(...)`, use this collection path.
+An unmodifiable wrapper retains its own identity and delegates inspection to its
+backing collection; it does not make guest inspection side-effect-free. Captured
+elements retain the returned order, references, and nulls. A guest exception or
+null `toArray()` result falls back to raw fields for a program-defined object or
+an opaque object for a JDK class. See [set objects](../reference/output.md#set-objects)
+for view, ordering, and failure semantics.
+
 ## Guest calls become part of the traced execution
 
 A guest method call runs code inside the traced program at a moment the program did
@@ -63,6 +71,11 @@ mutate state or never return. For a student-written collection class, `TRUSTED`
 inspection runs the student's code at every snapshot that reaches such an object.
 Later snapshots, guest output, and the rest of the run can then reflect work the
 tracer caused rather than work the program performed.
+
+Collection `toArray()` inspection also pauses input observation. Input consumed
+by the accessor affects the guest but is omitted from the input cursor; later
+observed reads may leave the cursor behind. `FIELDS` avoids these accessor calls.
+See the [input-observation boundary](../reference/output.md#input-and-output-observations).
 
 A call that throws does not fail the snapshot. If a collection or map accessor
 throws, inspection falls back to the object's raw fields when the program defines
@@ -122,7 +135,14 @@ Those field names come from the JDK's class implementations. They vary by JDK, a
 results, Java outcomes, and batch results carry the diagnostic `FIELDS inspection uses raw fields for collections and wrappers; guest methods and stream flush are not invoked.`
 Diagnostic wording is not a stable identifier.
 
-The difference reaches beyond collections. `TRUSTED` shows other JDK platform
+The difference reaches beyond collections. `TRUSTED` exposes selected stored
+components of supported `java.time` value objects without invoking guest methods.
+Date/time components retain their references; zone-rule machinery and caches are
+omitted from these logical views. `FIELDS` keeps raw traversal instead. See the
+[date/time field reference](../reference/output.md#date-and-time-objects) for the
+supported types, layout fallback, and budget implications.
+
+`TRUSTED` shows other JDK platform
 objects, such as a `Scanner` or a `StringBuilder`, as entries with no fields; an
 enum constant keeps its name. `FIELDS` exposes and traverses their internal fields
 as well. Each inspected field counts toward the per-snapshot element budget, and

@@ -1,0 +1,20 @@
+{
+  "baseline_commit": "0235c0fe514acff09d8c208dcbeab203435582a4",
+  "diff_sha256": "78b34fc2a3327e63485e9e0a6ca33c5deff647d8f9cede9c44790de77d421387",
+  "tracked_files_changed": 21,
+  "java_files_changed": 19,
+  "non_comment_java_tokens_unchanged": true,
+  "all_original_candidates": 135,
+  "active_count": 130,
+  "priorities": {
+    "S4": 54,
+    "S2": 35,
+    "S3": 30,
+    "S1": 11
+  },
+  "javadoc_partial_remediations": 17,
+  "stable_ids_priorities_dispositions_original_evidence_preserved": true,
+  "local_report_links_and_anchors": "passed",
+  "upstream_hook_and_gate_files": "unchanged",
+  "staged_changes": false
+}

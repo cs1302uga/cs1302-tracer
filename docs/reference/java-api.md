@@ -31,7 +31,7 @@ states as its class contract:
 - `Tracer.discoverBreakpoints` compiles and inspects submitted classes without
   launching a guest.
 
-This documentation describes development version `4.2.2-SNAPSHOT`. Features marked 4.1.0 include
+These contracts apply to the `4.3.x` release line. Features marked 4.1.0 include
 `SourceBundle`, `TraceClassPath`, the builders, and the primitive binary metadata
 overload.
 

@@ -82,12 +82,12 @@ API. A `BatchTracer`, by contrast, owns workers and must be closed.
 
 For a maintained application, use the regular library artifact and let
 **Maven 3.10 or later** resolve its runtime dependencies. This example installs
-the library from the source checkout matching this development documentation;
+the library from a source checkout matching the version you want to use;
 it does not require access to the project's package registry. See
 [source installation](../guides/installation.md#build-from-source) to obtain the
 checkout. Use a full JDK 21 or later, as above.
 
-At the tracer repository root, install the development artifact and its POM into
+At the tracer repository root, install the artifact and its POM into
 your local Maven repository. In **Bash** on Linux or macOS:
 
 ```sh
@@ -101,7 +101,10 @@ In **PowerShell** or **Command Prompt** on Windows:
 ```
 
 This must finish with `BUILD SUCCESS` before continuing. It installs
-`cs1302uga:cs1302-tracer:4.2.2-SNAPSHOT` locally.
+`cs1302uga:cs1302-tracer` locally with the project version in the source checkout's
+`pom.xml`. Copy that exact version into the dependency below. The example uses
+`4.3.0-SNAPSHOT`; a stable `v4.3.0` checkout installs `4.3.0`, and later checkouts
+can have a different development version.
 
 Create a separate directory named `tracer-consumer`. Save the complete
 `TraceExample.java` from the first part of this lesson at
@@ -125,7 +128,7 @@ Create a separate directory named `tracer-consumer`. Save the complete
     <dependency>
       <groupId>cs1302uga</groupId>
       <artifactId>cs1302-tracer</artifactId>
-      <version>4.2.2-SNAPSHOT</version>
+      <version>4.3.0-SNAPSHOT</version>
     </dependency>
   </dependencies>
   <build>

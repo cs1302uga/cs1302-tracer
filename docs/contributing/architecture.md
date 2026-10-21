@@ -291,8 +291,23 @@ access remains in place for budgets and completed-snapshot admission. Guest laun
 event handling, suspension, and cleanup remain with execution. `TraceValue` contains
 captured host-owned values, without JDI inspection. Trusted inspection has specialized
 collection, map, wrapper, and lambda
-representations. Field-only inspection avoids those guest method calls and uses
-raw fields for ordinary objects. Arrays, strings, and `java.awt.Color` retain
+representations. Collection recognition follows interfaces, including inherited set
+interfaces. Capture preserves the inspected wrapper identity and the element array's
+order and references; a guest exception or null array uses the ordinary fallback
+for that object. Serializers consume the existing collection value without a new
+set-specific kind. During the synchronous collection accessor call, heap inspection
+temporarily disables enabled breakpoint, method-exit, and exception requests so source capture
+does not reenter the accessor and JDI can return its `InvocationException`
+without deadlocking on those requests. Reader observation is also paused: accessor
+reads consume guest input without updating the logical cursor, and later observed
+reads do not reliably reconstruct them. Heap inspection restores those requests in
+`finally`; initially disabled requests remain disabled. See the
+[input-observation boundary](../reference/output.md#input-and-output-observations).
+`JavaTimeInspection` selects validated stored component fields for
+recognized `java.time` value objects under trusted inspection, without guest calls.
+Heap inspection retains field conversion, budget accounting, and descendant admission;
+unknown layouts retain opaque platform-object fallback. Field-only inspection avoids
+those guest method calls and uses raw fields for ordinary objects. Arrays, strings, and `java.awt.Color` retain
 dedicated handling; field-only color inspection reads the stored color value
 without invoking a guest method.
 

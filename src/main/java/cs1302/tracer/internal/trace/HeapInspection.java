@@ -24,6 +24,8 @@ import com.sun.jdi.StringReference;
 import com.sun.jdi.ThreadReference;
 import com.sun.jdi.Value;
 import com.sun.jdi.VirtualMachine;
+import com.sun.jdi.request.EventRequest;
+import com.sun.jdi.request.EventRequestManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -177,6 +179,11 @@ final class HeapInspection {
         } // if
 
         if (this.isBuiltInType(or.referenceType().name())) {
+            Optional<java.util.List<Field>> timeFields = JavaTimeInspection.fields(or.referenceType());
+            if (timeFields.isPresent()) {
+                java.lang.String typeName = or.referenceType().name();
+                return new TraceValue.Object(typeName, this.extractSnapshotFields(or, typeName, timeFields.get()));
+            } // if
             ClassType enumDecl = this.resolveEnumDeclaringType(or);
             Optional<java.lang.String> enumConstant = Optional.ofNullable(this.extractEnumConstantName(or, enumDecl));
             return new TraceValue.Object(or.referenceType().name(), java.util.List.of(), enumConstant);
@@ -272,7 +279,7 @@ final class HeapInspection {
      * @param colTypeName The container's reified type name.
      */
     private void propagateContainerElements(ArrayReference ar, java.lang.String colTypeName) {
-        if (!colTypeName.contains("<") || ar == null || this.astTypeResolver == null) {
+        if (!colTypeName.contains("<") || this.astTypeResolver == null) {
             return;
         } // if
         java.util.List<java.lang.String> typeArgs = AstTypeResolver.extractTypeArguments(colTypeName);
@@ -299,7 +306,10 @@ final class HeapInspection {
         try {
             VirtualMachine vm = or.virtualMachine();
             Method toArray = ct.concreteMethodByName("toArray", "()[Ljava/lang/Object;");
-            ArrayReference ar = (ArrayReference) or.invokeMethod(this.mainThread, toArray, java.util.List.of(), 0);
+            ArrayReference ar = invokeCollectionArray(or, toArray);
+            if (ar == null) {
+                return Optional.empty();
+            } // if
             boolean isList = !Collections.disjoint(ct.allInterfaces(), vm.classesByName("java.util.List"));
             java.lang.String colTypeName = or.referenceType().name();
             if (this.metadata.typeOf(or.uniqueID()) != null) {
@@ -317,6 +327,36 @@ final class HeapInspection {
             throw new IllegalArgumentException("Expected thread to be suspended", e);
         } // try
     } // handleCollection
+
+    /**
+     * Invokes a collection accessor with source, reader, and exception observation paused.
+     * JDI reports accessor exceptions through InvocationException; suspending events would deadlock
+     * the event consumer waiting for this call. Accessor reads consume input without advancing its
+     * logical cursor. Restore only requests that were enabled before inspection, even on failure.
+     *
+     * @param object Collection being inspected.
+     * @param method Zero-argument array accessor.
+     * @return Returned array, possibly null for an invalid implementation.
+     * @throws InvalidTypeException If invocation arguments are invalid.
+     * @throws ClassNotLoadedException If an argument type is unavailable.
+     * @throws IncompatibleThreadStateException If the event thread cannot invoke.
+     * @throws InvocationException If the guest accessor throws.
+     */
+    private ArrayReference invokeCollectionArray(ObjectReference object, Method method)
+            throws InvalidTypeException, ClassNotLoadedException, IncompatibleThreadStateException,
+            InvocationException {
+        EventRequestManager manager = object.virtualMachine().eventRequestManager();
+        java.util.List<EventRequest> candidates = new ArrayList<>(manager.exceptionRequests());
+        candidates.addAll(manager.breakpointRequests());
+        candidates.addAll(manager.methodExitRequests());
+        java.util.List<EventRequest> requests = candidates.stream().filter(EventRequest::isEnabled).toList();
+        requests.forEach(EventRequest::disable);
+        try {
+            return (ArrayReference) object.invokeMethod(this.mainThread, method, java.util.List.of(), 0);
+        } finally {
+            requests.forEach(EventRequest::enable);
+        } // try
+    } // invokeCollectionArray
 
     /**
      * Handles collections and maps conversion.
@@ -404,9 +444,22 @@ final class HeapInspection {
      */
     private java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(ObjectReference or,
             java.lang.String concreteType) {
-        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         java.util.List<Field> objectJdiFields = or.referenceType().allFields().stream().filter(f -> !f.isStatic())
                 .filter(f -> this.includeThreadField(or, f)).toList();
+        return this.extractSnapshotFields(or, concreteType, objectJdiFields);
+    } // extractSnapshotFields
+
+    /**
+     * Captures selected stored fields using the ordinary budget, type-evidence, and reference admission rules.
+     *
+     * @param or Guest object.
+     * @param concreteType Reconstructed runtime type.
+     * @param objectJdiFields Validated fields in presentation order.
+     * @return Detached captured fields.
+     */
+    private java.util.Collection<ExecutionSnapshot.Field> extractSnapshotFields(ObjectReference or,
+            java.lang.String concreteType, java.util.List<Field> objectJdiFields) {
+        java.util.Collection<ExecutionSnapshot.Field> objectSnapshotFields = new ArrayList<>();
         TraceSession.elements(objectJdiFields.size());
         for (Field objectField : objectJdiFields) {
             java.lang.String fieldTypeName = this.resolveFieldTypeName(objectField, concreteType);

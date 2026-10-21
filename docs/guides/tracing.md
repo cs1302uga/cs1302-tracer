@@ -460,3 +460,45 @@ and [runner contract](../RUNNER_CONTRACT.md) for those boundaries. The
 [CLI reference](../reference/cli.md) defines the flags; the
 [bounded tracing reference](../BOUNDED_TRACING.md#limits) gives budget rules and
 the ordinary defaults listed above its limits table.
+
+## Sets and unmodifiable views
+
+Trace the runnable set example after packaging:
+
+```sh
+java -jar target/code-tracer.jar trace -i examples/sets/Main.java --all-breakpoints --format modern
+```
+
+Use `--format pytutor` for Python Tutor output. The example keeps a mutable
+`LinkedHashSet` and an unmodifiable view. Adding through the backing reference
+changes the view's later captured elements; earlier snapshots remain unchanged.
+The view and its alias refer to one wrapper, separate from the backing set.
+Trusted inspection preserves the order returned by `toArray()`, including nulls.
+For raw storage, add `--result-envelope --inspection FIELDS`. See the
+[set output contract](../reference/output.md#set-objects) for ordering, identity,
+and failure behavior.
+
+## Date and time values
+
+After packaging the checkout, trace the date/time example from the repository root:
+
+```sh
+java -jar target/code-tracer.jar trace -i examples/java-time/Main.java --all-breakpoints --format modern
+```
+
+Use `--format pytutor` for Python Tutor output. The
+[example source](https://github.com/cs1302uga/cs1302-tracer/blob/main/examples/java-time/Main.java)
+constructs a leap-day date, a time with nanosecond precision, their combined
+`LocalDateTime`, and a `Duration` of negative one nanosecond. It adds two seconds
+to the duration while retaining a reference to the original object.
+
+Before the addition, `elapsed` and `original` refer to the same duration, whose
+fields are `seconds = -1` and `nanos = 999999999`. After the addition, `elapsed`
+refers to a different duration with `seconds = 1` and `nanos = 999999999`;
+`original` still refers to the unchanged object. The combined date-time's `date`
+and `time` fields retain their references to the component objects.
+
+Trusted inspection reads these stored components without calling guest methods.
+For raw field traversal, add `--result-envelope --inspection FIELDS`. See
+[date/time objects](../reference/output.md#date-and-time-objects) for supported
+types, component types, unknown-layout fallback, and budget accounting.

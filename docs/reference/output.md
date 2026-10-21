@@ -117,6 +117,13 @@ behind them; of the direct stream reads, only `System.in.read(byte[])` advances 
 operating-system read or every custom reader's buffering. Each job starts with a
 fresh cursor. See [input as a consumption cursor](../explanation/trace-model.md#input-is-a-consumption-cursor).
 
+Input observation is paused while trusted collection inspection invokes `toArray()`.
+Reads made by that accessor are not recorded, including calls to the supported
+reader methods above. They still consume guest input, so `stdinConsumed` and
+`stdinOffset` can lag behind. Later observed reads do not reliably reconstruct the
+skipped reads, especially when input values repeat. Reader observation resumes
+after the accessor finishes. `FIELDS` avoids these collection accessor calls.
+
 Snapshot `stdout` and `stderr` contain cumulative captured output. Chronological
 snapshots record progress; after execution, the final snapshot receives trailing
 output when budgets permit. Selected-breakpoint output refreshes earlier locations
@@ -388,6 +395,95 @@ strings, and colors keep their dedicated representations. See
 [inspection policies](../BOUNDED_TRACING.md#inspection-policies) and the existing
 [primitive metadata contract](#optional-primitive-binary-metadata) for those
 separate choices; enabling metadata does not change the kind or original value.
+
+### Set objects
+
+Under `TRUSTED` inspection, objects implementing `java.util.Set` use the existing
+collection representation: modern `kind: "array"` with the captured concrete
+type and `elements`, or Python Tutor `SET`. Recognition follows implemented
+interfaces, including inherited interfaces and classes loaded from binary
+dependencies. Lists still use Python Tutor `LIST`; other non-list collections
+retain their existing `SET` representation.
+
+Capture invokes the zero-argument `toArray()` and preserves its returned order,
+nulls, and element references. It neither sorts nor deduplicates the result.
+An unordered set's displayed positions do not imply a stable iteration order.
+Generic type evidence and type-style formatting follow the usual type rules.
+
+This includes `Collections.unmodifiableSet(...)` objects, whose binary runtime
+class is `java.util.Collections$UnmodifiableSet`. The wrapper retains its own
+identity and type; capture does not substitute its backing set. Changes through
+the backing set appear in later snapshots, while retained snapshots preserve
+their captured membership and element state. Unmodifiable does not mean immutable.
+The inherited `toArray()` delegates to the backing collection and can execute
+custom guest code. Checked, synchronized, sorted, navigable, and map-backed views
+likewise use the collection path; inspection supplies no additional atomicity
+guarantee for concurrent collections.
+
+If `toArray()` throws a guest exception or incorrectly returns null, capture
+falls back to raw fields for a program-defined object or an opaque object for a
+JDK class. The fallback applies to the object being inspected: a failed
+unmodifiable wrapper remains an opaque wrapper. Debugger and budget failures
+retain their existing failure/stop behavior. This fallback also applies to lists
+and other collections.
+
+`FIELDS` and multithread capture use raw fields, including wrapper backing
+references, without calling `toArray()`. Element limits apply after the guest
+array has been returned; they do not bound its allocation. See the runnable
+[set example](https://github.com/cs1302uga/cs1302-tracer/blob/main/examples/sets/Main.java)
+and [inspection policies](../explanation/inspection-policies.md).
+
+### Date and time objects
+
+Under `TRUSTED` inspection, the following `java.time` objects expose selected
+stored components. Modern output uses ordinary `object` entries with typed
+fields; Python Tutor uses `INSTANCE` entries. No new heap kind or tuple tag is
+introduced, and inspection invokes no date/time guest methods.
+
+| Runtime type | Captured fields, in order |
+| --- | --- |
+| `LocalDate` | `year` (`int`), `month`, `day` (`short`) |
+| `LocalTime` | `hour`, `minute`, `second` (`byte`), `nano` (`int`) |
+| `LocalDateTime` | `date` → `LocalDate`, `time` → `LocalTime` |
+| `Duration`, `Instant` | `seconds` (`long`), `nanos` (`int`) |
+| `Period` | `years`, `months`, `days` (`int`) |
+| `Year` | `year` (`int`) |
+| `YearMonth` | `year`, `month` (`int`) |
+| `MonthDay` | `month`, `day` (`int`) |
+| `OffsetTime` | `time` → `LocalTime`, `offset` → `ZoneOffset` |
+| `OffsetDateTime` | `dateTime` → `LocalDateTime`, `offset` → `ZoneOffset` |
+| `ZonedDateTime` | `dateTime` → `LocalDateTime`, `offset` → `ZoneOffset`, `zone` → `ZoneId` |
+| `ZoneOffset` | `totalSeconds` (`int`) |
+| `ZoneRegion` (the JDK region-based `ZoneId` implementation) | `id` → `String` |
+
+Names above are in `java.time`. Runtime type labels remain concrete, so a
+region-based zone is labeled `java.time.ZoneRegion`, subject to `typeStyle`.
+`Month` and `DayOfWeek` retain their existing enum representation. `Clock`,
+formatters, chronology implementations, temporal strategies, and zone rules do
+not acquire specialized views.
+
+Components retain their stored Java types and final-field metadata. References
+retain guest identity, including shared date/time components and zone-ID strings.
+Equal but distinct objects remain distinct; aliases share one heap entry. String
+inlining and optional primitive binary metadata follow their existing rules.
+A `Duration` of negative one nanosecond has `seconds: -1` and `nanos: 999999999`.
+The tracer neither converts durations to floating-point seconds nor combines them
+into a potentially overflowing total-nanoseconds value. `Period` remains a
+calendar amount expressed in years, months, and days. A zoned date-time retains
+its stored local date-time, resolved offset, and zone ID without recalculating
+zone rules on the host.
+
+The recognized layouts are checked by field name, signature, and instance-field
+status before values are read. An unknown layout falls back to the existing
+opaque object entry, with no selected fields. This compatibility fallback does
+not suppress cancellation, budget exhaustion, or guest-disconnection failures.
+Selected fields and reached objects use the ordinary per-snapshot budgets;
+these previously opaque objects can now require more elements and heap entries.
+
+`FIELDS` inspection, including multithread capture, continues to traverse raw
+instance fields. It can expose additional implementation details such as zone
+rules and cached identifiers. See the [date/time recipe](../guides/tracing.md#date-and-time-values)
+for a runnable duration and date/time example.
 
 ### Opt-in thread capture
 
