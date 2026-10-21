@@ -27,6 +27,16 @@ batch jobs, and receive Python Tutor or modern JSON output.</p>
   {@code Tracer} or {@code BatchTracer}.</li>
 </ul>
 
+<p>Trusted inspection exposes selected stored components of supported {@code java.time} value objects,
+including dates, times, and durations, without invoking their methods. Field-only inspection retains raw
+instance fields; multithread capture always uses field-only inspection. Both JSON formats preserve
+object references and component primitive types.</p>
+
+<p>Trusted set inspection invokes {@code toArray()} and preserves the returned element order and references.
+Unmodifiable set views retain their wrapper identities and reflect backing changes in later snapshots.
+A guest exception or null array result uses the ordinary fallback for the inspected object.
+Field-only and multithread capture inspect raw storage without these collection calls.</p>
+
 <h2>Requirements and resource ownership</h2>
 <p>Use a full JDK 21 or later and the tracer's runtime dependencies. The regular library JAR
 requires those dependencies on the application class path. Submitted language features depend on the

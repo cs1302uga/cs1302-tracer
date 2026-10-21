@@ -17,7 +17,12 @@
  * queue, admitted identities, heap values, and JDI inspection. It borrows the snapshot's type evidence;
  * capture retains root ordering, source observations, input/output sampling, and completed-snapshot admission.
  * {@link cs1302.tracer.internal.trace.TraceValue} contains host-owned captured values, independently of JDI
- * conversion. Inspection preserves trusted invocation and field-only policies.</p>
+ * conversion. Inspection preserves trusted invocation and field-only policies. Trusted collection capture
+ * recognizes implemented interfaces, including set wrappers, preserves returned element order and identities,
+ * and falls back for the inspected object when its accessor throws a guest exception or returns null.
+ * {@link cs1302.tracer.internal.trace.JavaTimeInspection} selects validated stored components of supported
+ * {@code java.time} objects for trusted inspection without guest calls. Heap inspection retains their
+ * budget accounting and descendant admission; field-only inspection retains raw fields.</p>
  *
  * <p>Dedicated and persistent guest execution share capture and observation policies. Retained snapshots must remain
  * valid after guest completion or reuse, without depending on mutable buffers from later jobs.</p>

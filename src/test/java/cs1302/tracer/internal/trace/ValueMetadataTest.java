@@ -69,6 +69,10 @@ class ValueMetadataTest {
         var contract = mirror(InterfaceType.class, Map.of());
         var vm = (VirtualMachine) Proxy.newProxyInstance(VirtualMachine.class.getClassLoader(),
                 new Class<?>[] { VirtualMachine.class }, (self, method, args) -> {
+                    if (method.getName().equals("eventRequestManager"))
+                        return mirror(com.sun.jdi.request.EventRequestManager.class,
+                                Map.of("exceptionRequests", List.of(), "breakpointRequests", List.of(),
+                                        "methodExitRequests", List.of()));
                     if (!method.getName().equals("classesByName"))
                         return null;
                     return args[0].equals("java.util." + kind)
@@ -133,8 +137,8 @@ class ValueMetadataTest {
             assertThat(inspect(container("Map", empty), types)).isEqualTo(new TraceValue.Map(name, Map.of()));
         }
         var types = metadata(resolver, Map.of(1L, "Container<String>"));
-        assertThatThrownBy(() -> inspect(container("Collection", null), types))
-                .isInstanceOf(NullPointerException.class);
+        assertThat(inspect(container("Collection", null), types))
+                .isEqualTo(new TraceValue.Object("Container<String>", List.of()));
     }
 
     @Test

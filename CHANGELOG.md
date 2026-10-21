@@ -40,6 +40,25 @@ requirements, and JSON/batch schemas are unchanged.
 
 ### Non-breaking changes
 
+- **Set inspection:** verify interface-based capture across JDK and custom sets,
+  including unmodifiable views with distinct wrapper identities and live backing
+  membership. Preserve modern arrays, Python Tutor `SET`, element order, nulls,
+  and shared references. A null `toArray()` result now uses the same object
+  fallback as a guest exception, for lists and other collections as well as sets.
+  Collection accessor exceptions can now reach that fallback without blocking
+  on the tracer's own breakpoint, method-exit, or exception requests; normal source capture
+  and program exception observation resume after the call.
+  Field-only and multithread capture retain raw fields. No Java API, CLI,
+  JSON/batch schema, or runtime requirement changes.
+
+- **Date/time inspection:** expose stored components of core `java.time` values,
+  including `Duration`, under trusted inspection without invoking their methods.
+  Preserve guest identity, primitive types, and both existing JSON object formats.
+  Unknown layouts retain opaque fallback; field-only and multithread inspection
+  retain raw fields. Previously opaque entries now have fields and can consume
+  additional heap/element budget. Java API signatures, CLI arguments, JSON/batch
+  schemas, and runtime requirements are unchanged.
+
 - **Shared-reference tutorial:** add a runnable lesson that follows two local
   references into one object, observes a field mutation, and distinguishes it
   from an earlier primitive copy. Executable documentation checks verify the

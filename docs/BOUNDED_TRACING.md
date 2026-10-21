@@ -120,6 +120,16 @@ inspection. It can invoke guest methods (`toArray`, `entrySet`, entry accessors,
 primitive-wrapper getters, lazy enum `hashCode`, a color `getRGB` fallback, and
 `flush`). Overrides can mutate state or hang.
 The independent watchdog can terminate the guest even while such a call blocks.
+This includes set wrappers: an unmodifiable set's inherited `toArray()` can
+delegate to arbitrary backing code. Element limits apply after that call returns
+its array and cannot prevent the guest allocation. Guest exceptions and null
+array results use the inspected object's normal fallback; budget stops still
+discard the incomplete snapshot and preserve previously admitted snapshots.
+See [set objects](reference/output.md#set-objects).
+Trusted inspection also exposes selected stored components of supported
+[`java.time` values](reference/output.md#date-and-time-objects) without guest calls.
+Those fields and reached component objects use the ordinary element and heap
+budgets. Field-only inspection retains raw traversal for these objects.
 
 `FIELDS` avoids these method invocations. Objects, including collections and
 wrappers, are inspected through fields; arrays, strings, and colors retain dedicated
