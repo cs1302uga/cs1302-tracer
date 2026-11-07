@@ -44,6 +44,9 @@ are unchanged.
 
 ### Non-breaking changes
 
+- **Release validation:** exclude generated Maven Release Plugin state from
+  resource style checks while retaining authored-source checks.
+
 - **Release tooling:** publish the library, sources, Javadoc, and POM to Maven
   Central in addition to existing GitHub distributions. Retain signed bundles
   and deployment records for retry and cross-destination verification.
@@ -60,6 +63,7 @@ are unchanged.
 
 ### Commits
 
+- [`debc5ea`](https://github.com/cs1302uga/cs1302-tracer/commit/debc5eaa07097a8f3aee08d74d492179e273192c) Prepare 4.3.1 guides and record the approved versioning exception.
 - [`25138e1`](https://github.com/cs1302uga/cs1302-tracer/commit/25138e1d2d7f6df9d5e12edbd61aa98b4529246f) Link the Maven Central implementation in the changelog.
 - [`ff9cb9c`](https://github.com/cs1302uga/cs1302-tracer/commit/ff9cb9cdaa00c51f33e7778be23060c509a1d02e) Retain the 4.2.0 guide archive and finalize the 4.3.0 changelog.
 - [`7c9cd1a`](https://github.com/cs1302uga/cs1302-tracer/commit/7c9cd1a7f05834c7c1562cb1d03071de2922f120) Publish signed Maven Central artifacts alongside GitHub releases and migrate Maven coordinates.

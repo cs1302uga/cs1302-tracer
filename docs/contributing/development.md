@@ -518,3 +518,6 @@ settings and TLS certificate validation remain unchanged. Other contributors
 must run the local command themselves; Maven does not automatically load the
 checked-in mirror fragment. Reassess this workaround when upgrading Checkstyle;
 remove it once the resolved plugin graph no longer introduces the legacy repository.
+
+Checkstyle excludes the Maven Release Plugin's generated `release.properties`
+state file from resource checks; authored Java and properties files remain checked.

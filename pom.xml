@@ -953,6 +953,8 @@ git.dirty=${git.dirty}
           </execution>
         </executions>
         <configuration>
+          <!-- Maven Release Plugin state is generated, not an authored resource. -->
+          <resourceExcludes>release.properties</resourceExcludes>
           <logViolationsToConsole>true</logViolationsToConsole>
           <failOnViolation>true</failOnViolation>
           <configLocation>${project.basedir}/src/main/resources/cs1302_checks_extended.xml</configLocation>
