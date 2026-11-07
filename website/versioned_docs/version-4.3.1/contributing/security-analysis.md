@@ -1,0 +1,146 @@
+# Security analysis
+
+**CodeQL** findings are reviewed against the tracer's local CLI and library contracts.
+The tracer runs submitted Java code; it is not an isolation boundary. Hosting it for
+untrusted users requires the controls in the [runner contract](../RUNNER_CONTRACT.md).
+
+## Regression coverage
+
+The earlier security review identified three failures and added regression coverage:
+
+- Source delimiter matching used overlapping regex quantifiers. A malformed line
+  with a long tab sequence caused quadratic work. `SourceDelimiters.scan` now scans
+  lines from their two ends and supplies both parsing and source-file counting.
+  Tests compare accepted syntax and offsets with the previous recognizer and count
+  character reads on adversarial inputs, without depending on machine speed.
+  The internal `CompilationHelper.DELIMITER_PATTERN` remains as a deprecated
+  compatibility matcher with possessive whitespace/marker quantifiers; the same
+  tests cover it.
+- Embedded quotes in a guest classpath broke JDI's argument tokenization.
+  `GuestLauncher` selects a quote character absent from the literal paths and
+  configures JDI to use it. Standalone traces and the persistent harness use the
+  same launcher. An integration test relocates compiled classes into a directory
+  with spaces, quotes, and a conflicting quote delimiter.
+- Python Tutor element-type sampling recursively followed heap references.
+  Internally supplied snapshots with long or cyclic reference chains could overflow
+  the stack. The walk is now iterative and tracks visited references. Tests cover
+  10,000 references and a cycle. Captured guest object links normally use references
+  to concrete heap values, so this also hardens internal snapshot conversion.
+
+`HeapInspection` owns the private heap traversal queue through composition rather
+than inheriting `LinkedList`'s cloning contract. Tests cross its inspection interface
+to check FIFO traversal, aliases and cycles, deduplication after dequeue, and budget
+failure without publishing a partial snapshot. `TraceValue` holds captured values
+without JDI inspection. Legacy batch dispatch explicitly requires its prepared
+persistent session. Unused private parameters and redundant boxing were removed.
+
+## Binary dependency boundaries
+
+`TraceClassPath`, the CLI class-path options, and per-job batch selections
+intentionally allow caller-selected local binary directories and JARs. Preparation
+follows available local manifest references relative to their original JARs; these
+references can name paths outside a selected root. Opt-in symbolic-link following
+can also reach outside targets. Hosted callers must control those paths under the
+runner contract; glob roots and copying do not establish filesystem confinement.
+
+Guest compilation explicitly disables annotation processing and uses an empty
+processor path. Dependency bytecode supplies type evidence without loading its
+classes into the host tracer. Compiler and guest lookup use the prepared order;
+copied JAR manifests cannot silently reopen original dependencies. Runtime JAR
+verification, package sealing, and multi-release selection remain active.
+
+Regression tests cover copied manifest closures after original files disappear,
+signed and tampered JARs, sealing, resource and service lookup, and consecutive
+jobs using different dependencies. Resource URL construction escapes literal `!`
+characters in archive paths without changing their code-source identity. Cleanup
+tests verify that cleanup attempts every owned reader and that later close failures do
+not hide the original failure. Source budgets still exclude binary dependencies;
+whole-job isolation and preparation limits belong to the runner.
+
+## Nesting boundaries
+
+Representation safety checks apply even when resource budgets are unlimited:
+
+- Inline `TraceValue` paths may contain at most 32 values, including the root and
+  leaf. The validator checks heap entries, static fields, event-stack locals, and
+  every captured thread's locals before snapshot byte accounting or conversion.
+  It uses identity tracking, so mutable inline cycles fail without calling record
+  `hashCode`, while aliases and cyclic guest heap references remain valid. Cached
+  subtree heights keep shared inline graphs from expanding during validation.
+- Batch JSON permits at most 64 simultaneously open arrays and objects. A streaming
+  pass checks unknown properties too, before Gson constructs the request. Rejection
+  produces `json_nesting_limit` in phase `parse`, with a null correlation ID because
+  request decoding did not complete. Following jobs continue normally.
+- Type AST paths may contain at most 384 nodes, with at most 66 non-array
+  nodes on a path. The separate ceiling permits legal array dimensions while
+  bounding recursive generic-type printing. Type fragments passed to substitution are checked before parsing: at most 64 open delimiters and 384 dots.
+  The fragment check is conservative, including annotation text; it is not a lexer
+  or a source-file nesting validator. Replacement bindings and the resulting AST
+  are checked as well.
+- Concrete invocation-type inference uses a separate 384-node traversal budget,
+  shared across array components, generic arguments, and caller substitutions.
+  Binding text and its parsed AST pass the existing type checks before conversion.
+  Excessive inference depth leaves the method type unresolved instead of
+  overflowing the host stack; legal 255-dimensional arrays remain supported.
+
+Internal snapshot/type utilities throw `NestingException` with
+`value_nesting_limit`, `inline_value_cycle`, or `type_nesting_limit`. The supported
+`Tracer.trace` API reports job failures through `TraceOutcome` and its stop reason
+and diagnostics; consumers should not depend on internal exception classes.
+`Tracer.discoverBreakpoints` reports preparation failures through
+`BreakpointDiscovery.diagnostics`. Session snapshot rejection stops the job with
+that reason and retains only previously committed snapshots. These are
+fixed representation ceilings, not additional configurable `TraceLimits` fields.
+Callers must not mutate snapshots during validation or serialization. The shared
+Gson accessor is not a general-purpose validator for arbitrary caller-built models.
+
+Regression tests exercise boundary depths, 10,000-level invalid inputs, cycle and
+alias handling, batch recovery, and a disposable JVM with a 512 KiB stack. These
+checks do not guarantee operation with arbitrarily small JVM stacks or constrain
+all recursion in JavaParser, its symbol solver, or javac. Hosted source parsing and
+compilation still belong in the disposable whole-job process described by the
+runner contract; a persistent guest JVM does not isolate those host operations.
+
+## Reviewed alerts
+
+These dispositions apply to the current local CLI contract, not to every possible
+service wrapping the tracer. Revisit them if input ownership or execution changes.
+
+| Alert | Disposition and evidence |
+|---|---|
+| User-selected file paths | Source inputs, stdin files, source-bundle files, and binary class-path entries intentionally read caller-selected paths. Adjacent source discovery, local manifest references, and optional link following are documented. Hosted access must be constrained by the runner. This is distinct from streamed source destinations, which reject escaping or duplicate paths. |
+| JDI command concatenation | JDI requires an options string. The shared launcher quotes the classpath using its configured tokenizer; it does not invoke a shell. A structural concatenation alert can remain even though the quoted-path regression passes. |
+| Recursive serializers | Inline value conversion and reference-chain sampling use iterative traversal. Snapshot accounting and both serializer entry points reject inline identity cycles and paths longer than 32 values before reaching Gson. Heap references remain leaves; shared inline values on separate paths are allowed. |
+| Recursive type traversal | AST type resolution and substitution use child-before-parent work lists; concrete invocation-type inference uses bounded recursion with a shared 384-node budget. AST depth and type-fragment checks precede recursive JavaParser helpers. Tests retain 255 array dimensions and 32 nested generic levels. Full source parsing, symbol resolution, and compilation still require runner resource isolation. |
+| Int/long byte comparison | Java widens the retained-buffer size for comparison with the expected count. A simulated `Integer.MAX_VALUE + 1` target verifies that no narrowing makes the wait end early. EOF, cancellation, and timeout bound the wait. This does not promise support for multi-gigabyte in-memory trace buffers. |
+| Ignored queue offer result | The worker pool is an unbounded `LinkedBlockingQueue`, populated with non-null workers. Normal queue-capacity rejection does not apply. |
+| Unused pattern bindings | Java 21 type patterns require a binding without enabling preview syntax. These bindings are retained when the branch only needs the matched type. |
+
+## Repeating the scan
+
+For a whole-repository scan, create fresh Java, Python, and JavaScript databases;
+trace compilation of production Java sources and extract current tooling and
+workflow sources for the interpreted languages. Use explicit suites containing
+official security-and-quality and security-experimental queries, installed GitHub
+Security Lab queries for each language, and installed Trail of Bits Java queries.
+Verify pack availability and versions for each run; the exact selections from the
+October 2026 audit are recorded in [its report](../reviews/current-repository-audit.md). Enable local input sources
+alongside the default remote sources. Retain the Picocli annotation and JDI launch
+models with the scan artifacts and validate that the models match actual source
+and sink locations.
+Include public source-bundle and binary dependency selection APIs in that review.
+Validate model loading and traversal propagation with explicit diagnostics; if
+filesystem visitor callbacks require a flow summary, retain the baseline and
+modeled results. A traversal summary does not sanitize a path or establish that
+every manifest, copy, and loader path has been analyzed.
+
+Keep generated databases, logs, reproducers, and SARIF in an ignored analysis
+directory. The October 2026 audit used `static_analysis_codeql_2/` at the repository
+root; earlier runs used `target/`. **Maven** `clean` deletes `target/`, so preserve any
+needed evidence there before cleaning. Verify database extraction and nonempty suite resolution
+before interpreting results. Preserve raw SARIF, label Community debugging records
+separately, and compare findings by rule and location rather than only total count.
+
+Run the repository's strict coverage profile, compatibility fixtures, documentation
+checks, and **JDK 21** integration tests after repairs. A remaining alert needs a
+reviewed explanation; reducing alert counts is not itself evidence of correctness.

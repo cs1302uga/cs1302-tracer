@@ -1,0 +1,607 @@
+{
+  "metadata": {
+    "generated_at": "2026-10-18T12:40:57.348161+00:00",
+    "baseline_commit": "0235c0fe514acff09d8c208dcbeab203435582a4",
+    "inventory_file": "target/audit/diataxis-audit-findings.json",
+    "inventory_sha256": "6ea959d9ca42d449ab8bce587e143d7ba38571ad25219b3c4f016189e660870f",
+    "existing_candidates": 135,
+    "existing_active": 130,
+    "materially_affected_existing_findings": 17,
+    "fully_resolved_existing_findings": 0,
+    "priorities_dispositions_unchanged": true,
+    "javadoc_only_corrections": 1,
+    "scope": "Read-only tracked-source impact review; only finding-impact.json/.md written. No builds/tests/guest/network/staging/commits. Root owns validation.",
+    "publication": "Working-tree Javadoc source corrections; publication is not asserted.",
+    "evidence_policy": "Preserve prepass artifact and original evidence; current_refs is a separate overlay, not a silent citation rewrite.",
+    "authorization": "Javadoc comment/overview/package edits approved. Runtime changes, annotation help changes and generated help regeneration require their own authorized scope."
+  },
+  "findings": [
+    {
+      "id": "F18-2",
+      "dx_id": "DX-057",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "TraceRequest now defines LINE, FILE:LINE, -1, comma-separated entries, ignored blanks, debug paths and malformed-text failure timing.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:25",
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:32",
+        "src/main/java/cs1302/tracer/api/BreakpointLocation.java:12"
+      ],
+      "residual_action": "The Markdown Java reference still needs this syntax or a direct member-level Javadoc link.",
+      "revised_title": "Java guide omits breakpoint syntax now documented in request Javadoc",
+      "revised_problem": "TraceRequest Javadoc now defines accepted syntax and late tracer_error outcomes. The Markdown Java reference still uses breakpoint specifications without defining or directly linking the syntax.",
+      "revised_fix": "Add a concise syntax summary and direct TraceRequest/BreakpointLocation links to the existing Java reference; retain runtime parsing/classification.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F18-2",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F19-1",
+      "dx_id": "DX-059",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "API package and overview now identify host parsing/compilation, including discovery, whole-job isolation and reusable batch guests.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/package-info.java:54",
+        "src/main/javadoc/overview.html:38",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:21"
+      ],
+      "residual_action": "Markdown discovery/batch sections still need per-untrusted-job process isolation and discovery source-budget limitations.",
+      "revised_title": "Java guide batch/discovery isolation guidance lags corrected Javadoc",
+      "revised_problem": "API Javadoc now explains host preparation, guest reuse and isolation. The Markdown sections still omit the disposable tracer/embedding process boundary and discovery budget limitation.",
+      "revised_fix": "Bring existing Markdown batch/discovery sections into agreement and link the runner contract; do not treat a shared service container as per-job isolation.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F19-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F19-2",
+      "dx_id": "DX-060",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Request/location/discovery Javadoc now distinguishes debug source paths from SourceBundle logical paths and shows discovered location reuse.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:26",
+        "src/main/java/cs1302/tracer/api/BreakpointLocation.java:10",
+        "src/main/java/cs1302/tracer/api/Tracer.java:132"
+      ],
+      "residual_action": "Markdown still lacks filename-suffix matching and successful empty output for unmatched selections; Javadoc does not yet state every no-match detail.",
+      "revised_title": "Java guide still omits debug-path matching and silent empty selections",
+      "revised_problem": "Javadoc now identifies debug-path qualification and sourcePath:line reuse. The Markdown reader path still omits the logical/debug distinction, suffix matching and successful empty trace from unmatched valid locations.",
+      "revised_fix": "Link request/location Javadoc and explain debug-path/suffix matching plus no-match behavior in the existing Java reference.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F19-2",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F19-3",
+      "dx_id": "DX-061",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Tracer.discoverBreakpoints now states its first-entry-file main-candidate precondition and diagnostic behavior.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/Tracer.java:135",
+        "src/main/java/cs1302/tracer/api/Tracer.java:137"
+      ],
+      "residual_action": "The Markdown discovery section remains compile-and-list prose without the precondition.",
+      "revised_title": "Markdown discovery omits the entry-point prerequisite now in Javadoc",
+      "revised_problem": "Method Javadoc now says the first submitted file with a recognized main candidate must contain exactly one. The Markdown section still does not explain why otherwise compilable helper/editor input can return only diagnostics.",
+      "revised_fix": "Add that precondition and a method Javadoc link to the existing discovery section.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F19-3",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F22-5",
+      "dx_id": "DX-073",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "TraceOutcome now names and explains captured/retained/dropped snapshot counters, accounted bytes and elapsed tracing time.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceOutcome.java:28",
+        "src/main/java/cs1302/tracer/api/TraceOutcome.java:32"
+      ],
+      "residual_action": "The shared wire reference still needs all key/unit/presence rules, including output-byte and guestExitCode behavior.",
+      "revised_title": "Envelope Markdown lacks a complete counter reference despite improved outcome Javadoc",
+      "revised_problem": "TraceOutcome Javadoc now defines several counter names and semantics. Bounded-tracing Markdown still omits the complete object, output-byte keys and guestExitCode presence/forced-exit meaning; the shared wire contract remains incomplete.",
+      "revised_fix": "Add the complete counter table to the envelope reference, aligning it with outcome Javadoc and distinguishing accounting from process memory or response size.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F22-5",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F26-1",
+      "dx_id": "DX-091",
+      "original_priority": "S1",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Tracer/BatchTracer/overview now describe return-ending single-stack jobs, lingering-thread interruption and System.exit(0) as guest_exit unless an earlier stop/failure wins.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/Tracer.java:28",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:22",
+        "src/main/javadoc/overview.html:215"
+      ],
+      "residual_action": "Markdown references still need the exact interrupt/join conditional termination and cross-entry-point behavior; runtime is unchanged.",
+      "revised_title": "Reusable-guest lifetime is documented in Javadoc but not Markdown contracts",
+      "revised_problem": "API Javadoc now describes early single-stack completion, lingering-thread interruption and reusable-guest System.exit behavior. Markdown batch, bounded and Java guides still obscure those differences. The precise conditional forced termination remains a reference detail to add.",
+      "revised_fix": "Document in existing Markdown references that forced guest termination requires a job thread still alive after interruption/join; do not imply every lingering thread fails the job.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F26-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F26-2",
+      "dx_id": "DX-092",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "BatchTracer warns about persistent JVM-global state and maxJobsPerWorker=1; overview lists reset state and CookieHandler/logger examples.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:23",
+        "src/main/javadoc/overview.html:212",
+        "src/main/javadoc/overview.html:214"
+      ],
+      "residual_action": "Batch/Java Markdown and tutorial still need reset/persistence/fresh-guest rules. Fresh JVMs do not undo filesystem changes.",
+      "revised_title": "Batch Markdown still hides persistent JVM state after Javadoc clarification",
+      "revised_problem": "Javadoc now distinguishes new class loaders from new JVMs, lists restored state and identifies other persistent globals. Existing Markdown still describes job ownership without those operating constraints. Runtime reuse and executable help are unchanged.",
+      "revised_fix": "Document reset state, persistent globals and maxJobsPerWorker=1 in existing Markdown; retain filesystem and whole-job-isolation qualifications.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F26-2",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F27-1",
+      "dx_id": "DX-095",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "TraceRequest/builder and TraceFormat explicitly limit inlineStrings to Python Tutor; modern retains string heap entries. Serializer Javadoc is aligned.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:43",
+        "src/main/java/cs1302/tracer/api/TraceFormat.java:25"
+      ],
+      "residual_action": "Markdown and executable help remain unqualified. Runtime serialization and annotation help strings were not changed.",
+      "revised_title": "Markdown and CLI help still imply modern string inlining after Javadoc correction",
+      "revised_problem": "API/serializer Javadoc now identifies Python Tutor-only string inlining. The tracing guide, batch/reference prose and executable help still omit the format condition; modern output behavior is unchanged.",
+      "revised_fix": "Align existing authored Markdown with the API contract. Preserve runtime serialization and generated help unless a separately authorized help-description change and regeneration are selected.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F27-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F28-1",
+      "dx_id": "DX-102",
+      "original_priority": "S1",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Request Javadoc now describes malformed nonblank breakpoint text producing tracer_error in phase trace after successful compilation.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:32"
+      ],
+      "residual_action": "Runtime classification, NDJSON documentation and misleading shared stop-code description remain unchanged.",
+      "revised_title": "Breakpoint error classification is documented in Javadoc but conflicts with shared reference",
+      "revised_problem": "TraceRequest now documents actual late tracer_error behavior. Shared Markdown still defines tracer_error as internal failure and validation_error as invalid configuration, so Java/NDJSON input errors remain misleadingly classified by the reference.",
+      "revised_fix": "Qualify existing shared stop-code and Java/batch references; validation timing or runtime classification changes require a separate implementation task.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F28-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F28-4",
+      "dx_id": "DX-104",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "BatchTracer explicitly contrasts unlimited omitted NDJSON limits with finite TraceRequest defaults; request Javadoc reinforces it.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:16",
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:74"
+      ],
+      "residual_action": "Markdown batch integration still needs omitted fields inside partial limits objects, all effective limits and inspection default.",
+      "revised_title": "Java Markdown batch defaults remain implicit after Javadoc clarification",
+      "revised_problem": "Javadoc now distinguishes finite TraceRequest defaults from unlimited omitted BatchTracer limits. Markdown still says only that batch preserves existing defaults, hiding partial-limit behavior and TRUSTED inspection.",
+      "revised_fix": "Replace vague Markdown wording with NDJSON omitted/partial-limit defaults and complete finite-budget guidance, linking batch fields and BatchTracer Javadoc.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F28-4",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F28-5",
+      "dx_id": "DX-105",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Overview/package/TraceOutcome now link envelope/output references and distinguish envelope JSON, sequence payload JSON and unavailable payload text null.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/TraceOutcome.java:35",
+        "src/main/java/cs1302/tracer/api/package-info.java:22",
+        "src/main/javadoc/overview.html:197"
+      ],
+      "residual_action": "Markdown tutorial/reference still lack direct shared-contract routes and output.md still points to them as separate envelope contracts.",
+      "revised_title": "Markdown Java paths lack shared contract links now present in Javadoc",
+      "revised_problem": "API Javadoc now links v1 envelope and output contracts and distinguishes outcome JSON forms. Java Markdown still lacks those routes, while output.md treats Java/batch envelopes as separate contracts and sends readers back.",
+      "revised_fix": "Add shared envelope/stop-code/partial-trace/payload links to Java Markdown and correct output.md cross-references; retain complementary Javadoc routes.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F28-5",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F28-6",
+      "dx_id": "DX-106",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "processStream now warns about late writes after I/O failure; close documents both shutdown waits and additional cleanup time.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:143",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:158"
+      ],
+      "residual_action": "Markdown still needs failure cases, transport ceiling, incomplete correlated responses and teardown guidance.",
+      "revised_title": "Markdown batch failures lag the corrected processStream/close Javadoc",
+      "revised_problem": "Public method documentation now explains I/O failure, continued admitted jobs/writes and shutdown waits. Java Markdown still covers successful processing only, and the batch transport reference gives the oversized-record failure only as CLI behavior.",
+      "revised_fix": "Add Java failure/cleanup and oversized-record IOException guidance to existing references. Do not present close as a single fixed 30-second deadline; preserve the second wait and cleanup caveat.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F28-6",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F28-8",
+      "dx_id": "DX-108",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Overview/package/type Javadoc now explains host preparation, guest execution, call ownership, reuse/dedicated guests, reset limits, outcomes and dependency ownership.",
+      "current_refs": [
+        "src/main/javadoc/overview.html:28",
+        "src/main/javadoc/overview.html:207",
+        "src/main/java/cs1302/tracer/api/Tracer.java:27"
+      ],
+      "residual_action": "A coherent Markdown lifecycle explanation and deliberately specified concurrent Tracer.trace contract are still missing.",
+      "revised_title": "Embedder lifecycle Javadoc improved; Markdown explanation and concurrency contract remain missing",
+      "revised_problem": "Lifecycle facts are now organized in API Javadoc. The guide site still lacks a coherent host/guest explanation connecting preparation, startup outside timeout, cleanup, batch reuse and detached outcomes. No concurrent-call guarantee was established.",
+      "revised_fix": "Build the approved Markdown lifecycle explanation around these accurate API contracts; leave concurrency explicitly unresolved until maintainers choose a supported contract.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F28-8",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F30-3",
+      "dx_id": "DX-117",
+      "original_priority": "S2",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Tracer/BatchTracer map single-stack API/batch jobs to reusable guests and multithread jobs to dedicated guests; overview explains reuse.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/Tracer.java:28",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:24",
+        "src/main/javadoc/overview.html:209"
+      ],
+      "residual_action": "Markdown naming and complete entry-point map including CLI dedicated guests still need consolidation.",
+      "revised_title": "Markdown guest-mode terminology remains inconsistent after Javadoc improvements",
+      "revised_problem": "API Javadoc now maps Java/batch guest modes, so a blanket claim that no page maps them is obsolete. Markdown still uses several names without a complete CLI/API/batch map or predictable exit/lifetime differences.",
+      "revised_fix": "Define and link the complete dedicated/reusable mode map in existing Markdown reference/glossary work; preserve generated help and runtime behavior.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F30-3",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "F30-9",
+      "dx_id": "DX-122",
+      "original_priority": "S4",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Java Javadoc now explicitly distinguishes finite TraceRequest budgets and unlimited omitted BatchTracer NDJSON limits.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:16",
+        "src/main/java/cs1302/tracer/api/TraceRequest.java:74",
+        "src/main/java/cs1302/tracer/api/TraceLimits.java:13"
+      ],
+      "residual_action": "Markdown duplication and incomplete copied finite-budget profile remain; do not claim no documentation covers Java entry-point defaults.",
+      "revised_title": "Markdown limit duplication remains after Java default clarification",
+      "revised_problem": "The Java entry-point distinction is explicit in current API Javadoc. Markdown still repeats omitted-limit policy and carries a batch example missing three finite budgets. Those consumer defects were not repaired by comments-only changes.",
+      "revised_fix": "Consolidate authored Markdown guidance and complete the copied finite-budget profile, stating or linking the Java distinction. Preserve generated blocks unless a separately validated generator change is selected.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "F30-9",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "FU1-1",
+      "dx_id": "DX-129",
+      "original_priority": "S1",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Tracer/BatchTracer/TraceOutcome/package/overview now warn that uncaught JDK/dependency exceptions can leave completed metadata and only captured stderr.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/Tracer.java:35",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:32",
+        "src/main/java/cs1302/tracer/api/TraceOutcome.java:20",
+        "src/main/javadoc/overview.html:187"
+      ],
+      "residual_action": "Runtime recognition defect and unqualified Markdown completion/exception claims remain. Stderr is not a reliable machine success classifier.",
+      "revised_title": "Runtime exception-recognition defect persists; Javadoc now documents it",
+      "revised_problem": "Single-stack persistent execution can still report completed/complete=true for uncaught exceptions thrown in JDK/dependency code. Javadoc now warns explicitly, but implementation and Markdown reference/tutorial guidance are unchanged. Ordinary guest code can write stderr, so its contents are not a stable machine classifier.",
+      "revised_fix": "Align affected Markdown contracts and lessons with the warning; do not suggest stderr emptiness proves success. Keep runtime recognition remediation separate.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "FU1-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    },
+    {
+      "id": "FU3-1",
+      "dx_id": "DX-134",
+      "original_priority": "S3",
+      "original_disposition": "active",
+      "fully_resolved": false,
+      "remediated_javadoc": "Tracer documents jdk.compiler/jdk.jdi, subprocess launch via java.home, filesystem code-source requirements and nested-archive limitation; BatchTracer links these requirements.",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/api/Tracer.java:21",
+        "src/main/java/cs1302/tracer/api/Tracer.java:24",
+        "src/main/java/cs1302/tracer/api/BatchTracer.java:28"
+      ],
+      "residual_action": "Markdown integration still omits operational prerequisites and direct type links. Synthetic CodeSource evidence is not a tested Spring Boot integration.",
+      "revised_title": "Java guide omits runtime prerequisites now documented in Javadoc",
+      "revised_problem": "Tracer Javadoc now identifies modules, subprocess permissions and directly filesystem-addressable implementation requirements. Markdown still names only a full JDK and runtime dependencies. Packaging support and runtime behavior did not change.",
+      "revised_fix": "Add these host/runtime/packaging requirements and Tracer Javadoc links to existing Java Markdown, retaining the synthetic-test qualification.",
+      "prepass_evidence": {
+        "file": "target/audit/javadoc-20261018/before-diataxis-audit-findings.json",
+        "finding_id": "FU3-1",
+        "fields": [
+          "original_evidence",
+          "evidence",
+          "original_problem",
+          "problem",
+          "original_fix",
+          "fix"
+        ],
+        "instruction": "Preserve these historical observations verbatim; current_refs is a separate source overlay."
+      }
+    }
+  ],
+  "javadoc_corrections": [
+    {
+      "id": "JD-001",
+      "title": "App.execute no longer promises to preserve the calling JVM",
+      "status": "corrected-in-working-tree-javadoc",
+      "existing_audit_id": null,
+      "counted_in_existing_135": false,
+      "old_claim": "Executes a CLI invocation without terminating the calling JVM.",
+      "baseline_revision": "0235c0fe514acff09d8c208dcbeab203435582a4",
+      "current_refs": [
+        "src/main/java/cs1302/tracer/App.java:17",
+        "src/main/java/cs1302/tracer/App.java:25",
+        "src/main/javadoc/overview.html:23"
+      ],
+      "runtime_basis": [
+        "src/main/java/cs1302/tracer/internal/App.java:195",
+        "src/main/java/cs1302/tracer/internal/App.java:367",
+        "src/main/java/cs1302/tracer/internal/App.java:432"
+      ],
+      "correction": "Public execute returns an exit status only if selected command execution returns; command failure/stop paths can invoke System.exit. Launcher, package and overview direct embedding applications to Tracer or BatchTracer.",
+      "runtime_changed": false,
+      "verification": "Static facade/delegation/default-handler source review; no process executed by this reviewer. Root owns serial validation.",
+      "residual_action": "Retain corrected Javadoc. Do not merge into F4-2 or silently add to the existing135 audit inventory."
+    }
+  ],
+  "reviewed_no_material_change": [
+    {
+      "id": "F18-5",
+      "reason": "Member-level content improved, but the Markdown version-menu route and missing direct type/member links were not repaired."
+    },
+    {
+      "id": "F19-5",
+      "reason": "Per-snapshot element scope was already correct in TraceLimits Javadoc. The erroneous cumulative-without-scope Markdown sentence remains."
+    },
+    {
+      "id": "F4-2",
+      "reason": "App.execute process termination is distinct from shell launcher reference placement and CODE_TRACER_JAR_DIR. JD-001 is separate."
+    },
+    {
+      "id": "F12-1",
+      "reason": "Fixed checks under unlimited budgets are clearer in Javadoc, but troubleshooting exit-3 guidance remains unchanged."
+    },
+    {
+      "id": "F22-3",
+      "reason": "Outcome wording does not repair the complete caller-dependent null/empty Markdown rule."
+    },
+    {
+      "id": "F24-1",
+      "reason": "Javadoc already covered finite defaults/outcomes; the incorrect migration unchanged-default claim remains."
+    },
+    {
+      "id": "F24-3",
+      "reason": "Migration still lists envelope writers as payload substitutes."
+    },
+    {
+      "id": "F24-4",
+      "reason": "Migration still lacks selected-breakpoint map-to-sequence guidance."
+    },
+    {
+      "id": "F30-2",
+      "reason": "TraceLimits already scoped thread/frame caps to multithread capture; generated help and Markdown wording remain unchanged."
+    },
+    {
+      "id": "FU2-2",
+      "reason": "Outcome Javadoc names API phase serialize, but shared caller-specific phase rules/runtime differences remain."
+    },
+    {
+      "id": "F31-3",
+      "reason": "Overview safety wording does not supply the requested coherent Markdown inherited-user/environment/network explanation."
+    },
+    {
+      "id": "F31-4",
+      "reason": "InspectionPolicy clarifies collection fields, but a guide explanation, worked comparison and routes remain absent; method-invocation risks were documented before."
+    },
+    {
+      "id": "F31-6",
+      "reason": "TraceFormat clarity does not establish renderer compatibility, recommendations, deprecation policy or guide-level comparison."
+    },
+    {
+      "id": "F30-11",
+      "reason": "An extra Javadoc CI-matrix sentence was removed, but the original repeated Markdown statements remain."
+    }
+  ]
+}

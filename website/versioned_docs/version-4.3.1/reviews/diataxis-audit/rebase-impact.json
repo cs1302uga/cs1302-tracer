@@ -1,0 +1,444 @@
+{
+  "schema": 1,
+  "review_date": "2026-10-18",
+  "original_revision": "64347dc3955dc6e2f550b3bb2a8f92c2d31d77bb",
+  "rebased_revision": "389f16fe7b883170f268c368406172e0459ba13e",
+  "upstream_revision": "dc8887fbad0390957500d929ef904cadad7ae00d",
+  "method": "Read-only Git diff/range-diff, source inspection, and original audit/vote inspection. No Java, guest, Maven, npm, browser, remote availability probes, or test suites were run for this review.",
+  "provenance": {
+    "original_artifacts": [
+      "original/phase1_extracted.json",
+      "original/phase3_verified.json",
+      "original/phase5_raw_findings.json",
+      "original/verify_results/"
+    ],
+    "retained_commands": "Original command observations remain evidence of revision 64347dc, not newly executed evidence of 389f16f. Unchanged source supports carrying conclusions forward; it does not turn historical executions or remote release observations into fresh ones.",
+    "remote_limits": "Release assets, repository availability, hosted URLs, and effective branch rules were not queried. Date or otherwise scope those historical observations in a revised report."
+  },
+  "upstream_workflow": {
+    "decision": "Use upstream fast staged commit checks and strict CI/release gates as authoritative, per the user's clarification; do not restore the former full-suite pre-commit behavior.",
+    "facts": [
+      {
+        "ref": ".githooks/pre-commit:4-7",
+        "detail": "Changes to repository root, checks staged whitespace, and execs staged Checkstyle; it does not call the coverage helper."
+      },
+      {
+        "ref": "docs/contributing/development.md:184-207",
+        "detail": "Documents fast staged whitespace/Checkstyle and explicitly requested staged strict coverage."
+      },
+      {
+        "ref": ".github/workflows/build.yml:192-193",
+        "detail": "Java matrix package uses -Ppre-commit-coverage."
+      },
+      {
+        "ref": ".github/workflows/build.yml:367-381",
+        "detail": "Regression gates runs always and depends on all four regression job groups."
+      },
+      {
+        "ref": ".github/scripts/check-regression-gates.sh:7-20",
+        "detail": "Only success is accepted; any other/missing group result exits 1."
+      },
+      {
+        "ref": ".github/workflows/build.yml:383-389",
+        "detail": "Release publication additionally depends on Regression gates."
+      },
+      {
+        "ref": "scripts/release_evidence.py:19-25",
+        "detail": "Exact-revision release evidence requires Regression gates and every original matrix job."
+      },
+      {
+        "ref": "docs/contributing/development.md:104-121",
+        "detail": "Separates strict CI execution from externally configured required GitHub checks."
+      },
+      {
+        "ref": "docs/contributing/releases.md:156-160,251-257",
+        "detail": "Release runbook requires individual jobs plus aggregate and scopes recovery for historical prepared revisions."
+      },
+      {
+        "ref": "AGENTS.md:71-82",
+        "detail": "Repository instructions agree with upstream fast local commits and strict CI/release gates."
+      }
+    ],
+    "identity_check": "git diff --exit-code origin/main HEAD returned 0 for all 15 changed upstream paths other than CHANGELOG.md: hooks, workflow/checker, AGENTS.md, HACKING.md, changed maintainer guides, scripts instructions/readme, release evidence, and their tests.",
+    "cost_revision": "Any old audit explanation saying each ordinary local commit reruns 1,248 Java tests or the all-production coverage suite is obsolete for this checkout. Those prior logs remain valid historical executions. Current ordinary commits check staged whitespace and Checkstyle; strict tests/coverage are an explicit local operation and required CI/release work. This review did not measure new commit latency."
+  },
+  "findings": [
+    {
+      "id": "F4-2",
+      "decision": "retain",
+      "severity": "S3",
+      "reason": "Consumer launcher documentation and scripts are unchanged. The developer guide's inbound installation anchor survives, so retain the proposal and its anchor-preservation note. Remove the already-identified unrelated App.execute evidence contamination independently of the rebase.",
+      "new_evidence": [
+        {
+          "ref": "docs/guides/installation.md:320,388-430",
+          "detail": "Advanced launcher material and the store-the-jar-separately section remain present."
+        },
+        {
+          "ref": "docs/contributing/development.md:343-346",
+          "detail": "Launcher override coverage still links to installation.md#store-the-jar-separately."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": "docs/contributing/development.md:309",
+          "new": "docs/contributing/development.md:345-346",
+          "location": "scope vote fix_note; original line was approximate"
+        }
+      ]
+    },
+    {
+      "id": "F14-8",
+      "decision": "retain_with_historical_execution_provenance",
+      "severity": "S4",
+      "reason": "The unspecified previous-version prose, version implementation, and Unreleased classification are unchanged. Added changelog entries are below the cited version-report entry. The old command's embedded 64347dc commit is historical, not rebased executable output.",
+      "new_evidence": [
+        {
+          "ref": "docs/reference/cli.md:273-277",
+          "detail": "Still says previous single-line version value."
+        },
+        {
+          "ref": "CHANGELOG.md:28-30,72-86",
+          "detail": "Version-report change remains under Unreleased / Breaking changes."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": "CHANGELOG.md:82-85",
+          "new": "CHANGELOG.md:82-86",
+          "location": "evidence and reproduce vote; same entry, unchanged position"
+        }
+      ]
+    },
+    {
+      "id": "F19-6",
+      "decision": "retain",
+      "severity": "S4",
+      "reason": "Supported Java reference, internal-guide target, and sidebar are unchanged. The generic proposal to put history in CHANGELOG.md is not invalidated by the new upstream changelog entries.",
+      "new_evidence": [
+        {
+          "ref": "docs/reference/java-api.md:427-429,478-479,515-516,522-524",
+          "detail": "History phrasing and contributor-only pointer remain."
+        },
+        {
+          "ref": "docs/guides/java-module-migration.md:3-6",
+          "detail": "Target still explicitly identifies itself as contributor guidance."
+        }
+      ],
+      "changed_refs": []
+    },
+    {
+      "id": "F21-1",
+      "decision": "retain_with_historical_remote_provenance",
+      "severity": "S2",
+      "reason": "The how-to still gives no step for obtaining the peeled commit. Workflow release/check/verification behavior is unchanged; it moved after the new aggregate. Original gh/tag observations are retained at their original audit scope, not rerun.",
+      "new_evidence": [
+        {
+          "ref": "docs/guides/offline-javadoc.md:27-32,52,85",
+          "detail": "Requires the full commit and distinguishes annotated tag objects without supplying a lookup."
+        },
+        {
+          "ref": ".github/workflows/build.yml:429-433,466-467",
+          "detail": "Artifact check and verification still bind --commit to GITHUB_SHA."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": ".github/workflows/build.yml:411-415,450-451",
+          "new": ".github/workflows/build.yml:427-433,466-467",
+          "location": "evidence and reproduce vote"
+        }
+      ]
+    },
+    {
+      "id": "F21-3",
+      "decision": "retain_with_historical_remote_provenance",
+      "severity": "S4",
+      "reason": "No upstream change supplies legacy Javadoc assets, expands the manifest, or edits the availability text. Release-availability and HTTP statements must remain scoped to their original observation date; this review does not establish today's remote asset inventory.",
+      "new_evidence": [
+        {
+          "ref": "docs/guides/offline-javadoc.md:17-21",
+          "detail": "Original imprecise availability/fallback prose remains."
+        },
+        {
+          "ref": ".github/workflows/build.yml:420-467",
+          "detail": "Current publisher still builds, checks, attests, and verifies release Javadoc."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": ".github/workflows/build.yml:405-436",
+          "new": ".github/workflows/build.yml:421-452",
+          "location": "verified evidence; extend through 467 when citing verification as well"
+        }
+      ]
+    },
+    {
+      "id": "F24-7",
+      "decision": "retain",
+      "severity": "S4",
+      "reason": "Migration-guide contributor rationale is unchanged, and the same contributor-owned API-exposure explanation remains in the shifted development guide.",
+      "new_evidence": [
+        {
+          "ref": "docs/guides/java-api-migration.md:24-33",
+          "detail": "JPMS deferral and contributor test explanation still appear in the migrator's guide."
+        },
+        {
+          "ref": "docs/contributing/development.md:248-259",
+          "detail": "Contains supported interface exposure test responsibilities and external-consumer compile check."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": "docs/contributing/development.md:213-224",
+          "new": "docs/contributing/development.md:248-259",
+          "location": "evidence; quoted consumer compile statement is now 254-256"
+        }
+      ]
+    },
+    {
+      "id": "F25-1",
+      "decision": "retain",
+      "severity": "S4",
+      "reason": "Upstream HACKING.md changes do not add a route or link for this guide. Sidebar and consumer-reference/internal-guide links are unchanged; the navigation finding remains valid.",
+      "new_evidence": [
+        {
+          "ref": "website/sidebars.js:4-28",
+          "detail": "No guides/java-module-migration item in any category."
+        },
+        {
+          "ref": "docs/guides/java-module-migration.md:3-6,72-73",
+          "detail": "Explicit contributor scope and supported API outbound links remain."
+        },
+        {
+          "ref": "docs/reference/java-api.md:478-479",
+          "detail": "Supported API reference still points to contributor internal builders."
+        }
+      ],
+      "changed_refs": [],
+      "note": "Fresh static navigation inspection supports the finding. Original rendered-sidebar observations remain historical, not a new build."
+    },
+    {
+      "id": "F28-2",
+      "decision": "retain_with_historical_remote_provenance",
+      "severity": "S2",
+      "reason": "The Java tutorial's unresolved release-consumption step and publisher channel are unchanged. Strict regression dependencies change release validation, not publication into a Maven repository. No authenticated package-registry inventory or remote availability request was repeated.",
+      "new_evidence": [
+        {
+          "ref": "docs/tutorials/java-integration.md:74-92",
+          "detail": "Still shows local development install, then asks readers to use their release version without providing the release artifact installation/repository step."
+        },
+        {
+          "ref": ".github/workflows/build.yml:420-433,469-481",
+          "detail": "Builds with package and publishes runtime library/executable/archive files as release assets; no deploy goal."
+        },
+        {
+          "ref": "docs/contributing/releases.md:13-15",
+          "detail": "Still excludes release:perform's separate Maven deployment."
+        },
+        {
+          "ref": "docs/contributing/development.md:305",
+          "detail": "Explicitly states GitHub release publication does not deploy Maven artifacts."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": ".github/workflows/build.yml:405,452-464",
+          "new": ".github/workflows/build.yml:421,468-480",
+          "location": "initial publication evidence"
+        },
+        {
+          "old": ".github/workflows/build.yml:453-465",
+          "new": ".github/workflows/build.yml:469-481",
+          "location": "repeated publication evidence"
+        },
+        {
+          "old": ".github/workflows/build.yml:416,452-465",
+          "new": ".github/workflows/build.yml:432-433,468-481",
+          "location": "library output and upload evidence"
+        },
+        {
+          "old": "Maven invocation line 405",
+          "new": ".github/workflows/build.yml:421",
+          "location": "evidence detail; earlier Maven invocation lines 65,87,193,262,307 are unchanged"
+        },
+        {
+          "old": "docs/contributing/releases.md:14-15",
+          "new": "docs/contributing/releases.md:14-15",
+          "location": "unchanged cited lines within otherwise changed file"
+        }
+      ]
+    },
+    {
+      "id": "F29-7",
+      "decision": "retain_with_narrowed_fix_see_adjudication",
+      "severity": "S4",
+      "reason": "Historical review navigation is explicitly in the approved scope. Upstream HACKING.md changes do not add any review navigation. Preserve the observed absence; remove the proposed contributing/documentation.md edit from the remedy.",
+      "new_evidence": [
+        {
+          "ref": "website/sidebars.js:8-28",
+          "detail": "No review route is listed under Contribute or elsewhere."
+        },
+        {
+          "ref": "website/docusaurus.config.js:29-36",
+          "detail": "Docs path still includes docs/reviews without an exclusion."
+        },
+        {
+          "ref": "docs/contributing/security-analysis.md:127",
+          "detail": "Existing current-repository-audit inbound link remains."
+        }
+      ],
+      "changed_refs": [],
+      "note": "Original sitemap/rendered observations were not rebuilt. Static source/config remains unchanged."
+    },
+    {
+      "id": "F30-4",
+      "decision": "retain",
+      "severity": "S2",
+      "reason": "Budget reference, implementation stop codes, and statuses are unchanged. The contributor fixture workflow still duplicates the user reference's verification material at its shifted location.",
+      "new_evidence": [
+        {
+          "ref": "docs/BOUNDED_TRACING.md:137-149,175-200,206-213",
+          "detail": "Original incomplete table and scattered additional codes remain."
+        },
+        {
+          "ref": "docs/contributing/development.md:233-242",
+          "detail": "Existing contributor fixture commands and intentional --update guidance remain."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": "docs/contributing/development.md:204-207",
+          "new": "docs/contributing/development.md:239-242",
+          "location": "evidence quoting fixture command/update guidance"
+        },
+        {
+          "old": "docs/contributing/development.md:198-207",
+          "new": "docs/contributing/development.md:233-242",
+          "location": "full Compatibility fixtures evidence"
+        }
+      ],
+      "note": "Old snapshot-limit and nesting probes remain historical at 64347dc; source-level change review does not claim to repeat them."
+    },
+    {
+      "id": "F30-7",
+      "decision": "retain",
+      "severity": "S3",
+      "reason": "AGENTS.md still points to the root contributor glossary at the same line. No glossary route, sidebar entry, or user definition was added upstream. The broader statement 'not linked' should remain explicitly scoped to published/user documentation rather than repository instructions.",
+      "new_evidence": [
+        {
+          "ref": "AGENTS.md:21-23",
+          "detail": "Contributor instructions still reference root GLOSSARY.md."
+        },
+        {
+          "ref": "docs/contributing/architecture.md:8",
+          "detail": "Published architecture page uses plain root glossary code text."
+        },
+        {
+          "ref": "website/docusaurus.config.js:29-33",
+          "detail": "Only docs/ is the documentation content root."
+        },
+        {
+          "ref": "website/sidebars.js:3-28",
+          "detail": "No glossary item appears."
+        },
+        {
+          "ref": "docs/reference/java-api.md:437-438",
+          "detail": "User reference still invokes trace-job resolution without definition."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": "AGENTS.md:21",
+          "new": "AGENTS.md:21-23",
+          "location": "repository-wide search evidence; unchanged location despite file edits"
+        }
+      ]
+    },
+    {
+      "id": "F30-11",
+      "decision": "retain",
+      "severity": "S4",
+      "reason": "OS/JDK axes and local JDK pin are unchanged. Strict coverage on that same matrix changes validation strength, not which Java versions are tested or the duplication finding.",
+      "new_evidence": [
+        {
+          "ref": ".github/workflows/build.yml:158-164,270-276",
+          "detail": "Java execution matrix remains Ubuntu/macOS x 21/25; Windows packaging/launcher matrix remains 21/25."
+        },
+        {
+          "ref": ".java-version:1",
+          "detail": "Local development pin remains 25."
+        }
+      ],
+      "changed_refs": [
+        {
+          "old": ".github/workflows/build.yml:163-164,276",
+          "new": ".github/workflows/build.yml:163-164,276",
+          "location": "unchanged matrix lines despite later workflow insertion"
+        }
+      ]
+    }
+  ],
+  "adjudications": [
+    {
+      "id": "F1-1",
+      "decision": "downgrade_and_merge_into_F29-3",
+      "old_severity": "S2",
+      "new_severity": "S4",
+      "reason": "The original reproduction establishes the intended non-sandbox execution contract, not an undocumented safety regression. The landing page already says guest programs execute, restricts direct local use to trusted programs, and links the runner contract, which immediately states whole-job isolation and malicious-by-default student submissions. A more direct non-sandbox sentence is a reasonable clarity improvement, but the S2 argument relies on speculative disregard/misclassification of that linked contract. Its concrete missing host-submissions route duplicates F29-3. Count one S4 navigation/clarity finding rather than a separate safety defect.",
+      "evidence": [
+        "docs/index.md:13-27",
+        "README.md:30-33",
+        "docs/RUNNER_CONTRACT.md:3-10",
+        "website/sidebars.js:7"
+      ],
+      "revised_fix": "Fold a concise 'The tracer is not a sandbox' statement and host-student-submissions route into F29-3's docs/index.md/sidebar change. Link the runner contract; keep its whole-job isolation details normative there.",
+      "vote_resolution": "Accept the impact lens's S4 assessment while retaining the reproduce/scope lenses' observed text and in-scope editing paths. Neither repeated safety prose nor a new execution probe is necessary to support the navigation fix."
+    },
+    {
+      "id": "F25-2",
+      "decision": "retain_fact_defer_as_contributor_only",
+      "old_severity": "S4",
+      "new_severity": "S4",
+      "reason": "The technical finding is accurate: four policies are summarized by three caller labels, bounded CLI is not the glossary profile name, and the two discovery-only entry points are omitted. The scope objection is also valid under a user-doc pass excluding contributor content: this page explicitly declares contributor-only internals and the proposed repair documents internal enum ownership. Do not mark the fact refuted; record it as a deferred contributor documentation correction outside the active user-facing remediation set unless the parent applies an explicit broader scope approval.",
+      "evidence": [
+        "docs/guides/java-module-migration.md:3-6,57-63",
+        "GLOSSARY.md:27-28",
+        "src/main/java/cs1302/tracer/internal/execution/TraceJob.java:59-60,164-170",
+        "src/main/java/cs1302/tracer/api/Tracer.java:127-130",
+        "src/main/java/cs1302/tracer/internal/App.java:556-558",
+        "docs/BOUNDED_TRACING.md:3-6,21-24"
+      ],
+      "revised_fix": "In a future contributor pass, replace respectively with one row per discovery policy; explicitly distinguish trusted JAVA, ENVELOPE, CLI/NDJSON, field-only/multithread jobs, Tracer.discoverBreakpoints, and list-breakpoints. Use envelope CLI, not bounded CLI.",
+      "vote_resolution": "Reproduce lens establishes a real S4 discrepancy. Scope lens determines remediation eligibility, not truth. The user-facing navigation concern is already independently represented by F25-1."
+    },
+    {
+      "id": "F29-7",
+      "decision": "confirm_with_scope_limited_fix",
+      "old_severity": "S4",
+      "new_severity": "S4",
+      "reason": "The approved user plan explicitly includes historical review findability. An item's placement within a Contribute sidebar group does not itself edit excluded contributor prose or historical review content. The original scope objection correctly rejects the extra contributing/documentation.md edit, but should not reject the sidebar-only navigation remedy.",
+      "evidence": [
+        "website/sidebars.js:8-28",
+        "website/docusaurus.config.js:29-36",
+        "docs/contributing/security-analysis.md:127"
+      ],
+      "revised_fix": "In website/sidebars.js, add a collapsed Historical reviews group linking all seven existing reviews/* doc IDs, with historical/date labels. Preserve all URLs and historical page contents. Do not edit docs/contributing/documentation.md or the review pages for this finding.",
+      "vote_resolution": "Accept reproduce finding and its scope-limited fix note. Override the scope refutation only to the extent established by the approved historical-navigation scope; retain the prohibition on contributor-page edits."
+    }
+  ],
+  "rebase_integrity": {
+    "changelog": {
+      "decision": "preserved",
+      "evidence": [
+        "CHANGELOG.md:90-97 retains Local commits",
+        "CHANGELOG.md:99-106 retains Regression gates",
+        "CHANGELOG.md:108-112 retains Shared-reference tutorial",
+        "CHANGELOG.md:69-70 retains the original shared-reference implementation link"
+      ],
+      "note": "The shared-reference implementation link still identifies the original edf4193 revision. This is preserved historical provenance; if the branch wants only current rebased commit links in Unreleased, the corresponding implementation is fd7737e. Do not silently relabel retained audit execution evidence as fd7737e or 389f16f."
+    },
+    "range_diff": "git range-diff fe8a93f..backup/diataxis-audit-64347dc dc8887f..HEAD shows edf4193 -> fd7737e differs only by CHANGELOG.md hunk context after conflict resolution; 64347dc -> 389f16f is patch-identical (=).",
+    "tutorial_identity": "git diff --exit-code edf4193 fd7737e across the nine non-changelog files touched by the tutorial commit returned 0: all documentation, navigation, checker, and tests are byte-identical.",
+    "production_scope": "No production Java, consumer documentation, tutorial, sidebar, or documentation-checker content changed as a result of the upstream rebase. Upstream changes are the hook/CI/regression/release-evidence and supporting maintainer documentation/tests described above."
+  }
+}

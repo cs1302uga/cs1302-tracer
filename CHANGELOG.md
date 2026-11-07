@@ -37,7 +37,8 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 Maven consumers must change the dependency group ID from `cs1302uga` to
 `io.github.cs1302uga`; the artifact ID remains `cs1302-tracer`. This coordinate
-migration requires a major release under the project release policy. Supported
+migration is breaking for Maven consumers. The maintainer explicitly approved
+4.3.1 as an exception to the normal major-release policy. Supported
 Java API signatures, CLI arguments, runtime requirements, and JSON/batch schemas
 are unchanged.
 
@@ -59,6 +60,8 @@ are unchanged.
 
 ### Commits
 
+- [`25138e1`](https://github.com/cs1302uga/cs1302-tracer/commit/25138e1d2d7f6df9d5e12edbd61aa98b4529246f) Link the Maven Central implementation in the changelog.
+- [`ff9cb9c`](https://github.com/cs1302uga/cs1302-tracer/commit/ff9cb9cdaa00c51f33e7778be23060c509a1d02e) Retain the 4.2.0 guide archive and finalize the 4.3.0 changelog.
 - [`7c9cd1a`](https://github.com/cs1302uga/cs1302-tracer/commit/7c9cd1a7f05834c7c1562cb1d03071de2922f120) Publish signed Maven Central artifacts alongside GitHub releases and migrate Maven coordinates.
 - [`42cf6d3`](https://github.com/cs1302uga/cs1302-tracer/commit/42cf6d3be26fe9e86cd263e92e59ba3bb958d13d) Prepare the next development iteration, 4.3.1-SNAPSHOT.
 

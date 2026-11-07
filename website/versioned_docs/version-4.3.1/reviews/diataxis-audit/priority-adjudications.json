@@ -1,0 +1,125 @@
+{
+  "revision": "389f16fe7b883170f268c368406172e0459ba13e",
+  "rubric": "Prioritize serious incorrect or unsafe contracts (S1), reader goal blockers (S2), missing topics (S3), then friction (S4); decisions below weigh concrete impact rather than voting min/max.",
+  "adjudications": [
+    {
+      "id": "F17-1",
+      "disposition": "retain",
+      "original_severity": "S2",
+      "reviewer_severities": {
+        "impact": "S1",
+        "reproduce": "S2",
+        "scope": "S2"
+      },
+      "final_severity": "S1",
+      "rationale": "Serious unsafe configuration contract: an integration intending field-only inspection can silently run TRUSTED inspection, which may invoke guest methods, with neither rejection nor a diagnostic identifying the fallback. The adjacent case-insensitive format/type-style handling increases the realistic chance of writing fields. This takes precedence over ordinary reader friction. Whole-job isolation remains mandatory; this finding does not claim FIELDS is a sandbox.",
+      "current_static_evidence": [
+        "docs/reference/batch.md:32-43 lists lowercase format/typeStyle and uppercase inspection without explaining different matching/failure rules.",
+        "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:93,203 uses an uncustomized Gson and direct BatchJobRequest deserialization.",
+        "src/main/java/cs1302/tracer/internal/execution/TraceJob.java:164-165 resolves null inspection to TRUSTED unless multithread implies FIELDS.",
+        "Original independent reproduce vote records the lowercase fields case; this pass checked the current source statically and did not rerun it."
+      ],
+      "fix_scope": "Document exact uppercase enum tokens and the silent TRUSTED fallback; keep any Java validation change outside this documentation pass.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    },
+    {
+      "id": "F21-2",
+      "disposition": "retain",
+      "original_severity": "S4",
+      "reviewer_severities": {
+        "reproduce": "S4",
+        "scope": "S2"
+      },
+      "final_severity": "S2",
+      "rationale": "A missing tool-version prerequisite blocks the advertised offline-verification workflow for readers whose installed gh lacks these flags. The documented blocks stop before extraction, so the failure is safe, but the reader cannot complete the recipe without discovering and upgrading an undocumented prerequisite. That is a goal blocker rather than minor navigation friction.",
+      "current_static_evidence": [
+        "docs/guides/offline-javadoc.md:23-25 specifies GitHub CLI with the verification options below but gives no minimum version or version check.",
+        "docs/guides/offline-javadoc.md:67-72,94-99 passes --signer-digest, --source-digest, --source-ref in both platform recipes.",
+        "scripts/javadoc_artifact.py:194-198 uses the same required provenance flags.",
+        "Original reviewers identify 2.68.0 as the minimum version; that numeric historical claim was not independently refreshed from upstream sources because this task prohibits network access."
+      ],
+      "fix_scope": "State the verified minimum gh version and gh --version checkpoint before starting; retain all verification flags. The exact 2.68.0 claim needs its existing primary-source provenance preserved or a later independent version verification.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    },
+    {
+      "id": "F23-2",
+      "disposition": "retain",
+      "original_severity": "S2",
+      "reviewer_severities": {
+        "impact": "S4",
+        "reproduce": "S2",
+        "scope": "S2"
+      },
+      "final_severity": "S4",
+      "rationale": "The runner contract already names explicit finite values for all limits and directly links the complete bounded-tracing policy, which twice explains that omitted envelope limits are unlimited. It also requires independent whole-job CPU, memory, output and wall-clock enforcement. Tightening Prefer and repeating the default removes cross-page ambiguity, but the existing linked contract supplies the necessary rule. This is a minor consistency improvement, not an undocumented resource-isolation guarantee.",
+      "current_static_evidence": [
+        "docs/RUNNER_CONTRACT.md:19-24 requires enforced whole-job resource limits and deadline independent of tracer state.",
+        "docs/RUNNER_CONTRACT.md:45-47 already recommends explicit finite values for all limits and links BOUNDED_TRACING.md.",
+        "docs/BOUNDED_TRACING.md:23-25 explains omitted envelope limits are unlimited, and :38-40 says supply finite budgets for every hosted job."
+      ],
+      "fix_scope": "Use mandatory finite-budget wording and a short omitted-means-unlimited reminder, with a direct limits link; avoid duplicating the entire CLI option catalog.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    },
+    {
+      "id": "F26-2",
+      "disposition": "retain",
+      "original_severity": "S1",
+      "reviewer_severities": {
+        "impact": "S2",
+        "reproduce": "S1",
+        "scope": "S1"
+      },
+      "final_severity": "S2",
+      "rationale": "Trusted batch users can obtain different results from the same source depending on previous jobs because reusing one JVM retains JDK-global state outside the documented job-owned data. This materially blocks reliable batch integration and needs a concrete reset/persistence contract and fresh-guest option. Downgrade from S1 because current batch and runner guidance already says class-loader separation is not OS isolation and requires one disposable tracer process per untrusted job; the docs do not explicitly promise that every JDK-global facility is reset.",
+      "current_static_evidence": [
+        "docs/reference/batch.md:87-90 expressly describes reuse, while :95-98 warns that class-loader separation is not OS isolation and untrusted jobs require a disposable tracer process.",
+        "docs/tutorials/batch-jobs.md:56-60 scopes source/output/observations/snapshots per job, describes reuse, and links the one-process-per-untrusted-job rule.",
+        "src/main/java/cs1302/tracer/internal/guest/GuestHarness.java:208-211 creates a new job class loader, while :383-404 resets listed streams, properties, locale, time zone, handler and harness state, not arbitrary JDK-global static facilities.",
+        "Original independent reproduce vote records CookieHandler and logging state persisting across two jobs; this pass made only static checks."
+      ],
+      "fix_scope": "Document exactly which supported state is restored, which process/JDK-global state can persist, and the scope of maxJobsPerWorker(1). A fresh guest JVM does not undo filesystem changes. Do not edit App.java or its generated help in this pass.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    },
+    {
+      "id": "F26-3",
+      "disposition": "retain",
+      "original_severity": "S2",
+      "reviewer_severities": {
+        "impact": "S2",
+        "reproduce": "S1",
+        "scope": "S2"
+      },
+      "final_severity": "S1",
+      "rationale": "Silently ignored protection keys combined with unlimited omitted budgets form a serious unsafe configuration contract. The reference gives no complete JSON-key map, and timeoutMillis/snapshots cannot be derived reliably from --timeout-ms/--max-snapshots; a plausible request can therefore run without intended protection and without any diagnostic. The negative-limit null-id correlation behavior is an additional correctness issue. External whole-job controls remain mandatory, but they do not make the promised per-job budget configuration reliable.",
+      "current_static_evidence": [
+        "docs/reference/batch.md:42 says only camelCase names; its example has eight keys and omits threads, frames and snapshotBytes.",
+        "src/main/java/cs1302/tracer/api/TraceLimits.java:25-26 defines all eleven actual record keys, and :53-56 rejects negative values.",
+        "src/main/java/cs1302/tracer/internal/batch/BatchTraceService.java:201-215 directly deserializes the request, catches constructor/parse failures before a request is returned and emits a null-id parse failure.",
+        "src/main/java/cs1302/tracer/internal/batch/BatchJobRequest.java:158-164 uses the NDJSON default when limits are absent; the original independent reproduce vote records silently ignored misspelled keys and their zero budgets.",
+        "docs/BOUNDED_TRACING.md:23-25,38-40 establishes omitted envelope limits are unlimited."
+      ],
+      "fix_scope": "Provide all eleven JSON limit names and units, explain unknown-key behavior, recommend checking echoed effective limits, and distinguish negative-limit parse_error/null-id responses. Keep parsing changes outside the documentation scope.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    },
+    {
+      "id": "F27-1",
+      "disposition": "retain",
+      "original_severity": "S1",
+      "reviewer_severities": {
+        "impact": "S1",
+        "reproduce": "S2",
+        "scope": "S1"
+      },
+      "final_severity": "S2",
+      "rationale": "The documented presentation goal cannot be achieved in modern output with this flag, yet the page uses modern in its recipes and describes inline-strings without a format qualification. This is a real behavior mismatch that wastes attempts and prevents the requested representation. It does not lose program data or silently weaken a safety setting, so S1 overstates its practical impact.",
+      "current_static_evidence": [
+        "docs/guides/tracing.md:265-270 presents --inline-strings as a general presentation option beside modern examples.",
+        "docs/reference/batch.md:36 groups inlineStrings with other unqualified presentation booleans.",
+        "src/main/java/cs1302/tracer/internal/serialize/ModernTraceSerializer.java:45,63 stores inlineStrings, and searching the entire class finds no read of the field.",
+        "src/main/java/cs1302/tracer/internal/serialize/PyTutorSerializer.java:310,555,561 uses inlineStrings to alter representation."
+      ],
+      "fix_scope": "Document that inline-strings/inlineStrings affects Python Tutor output and has no effect on modern in existing guide/reference prose. Preserve generated CLI help and Java sources under the approved scope.",
+      "verification": "Current documentation/code source inspection plus preserved original independent evidence; no fresh runtime execution, build, or network lookup."
+    }
+  ]
+}

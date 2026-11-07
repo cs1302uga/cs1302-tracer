@@ -311,8 +311,12 @@ GitHub releases, push tags, or modify real documentation snapshots.
 Releases adopting `release.central.schema=1` publish Maven coordinates
 `io.github.cs1302uga:cs1302-tracer` as well as the GitHub distributions. Earlier
 releases retain their original GitHub-only evidence contract. Changing the old
-`cs1302uga` group ID is a Maven consumer migration and requires a major release;
-the development POM version is not a release classification. Java package names,
+`cs1302uga` group ID is a breaking Maven consumer migration. The maintainer
+explicitly approved release 4.3.1 as an exception to the normal major-release
+policy; this exception does not change the policy for subsequent releases.
+Prepare 4.3.1 with `--change-kind patch` to encode the approved version increment,
+while retaining the breaking migration notice in its changelog. The next
+development version is `4.3.2-SNAPSHOT`. Java package names,
 CLI arguments, and JSON formats are unchanged. Snapshots are not published by this
 workflow. The existing GitHub Packages distribution settings are independent of
 GitHub Releases and are not used by the Central bundle publisher.

@@ -1,0 +1,47 @@
+{
+  "recorded_at": "2026-10-19T09:53:54.037555+00:00",
+  "purpose": "Static post4.2.1 rebase provenance; does not replace or refresh historical runtime evidence",
+  "base_commit": "2f4662139eb3a52873e441eba83095b25191f063",
+  "previous_audit_head": "b68ac57769c2a9caa1bc804972ad531a36918f77",
+  "rebased_audit_head_before_provenance_followup": "70a1ad908e280decfc21571643136296b94fa21d",
+  "commit_mapping": {
+    "0e294bc2fe7df4ee546c3e4de4a5d2de6c22ee69": "20e4a694c6b2bede067680e50a37507c644acab7",
+    "350d9c393b74baa4ecac101ecf9c550d15bc534f": "efd38efac4f87148466d82eb48ff5db777ddaf7e",
+    "4ae9b8d4142b431b822e49a8dab0c715c2269088": "81c2217b9ad6bdc2dec911ce288be99ab36f94c9",
+    "70c97ed507d21c0767f4408c0c1cd2d51416d397": "830d01945fa645e1e1599bd8b6b500a66833129e",
+    "f8adffe1f061674182ddd136d7691e38a06dd533": "2501a001648fdf86f8cdf17fb2effe8ac4820c92",
+    "5e6dd26a0c427f4a497fcce016a04a2d2a05a5de": "af12d9c6b88e20662845718c5fbc7161db66b3ac",
+    "11cb3610da3465059a0e0e8e8c7eafdbcb608098": "a04a2e2f4dbb0098b073ac422401eda52f93e7b6",
+    "c89399c7b17fcfca2fc6634c3fdc295a667d486b": "93a5fb9af01c8f9aea8680f94eab27660fb67b47",
+    "4f67da6cf053ef918f71f2f5e5166ff9fd036f01": "8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9",
+    "5735ec6955873b86e691313f1126c4172701de87": "78d1ee630afbd961910c035fe85a26d23dc79b5e",
+    "b68ac57769c2a9caa1bc804972ad531a36918f77": "70a1ad908e280decfc21571643136296b94fa21d"
+  },
+  "original_correction_to_rebased_implementation": {
+    "88afe52b041ec6798a592fa04bee0c2038e91657": "20e4a694c6b2bede067680e50a37507c644acab7",
+    "0e760d7cab637c413f6eada784addbc592557390": "efd38efac4f87148466d82eb48ff5db777ddaf7e",
+    "1827fcea19936810a00cef52a7f8cb292ac57304": "81c2217b9ad6bdc2dec911ce288be99ab36f94c9",
+    "6ffe3a6efc4b525c547d064f107d3e9246bcf9ad": "830d01945fa645e1e1599bd8b6b500a66833129e",
+    "223bc3f40ee0adb4f69c75cc301c1a9aac552f08": "af12d9c6b88e20662845718c5fbc7161db66b3ac",
+    "470a5ff70ef0ebd93569ff2d2e33a5facb1231bf": "a04a2e2f4dbb0098b073ac422401eda52f93e7b6",
+    "2e960428ca6b5f23b5e8f198717abf8bcda4d988": "93a5fb9af01c8f9aea8680f94eab27660fb67b47",
+    "5796651661ab593d4ff0997c805208ea3769a785": "8b6b2847a8cf342e0ce8b6e5eb099094f13c03b9"
+  },
+  "frozen_evidence_sha256": {
+    "docs/reviews/diataxis-audit/contract-probes.json": "b8985f52a17910f9ff8d9c205919ea39c5ba4453e665f732cfa71329635dfe26",
+    "docs/reviews/diataxis-audit/probe-evidence.json": "8ef0788b80f58a47b4fba6afee97ec08bf780081b7eba066b20ca530ac3dc54f",
+    "docs/reviews/diataxis-audit/javadoc-impact.json": "4b79384666d81221a4b0c7e151e07031fa44f702e904cfdc1f5156f98ea0c7ce",
+    "docs/reviews/diataxis-audit/followup-reproduction.json": "a3bdf861508803b9b6e332e8b386ceb91e8d419f9fb580524cbcaf0636f4421e",
+    "docs/reviews/diataxis-audit/followup-validation.json": "0406d7cd3bee273c8ac5fd0ccbf8569c049ab0f44e2ca7da61087276ff9f3421",
+    "docs/reviews/diataxis-audit/findings.json": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
+    "docs/reviews/diataxis-audit/javadoc-validation.json": "7113e202926733d41ef61ebac0692087fb75e7ef4e95ce23fdc6988aca6fe38b",
+    "docs/reviews/diataxis-audit/rebase-impact.json": "f3f37d3cec71b5ca9abd150af296d7f38f3a995fcda6853e416f83ebd8c5a04e",
+    "docs/reviews/diataxis-audit/selection.json": "841bd4b59553f812c210b3f6a62d0a6321d3aeb0c5c8a4541c4ef8a319ae7b78",
+    "docs/reviews/diataxis-audit/priority-adjudications.json": "6e0d181a67384248fe59cf3531aabd94e319969a869876b2df4c685f9e500016",
+    "docs/reviews/diataxis-audit/remediation-validation.json": "93a7270f13b4ed996f92598c93b3b868728443f0e42ad9593b22843f770421ae"
+  },
+  "resolved_conflict": "CHANGELOG.md: retain upstream and audit Unreleased commits; refresh implementation links; preserve the entire dated release tail from PR34",
+  "published_snapshot_policy": "Published snapshots remain unchanged; no pending4.2.2 snapshot exists",
+  "remaining_scope": "Original selected documentation corrections only; no unselected finding or runtime-exception implementation",
+  "runtime_validation": "Historical records retain their original source revision; fresh final-head results are reported separately in PR30"
+}
