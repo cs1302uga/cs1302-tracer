@@ -39,6 +39,9 @@ No breaking changes.
 
 ### Non-breaking changes
 
+- **Published guide retention:** pin the verified 4.2.1 guide archive so its
+  existing routes remain available when 4.3.1 and 4.3.0 are the active guides.
+
 - **Development version:** advance to `4.3.2-SNAPSHOT` after the 4.3.1 release.
   Runtime behavior and supported interfaces are unchanged.
 
