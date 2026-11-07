@@ -63,6 +63,7 @@ are unchanged.
 
 ### Commits
 
+- [`0e2d26c`](https://github.com/cs1302uga/cs1302-tracer/commit/0e2d26c0deab2236c30bf5ddd65129003d7408ce) Exclude generated Maven release state from resource style checks.
 - [`debc5ea`](https://github.com/cs1302uga/cs1302-tracer/commit/debc5eaa07097a8f3aee08d74d492179e273192c) Prepare 4.3.1 guides and record the approved versioning exception.
 - [`25138e1`](https://github.com/cs1302uga/cs1302-tracer/commit/25138e1d2d7f6df9d5e12edbd61aa98b4529246f) Link the Maven Central implementation in the changelog.
 - [`ff9cb9c`](https://github.com/cs1302uga/cs1302-tracer/commit/ff9cb9cdaa00c51f33e7778be23060c509a1d02e) Retain the 4.2.0 guide archive and finalize the 4.3.0 changelog.

@@ -143,6 +143,13 @@ release is published later. Each release keeps its version URL; development uses
 
 ## Publishing and retrying
 
+The signed version-transition branch is validated through push-triggered CI.
+Do not open a pull request for those transitions: the pull-request documentation
+job does not supply the pending stable-parent context needed before the release
+tag is published. Its missing-tag failure can block the same commit even when
+push CI passes. Review ordinary source and snapshot changes before preparation;
+monitor the release branch's push runs during publication.
+
 After review and publication authorization, run:
 
 ```sh
