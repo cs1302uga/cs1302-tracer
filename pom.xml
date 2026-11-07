@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>cs1302uga</groupId>
+  <groupId>io.github.cs1302uga</groupId>
   <artifactId>cs1302-tracer</artifactId>
   <packaging>jar</packaging>
   <version>4.3.1-SNAPSHOT</version>
@@ -75,6 +75,9 @@
     <slf4j.version>2.0.20</slf4j.version>
 
     <!-- Build plugin and plugin dependency versions -->
+    <maven-source-plugin.version>3.3.1</maven-source-plugin.version>
+    <maven-gpg-plugin.version>3.2.7</maven-gpg-plugin.version>
+    <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
     <checkstyle.version>14.3.0</checkstyle.version>
     <build-helper-maven-plugin.version>3.6.2</build-helper-maven-plugin.version>
     <frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
@@ -121,6 +124,10 @@
 
     <!-- Published releases declaring this schema must provide authenticated Javadoc artifacts. -->
     <release.javadoc.schema>1</release.javadoc.schema>
+    <!-- Tagged releases with this marker also require verified Central publication. -->
+    <release.central.schema>1</release.central.schema>
+    <!-- Central bundles exclude assemblies without changing GitHub distribution files. -->
+    <assembly.attach>true</assembly.attach>
 
     <!-- The release orchestrator overrides these only for the non-mutating POM/SCM dry run. -->
     <release.preparationGoals>verify</release.preparationGoals>
@@ -297,6 +304,24 @@
     <!-- Centralize plugin versions and shared configuration; active plugins inherit these settings. -->
     <pluginManagement>
       <plugins>
+        <!-- Attach standard source archives for Maven consumers. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-source-plugin</artifactId>
+          <version>${maven-source-plugin.version}</version>
+        </plugin>
+        <!-- Sign Maven artifacts independently of Git history and Sigstore attestations. -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <version>${maven-gpg-plugin.version}</version>
+        </plugin>
+        <!-- Assemble the Central Portal bundle with pinned publisher behavior. -->
+        <plugin>
+          <groupId>org.sonatype.central</groupId>
+          <artifactId>central-publishing-maven-plugin</artifactId>
+          <version>${central-publishing-maven-plugin.version}</version>
+        </plugin>
         <!-- Clean lifecycle -->
         <!-- Remove generated build output during the clean lifecycle. -->
         <plugin>
@@ -415,6 +440,8 @@
           <artifactId>maven-assembly-plugin</artifactId>
           <version>${maven-assembly-plugin.version}</version>
           <configuration>
+            <!-- Central bundles omit assemblies; GitHub distribution files are still built. -->
+            <attach>${assembly.attach}</attach>
             <!-- Share distribution naming while retaining each descriptor's attached classifier. -->
             <finalName>code-tracer</finalName>
             <appendAssemblyId>true</appendAssemblyId>
@@ -935,6 +962,52 @@ git.dirty=${git.dirty}
   </build>
 
   <profiles>
+    <!-- Build a signed, upload-free bundle; the publisher retains it before any remote upload. -->
+    <profile>
+      <id>release-central</id>
+      <properties>
+        <assembly.attach>false</assembly.attach>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-central-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>sign-central-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+                <configuration>
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg><arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>sonatype-central</publishingServerId>
+              <skipUpload>true</skipUpload>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <!-- Add serial release-only checks to the strict Java and docsite preparation profiles. -->
     <profile>
       <id>release-validation</id>

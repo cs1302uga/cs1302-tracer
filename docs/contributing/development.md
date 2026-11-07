@@ -90,7 +90,7 @@ this padding. The existing restriction on consecutive blank lines still applies.
 Maven runs `picocli-codegen` as an annotation processor, using the same
 `picocli.version` as the runtime library. It checks command annotations during
 compilation and writes Picocli reflection, resource, and proxy configuration under
-`META-INF/native-image/picocli-generated/cs1302uga/cs1302-tracer/` in the JARs.
+`META-INF/native-image/picocli-generated/io.github.cs1302uga/cs1302-tracer/` in the JARs.
 The processor is a build dependency only; it is not bundled with the application.
 This metadata does not establish native-image support for the tracer's compiler,
 JDI debugger, guest JVMs, or other dependencies. Normal JVM execution is unchanged.
@@ -302,7 +302,8 @@ attestation before publishing all three files. The top-level
 documentation's automatic selection. See
 [published Javadoc artifacts](javadoc-artifacts.md#published-javadoc-artifacts) for
 the exact filenames, local checks, trust requirements, and legacy-release fallback.
-GitHub release publication does not deploy Maven artifacts.
+The release job also publishes Maven artifacts through the opt-in `release-central`
+profile and retained Central bundle; see [Central publication](releases.md#maven-central-publication).
 
 During `generate-resources`, AntRun captures the full commit and tracked-file dirty
 state from this project's own `.git` entry (directory or linked-worktree file).

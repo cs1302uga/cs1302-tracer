@@ -101,10 +101,13 @@ In **PowerShell** or **Command Prompt** on Windows:
 ```
 
 This must finish with `BUILD SUCCESS` before continuing. It installs
-`cs1302uga:cs1302-tracer` locally with the project version in the source checkout's
+`io.github.cs1302uga:cs1302-tracer` locally with the project version in the source checkout's
 `pom.xml`. Copy that exact version into the dependency below. The example uses
-`4.3.0-SNAPSHOT`; a stable `v4.3.0` checkout installs `4.3.0`, and later checkouts
-can have a different development version.
+`4.3.1-SNAPSHOT`; copy the version from your checkout rather than assuming this
+example is current. Historical releases through 4.3.0 use group ID `cs1302uga`.
+The new coordinates are `io.github.cs1302uga:cs1302-tracer`. Once a release is
+published to Maven Central, use its stable version without a custom repository
+or the local installation step. Snapshot versions still require local installation.
 
 Create a separate directory named `tracer-consumer`. Save the complete
 `TraceExample.java` from the first part of this lesson at
@@ -126,9 +129,9 @@ Create a separate directory named `tracer-consumer`. Save the complete
   <dependencies>
     <!-- Use the regular tracer library and its transitive dependencies. -->
     <dependency>
-      <groupId>cs1302uga</groupId>
+      <groupId>io.github.cs1302uga</groupId>
       <artifactId>cs1302-tracer</artifactId>
-      <version>4.3.0-SNAPSHOT</version>
+      <version>4.3.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
   <build>

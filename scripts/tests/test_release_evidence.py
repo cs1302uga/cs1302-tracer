@@ -141,6 +141,57 @@ else:
         self.archives((self.assets / self.names[0]).read_bytes())
         self.save()
 
+    def test_central_evidence(self) -> None:
+        """Require Central bytes for marked releases while preserving legacy behavior."""
+        pom = (
+            "<project><groupId>io.github.cs1302uga</groupId><artifactId>cs1302-tracer</artifactId>"
+            f"<version>{VERSION}</version><properties><release.central.schema>1</release.central.schema>"
+            "</properties></project>"
+        ).encode()
+        (self.root / "pom.xml").write_bytes(pom)
+        self.commit = self.commit_pom()
+        for name in ("runs", "tag_runs"):
+            self.state[name][0]["headSha"] = self.commit
+        for name in ("run", "tag_run"):
+            self.state[name]["headSha"] = self.commit
+        self.manifest["versions"][0]["sourceCommit"] = self.commit
+        self.metadata = f"version={VERSION}\ngit.commit={self.commit}\ngit.dirty=false\n".encode()
+        for name in (self.names[0], self.names[-1]):
+            self.jar(self.assets / name, self.metadata)
+        self.archives((self.assets / self.names[0]).read_bytes())
+        self.javadoc()
+        prefix = f"io/github/cs1302uga/cs1302-tracer/{VERSION}/cs1302-tracer-{VERSION}"
+        files = {}
+        for suffix, data in (
+            (".pom", pom),
+            (".jar", (self.assets / self.names[-1]).read_bytes()),
+            ("-sources.jar", b"sources"),
+            ("-javadoc.jar", (self.assets / f"cs1302-tracer-{VERSION}-javadoc.jar").read_bytes()),
+        ):
+            files[prefix + suffix] = data
+            files[prefix + suffix + ".asc"] = b"-----BEGIN PGP SIGNATURE-----"
+            for algorithm in ("md5", "sha1", "sha256", "sha512"):
+                files[prefix + suffix + "." + algorithm] = hashlib.new(algorithm, data).hexdigest().encode()
+        bundle = self.assets / "central-bundle.zip"
+        with zipfile.ZipFile(bundle, "w") as archive:
+            for name, data in files.items():
+                archive.writestr(name, data)
+        self.state["release"]["assets"].append({"name": bundle.name, "size": bundle.stat().st_size})
+        self.save()
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.HTTPError("https://example.invalid", 404, "pending", Message(), io.BytesIO()),
+        ):
+            self.assertFalse(evidence.publication_verified(self.root, VERSION, self.commit))
+
+        def response(request: object, **kwargs: object) -> io.BytesIO:
+            if isinstance(request, str):
+                return io.BytesIO(files[request.removeprefix("https://repo.maven.apache.org/maven2/")])
+            return io.BytesIO(json.dumps(self.manifest).encode())
+
+        with patch("urllib.request.urlopen", side_effect=response):
+            self.assertTrue(evidence.publication_verified(self.root, VERSION, self.commit))
+
     def commit_pom(self) -> str:
         """Commit real capability metadata for the release-evidence Git lookup."""
         subprocess.run(["git", "add", "pom.xml"], cwd=self.root, check=True)

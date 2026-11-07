@@ -9,6 +9,7 @@ import urllib.request
 import zipfile
 from typing import TYPE_CHECKING, Any, cast
 
+import central_publish
 from javadoc_artifact import requires_artifact, verify_release_files
 
 if TYPE_CHECKING:
@@ -213,6 +214,9 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
         assets[asset["name"]] = asset["size"]
     require_javadoc = requires_artifact(root, commit) or any(name in assets for name in javadoc_assets)
     names = ["code-tracer.jar", *archives, library]
+    require_central = central_publish.required(root, commit)
+    if require_central:
+        names.append(central_publish.BUNDLE)
     if require_javadoc:
         names.extend(javadoc_assets)
     if any(assets.get(name, 0) <= 0 for name in names):
@@ -263,6 +267,8 @@ def publication_verified(root: Path, version: str, commit: str) -> bool:
             raise ValueError(f"{name} contains a different executable JAR")
     if require_javadoc:
         verify_release_files(root, destination / javadoc, version, commit, repository_name)
+    if require_central and not central_publish.verify(root, destination / central_publish.BUNDLE, version, commit):
+        return False
     request = urllib.request.Request(MANIFEST_URL, headers={"Cache-Control": "no-cache"})
     try:
         with urllib.request.urlopen(request, timeout=30) as response:

@@ -35,10 +35,17 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Breaking changes
 
-No breaking changes. Supported Java API signatures, CLI arguments, runtime
-requirements, and JSON/batch schemas are unchanged.
+Maven consumers must change the dependency group ID from `cs1302uga` to
+`io.github.cs1302uga`; the artifact ID remains `cs1302-tracer`. This coordinate
+migration requires a major release under the project release policy. Supported
+Java API signatures, CLI arguments, runtime requirements, and JSON/batch schemas
+are unchanged.
 
 ### Non-breaking changes
+
+- **Release tooling:** publish the library, sources, Javadoc, and POM to Maven
+  Central in addition to existing GitHub distributions. Retain signed bundles
+  and deployment records for retry and cross-destination verification.
 
 - **Published guide retention:** pin the verified `4.2.0` guide archive so published
   documentation can retain its existing routes when `4.3.0` and `4.2.1` become

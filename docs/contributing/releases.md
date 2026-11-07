@@ -305,3 +305,83 @@ It creates two artificial versions in a disposable tree, builds the site before
 and after publishing the second version, checks stable routing and retained
 archives, and verifies that retry selection is deterministic. It does not create
 GitHub releases, push tags, or modify real documentation snapshots.
+
+## Maven Central publication
+
+Releases adopting `release.central.schema=1` publish Maven coordinates
+`io.github.cs1302uga:cs1302-tracer` as well as the GitHub distributions. Earlier
+releases retain their original GitHub-only evidence contract. Changing the old
+`cs1302uga` group ID is a Maven consumer migration and requires a major release;
+the development POM version is not a release classification. Java package names,
+CLI arguments, and JSON formats are unchanged. Snapshots are not published by this
+workflow. The existing GitHub Packages distribution settings are independent of
+GitHub Releases and are not used by the Central bundle publisher.
+
+Configure these repository or accessible organization Actions secrets before
+publishing: `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_TOKEN`,
+`MAVEN_GPG_PRIVATE_KEY`, and `MAVEN_GPG_PASSPHRASE` for a protected signing key.
+The Central token must have permission for `io.github.cs1302uga`. Publish the PGP
+public key as required by Central. SSH release-history signatures and GitHub
+Sigstore attestations remain separate from PGP artifact signatures. Never put
+credentials or private keys in the POM, source tree, release assets, or notes.
+
+The `release-central` profile uses Maven Source Plugin 3.3.1, Maven GPG Plugin
+3.2.7, and Central Publishing Maven Plugin 0.12.0. With `release-javadoc`, it
+builds the ordinary library JAR, sources JAR, real API Javadoc JAR, and POM, with
+PGP signatures and MD5/SHA-1/SHA-256/SHA-512 checksums. Assemblies are still built
+for GitHub but are not attached to the Central deployment. `skipUpload=true`
+keeps Maven's `deploy` phase upload-free in this profile. For a signed local
+bundle rehearsal, from a stable checkout with a configured signing key:
+
+```sh
+./mvnw -B -ntp -Prelease-javadoc,release-central deploy
+```
+
+Inspect `target/central-publishing/central-bundle.zip`. This command does not
+publish it. Portal validation can be rehearsed by manually uploading that bundle
+with automatic publication disabled; do not publish an artificial rehearsal
+version. Follow [Sonatype's Maven documentation](https://central.sonatype.org/publish/publish-portal-maven/)
+and [Portal API documentation](https://central.sonatype.org/publish/publish-portal-api/).
+
+After the existing tag gates pass, the workflow creates a GitHub draft and retains
+`central-bundle.zip` before any Central upload. `central_publish.py freeze` verifies
+its tagged POM, clean library provenance, exact inventory, checksums, PGP signatures,
+and Javadoc metadata. On retry it downloads that bundle and restores the shared
+library/Javadoc bytes. The existing Javadoc checksum and Sigstore checks still
+apply. No later Maven lifecycle invocation may replace these frozen files.
+
+The workflow invokes `central_publish.py` through `./scripts/uv run --locked python`.
+Its required positional action is `freeze` or `publish`; both require
+`--version X.Y.Z` (a stable version), `--commit SHA` (the full 40-character commit),
+and `--repository OWNER/REPO` (the explicit GitHub repository). There are no
+implicit version, commit, or repository defaults. `freeze` can create or update
+a GitHub draft; `publish` can publish to Central. Both exit nonzero on invalid
+inputs or failed verification. Keep these publisher internals inside the supported
+release workflow; the Maven bundle rehearsal above does not invoke them.
+
+`central_publish.py publish` saves `central-deployment.json` in the draft before
+uploading, then records the returned deployment UUID. The record binds the bundle
+SHA-256, version, and commit. Upload uses the Portal API with automatic publication;
+status polling makes up to 60 checks with 30-second intervals, and public artifact
+verification compares every bundle member with Central. Network requests add to
+that interval budget; the release job has a 60-minute overall timeout. A timeout
+leaves publication incomplete. Rerun the tag workflow to reuse the bundle and
+deployment ID. The final GitHub release
+is made public only after Central and GitHub artifact checks pass. The ordinary
+release evidence command additionally downloads and compares the Central bundle
+and shared GitHub JARs before reporting publication complete.
+
+An interrupted upload with an empty deployment ID is deliberately ambiguous.
+Inspect the named deployment in the Portal and recover its UUID into the existing
+record while retaining the version, commit, and bundle hash. If no upload occurred,
+confirm that externally before removing only the intent record and retrying.
+Failed or manually managed deployments require inspection in the Portal; the
+publisher never silently drops or replaces them. Preserve failed deployment
+information for diagnosis. Never replace a retained bundle or published version
+to bypass a mismatch. If Central succeeded and GitHub failed, retry completes
+GitHub publication using the retained bytes. Published historical tags are unchanged.
+
+After the first actual publication, resolve the released dependency in a fresh
+Maven local repository without a custom repository declaration, compile and run
+the Java integration example, and confirm sources and Javadoc resolution. Local
+bundle checks and synthetic API tests do not establish live Central availability.
