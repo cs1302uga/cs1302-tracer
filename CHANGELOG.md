@@ -59,6 +59,7 @@ are unchanged.
 
 ### Commits
 
+- [`7c9cd1a`](https://github.com/cs1302uga/cs1302-tracer/commit/7c9cd1a7f05834c7c1562cb1d03071de2922f120) Publish signed Maven Central artifacts alongside GitHub releases and migrate Maven coordinates.
 - [`42cf6d3`](https://github.com/cs1302uga/cs1302-tracer/commit/42cf6d3be26fe9e86cd263e92e59ba3bb958d13d) Prepare the next development iteration, 4.3.1-SNAPSHOT.
 
 ## 4.3.0 — 2026-10-21
