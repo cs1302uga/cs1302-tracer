@@ -31,7 +31,24 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ## Unreleased
 
-[Changes since v4.3.0](https://github.com/cs1302uga/cs1302-tracer/compare/v4.3.0...HEAD).
+[Changes since v4.3.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.3.1...HEAD).
+
+### Breaking changes
+
+No breaking changes.
+
+### Non-breaking changes
+
+- **Development version:** advance to `4.3.2-SNAPSHOT` after the 4.3.1 release.
+  Runtime behavior and supported interfaces are unchanged.
+
+### Commits
+
+- [`091fd96`](https://github.com/cs1302uga/cs1302-tracer/commit/091fd96944095f1653db2e886a7bb3ed971d67df) Prepare the next development iteration, 4.3.2-SNAPSHOT.
+
+## 4.3.1 — 2026-11-07
+
+[Release](https://github.com/cs1302uga/cs1302-tracer/releases/tag/v4.3.1) · [Compare v4.3.0...v4.3.1](https://github.com/cs1302uga/cs1302-tracer/compare/v4.3.0...v4.3.1)
 
 ### Breaking changes
 
@@ -43,6 +60,9 @@ Java API signatures, CLI arguments, runtime requirements, and JSON/batch schemas
 are unchanged.
 
 ### Non-breaking changes
+
+- **Release procedure:** validate signed version transitions through push-triggered
+  CI, preserving the pending stable-parent documentation context.
 
 - **Release validation:** exclude generated Maven Release Plugin state from
   resource style checks while retaining authored-source checks.
@@ -63,6 +83,8 @@ are unchanged.
 
 ### Commits
 
+- [`9125142`](https://github.com/cs1302uga/cs1302-tracer/commit/9125142b95053f20016d13702dfb9855abe49406) Prepare the signed 4.3.1 release.
+- [`70764eb`](https://github.com/cs1302uga/cs1302-tracer/commit/70764eb18925e86a18f69366c52d2b67c68ebd5a) Document push-only validation for signed release transitions.
 - [`0e2d26c`](https://github.com/cs1302uga/cs1302-tracer/commit/0e2d26c0deab2236c30bf5ddd65129003d7408ce) Exclude generated Maven release state from resource style checks.
 - [`debc5ea`](https://github.com/cs1302uga/cs1302-tracer/commit/debc5eaa07097a8f3aee08d74d492179e273192c) Prepare 4.3.1 guides and record the approved versioning exception.
 - [`25138e1`](https://github.com/cs1302uga/cs1302-tracer/commit/25138e1d2d7f6df9d5e12edbd61aa98b4529246f) Link the Maven Central implementation in the changelog.
