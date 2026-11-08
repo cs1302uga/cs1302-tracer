@@ -59,6 +59,8 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Commits
 
+- [`fa269bd`](https://github.com/cs1302uga/cs1302-tracer/commit/fa269bd9f075dd1cbc376eb7f52c04cde1007a8f) Migrate documentation to Maven Site and Supa skin.
+- [`9b94c1b`](https://github.com/cs1302uga/cs1302-tracer/commit/9b94c1b7dc7fe3473883b02b9df3dcbc81923b67) Retain verified 4.2.1 guides after the 4.3.1 release.
 - [`091fd96`](https://github.com/cs1302uga/cs1302-tracer/commit/091fd96944095f1653db2e886a7bb3ed971d67df) Prepare the next development iteration, 4.3.2-SNAPSHOT.
 
 ## 4.3.1 — 2026-11-07
