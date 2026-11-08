@@ -6,7 +6,7 @@
   <skin>
     <groupId>io.github.mepcotterell</groupId>
     <artifactId>supa-maven-skin</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1-20261106.124007-1</version>
   </skin>
   <body>
     <links>

@@ -1,7 +1,12 @@
 # Build and preview documentation
 
 Current prose lives in `docs/`. The site uses **Apache Maven Site Plugin 3.22.0**
-with **Supa Maven Skin 0.2.0**. Retained release guides live in
+with **Supa Maven Skin 0.2.1-SNAPSHOT**, pinned to the published build
+`0.2.1-20261106.124007-1` in `src/site/site.xml`. The isolated renderer enables
+Sonatype Central's snapshot repository for dependencies, with releases disabled
+there and checksum failures treated as errors. Future snapshots require an explicit
+pin update; builds do not automatically float to newer skin bytes. The deployment
+manifest reads the skin coordinates from the descriptor. Retained release guides live in
 `docs/releases/VERSION/`; the current-document inventory excludes that tree.
 The common descriptor, navigation, static resources and project landing source
 live in `src/site/`. Generated staging and the assembled site live under `target/`.

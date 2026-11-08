@@ -363,6 +363,11 @@ def render(root: Path, plan: ReleasePlan) -> None:
         f"<groupId>io.github.cs1302uga</groupId><artifactId>documentation</artifactId><version>{Project(root).project_version()}</version>"
         "<name>cs1302-tracer</name><url>https://cs1302uga.github.io/cs1302-tracer/</url>"
         "<properties><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>"
+        "<repositories><repository><id>sonatype-central-snapshots</id>"
+        "<url>https://central.sonatype.com/repository/maven-snapshots/</url>"
+        "<releases><enabled>false</enabled></releases>"
+        "<snapshots><enabled>true</enabled><checksumPolicy>fail</checksumPolicy></snapshots>"
+        "</repository></repositories>"
         "<build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-site-plugin</artifactId>"
         f"<version>{version.text}</version><configuration><generateReports>false</generateReports>"
         "<relativizeSiteLinks>false</relativizeSiteLinks></configuration></plugin></plugins></build></project>"
@@ -481,12 +486,18 @@ def render(root: Path, plan: ReleasePlan) -> None:
         plan["baseUrl"] + ("docs/" + latest + "/" if latest else "docs/dev/"),
     )
     redirect(output / "404.html", plan["baseUrl"])
+    descriptor = ET.parse(stage / "src/site/site.xml").getroot()
     manifest = dict(plan)
     manifest.update(
         {
             "sourceDigest": source_digest(root),
             "builderCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
-            "renderer": {"mavenSitePlugin": version.text, "skin": "io.github.mepcotterell:supa-maven-skin:0.2.0"},
+            "renderer": {
+                "mavenSitePlugin": version.text,
+                "skin": ":".join(
+                    descriptor.findtext("{*}skin/{*}" + field, "") for field in ("groupId", "artifactId", "version")
+                ),
+            },
         }
     )
     (output / "release-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

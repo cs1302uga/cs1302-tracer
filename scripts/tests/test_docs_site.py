@@ -49,7 +49,11 @@ class DocumentationSiteTests(unittest.TestCase):
         (self.site / "resources/dependencies.css").write_text("")
         (self.site / "landing").mkdir()
         (self.site / "landing/index.md").write_text("# Project home")
-        (self.site / "site.xml").write_text("<site><body/></site>")
+        (self.site / "site.xml").write_text(
+            '<site xmlns="http://maven.apache.org/SITE/2.1.0"><skin>'
+            "<groupId>example</groupId><artifactId>test-skin</artifactId>"
+            "<version>9.0.0-SNAPSHOT</version></skin><body/></site>"
+        )
         (self.site / "navigation.json").write_text("{}")
         (self.root / "source.txt").write_text("released source")
         (self.site / "versions.json").write_text('["1.0.0"]')
@@ -398,6 +402,11 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         manifest = json.loads((completed / "release-manifest.json").read_text())
         self.assertEqual(manifest["versions"][1]["sourceCommit"], self.git("rev-parse", "v1.0.0^{commit}"))
         self.assertEqual(manifest["latestVersion"], "1.0.0")
+        self.assertEqual(manifest["renderer"]["skin"], "example:test-skin:9.0.0-SNAPSHOT")
+        staged_pom = (self.root / "target/docsite/renderer/pom.xml").read_text()
+        self.assertIn("https://central.sonatype.com/repository/maven-snapshots/", staged_pom)
+        self.assertIn("<releases><enabled>false</enabled></releases>", staged_pom)
+        self.assertIn("<checksumPolicy>fail</checksumPolicy>", staged_pom)
 
     def test_release_generation_failure_retains_previous_complete_api(self) -> None:
         """Release generation failure retains previous complete api."""
