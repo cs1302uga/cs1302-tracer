@@ -110,7 +110,7 @@ def check_links() -> None:
     paths = [
         ROOT / "README.md",
         ROOT / "HACKING.md",
-        *sorted((ROOT / "docs").rglob("*.md")),
+        *sorted(p for p in (ROOT / "docs").rglob("*.md") if p.relative_to(ROOT / "docs").parts[0] != "releases"),
         *sorted((ROOT / "examples").rglob("README.md")),
     ]
     errors = []

@@ -260,12 +260,11 @@ Runtime dependencies remain required for execution. Run these with
 
 ## Docsite build profile
 
-`./mvnw -B -ntp -Pdocsite verify` adds frontend bootstrap and documentation gates
-to the normal build. The plugin version is managed centrally; `node.version` pins
-the distribution, which also supplies npm. Installations live under
-`target/frontend/`, and `website/package-lock.json` controls frontend dependencies.
-The profile runs its checks after the JAR and binary ZIP exist. It is inactive in
-ordinary builds and explicitly deactivated by nested Javadoc invocations.
+`./mvnw -B -ntp -Pdocsite verify` adds serial documentation gates after the
+JAR and binary ZIP exist. Maven Antrun invokes managed Python, which stages the
+current Maven Site renderer and builds every selected retained guide under
+`target/pages`. The profile is inactive in ordinary builds and explicitly
+deactivated by nested Javadoc invocations.
 See [documentation builds](documentation-builds.md#local-checks) for preview,
 published mode, and live editing, and the
 [release runbook](releases.md#release-rehearsal) for release rehearsal.

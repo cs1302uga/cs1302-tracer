@@ -80,7 +80,6 @@
     <central-publishing-maven-plugin.version>0.12.0</central-publishing-maven-plugin.version>
     <checkstyle.version>14.3.0</checkstyle.version>
     <build-helper-maven-plugin.version>3.6.2</build-helper-maven-plugin.version>
-    <frontend-maven-plugin.version>2.0.2</frontend-maven-plugin.version>
     <jacoco-maven-plugin.version>0.8.15</jacoco-maven-plugin.version>
     <license-maven-plugin.version>2.7.1</license-maven-plugin.version>
     <maven-antrun-plugin.version>3.2.0</maven-antrun-plugin.version>
@@ -111,14 +110,11 @@
     <wrapper.maven.version>3.10.0</wrapper.maven.version>
     <wrapper.maven.sha256sum>1f6d9909266510f039f59aa0e13dcd2c66da85f043e56276e41f2918f8bddaff</wrapper.maven.sha256sum>
 
-    <!-- Pin the docsite toolchain; npm is supplied by this Node distribution. -->
-    <node.version>v24.22.0</node.version>
     <docsite.mode>preview</docsite.mode>
     <docsite.releases />
     <docsite.pendingCommit />
     <docsite.javadocCache>use</docsite.javadocCache>
     <docsite.javadocSource>auto</docsite.javadocSource>
-    <docsite.guides>all</docsite.guides>
     <!-- The dependency-page generator overrides this with a fresh temporary directory. -->
     <dependency.docs.outputDirectory>${project.build.directory}/dependency-docs</dependency.docs.outputDirectory>
 
@@ -570,18 +566,6 @@
                 </ignoreVersion>
               </ignoreVersions>
             </ruleSet>
-          </configuration>
-        </plugin>
-        <!-- Manage the local Node/npm toolchain used only by the docsite profile. -->
-        <plugin>
-          <groupId>com.github.eirslett</groupId>
-          <artifactId>frontend-maven-plugin</artifactId>
-          <version>${frontend-maven-plugin.version}</version>
-          <configuration>
-            <workingDirectory>${project.basedir}/website</workingDirectory>
-            <installDirectory>${project.build.directory}/frontend</installDirectory>
-            <nodeVersion>${node.version}</nodeVersion>
-            <npmVersion>provided</npmVersion>
           </configuration>
         </plugin>
       </plugins>
@@ -1122,53 +1106,28 @@ git.dirty=${git.dirty}
         </plugins>
       </build>
     </profile>
-    <!-- Opt in to frontend bootstrap and complete documentation verification after packaging. -->
+    <!-- Package the executable, then verify and assemble all documentation serially. -->
     <profile>
       <id>docsite</id>
-      <build>
-        <plugins>
-          <!-- Use pinned local Node/npm and the existing managed-Python documentation workflow. -->
-          <plugin>
-            <groupId>com.github.eirslett</groupId>
-            <artifactId>frontend-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>install-docsite-toolchain</id>
-                <phase>initialize</phase>
-                <goals><goal>install-node-and-npm</goal></goals>
-              </execution>
-              <execution>
-                <id>install-docsite-dependencies</id>
-                <phase>generate-resources</phase>
-                <goals><goal>npm</goal></goals>
-                <configuration>
-                  <arguments>run ci:timed</arguments>
-                  <environmentVariables>
-                    <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
-                  </environmentVariables>
-                </configuration>
-              </execution>
-              <execution>
-                <id>verify-docsite</id>
-                <phase>verify</phase>
-                <goals><goal>npm</goal></goals>
-                <configuration>
-                  <arguments>run build:maven</arguments>
-                  <environmentVariables>
-                    <DOCSITE_MODE>${docsite.mode}</DOCSITE_MODE>
-                    <DOCSITE_RELEASES>${docsite.releases}</DOCSITE_RELEASES>
-                    <DOCSITE_PENDING_COMMIT>${docsite.pendingCommit}</DOCSITE_PENDING_COMMIT>
-                    <DOCSITE_JAVADOC_CACHE>${docsite.javadocCache}</DOCSITE_JAVADOC_CACHE>
-                    <DOCSITE_JAVADOC_SOURCE>${docsite.javadocSource}</DOCSITE_JAVADOC_SOURCE>
-                    <DOCSITE_GUIDES>${docsite.guides}</DOCSITE_GUIDES>
-                    <UVW_GIT_COMMIT>never</UVW_GIT_COMMIT>
-                  </environmentVariables>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
+      <build><plugins><plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions><execution>
+          <id>verify-docsite</id><phase>verify</phase><goals><goal>run</goal></goals>
+          <configuration><target>
+            <exec executable="${project.basedir}/scripts/uv" dir="${project.basedir}" failonerror="true">
+              <env key="UVW_GIT_COMMIT" value="never" />
+              <env key="DOCSITE_MODE" value="${docsite.mode}" />
+              <env key="DOCSITE_RELEASES" value="${docsite.releases}" />
+              <env key="DOCSITE_PENDING_COMMIT" value="${docsite.pendingCommit}" />
+              <env key="DOCSITE_JAVADOC_CACHE" value="${docsite.javadocCache}" />
+              <env key="DOCSITE_JAVADOC_SOURCE" value="${docsite.javadocSource}" />
+              <arg value="run" /><arg value="--locked" /><arg value="python" />
+              <arg value="scripts/docs_site.py" /><arg value="verify" />
+            </exec>
+          </target></configuration>
+        </execution></executions>
+      </plugin></plugins></build>
     </profile>
     <!-- Tar distributions preserve Unix symlinks; native Windows builds the portable ZIP only. -->
     <profile>

@@ -18,6 +18,7 @@ dependencies = []
 [dependency-groups]
 dev = [
     "coverage>=7.16.2",
+    "mini-racer>=0.14.1",
     "ruff",
     "ty",
 ]
@@ -57,7 +58,7 @@ branch = true
 source = ["scripts"]
 source_pkgs = [
     "build_javadoc", "central_publish", "check_docs", "check_external_links", "check_site", "check_pom", "configure_maven", "dependency_docs",
-    "docs_release", "docs_site", "docs_timing", "guide_archive", "guide_build", "guide_publish", "javadoc_artifact", "javadoc_cache", "javadoc_publish", "rehearse_docs_release", "release", "release_evidence", "release_validate", "serve_docs",
+    "docs_release", "docs_site", "maven_site", "docs_timing", "javadoc_artifact", "javadoc_cache", "javadoc_publish", "rehearse_docs_release", "release", "release_evidence", "release_validate", "serve_docs",
 ]
 omit = ["*/scripts/tests/*", "*/scripts/.venv/*", "*/scripts/.uv/*"]
 patch = ["subprocess"]

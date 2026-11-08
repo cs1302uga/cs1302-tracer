@@ -2,15 +2,17 @@
 """Prepare, validate, and select documentation release snapshots."""
 
 import argparse
+import hashlib
 import json
 import re
+import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import NotRequired, TypedDict, cast
 
 ROOT = Path(__file__).resolve().parents[1]
-SITE = ROOT / "website"
+SITE = ROOT / "src/site"
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 
 
@@ -69,7 +71,7 @@ class Project:
     def __init__(self, root: Path) -> None:
         """Initialize the input state."""
         self.root = Path(root)
-        self.site = self.root / "website"
+        self.site = self.root / "src/site"
 
     def plan(
         self, mode: str, releases: list[ReleaseRecord] | None = None, pending_commit: str | None = None
@@ -87,17 +89,16 @@ class Project:
         pending_version = self.pending_release(pending_commit) if pending_commit else None
         selected = self.versions() if mode == "preview" else self.select(cast("list[ReleaseRecord]", releases))
         base = "/cs1302-tracer/"
-        latest = selected[0] if selected else None
         entries: list[ReleaseEntry] = [
             {
                 "name": "current",
                 "label": "Development (main)",
-                "docsPath": "next" if latest else "/",
-                "docsUrl": base + ("next/" if latest else ""),
+                "docsPath": "docs/dev",
+                "docsUrl": base + "docs/dev/",
                 "javadocPath": "api/next",
                 "javadocUrl": base + "api/next/index.html",
                 "sourceCommit": None,
-                "banner": "unreleased" if latest else "none",
+                "banner": "unreleased",
             }
         ]
         for version in selected:
@@ -126,15 +127,17 @@ class Project:
             entries.append(
                 {
                     "name": version,
-                    "label": version,
-                    "docsPath": version,
-                    "docsUrl": base + version + "/",
+                    "label": "Release " + version,
+                    "docsPath": "docs/" + version,
+                    "docsUrl": base + "docs/" + version + "/",
                     "javadocPath": "api/" + version,
                     "javadocUrl": base + "api/" + version + "/index.html",
                     "sourceCommit": commit,
                     "banner": "unreleased" if not tags else "none",
                 }
             )
+        latest = next((entry["name"] for entry in entries[1:] if entry["banner"] == "none"), None)
+        self.validate_retention(entries, mode)
         return {
             "mode": mode,
             "baseUrl": base,
@@ -150,7 +153,8 @@ class Project:
 
     def write_manifest(self, plan: ReleasePlan) -> Path:
         """Make the selected release decisions available to the site tooling."""
-        path = self.site / "release-manifest.json"
+        path = self.root / "target/docsite/release-manifest.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(plan, indent=2) + "\n")
         return path
 
@@ -161,7 +165,11 @@ class Project:
     @staticmethod
     def files(folder: Path) -> dict[str, bytes]:
         """Read a snapshot as relative paths and bytes."""
-        return {p.relative_to(folder).as_posix(): p.read_bytes() for p in folder.rglob("*") if p.is_file()}
+        return {
+            p.relative_to(folder).as_posix(): p.read_bytes()
+            for p in folder.rglob("*")
+            if p.is_file() and not (folder.name == "docs" and p.relative_to(folder).parts[0] == "releases")
+        }
 
     def revision_files(self, commit: str, folder: str) -> dict[str, bytes]:
         """Read committed files without altering the checkout or executing its code."""
@@ -175,7 +183,7 @@ class Project:
                 ["git", "show", commit + ":" + path], cwd=self.root
             )
             for path in paths
-            if path
+            if path and not (folder == "docs" and path.startswith("docs/releases/"))
         }
 
     def pending_release(self, commit: str) -> str:
@@ -196,12 +204,12 @@ class Project:
         assert self.revision_files(commit, "docs") == self.files(self.root / "docs"), (
             "Pending release commit documentation differs from current docs/"
         )
-        snapshot = f"website/versioned_docs/version-{version}"
+        snapshot = f"docs/releases/{version}"
         assert self.revision_files(commit, snapshot) == self.files(self.root / snapshot), (
             "Pending release commit snapshot differs from the prepared snapshot"
         )
-        for name in ("versions.json", "sidebars.js", f"versioned_sidebars/version-{version}-sidebars.json"):
-            archived = subprocess.check_output(["git", "show", commit + ":website/" + name], cwd=self.root)
+        for name in ("versions.json", "navigation.json", f"releases/{version}-navigation.json"):
+            archived = subprocess.check_output(["git", "show", commit + ":src/site/" + name], cwd=self.root)
             assert archived == (self.site / name).read_bytes(), (
                 "Pending release commit metadata differs from current files"
             )
@@ -210,16 +218,35 @@ class Project:
     def check_snapshot(self, version: str) -> None:
         """Require exact agreement between current documentation and its pending snapshot."""
         assert version in self.versions(), "Prepare and commit the documentation snapshot before tagging"
-        assert self.files(self.root / "docs") == self.files(self.site / f"versioned_docs/version-{version}"), (
+        assert self.files(self.root / "docs") == self.files(self.root / "docs/releases" / version), (
             "Release snapshot differs from docs/. Refresh it before tagging."
         )
-        current = subprocess.check_output(
-            ["node", "-e", 'process.stdout.write(JSON.stringify(require("./sidebars.js")))'],
-            cwd=self.site,
-            text=True,
-        )
-        archived = json.loads((self.site / f"versioned_sidebars/version-{version}-sidebars.json").read_text())
-        assert json.loads(current) == archived, "Release sidebar differs from current sidebar"
+        current = json.loads((self.site / "navigation.json").read_text())
+        archived = json.loads((self.site / f"releases/{version}-navigation.json").read_text())
+        assert current == archived, "Release sidebar differs from current sidebar"
+
+    def snapshot_digest(self, version: str) -> str:
+        """Hash exact retained prose and its navigation with deterministic path boundaries."""
+        digest = hashlib.sha256()
+        for name, content in sorted(self.files(self.root / "docs/releases" / version).items()):
+            digest.update(name.encode() + b"\0" + content + b"\0")
+        digest.update(b"navigation.json\0" + (self.site / f"releases/{version}-navigation.json").read_bytes() + b"\0")
+        return digest.hexdigest()
+
+    def validate_retention(self, entries: list[ReleaseEntry], mode: str) -> None:
+        """Protect pinned software identity and frozen prose independently of the renderer."""
+        file = self.site / "release-provenance.json"
+        if not file.exists():
+            return
+        catalog = json.loads(file.read_text())
+        assert catalog["schemaVersion"] == 1, "Invalid release provenance schema"
+        selected = {entry["name"]: entry for entry in entries}
+        for version, record in catalog["releases"].items():
+            assert version in self.versions(), f"Existing documentation versions must be retained: {version}"
+            assert self.snapshot_digest(version) == record["sourceDigest"], f"Frozen documentation changed: {version}"
+            if mode == "published":
+                assert version in selected, f"Published release records must retain pinned guide {version}"
+                assert selected[version]["sourceCommit"] == record["releaseCommit"], f"Retargeted release {version}"
 
     def check(self, tag: str | None = None, base: str | None = None, pending: str | None = None) -> None:
         """Validate snapshot metadata and optional release or base constraints."""
@@ -231,19 +258,23 @@ class Project:
             "Snapshots must be ordered newest first"
         )
         for version in saved:
-            assert (self.site / f"versioned_docs/version-{version}/index.md").is_file(), (
+            assert (self.root / "docs/releases" / version / "index.md").is_file(), (
                 f"Missing documentation snapshot for {version}"
             )
-            assert (self.site / f"versioned_sidebars/version-{version}-sidebars.json").is_file(), (
+            assert (self.site / f"releases/{version}-navigation.json").is_file(), (
                 f"Missing sidebar snapshot for {version}"
             )
         if base:
             listed = subprocess.check_output(
-                ["git", "ls-tree", "--name-only", base, "website/versions.json"], cwd=self.root, text=True
+                ["git", "ls-tree", "--name-only", base, "src/site/versions.json", "website/versions.json"],
+                cwd=self.root,
+                text=True,
             ).strip()
             previous = (
                 json.loads(
-                    subprocess.check_output(["git", "show", f"{base}:website/versions.json"], cwd=self.root, text=True)
+                    subprocess.check_output(
+                        ["git", "show", f"{base}:" + listed.splitlines()[0]], cwd=self.root, text=True
+                    )
                 )
                 if listed
                 else []
@@ -259,6 +290,7 @@ class Project:
             else:
                 assert version == self.project_version(), "Release tag does not match pom.xml"
             self.check_snapshot(version)
+        self.validate_retention([], "preview")
         print("Documentation release metadata passed.")
 
     def select(self, releases: list[ReleaseRecord]) -> list[str]:
@@ -297,18 +329,21 @@ def main() -> None:
             map(int, project.versions()[0].split("."))
         ), "New snapshots must increase the version"
         project.write_manifest(project.plan("preview"))
-        subprocess.run(["npm", "run", "docusaurus", "--", "docs:version", version], cwd=SITE, check=True)
+        shutil.copytree(ROOT / "docs", ROOT / "docs/releases" / version, ignore=shutil.ignore_patterns("releases"))
+        (SITE / "releases").mkdir(exist_ok=True)
+        shutil.copy2(SITE / "navigation.json", SITE / f"releases/{version}-navigation.json")
+        (SITE / "versions.json").write_text(json.dumps([version, *project.versions()], indent=2) + "\n")
         project.check(pending=version)
         project.write_manifest(project.plan("preview"))
-        print(
-            f"Review and commit docs, versions.json, versioned_docs, and versioned_sidebars before tagging v{version}."
-        )
+        print(f"Review and commit docs/releases, src/site/versions.json, and navigation before tagging v{version}.")
     elif args.command == "check":
         project.check(args.tag, args.base, args.pending)
     else:
         project.check()
         selected = project.select(json.loads(args.releases.read_text()))
-        (SITE / "published-versions.json").write_text(json.dumps(selected, indent=2) + "\n")
+        report = ROOT / "target/docsite/published-versions.json"
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps(selected, indent=2) + "\n")
         print(f"Published versions: {selected}; development remains available.")
 
 

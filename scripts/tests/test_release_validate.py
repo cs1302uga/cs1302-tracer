@@ -26,17 +26,18 @@ class ReleaseValidationTests(unittest.TestCase):
         for name in ("release_validate.py", "docs_release.py"):
             shutil.copy2(SCRIPTS / name, scripts / name)
         (self.root / "pom.xml").write_text("<project><version>1.2.3</version></project>")
-        for directory in ("docs", "website/versioned_docs/version-1.2.3"):
+        for directory in ("docs", "docs/releases/1.2.3"):
             folder = self.root / directory
             folder.mkdir(parents=True)
             (folder / "index.md").write_text("# Release\n")
-        (self.root / "website/versions.json").write_text('["1.2.3"]')
-        sidebars = self.root / "website/versioned_sidebars"
+        (self.root / "src/site").mkdir(parents=True)
+        (self.root / "src/site/navigation.json").write_text("{}")
+        (self.root / "src/site/versions.json").write_text('["1.2.3"]')
+        sidebars = self.root / "src/site/releases"
         sidebars.mkdir()
-        (sidebars / "version-1.2.3-sidebars.json").write_text("{}")
-        binaries = self.root / "target/frontend/node"
+        (sidebars / "1.2.3-navigation.json").write_text("{}")
+        binaries = self.root / "target/test-tools"
         binaries.mkdir(parents=True)
-        self.executable(binaries / "node", 'print("{}")\n')
         body = """
 import json, os, sys
 from pathlib import Path
@@ -53,7 +54,9 @@ if os.environ.get('RELEASE_TEST_FAIL') == ' '.join(sys.argv[1:]):
         for path in (scripts / "uv", binaries / "javadoc", self.root / "target/code-tracer"):
             self.executable(path, body)
         self.log = self.root / "commands.jsonl"
-        self.environment = dict(os.environ, RELEASE_TEST_LOG=str(self.log))
+        self.environment = dict(
+            os.environ, RELEASE_TEST_LOG=str(self.log), PATH=str(binaries) + os.pathsep + os.environ["PATH"]
+        )
 
     def executable(self, path: Path, body: str) -> None:
         """Write an executable stand-in at an external-tool boundary."""

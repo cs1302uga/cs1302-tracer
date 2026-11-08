@@ -2,7 +2,7 @@
 
 Use this runbook for software version selection, signed preparation, publication,
 and recovery. Preparation and publication are separate operations. For guide-only
-`docs-*` publications, use [guide archives](guide-archives.md); for site build
+historical guide corrections, use [retained guides](guide-archives.md); for site build
 settings and local preview, use [documentation builds](documentation-builds.md).
 
 ## Prepare a stable release
@@ -45,16 +45,14 @@ then prepare the stable documentation without changing that POM:
 
 ```sh
 git fetch --tags
-./mvnw -B -ntp -Pdocsite generate-resources
-export PATH="$PWD/target/frontend/node:$PATH"
 ./scripts/uv run --locked python scripts/docs_release.py prepare --version X.Y.Z
 ./scripts/uv run --locked python scripts/docs_release.py check --pending X.Y.Z
 ```
 
 The explicit target must match the stable or snapshot Maven version. Preparation
 rejects an existing tag, an existing snapshot, or a non-increasing version. Review
-and commit `website/versions.json`, `website/versioned_docs/`, and
-`website/versioned_sidebars/` with the release documentation, then integrate those
+and commit `src/site/versions.json`, `docs/releases/`, and
+`src/site/releases/` with the release documentation, then integrate those
 changes into `main` through the normal reviewed process. If current docs or the
 sidebar change afterward, edit the pending snapshot to match and rerun
 `check --pending X.Y.Z`; do not regenerate historical snapshots. The strict
@@ -235,7 +233,7 @@ Release snapshots are retained in Git. Correct an older release's documentation 
 editing its snapshot in a reviewed PR; do not describe unreleased behavior there.
 For an archived guide, also follow the
 [archive correction procedure](guide-archives.md#roll-out-archived-guides) to publish
-and review its replacement artifact.
+and review its source/navigation provenance.
 Python commands must match the checkout they document: current guides use
 `./scripts/uv run python3` (or the equivalent wrapped `python`), while the 3.2.x
 checkouts predate that wrapper and retain their direct `python3` instructions
@@ -244,7 +242,7 @@ command guidance.
 For a broken site deployment, revert the responsible docs/configuration change on
 `main` and dispatch deployment again. Removing an unpinned software release changes
 its eligibility for public version selection while retaining its source snapshot.
-Once a version is pinned in the guide archive catalog, missing or reclassified
+Once a version is pinned in release provenance, missing or reclassified
 software release metadata and changed tags fail deployment instead of silently
 retiring its published documentation.
 
@@ -299,19 +297,17 @@ destination for that rehearsal. Script tests use real temporary Git repositories
 and external-tool stand-ins; they do not establish that a real release build or
 GitHub publication succeeded.
 
-The separate documentation rehearsal uses actual site builds. After
-[frontend bootstrap](documentation-builds.md#local-checks), run it with the same
-pinned toolchain:
+The separate documentation rehearsal uses actual Maven Site builds:
 
 ```sh
-export PATH="$PWD/target/frontend/node:$PATH"
 ./scripts/uv run --locked python scripts/rehearse_docs_release.py
 ```
 
-It creates two artificial versions in a disposable tree, builds the site before
-and after publishing the second version, checks stable routing and retained
-archives, and verifies that retry selection is deterministic. It does not create
-GitHub releases, push tags, or modify real documentation snapshots.
+It uses the explicit Javadoc source override because its artificial releases have
+no published artifacts. It creates two versions in a disposable tree, builds before and after
+selecting the second published release, checks stable/latest and development
+channels, retains older guides, repeats selection, and rejects missing tags while
+preserving previous complete API output. It makes no GitHub release or ref changes.
 
 ## Maven Central publication
 

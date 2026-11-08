@@ -23,7 +23,11 @@ def check(url: str) -> tuple[str, int | str, str]:
 
 def main() -> int:
     """Run the command-line workflow."""
-    paths = [ROOT / "README.md", ROOT / "HACKING.md", *sorted((ROOT / "docs").rglob("*.md"))]
+    paths = [
+        ROOT / "README.md",
+        ROOT / "HACKING.md",
+        *sorted(p for p in (ROOT / "docs").rglob("*.md") if p.relative_to(ROOT / "docs").parts[0] != "releases"),
+    ]
     urls = sorted(
         {url.split("#")[0] for path in paths for url in re.findall(r"\]\((https?://[^\s)]+)\)", path.read_text())}
     )

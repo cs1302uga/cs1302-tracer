@@ -1313,7 +1313,7 @@ resolved coordinates remain in Details. Direct dependencies appear first; each s
 artifact ID, with full coordinates breaking ties.
 
 This inventory excludes build plugins, annotation processors configured outside the project dependency
-graph, and the documentation/tooling **npm** and Python environments. It is not an inventory of every build tool.
+graph, and the documentation/tooling Python environment. It is not an inventory of every build tool.
 License names and URLs reproduce all upstream declarations without inferring an AND/OR relationship.
 A metadata override fills missing licensing information only and identifies its reviewed source and reason
 in the entry's details. Missing descriptive fields are labeled explicitly; they are not invented.

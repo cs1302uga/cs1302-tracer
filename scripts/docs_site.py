@@ -2,9 +2,9 @@
 """Build or preview documentation with an explicit release selection mode."""
 
 import argparse
+import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +12,7 @@ from pathlib import Path
 from build_javadoc import build
 from docs_release import Project
 from docs_timing import BuildTimings
-from guide_build import compose, prepare, validate_retention
+from maven_site import render, source_digest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,14 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def main() -> None:
     """Run the command-line workflow."""
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
-    parser.add_argument("action", choices=("build", "start", "api", "verify"))
+    parser.add_argument("action", choices=("build", "start", "api", "verify", "check-inputs"))
     parser.add_argument("--mode", choices=("preview", "published"), default=os.environ.get("DOCSITE_MODE", "preview"))
-    parser.add_argument(
-        "--guides",
-        choices=("all", "active"),
-        default=os.environ.get("DOCSITE_GUIDES", "all"),
-        help="Build all guides, or build current/recent guides and compose verified historical archives",
-    )
     parser.add_argument(
         "--releases",
         type=Path,
@@ -51,33 +45,32 @@ def main() -> None:
         default=os.environ.get("DOCSITE_PENDING_COMMIT") or None,
         help="Full release commit SHA for previewing its untagged snapshot after the next development bump",
     )
-    args, remaining = parser.parse_known_args()
-    if args.guides not in ("all", "active"):
-        parser.error("DOCSITE_GUIDES must be all or active")
-    if args.action == "start" and args.guides == "active":
-        parser.error("Active guides require build or verify followed by serve_docs.py; start supports all guides")
+    parser.add_argument("--host", default="127.0.0.1", help="Preview server bind address for start")
+    parser.add_argument("--port", type=int, default=3000, help="Preview server port for start")
+    args = parser.parse_args()
     if args.javadoc_source not in ("auto", "source"):
         parser.error("DOCSITE_JAVADOC_SOURCE must be auto or source")
     if args.javadoc_cache not in ("use", "refresh", "off"):
         parser.error("DOCSITE_JAVADOC_CACHE must be use, refresh, or off")
-    # The release manifest, checker, and preview server all own website/build.
-    # Validate forwarded flags so a positional site directory or output/config
-    # override cannot silently move the build away from its manifest.
-    forwarded = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    if args.action in ("start", "build"):
-        forwarded.add_argument("--no-minify", action="store_true")
-    if args.action == "start":
-        forwarded.add_argument("--host")
-        forwarded.add_argument("-p", "--port")
-        forwarded.add_argument("--no-open", action="store_true")
-    forwarded.parse_args(remaining)
     project = Project(ROOT)
     timings = BuildTimings()
     try:
         with timings.measure("release-selection"):
             records = json.loads(args.releases.read_text()) if args.releases else None
             plan = project.plan(args.mode, records, pending_commit=args.pending_commit)
-            validate_retention(ROOT, plan)
+        if args.action == "check-inputs":
+            manifest = json.loads((ROOT / "target/pages/release-manifest.json").read_text())
+            assert manifest["sourceDigest"] == source_digest(ROOT), "Stale deployment source inputs"
+            for field in ("mode", "baseUrl", "origin", "latestVersion", "versions"):
+                assert manifest[field] == plan[field], f"Stale deployment release selection: {field}"
+            release_digest = hashlib.sha256(
+                json.dumps(sorted(records or [], key=lambda r: r["tag_name"]), sort_keys=True).encode()
+            ).hexdigest()
+            assert manifest["releaseInputsDigest"] == release_digest, "Stale deployment release asset records"
+            head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+            assert head == manifest["builderCommit"], "Stale deployment builder revision"
+            print("Deployment source inputs and release selection passed.")
+            return
         if args.action == "verify":
             with timings.measure("dependency-inventory"):
                 subprocess.run(
@@ -87,6 +80,7 @@ def main() -> None:
                 subprocess.run([sys.executable, str(ROOT / "scripts/check_docs.py")], cwd=ROOT, check=True)
             with timings.measure("release-metadata"):
                 subprocess.run([sys.executable, str(ROOT / "scripts/docs_release.py"), "check"], cwd=ROOT, check=True)
+        initial_digest = source_digest(ROOT)
         build(
             ROOT,
             plan,
@@ -95,28 +89,34 @@ def main() -> None:
             cache_mode=args.javadoc_cache,
             timings=timings,
         )
-        manifest = project.write_manifest(plan)
+        project.write_manifest(plan)
         if args.action != "api":
-            with prepare(ROOT, plan, args.guides, timings) as archives:
-                action = "build" if args.action == "verify" else args.action
-                with timings.measure("docusaurus"):
-                    subprocess.run(["npm", "run", "docusaurus", "--", action, *remaining], cwd=project.site, check=True)
-                if args.action in ("build", "verify"):
-                    with timings.measure("guide-composition"):
-                        compose(ROOT, plan, archives)
-                    shutil.copy2(manifest, project.site / "build/release-manifest.json")
+            with timings.measure("maven-site"):
+                render(ROOT, plan)
+                manifest_path = ROOT / "target/pages/release-manifest.json"
+                manifest = json.loads(manifest_path.read_text())
+                assert source_digest(ROOT) == initial_digest, "Documentation source inputs changed during generation"
+                manifest["releaseInputsDigest"] = hashlib.sha256(
+                    json.dumps(sorted(records or [], key=lambda r: r["tag_name"]), sort_keys=True).encode()
+                ).hexdigest()
+                manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        if args.action == "start":
+            subprocess.run(
+                [sys.executable, str(ROOT / "scripts/serve_docs.py"), "--host", args.host, "--port", str(args.port)],
+                cwd=ROOT,
+                check=True,
+            )
         if args.action == "verify":
             with timings.measure("rendered-links"):
                 subprocess.run([sys.executable, str(ROOT / "scripts/check_site.py")], cwd=ROOT, check=True)
     finally:
         timings.write(
-            project.site / "build-timings.json",
+            ROOT / "target/docsite/build-timings.json",
             scope="documentation orchestration only; excludes outer Maven lifecycle and artifact upload",
             action=args.action,
             mode=args.mode,
             javadocCache=args.javadoc_cache,
             javadocSource=args.javadoc_source,
-            guides=args.guides,
         )
 
 

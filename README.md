@@ -27,6 +27,9 @@ guides, choose your downloaded version on the
 [documentation site](https://cs1302uga.github.io/cs1302-tracer/).
 The retained **4.1.0** first-trace tutorial uses an example from a source checkout;
 its setup differs from the current standalone lesson.
+The published [latest guide](https://cs1302uga.github.io/cs1302-tracer/docs/latest/) and
+[development guide](https://cs1302uga.github.io/cs1302-tracer/docs/dev/) have explicit channels.
+
 The [installation guide](docs/guides/installation.md) explains JDK setup, available
 assets, and shell-specific launchers. Software releases have `vX.Y.Z` tags;
 separate `docs-*` publications contain historical guide archives.

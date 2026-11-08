@@ -1,7 +1,7 @@
 # Documentation maintenance and releases
 
 Choose the guide for the task you need to complete. Current documentation lives
-in `docs/` and is rendered by **Docusaurus**; retained snapshots describe their
+in `docs/` and is rendered by **Maven Site Plugin** and **Supa Maven Skin**; retained snapshots describe their
 published releases. README introduces the project, and HACKING is the contributor
 entry point.
 
@@ -9,7 +9,7 @@ entry point.
 | --- | --- |
 | Edit prose, executable examples, or CLI documentation | [Author documentation](documentation-authoring.md) |
 | Build, preview, select versions, or inspect cache timing | [Build and preview documentation](documentation-builds.md) |
-| Publish or correct archived guide applications | [Maintain guide archives](guide-archives.md) |
+| Maintain retained release guide provenance | [Maintain retained guides](guide-archives.md) |
 | Maintain verified release API artifacts | [Maintain **Javadoc** artifacts](javadoc-artifacts.md) |
 | Choose versions, prepare, publish, or recover a software release | [Prepare and publish releases](releases.md) |
 | Download API documentation for offline use | [Read the API documentation offline](../guides/offline-javadoc.md) |
@@ -23,11 +23,11 @@ Each points to its current instructions.
 
 ## Archived guide applications
 
-[Understand active guide selection, durable archives, and provenance requirements.](guide-archives.md#archived-guide-applications)
+[Understand locally rendered retained guides and provenance requirements.](guide-archives.md#archived-guide-applications)
 
 ### Roll out archived guides
 
-[Build, verify, publish, or replace a reviewed guide archive.](guide-archives.md#roll-out-archived-guides)
+[Review a historical guide correction and retain its software identity.](guide-archives.md#roll-out-archived-guides)
 
 ### Compatibility with existing software releases
 

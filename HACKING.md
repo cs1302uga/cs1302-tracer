@@ -45,15 +45,12 @@ Build and validate the site with the opt-in Maven profile:
 ./mvnw -B -ntp -Pdocsite verify
 ```
 
-It provisions **Node.js 24.22.0 LTS** and bundled **npm 11.19.1** locally, runs the
-locked frontend install, and checks executable examples, release metadata, **Javadoc**,
-the site build, and rendered links. Normal Maven builds do not require Node/npm.
-For live preview, bootstrap and select the local tools:
+It uses **Maven Site Plugin 3.22.0** and **Supa Maven Skin 0.2.0**, then checks
+executable examples, release metadata, **Javadoc**, all retained guide channels,
+and rendered links. For a static preview of the complete output:
 
 ```sh
-./mvnw -B -ntp -Pdocsite generate-resources
-export PATH="$PWD/target/frontend/node:$PATH"
-./scripts/uv run --locked npm --prefix website start
+./scripts/uv run --locked python scripts/serve_docs.py --port 3100
 ```
 
 See [documentation builds](docs/contributing/documentation-builds.md) for prerequisites

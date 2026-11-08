@@ -38,7 +38,7 @@ jobs:
         continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: website/.cache/javadoc
+          path: .cache/docsite/javadoc
           key: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-lookup
           restore-keys: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Print OS and JDK details
@@ -59,11 +59,6 @@ jobs:
           command -v javac
           javac -version
           echo '::endgroup::'
-      - name: Bootstrap release documentation tools
-        if: github.event_name == 'push'
-        run: |
-          ./mvnw -B -ntp -Pdocsite initialize
-          echo "$PWD/target/frontend/node" >> "$GITHUB_PATH"
       - name: Validate release branch and pending documentation revision
         id: release-context
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/')
@@ -82,7 +77,7 @@ jobs:
         run: |
           git merge-base --is-ancestor HEAD origin/main
           ./scripts/uv run --locked python scripts/docs_release.py check --tag "$RELEASE_TAG"
-      - name: Build and verify documentation with the pinned frontend toolchain
+      - name: Build and verify documentation with the Maven Site renderer
         run: >-
           ./mvnw -B -ntp -Pdocsite -DskipTests
           "-Ddocsite.pendingCommit=${{ steps.release-context.outputs.pending_commit }}" verify
@@ -92,7 +87,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           CACHE_PREFIX: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
-          MANIFEST_DIGEST: ${{ hashFiles('website/.cache/javadoc/*/manifest.json') }}
+          MANIFEST_DIGEST: ${{ hashFiles('.cache/docsite/javadoc/*/manifest.json') }}
         run: |
           if [[ -n "$MANIFEST_DIGEST" ]]; then
             printf 'key=%s%s\n' "$CACHE_PREFIX" "$MANIFEST_DIGEST" >> "$GITHUB_OUTPUT"
@@ -105,13 +100,13 @@ jobs:
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: website/.cache/javadoc
+          path: .cache/docsite/javadoc
           key: ${{ steps.javadoc-cache-key.outputs.key }}
       - name: Save reviewable site
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: documentation-preview
-          path: website/build
+          path: target/pages
           retention-days: 7
       - name: Save documentation timings
         if: always()
@@ -119,8 +114,7 @@ jobs:
         with:
           name: documentation-timings
           path: |
-            website/build-timings.json
-            website/npm-ci-timing.json
+            target/docsite/build-timings.json
           if-no-files-found: ignore
           retention-days: 7
 
@@ -134,15 +128,10 @@ jobs:
       COVERAGE_FILE: ${{ github.workspace }}/.coverage
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
       - name: Install locked managed Python tooling
         run: ./scripts/uv sync --locked
       - name: Check Maven version ownership
         run: ./scripts/uv run --locked python scripts/check_pom.py
-      - name: Test documentation navigation, dependency controls, and isolated guides
-        run: node --test --experimental-test-coverage website/tests/*.test.cjs
       - name: Lint, format, and type-check scripts
         run: |
           ./scripts/uv run --locked ruff check scripts

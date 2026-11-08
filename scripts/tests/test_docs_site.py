@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -10,6 +11,8 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+
+from tests.support import FAKE_SITE
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
@@ -22,8 +25,8 @@ class DocumentationSiteTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.site = self.root / "website"
-        self.site.mkdir()
+        self.site = self.root / "src/site"
+        self.site.mkdir(parents=True)
         scripts = self.root / "scripts"
         scripts.mkdir()
         for name in (
@@ -33,26 +36,37 @@ class DocumentationSiteTests(unittest.TestCase):
             "javadoc_cache.py",
             "javadoc_artifact.py",
             "docs_timing.py",
-            "guide_build.py",
-            "guide_archive.py",
+            "maven_site.py",
         ):
             shutil.copy2(SCRIPTS / name, scripts / name)
-        (self.root / "pom.xml").write_text("<project><version>1.0.0</version></project>")
+        (self.root / "pom.xml").write_text(
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+            "<version>1.0.0</version><properties><maven-site-plugin.version>3.22.0</maven-site-plugin.version>"
+            "</properties></project>"
+        )
+        (self.site / "resources").mkdir()
+        (self.site / "resources/dependencies.js").write_text("")
+        (self.site / "resources/dependencies.css").write_text("")
+        (self.site / "landing").mkdir()
+        (self.site / "landing/index.md").write_text("# Project home")
+        (self.site / "site.xml").write_text("<site><body/></site>")
+        (self.site / "navigation.json").write_text("{}")
         (self.root / "source.txt").write_text("released source")
         (self.site / "versions.json").write_text('["1.0.0"]')
-        snapshot = self.site / "versioned_docs/version-1.0.0"
+        snapshot = self.site / "../../docs/releases/1.0.0"
         snapshot.mkdir(parents=True)
         (snapshot / "index.md").write_text("# Release")
-        sidebars = self.site / "versioned_sidebars"
+        (self.root / "docs/index.md").write_text("# Release")
+        sidebars = self.site / "releases"
         sidebars.mkdir()
-        (sidebars / "version-1.0.0-sidebars.json").write_text("{}")
+        (sidebars / "1.0.0-navigation.json").write_text("{}")
         self.git("init", "-q")
         self.git("add", ".")
         self.git("commit", "-qm", "Release")
         self.git("tag", "v1.0.0")
         (self.root / "source.txt").write_text("working source")
         self.log = self.root / "tools.jsonl"
-        self.environment = dict(os.environ, DOCS_TEST_LOG=str(self.log))
+        self.environment = dict(os.environ, DOCS_TEST_LOG=str(self.log), DOCS_TEST_RENDERER=FAKE_SITE)
         self.executable(
             self.root / "mvnw",
             """
@@ -87,6 +101,8 @@ if '--version' in sys.argv:
         log.write(json.dumps(['maven-version']) + '\\n')
     print('Apache Maven test\\nMaven home: ' + str(Path.cwd() / 'maven') + '\\nJava version: 25')
     sys.exit(0)
+if 'site:site' in sys.argv:
+    exec(os.environ["DOCS_TEST_RENDERER"])
 assert "-P!docsite" in sys.argv
 source = Path.cwd()
 with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
@@ -102,32 +118,6 @@ output.joinpath('element-list').write_text('cs1302.tracer')
         )
         binaries = self.root / "bin"
         binaries.mkdir()
-        self.executable(
-            binaries / "npm",
-            """
-import json, os, shutil
-from pathlib import Path
-import sys
-with open(os.environ['DOCS_TEST_LOG'], 'a') as log:
-    log.write(json.dumps(['npm', *sys.argv[1:]]) + '\\n')
-if os.environ.get('DOCS_TEST_FAIL_NPM'):
-    sys.exit(1)
-if 'build' in sys.argv:
-    output = Path('build')
-    if '--out-dir' in sys.argv:
-        output = Path(sys.argv[sys.argv.index('--out-dir') + 1])
-    output.mkdir(parents=True, exist_ok=True)
-    output.joinpath('index.html').write_text('completed site')
-    plan = json.loads(Path('release-manifest.json').read_text())
-    selected = json.loads(Path('guide-build.json').read_text())['versions']
-    for entry in plan['versions']:
-        if entry['name'] in selected:
-            folder = output / entry['docsUrl'].removeprefix(plan['baseUrl'])
-            folder.mkdir(parents=True, exist_ok=True)
-            folder.joinpath('index.html').write_text('completed guide ' + entry['name'])
-    shutil.copytree('generated-api/api', output / 'api', dirs_exist_ok=True)
-""",
-        )
         self.environment["PATH"] = str(binaries) + os.pathsep + os.environ["PATH"]
         self.executable(
             binaries / "gh",
@@ -268,8 +258,8 @@ runpy.run_path(sys.argv[0], run_name='__main__')
 
     def test_rejects_output_relocation_before_generating_or_changing_a_build(self) -> None:
         """Rejects output relocation before generating or changing a build."""
-        completed = self.site / "build"
-        completed.mkdir()
+        completed = self.root / "target/pages"
+        completed.mkdir(parents=True)
         manifest = completed / "release-manifest.json"
         manifest.write_text('{"previous": "published"}')
         for options in (("--out-dir", "custom"), ("--out-dir=custom",), ("other-site",)):
@@ -279,59 +269,130 @@ runpy.run_path(sys.argv[0], run_name='__main__')
                 self.assertIn("unrecognized arguments", result.stderr)
                 self.assertFalse(self.log.exists(), "Invalid options must fail before invoking tools")
                 self.assertEqual(manifest.read_text(), '{"previous": "published"}')
-                self.assertFalse((self.site / "release-manifest.json").exists())
+                self.assertFalse((self.root / "target/docsite/release-manifest.json").exists())
 
     def test_development_server_accepts_host_and_port_options(self) -> None:
-        """Development server accepts host and port options."""
-        result = self.run_site("start", "--host", "127.0.0.1", "--port=3100", "--no-open")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertIn(
-            ["npm", "run", "docusaurus", "--", "start", "--host", "127.0.0.1", "--port=3100", "--no-open"], calls
+        """Build the full site then forward bind options to the static server."""
+        (self.root / "scripts/serve_docs.py").write_text(
+            "import sys; from pathlib import Path; Path('server-args').write_text(' '.join(sys.argv[1:]))"
         )
-
-    def test_guide_mode_defaults_overrides_and_server_restriction(self) -> None:
-        """Reject unsupported guide defaults before tools, but permit explicit choices and API-only use."""
-        self.environment["DOCSITE_GUIDES"] = "invalid"
-        result = self.run_site("build")
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("DOCSITE_GUIDES", result.stderr)
-        self.assertFalse(self.log.exists())
-        result = self.run_site("start", "--guides", "active")
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("serve_docs.py", result.stderr)
-        self.assertFalse(self.log.exists())
-        result = self.run_site("api", "--guides", "active")
+        result = self.run_site("start", "--host", "127.0.0.1", "--port=3100")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse((self.site / "guide-build.json").exists())
+        self.assertEqual((self.root / "server-args").read_text(), "--host 127.0.0.1 --port 3100")
+
+    def test_retired_guide_mode_is_rejected(self) -> None:
+        """The complete renderer has no active/archive composition mode."""
         result = self.run_site("build", "--guides", "active")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        selection = json.loads((self.site / "guide-build.json").read_text())
-        self.assertEqual(selection, {"kind": "active", "versions": ["current", "1.0.0"]})
-        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["guides"], "active")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unrecognized arguments", result.stderr)
+        self.assertFalse(self.log.exists())
 
-    def test_published_retention_fails_before_api_or_frontend_generation_in_all_modes(self) -> None:
-        """Preserve previously published documentation when mutable release metadata excludes a pinned version."""
-        (self.site / "guide-archives.json").write_text(
-            json.dumps({"schemaVersion": 1, "archives": {"1.0.0": {"releaseCommit": self.git("rev-parse", "v1.0.0")}}})
-        )
+    def test_deployment_freshness_rechecks_source_builder_selection_and_asset_records(self) -> None:
+        """Reject a stale complete artifact even when its own rendered links remain valid."""
         records = self.root / "releases.json"
-        records.write_text("[]")
-        for mode in ("all", "active"):
-            result = self.run_site("build", "--guides", mode, "--mode", "published", "--releases", str(records))
+        records.write_text('[{"tag_name":"v1.0.0"}]')
+        options = ("--mode", "published", "--releases", str(records))
+        result = self.run_site("build", *options)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.run_site("check-inputs", *options)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        path = self.root / "target/pages/release-manifest.json"
+        original = path.read_text()
+        for field, value in (("latestVersion", None), ("builderCommit", "b" * 40)):
+            manifest = json.loads(original)
+            manifest[field] = value
+            path.write_text(json.dumps(manifest))
+            result = self.run_site("check-inputs", *options)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("retain pinned guide 1.0.0", result.stderr)
-            self.assertFalse(self.log.exists())
-            self.assertFalse((self.site / "release-manifest.json").exists())
-            report = json.loads((self.site / "build-timings.json").read_text())
-            self.assertEqual(report["stages"][-1]["name"], "release-selection")
-            self.assertEqual(report["stages"][-1]["status"], "failed")
+            self.assertIn("Stale deployment", result.stderr)
+        path.write_text(original)
+        records.write_text('[{"tag_name":"v1.0.0","assets":[]}]')
+        result = self.run_site("check-inputs", *options)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("asset records", result.stderr)
+        records.write_text('[{"tag_name":"v1.0.0"}]')
+        (self.root / "docs/index.md").write_text("# Changed current prose")
+        result = self.run_site("check-inputs", *options)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source inputs", result.stderr)
+
+    def test_renderer_stages_authoritative_content_resources_and_legacy_asset_integrity(self) -> None:
+        """Keep frozen sources untouched while transforming only disposable rendering inputs."""
+        (self.root / "README.md").write_text("# Repository")
+        document = self.root / "docs/index.md"
+        document.write_text(
+            "---\nslug: /\n---\n# Current\n"
+            "[Source](../README.md) [Missing](typo.md) [Local](index.md) "
+            "[Web](https://example.test/) [Protocol](//example.test/) [Fragment](#current) [Root](/api/next/)\n"
+        )
+        (self.root / "docs/plain.md").write_text("Plain content without a heading")
+        (self.root / "docs/releases/1.0.0/index.md").write_text("# Release\n[Repo](../README.md#repository)")
+        asset = self.root / "docs/evidence.json"
+        asset.write_text('{"evidence":true}')
+        legacy = self.site / "legacy-assets.json"
+        legacy.write_text(
+            json.dumps(
+                {
+                    "assets/files/evidence.json": {
+                        "source": "docs/evidence.json",
+                        "sha256": hashlib.sha256(asset.read_bytes()).hexdigest(),
+                    }
+                }
+            )
+        )
+        result = self.run_site("build")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        staged = self.root / "target/docsite/renderer/src/site/markdown/docs/dev/index.md"
+        rendered_source = staged.read_text()
+        self.assertNotIn("slug:", rendered_source)
+        self.assertIn("https://github.com/cs1302uga/cs1302-tracer/blob/main/README.md", rendered_source)
+        self.assertIn("[Missing](typo.md)", rendered_source)
+        self.assertIn("[Local](index.md)", rendered_source)
+        output = self.root / "target/pages"
+        self.assertEqual((output / "docs/dev/evidence.json").read_bytes(), asset.read_bytes())
+        self.assertEqual((output / "assets/files/evidence.json").read_bytes(), asset.read_bytes())
+        self.assertTrue((output / "docs/latest/index.html").is_file())
+        self.assertTrue((output / "1.0.0/404.html").is_file())
+        self.assertIn("slug:", document.read_text())
+        asset.write_text("changed")
+        result = self.run_site("build")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Legacy asset changed", result.stderr)
+
+    def test_in_flight_source_changes_fail_generation(self) -> None:
+        """Do not bind a completed artifact to inputs read only after source mutation."""
+        self.environment["DOCS_TEST_MUTATE_SOURCE"] = "1"
+        result = self.run_site("build")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source inputs changed during generation", result.stderr)
+
+    def test_search_sidebar_candidates_load_existing_cross_page_content_and_fragments(self) -> None:
+        """Give the shipped skin real .html candidates for guide-page and section fetching."""
+        (self.site / "navigation.json").write_text('{"docs":["index","extra"]}')
+        (self.root / "docs/extra.md").write_text("# Extra page")
+        result = self.run_site("build")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        output = self.root / "target/pages"
+        page = (output / "docs/dev/index.html").read_text()
+        sidebar = re.search(r'<nav class="supa-sidebar-tree"[^>]*>(.*?)</nav>', page, flags=re.S)
+        self.assertIsNotNone(sidebar)
+        assert sidebar is not None
+        candidates = re.findall(r'<a class="supa-nav-link[^"]*" href="([^"]+)"', sidebar[1])
+        self.assertEqual(len(candidates), 2)
+        for candidate in candidates:
+            self.assertTrue(candidate.endswith(".html"))
+            path = output / candidate.removeprefix("/cs1302-tracer/")
+            self.assertTrue(path.is_file())
+        target = (output / "docs/dev/extra/index.html").read_text()
+        self.assertIn("<h1>Extra page</h1>", target)
+        self.assertIn('id="extra-page"', target)
+        self.assertIn('href="https://cs1302uga.github.io/cs1302-tracer/docs/dev/extra/"', target)
 
     def test_build_keeps_pinned_release_api_and_its_manifest_together(self) -> None:
         """Build keeps pinned release api and its manifest together."""
-        result = self.run_site("build", "--no-minify")
+        result = self.run_site("build")
         self.assertEqual(result.returncode, 0, result.stderr)
-        completed = self.site / "build"
+        completed = self.root / "target/pages"
         self.assertEqual((completed / "api/next/index.html").read_text(), "working source")
         self.assertEqual((completed / "api/1.0.0/index.html").read_text(), "released source")
         manifest = json.loads((completed / "release-manifest.json").read_text())
@@ -342,18 +403,18 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         """Release generation failure retains previous complete api."""
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
-        previous_manifest = (self.site / "release-manifest.json").read_bytes()
+        previous_manifest = (self.root / "target/docsite/release-manifest.json").read_bytes()
         (self.root / "source.txt").write_text("new working source")
         self.environment["DOCS_TEST_FAIL_RELEASE"] = "1"
         result = self.run_site("api", "--javadoc-cache", "refresh")
         self.assertNotEqual(result.returncode, 0)
-        api = self.site / "generated-api/api"
+        api = self.root / "target/generated-api/api"
         self.assertEqual((api / "next/index.html").read_text(), "working source")
         self.assertEqual((api / "1.0.0/index.html").read_text(), "released source")
-        self.assertEqual((self.site / "release-manifest.json").read_bytes(), previous_manifest)
+        self.assertEqual((self.root / "target/docsite/release-manifest.json").read_bytes(), previous_manifest)
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual(calls[-3:], [["maven", "new working source"], ["maven-version"], ["maven", "released source"]])
-        report = json.loads((self.site / "build-timings.json").read_text())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-1]["name"], "javadoc/1.0.0")
         self.assertEqual(report["stages"][-1]["status"], "failed")
 
@@ -363,16 +424,18 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         records.write_text("[]")
         result = self.run_site("build", "--mode", "published", "--releases", str(records))
         self.assertEqual(result.returncode, 0, result.stderr)
-        completed_manifest = self.site / "build/release-manifest.json"
+        completed_manifest = self.root / "target/pages/release-manifest.json"
         previous = completed_manifest.read_bytes()
         self.assertEqual(json.loads(previous)["mode"], "published")
-        self.environment["DOCS_TEST_FAIL_NPM"] = "1"
+        self.environment["DOCS_TEST_FAIL_SITE"] = "1"
         result = self.run_site("build")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(completed_manifest.read_bytes(), previous)
-        self.assertEqual(json.loads((self.site / "release-manifest.json").read_text())["mode"], "preview")
-        report = json.loads((self.site / "build-timings.json").read_text())
-        self.assertEqual(report["stages"][-1]["name"], "docusaurus")
+        self.assertEqual(
+            json.loads((self.root / "target/docsite/release-manifest.json").read_text())["mode"], "preview"
+        )
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
+        self.assertEqual(report["stages"][-1]["name"], "maven-site")
         self.assertEqual(report["stages"][-1]["status"], "failed")
 
     def test_api_generation_requires_an_index(self) -> None:
@@ -381,7 +444,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         result = self.run_site("api")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Javadoc index missing", result.stderr)
-        self.assertFalse((self.site / "generated-api").exists())
+        self.assertFalse((self.root / "target/generated-api").exists())
         self.executable(
             self.root / "mvnw",
             "from pathlib import Path\np = Path('target/reports/apidocs'); p.mkdir(parents=True, exist_ok=True)\n"
@@ -396,21 +459,21 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.git("tag", "-d", "v1.0.0")
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "working source")
+        self.assertEqual((self.root / "target/generated-api/api/1.0.0/index.html").read_text(), "working source")
         self.assertNotIn(["maven-version"], [json.loads(line) for line in self.log.read_text().splitlines()])
-        self.assertFalse((self.site / ".cache").exists())
+        self.assertFalse((self.root / ".cache/docsite").exists())
 
     def test_pending_commit_option_and_environment_pin_preview_api_without_publishing(self) -> None:
         """Render an unpublished stable ancestor after the development version has advanced."""
         self.git("tag", "-d", "v1.0.0")
-        (self.root / "docs").mkdir()
+        (self.root / "docs").mkdir(exist_ok=True)
         (self.root / "docs/index.md").write_text("# Release")
-        (self.site / "sidebars.js").write_text("module.exports = {};")
+        (self.site / "navigation.json").write_text("{}")
         (self.root / "source.txt").write_text("prepared release source")
         self.git("add", ".")
         self.git("commit", "-qm", "Prepared release")
         commit = self.git("rev-parse", "HEAD")
-        (self.root / "pom.xml").write_text("<project><version>1.0.1-SNAPSHOT</version></project>")
+        (self.root / "pom.xml").write_text((self.root / "pom.xml").read_text().replace("1.0.0", "1.0.1-SNAPSHOT"))
         (self.root / "source.txt").write_text("next development source")
         self.git("add", ".")
         self.git("commit", "-qm", "Next development")
@@ -420,13 +483,13 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.environment["DOCSITE_PENDING_COMMIT"] = commit
         result = self.run_site("build")
         self.assertEqual(result.returncode, 0, result.stderr)
-        completed = self.site / "build"
+        completed = self.root / "target/pages"
         self.assertEqual((completed / "api/next/index.html").read_text(), "next development source")
         self.assertEqual((completed / "api/1.0.0/index.html").read_text(), "prepared release source")
         manifest = json.loads((completed / "release-manifest.json").read_text())
         self.assertEqual(manifest["versions"][1]["sourceCommit"], commit)
         self.assertEqual(manifest["versions"][1]["banner"], "unreleased")
-        self.assertFalse((self.site / ".cache").exists())
+        self.assertFalse((self.root / ".cache/docsite").exists())
         self.assertNotIn(["maven-version"], [json.loads(line) for line in self.log.read_text().splitlines()])
 
         self.environment["DOCSITE_PENDING_COMMIT"] = "invalid"
@@ -442,9 +505,9 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         """Reuse complete historical output while preserving fresh working-source documentation."""
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
-        report = json.loads((self.site / "build-timings.json").read_text())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-1]["cache"], "miss")
-        manifests = list((self.site / ".cache/javadoc").glob("*/manifest.json"))
+        manifests = list((self.root / ".cache/docsite/javadoc").glob("*/manifest.json"))
         self.assertEqual(len(manifests), 1)
         self.log.write_text("")
         (self.root / "source.txt").write_text("changed working source")
@@ -454,16 +517,18 @@ runpy.run_path(sys.argv[0], run_name='__main__')
             [json.loads(line) for line in self.log.read_text().splitlines()],
             [["maven", "changed working source"], ["maven-version"]],
         )
-        self.assertEqual((self.site / "generated-api/api/next/index.html").read_text(), "changed working source")
-        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "released source")
-        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual((self.root / "target/generated-api/api/next/index.html").read_text(), "changed working source")
+        self.assertEqual((self.root / "target/generated-api/api/1.0.0/index.html").read_text(), "released source")
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-1]["cache"], "hit")
         self.assertEqual(report["stages"][-2]["cache"], "development")
         self.log.write_text("")
         result = self.run_site("api", "--javadoc-cache", "refresh")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn(["maven", "released source"], [json.loads(line) for line in self.log.read_text().splitlines()])
-        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "refresh")
+        self.assertEqual(
+            json.loads((self.root / "target/docsite/build-timings.json").read_text())["stages"][-1]["cache"], "refresh"
+        )
         modified = manifests[0].stat().st_mtime_ns
         self.log.write_text("")
         self.environment["DOCSITE_JAVADOC_CACHE"] = "off"
@@ -474,22 +539,24 @@ runpy.run_path(sys.argv[0], run_name='__main__')
             [["maven", "changed working source"], ["maven", "released source"]],
         )
         self.assertEqual(manifests[0].stat().st_mtime_ns, modified)
-        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "off")
+        self.assertEqual(
+            json.loads((self.root / "target/docsite/build-timings.json").read_text())["stages"][-1]["cache"], "off"
+        )
 
     def test_cache_never_substitutes_for_release_provenance_validation(self) -> None:
         """A warm cache cannot hide a removed or incorrectly moved source tag."""
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
-        old_manifest = (self.site / "release-manifest.json").read_bytes()
+        old_manifest = (self.root / "target/docsite/release-manifest.json").read_bytes()
         self.git("tag", "-d", "v1.0.0")
-        (self.root / "pom.xml").write_text("<project><version>1.0.1-SNAPSHOT</version></project>")
+        (self.root / "pom.xml").write_text((self.root / "pom.xml").read_text().replace("1.0.0", "1.0.1-SNAPSHOT"))
         self.log.write_text("")
         result = self.run_site("api")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Missing release tag", result.stderr)
         self.assertEqual(self.log.read_text(), "")
-        self.assertEqual((self.site / "release-manifest.json").read_bytes(), old_manifest)
-        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertEqual((self.root / "target/docsite/release-manifest.json").read_bytes(), old_manifest)
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(len(report["stages"]), 1)
         self.assertEqual(report["stages"][0]["name"], "release-selection")
         self.assertEqual(report["stages"][0]["status"], "failed")
@@ -510,7 +577,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertFalse(self.log.exists())
         result = self.run_site("api", "--javadoc-cache", "off")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse((self.site / ".cache").exists())
+        self.assertFalse((self.root / ".cache/docsite").exists())
 
     def test_published_artifact_replaces_historical_generation_and_survives_local_toolchain_changes(self) -> None:
         """Use signed release output before probing source caches, even in refresh/off cache modes."""
@@ -518,20 +585,22 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         options = ("api", "--mode", "published", "--releases", str(records))
         result = self.run_site(*options, "--javadoc-cache", "refresh")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "published release API")
+        self.assertEqual((self.root / "target/generated-api/api/1.0.0/index.html").read_text(), "published release API")
         self.assertEqual(
-            (self.site / "generated-api/api/1.0.0/script-files/search.js").read_text(), "Published search script"
+            (self.root / "target/generated-api/api/1.0.0/script-files/search.js").read_text(), "Published search script"
         )
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual([call for call in calls if call[0] == "maven"], [["maven", "working source"]])
         self.assertNotIn(["maven-version"], calls)
         self.assertEqual(len([call for call in calls if call[0] == "download"]), 3)
         self.assertTrue(any(call[0] == "gh" for call in calls))
-        self.assertFalse((self.site / ".cache/javadoc").exists())
-        report = json.loads((self.site / "build-timings.json").read_text())
+        self.assertFalse((self.root / ".cache/docsite/javadoc").exists())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-1]["cache"], "release-asset")
         self.assertEqual(report["javadocSource"], "auto")
-        self.assertNotIn("assets", json.loads((self.site / "release-manifest.json").read_text())["versions"][1])
+        self.assertNotIn(
+            "assets", json.loads((self.root / "target/docsite/release-manifest.json").read_text())["versions"][1]
+        )
 
         wrapper = self.root / "mvnw"
         wrapper.write_text(wrapper.read_text().replace("Java version: 25", "Java version: 30"))
@@ -544,7 +613,8 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertFalse(any(call[0] in ("maven-version", "download") for call in calls))
         self.assertTrue(any(call[0] == "gh" for call in calls), "Warm artifacts still require attestation verification")
         self.assertEqual(
-            json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "release-asset-cache"
+            json.loads((self.root / "target/docsite/build-timings.json").read_text())["stages"][-1]["cache"],
+            "release-asset-cache",
         )
 
     def test_legacy_published_release_falls_back_to_the_existing_source_cache(self) -> None:
@@ -553,24 +623,26 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         records.write_text('[{"tag_name":"v1.0.0","assets":[]}]')
         result = self.run_site("api", "--mode", "published", "--releases", str(records))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "released source")
-        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["stages"][-1]["cache"], "miss")
+        self.assertEqual((self.root / "target/generated-api/api/1.0.0/index.html").read_text(), "released source")
+        self.assertEqual(
+            json.loads((self.root / "target/docsite/build-timings.json").read_text())["stages"][-1]["cache"], "miss"
+        )
 
     def test_invalid_advertised_artifact_fails_without_replacing_previous_api_or_using_source_cache(self) -> None:
         """Wrong producer provenance cannot silently become regenerated publication output."""
         result = self.run_site("api")
         self.assertEqual(result.returncode, 0, result.stderr)
-        previous_manifest = (self.site / "release-manifest.json").read_bytes()
+        previous_manifest = (self.root / "target/docsite/release-manifest.json").read_bytes()
         records = self.release_assets(commit="0" * 40)
         self.log.write_text("")
         result = self.run_site("api", "--mode", "published", "--releases", str(records))
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual((self.site / "generated-api/api/1.0.0/index.html").read_text(), "released source")
-        self.assertEqual((self.site / "release-manifest.json").read_bytes(), previous_manifest)
+        self.assertEqual((self.root / "target/generated-api/api/1.0.0/index.html").read_text(), "released source")
+        self.assertEqual((self.root / "target/docsite/release-manifest.json").read_bytes(), previous_manifest)
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertNotIn(["maven-version"], calls)
         self.assertNotIn(["maven", "released source"], calls)
-        report = json.loads((self.site / "build-timings.json").read_text())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-1]["name"], "javadoc/1.0.0")
         self.assertEqual(report["stages"][-1]["status"], "failed")
 
@@ -582,8 +654,10 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual(calls, [["maven", "working source"], ["maven", "released source"]])
-        self.assertFalse((self.site / ".cache").exists())
-        self.assertEqual(json.loads((self.site / "build-timings.json").read_text())["javadocSource"], "source")
+        self.assertFalse((self.root / ".cache/docsite").exists())
+        self.assertEqual(
+            json.loads((self.root / "target/docsite/build-timings.json").read_text())["javadocSource"], "source"
+        )
         self.log.write_text("")
         result = self.run_site("api", "--javadoc-source", "auto", "--javadoc-cache", "off")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -620,7 +694,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.prepare_dependency_inventory()
         result = self.run_site("verify")
         self.assertNotEqual(result.returncode, 0)
-        report = json.loads((self.site / "build-timings.json").read_text())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(report["stages"][-2]["name"], "dependency-inventory")
         self.assertEqual(report["stages"][-2]["status"], "passed")
         self.assertEqual(report["stages"][-1]["name"], "executable-docs")
@@ -640,14 +714,14 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertEqual(inventory.read_text(), edited)
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual([call[0] for call in calls], ["dependency-inventory"])
-        report = json.loads((self.site / "build-timings.json").read_text())
+        report = json.loads((self.root / "target/docsite/build-timings.json").read_text())
         self.assertEqual(
             [(stage["name"], stage["status"]) for stage in report["stages"]],
             [("release-selection", "passed"), ("dependency-inventory", "failed")],
         )
-        self.assertFalse((self.site / "generated-api").exists())
-        self.assertFalse((self.site / "release-manifest.json").exists())
-        self.assertFalse((self.site / "build").exists())
+        self.assertFalse((self.root / "target/generated-api").exists())
+        self.assertFalse((self.root / "target/docsite/release-manifest.json").exists())
+        self.assertFalse((self.root / "target/pages").exists())
 
     def test_callable_builder_retains_default_cache_and_timing_behavior(self) -> None:
         """Support the existing build(root, plan) interface without mandatory timing plumbing."""
@@ -665,7 +739,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue((self.site / "generated-api/api/1.0.0/search.html").is_file())
+        self.assertTrue((self.root / "target/generated-api/api/1.0.0/search.html").is_file())
 
     def test_importing_the_site_entry_point_does_not_execute_a_build(self) -> None:
         """Keep the callable entry point usable without parsing arguments or starting tools at import time."""
@@ -679,7 +753,7 @@ runpy.run_path(sys.argv[0], run_name='__main__')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.log.exists())
         self.assertFalse((self.site / "guide-build.json").exists())
-        self.assertFalse((self.site / "build-timings.json").exists())
+        self.assertFalse((self.root / "target/docsite/build-timings.json").exists())
 
 
 if __name__ == "__main__":

@@ -27,8 +27,8 @@ or modern JSON. It supports direct CLI use and batch jobs with reusable guest JV
 - **Python or shell tooling:** read [scripts/AGENTS.md](scripts/AGENTS.md), including
   when invoking scripts from the repository root. Use the local `scripts/uv` and
   `scripts/uvx` wrappers as described there.
-- **Site, Javadoc, guide archives, or releases:** read [documentation maintenance](docs/contributing/documentation.md)
-  before changing release selection, snapshots, routes, archive publication, or deployment mode.
+- **Site, Javadoc, retained guides, or releases:** read [documentation maintenance](docs/contributing/documentation.md)
+  before changing release selection, snapshots, routes, retained provenance, or deployment mode.
 - **Build, style, or coverage:** read [the development guide](docs/contributing/development.md).
   `pom.xml` and `src/main/resources/cs1302_checks_extended.xml` are authoritative
   for compiler and Checkstyle configuration.

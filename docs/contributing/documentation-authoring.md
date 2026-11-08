@@ -2,7 +2,7 @@
 
 README is the project introduction and quickstart; HACKING is the contributor
 entry point. Detailed content lives in `docs/` and is rendered directly by
-**Docusaurus**. Keep examples and links useful when reading Markdown on GitHub too.
+**Maven Site Plugin** and **Supa Maven Skin**. Keep examples and links useful when reading Markdown on GitHub too.
 
 Bold the first prose or table mention of a named program or tool on each page,
 including an adjacent version requirement. Leave later mentions plain and preserve
@@ -26,7 +26,7 @@ result. References define options and result contracts, while explanations conne
 concepts such as snapshots, references, and heap objects. Link between these page
 types instead of making each page teach, explain, and catalogue everything.
 Put contributor workflows in the development and documentation guides. Use the
-[documentation index](documentation.md) to find build, archive, artifact, and
+[documentation index](documentation.md) to find build, retained-guide, artifact, and
 release procedures instead of copying those procedures into multiple pages.
 
 Use the [local build and preview commands](documentation-builds.md#local-checks)

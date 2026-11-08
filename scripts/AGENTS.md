@@ -42,20 +42,18 @@ their declared dependencies.
 | --- | --- |
 | `check_docs.py` | Checks Markdown links and executable CLI, quickstart, JSON, and batch examples. Requires the built tracer JAR. `--update-cli` rewrites the CLI reference. |
 | `dependency_docs.py` | Resolves fresh Maven metadata to `update` or `check` the project license and dependency reference pages. See [maintenance guidance](../docs/contributing/documentation-authoring.md#maintain-license-and-dependency-pages). |
-| `check_site.py` | Validates links, fragments, base paths, and version-matched API links in `website/build`. Run after building the site. |
+| `check_site.py` | Validates links, fragments, base paths, and version-matched API links in `target/pages`. Run after building the site. |
 | `check_external_links.py` | Checks external HTTP links and writes `external-links-report.md`; remote failures are advisory rather than a PR merge gate. |
 | `docs_release.py` | Validates and prepares snapshots; owns release selection, routes, tag provenance, and explicit pending-commit previews. `prepare --version` retains the snapshot POM; `check --pending` validates before its stable transition. |
-| `docs_site.py` | Entry point for `build`, `start`, `api`, and `verify`; owns release selection, Javadoc source/cache controls, and stage timings. `verify` retains executable docs, metadata, and rendered-link checks. |
+| `docs_site.py` | Entry point for `build`, `start`, `api`, `verify`, and deployment `check-inputs`; owns release selection, Javadoc source/cache controls, and stage timings. `verify` retains executable docs, metadata, and rendered-link checks. |
+| `maven_site.py` | Stages current/snapshot Markdown, uses the common Maven Site renderer, and assembles complete channels with compatibility routes and source identity. |
 | `build_javadoc.py` | Stages fresh development Javadoc and verified release artifacts or tagged-source output. Invoke through `docs_site.py api`. |
 | `javadoc_cache.py` | Owns historical-output fingerprints, complete-entry verification, and cache storage; configure through `docs_site.py`. |
 | `javadoc_artifact.py` | Owns release Javadoc structure, manifest/checksum checks, and trusted attestation verification. `check` writes a checksum; `verify` requires the adjacent release companions. |
 | `javadoc_publish.py` | Preserves verified remote Javadoc bytes on retries and verifies the uploaded set. Partial sets require reviewed recovery; never replace them automatically. |
-| `guide_archive.py` | Validates guide ZIPs, catalog descriptors, and main-branch attestations before private extraction. |
-| `guide_build.py` | Selects active guides, builds archive candidates, and composes historical applications into the site. |
-| `guide_publish.py` | Checks the clean main builder, preserves complete archive sets, and proposes catalogs from verified remote files. |
-| `docs_timing.py` | Records stages for one documentation invocation; `npm-ci` measures dependency installation separately. |
+| `docs_timing.py` | Records stages for one documentation invocation; reports exclude the outer Maven lifecycle. |
 | `serve_docs.py` | Serves an existing build with project-base paths and unchanged Javadoc URLs. Supports `--host` and `--port`. |
-| `rehearse_docs_release.py` | Exercises preparation, publishing, archive retention, retries, and missing tags using real builds in a disposable project. |
+| `rehearse_docs_release.py` | Exercises preparation, publishing, guide retention, retries, and missing tags using real builds in a disposable project. |
 | `release.py` | Owns isolated signed preparation, resumable publication through exact CI revisions, saved reports, and release-branch validation. |
 | `release_validate.py` | Runs the serial local release gate around Maven's strict Java and documentation profiles; retains stale coverage as audit evidence. |
 | `release_evidence.py` | Verifies exact push-run matrix results and published JAR/archive/documentation provenance without publishing or waiting. |
@@ -96,7 +94,7 @@ checks remain in Scripts quality CI and the explicit commands above.
 For site builds, performance/cache changes, release preparation, or publishing changes, read
 [`docs/contributing/documentation.md`](../docs/contributing/documentation.md).
 Site tooling needs a full JDK and local release tags for historical APIs. The opt-in
-Maven profile provisions pinned Node/npm and runs the complete documentation checks.
+Maven profile uses the pinned Maven Site renderer and runs the complete documentation checks.
 The release runbook also defines the required signing trust, semantic version
 classification, isolated prepare/publish phases, and recovery rules. Preserve its
 distinction between a saved report and freshly verified local/remote evidence.

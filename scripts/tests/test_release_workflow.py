@@ -192,14 +192,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
         docs = self.source / "docs"
         docs.mkdir(exist_ok=True)
         (docs / "index.md").write_text("# Current documentation\n")
-        site = self.source / "website"
-        snapshot = site / f"versioned_docs/version-{version}"
+        site = self.source / "src/site"
+        snapshot = site / f"../../docs/releases/{version}"
         snapshot.mkdir(parents=True)
         shutil.copy2(docs / "index.md", snapshot / "index.md")
-        sidebars = site / "versioned_sidebars"
+        sidebars = site / "releases"
         sidebars.mkdir(exist_ok=True)
-        (sidebars / f"version-{version}-sidebars.json").write_text("{}")
-        (site / "sidebars.js").write_text("module.exports = {};\n")
+        (sidebars / f"{version}-navigation.json").write_text("{}")
+        (site / "navigation.json").write_text("{}\n")
         (site / "versions.json").write_text(json.dumps(versions))
 
     def commit(self, root: Path, message: str) -> str:

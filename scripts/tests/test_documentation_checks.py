@@ -4,6 +4,7 @@ import copy
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,7 +14,7 @@ from typing import Any
 
 from scripts import check_docs
 
-from tests.support import SCRIPTS, copy_scripts, executable, invoke, tool_environment
+from tests.support import FAKE_SITE, SCRIPTS, copy_scripts, executable, invoke, tool_environment
 
 
 def marked(name: str, content: str) -> str:
@@ -871,15 +872,48 @@ else:
 
     def test_maven_verification_checks_examples_build_and_rendered_links(self) -> None:
         """Run real checkers around external tools and reject invalid examples and rendered output."""
-        site = self.root / "website"
-        site.mkdir()
+        site = self.root / "src/site"
+        site.mkdir(parents=True)
         (site / "versions.json").write_text("[]")
-        (self.root / "pom.xml").write_text("<project><version>1.0.0-SNAPSHOT</version></project>")
+        (self.root / "pom.xml").write_text(
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+            "<version>1.0.0-SNAPSHOT</version><properties>"
+            "<maven-site-plugin.version>3.22.0</maven-site-plugin.version></properties></project>"
+        )
+        (site / "resources").mkdir()
+        (site / "resources/dependencies.js").write_text("")
+        (site / "resources/dependencies.css").write_text("")
+        (site / "landing").mkdir()
+        (site / "landing/index.md").write_text("# Home")
+        (site / "site.xml").write_text("<site><body/></site>")
+        (site / "navigation.json").write_text('{"docs":["index"]}')
+        (self.root / "docs/index.md").write_text("# Current guide")
+        self.env["DOCS_TEST_RENDERER"] = FAKE_SITE
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Tests",
+                "-c",
+                "user.email=tests@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-qm",
+                "Fixture",
+            ],
+            cwd=self.root,
+            check=True,
+        )
         executable(
             self.root / "mvnw",
             """
-import sys
+import os, sys
 from pathlib import Path
+if "site:site" in sys.argv:
+    exec(os.environ["DOCS_TEST_RENDERER"])
 if 'dependency:tree' in sys.argv:
     prefix = '-Ddependency.docs.outputDirectory='
     output = Path(next(arg.removeprefix(prefix) for arg in sys.argv if arg.startswith(prefix)))
@@ -891,21 +925,6 @@ else:
     output.mkdir(parents=True, exist_ok=True)
     for name in ('index.html', 'search.html', 'element-list'):
         (output / name).write_text('API')
-""",
-        )
-        executable(
-            self.root / "bin/npm",
-            """
-import os, shutil, sys
-from pathlib import Path
-assert sys.argv[1:] == ['run', 'docusaurus', '--', 'build']
-output = Path('build')
-output.mkdir(exist_ok=True)
-shutil.copytree('generated-api/api', output / 'api', dirs_exist_ok=True)
-text = '<a href="/cs1302-tracer/api/next/index.html">API</a>'
-if os.environ.get('BAD_SITE'):
-    text += '<a href="missing.html">Broken</a>'
-(output / 'index.html').write_text(text)
 """,
         )
         (self.root / "LICENSE").write_text("MIT License\n")
@@ -920,7 +939,7 @@ if os.environ.get('BAD_SITE'):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Packaged tutorials passed", result.stdout)
         self.assertIn("Validated links", result.stdout)
-        manifest = site / "build/release-manifest.json"
+        manifest = self.root / "target/pages/release-manifest.json"
         self.assertEqual(json.loads(manifest.read_text())["mode"], "preview")
         records = self.root / "published releases.json"
         records.write_text("[]")
@@ -930,13 +949,13 @@ if os.environ.get('BAD_SITE'):
         self.assertEqual(json.loads(manifest.read_text())["mode"], "published")
         result = invoke(self.root, "docs_site.py", "verify", env=dict(self.env, BAD_SITE="1"))
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("missing missing.html", result.stderr)
-        shutil.rmtree(site / "generated-api")
+        self.assertIn("missing /cs1302-tracer/", result.stderr)
+        shutil.rmtree(self.root / "target/generated-api")
         (self.root / "README.md").write_text("[Missing](absent.md)")
         result = invoke(self.root, "docs_site.py", "verify", env=self.env)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing absent.md", result.stderr)
-        self.assertFalse((site / "generated-api").exists())
+        self.assertFalse((self.root / "target/generated-api").exists())
 
     def test_command_failure_preserves_exit_status_and_stderr(self) -> None:
         """Explain a failed documentation child process."""

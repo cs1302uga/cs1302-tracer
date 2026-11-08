@@ -52,7 +52,7 @@ def build(
     timings: BuildTimings | None = None,
 ) -> None:
     """Use verified published artifacts or generate the exact revisions selected by the release module."""
-    output = root / "website/generated-api"
+    output = root / "target/generated-api"
     if artifact_mode not in ("auto", "source"):
         raise ValueError("Unknown Javadoc source mode")
     timings = timings or BuildTimings()

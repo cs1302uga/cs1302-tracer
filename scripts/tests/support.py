@@ -40,3 +40,33 @@ def tool_environment(root: Path) -> dict[str, str]:
     binaries = root / "bin"
     binaries.mkdir(exist_ok=True)
     return dict(os.environ, PATH=str(binaries) + os.pathsep + os.environ["PATH"])
+
+
+# This substitutes only the external Maven renderer process. Python staging,
+# provenance, channel assembly and HTML validation run through production code.
+FAKE_SITE = r"""
+import os, re, shutil, sys
+from pathlib import Path
+if os.environ.get('DOCS_TEST_FAIL_SITE'):
+    sys.exit(9)
+if os.environ.get('DOCS_TEST_MUTATE_SOURCE'):
+    Path('docs/index.md').write_text('# Source changed during generation')
+stage = Path(sys.argv[sys.argv.index('-f') + 1]).parent
+source = stage / 'src/site'
+output = stage / 'target/site'
+output.mkdir(parents=True, exist_ok=True)
+shutil.copytree(source / 'resources', output, dirs_exist_ok=True)
+for path in (source / 'markdown').rglob('*.md'):
+    target = output / path.relative_to(source / 'markdown').with_suffix('.html')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    title = re.search(r'^# (.+)$', path.read_text(), re.M)
+    text = '<h1>' + title[1] + '</h1>' if title else '<p>Plain content</p>'
+    if os.environ.get('BAD_SITE'):
+        text += '<a href="missing.html">Broken</a>'
+    target.write_text('<html data-supa-project-version="1" data-supa-relative-path=".">'
+                      '<head><title>Documentation</title><link rel="canonical" href="old.html"></head><body>'
+                      '<span class="supa-version-badge badge">1</span>'
+                      '<nav class="supa-sidebar-tree" aria-label="Site navigation"></nav>'
+                      '<main id="supa-main-content">' + text + '</main></body></html>')
+sys.exit(0)
+"""

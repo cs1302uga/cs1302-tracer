@@ -114,7 +114,7 @@ without its artifact also fails. Neither case silently substitutes a source buil
 Development and untagged pending-release Javadoc always use fresh source.
 
 Downloaded bundles are retained locally under
-`website/.cache/release-javadoc/`, keyed by the artifact checksum. Every reuse
+`.cache/docsite/release-javadoc/`, keyed by the artifact checksum. Every reuse
 copies the cached bundle into private temporary storage and rechecks its checksum,
 metadata, and attestation before extraction. These local copies can be
 removed and downloaded again; the published release assets are their durable

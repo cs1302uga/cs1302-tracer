@@ -332,7 +332,7 @@ def pages(root: Path, tree: dict[str, Any], metadata: dict[str, Any], overrides:
         "resolved coordinates remain in Details. Direct dependencies appear first; each subgroup is sorted by\n"
         "artifact ID, with full coordinates breaking ties.\n\n"
         "This inventory excludes build plugins, annotation processors configured outside the project dependency\n"
-        "graph, and the documentation/tooling **npm** and Python environments. "
+        "graph, and the documentation/tooling Python environment. "
         "It is not an inventory of every build tool.\n"
         "License names and URLs reproduce all upstream declarations without inferring an AND/OR relationship.\n"
         "A metadata override fills missing licensing information only and identifies its reviewed source and reason\n"

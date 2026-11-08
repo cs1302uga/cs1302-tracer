@@ -16,11 +16,11 @@ class ReleaseSelectionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.site = self.root / "website"
-        self.site.mkdir()
+        self.site = self.root / "src/site"
+        self.site.mkdir(parents=True)
         (self.root / "docs").mkdir()
         (self.root / "docs/index.md").write_text("# Current\n")
-        (self.site / "sidebars.js").write_text('module.exports = {docs: ["index"]};')
+        (self.site / "navigation.json").write_text('{"docs": ["index"]}')
         self.git("init", "-q")
         self.snapshot("1.0.0")
         self.commit_version("1.0.0", "v1.0.0")
@@ -49,12 +49,12 @@ class ReleaseSelectionTests(unittest.TestCase):
 
     def snapshot(self, version: str) -> None:
         """Create a documentation snapshot."""
-        directory = self.site / f"versioned_docs/version-{version}"
+        directory = self.site / f"../../docs/releases/{version}"
         directory.mkdir(parents=True)
         (directory / "index.md").write_text("# Current\n")
-        sidebars = self.site / "versioned_sidebars"
+        sidebars = self.site / "releases"
         sidebars.mkdir(exist_ok=True)
-        (sidebars / f"version-{version}-sidebars.json").write_text('{"docs":["index"]}')
+        (sidebars / f"{version}-navigation.json").write_text('{"docs":["index"]}')
 
     def commit_version(self, version: str, tag: str) -> str:
         """Commit and tag a Maven version."""
@@ -66,11 +66,12 @@ class ReleaseSelectionTests(unittest.TestCase):
 
     def test_preview_ignores_stale_published_selection_and_keeps_pending_snapshot(self) -> None:
         """Preview ignores stale published selection and keeps pending snapshot."""
-        (self.site / "published-versions.json").write_text('["1.0.0"]')
+        (self.root / "target/docsite").mkdir(parents=True, exist_ok=True)
+        (self.root / "target/docsite/published-versions.json").write_text('["1.0.0"]')
         plan = docs_release.Project(self.root).plan("preview")
         self.assertEqual([v["name"] for v in plan["versions"]], ["current", "2.0.0", "1.0.0"])
-        self.assertEqual(plan["latestVersion"], "2.0.0")
-        self.assertEqual(plan["versions"][0]["docsUrl"], "/cs1302-tracer/next/")
+        self.assertEqual(plan["latestVersion"], "1.0.0")
+        self.assertEqual(plan["versions"][0]["docsUrl"], "/cs1302-tracer/docs/dev/")
         self.assertEqual(plan["versions"][1]["javadocUrl"], "/cs1302-tracer/api/2.0.0/index.html")
         self.assertIsNone(plan["versions"][1]["sourceCommit"])
         self.assertEqual(plan["versions"][1]["banner"], "unreleased")
@@ -84,7 +85,7 @@ class ReleaseSelectionTests(unittest.TestCase):
         plan = project.plan("preview")
         self.assertEqual(project.project_version(), "2.0.0-SNAPSHOT")
         self.assertEqual([v["name"] for v in plan["versions"]], ["current", "2.0.0", "1.0.0"])
-        self.assertEqual(plan["latestVersion"], "2.0.0")
+        self.assertEqual(plan["latestVersion"], "1.0.0")
         self.assertIsNone(plan["versions"][1]["sourceCommit"])
         self.assertEqual(plan["versions"][1]["banner"], "unreleased")
         self.assertEqual(plan["versions"][2]["sourceCommit"], self.git("rev-parse", "v1.0.0^{commit}"))
@@ -163,7 +164,7 @@ class ReleaseSelectionTests(unittest.TestCase):
         plan = docs_release.Project(self.root).plan("published", [])
         self.assertIsNone(plan["latestVersion"])
         self.assertEqual([v["name"] for v in plan["versions"]], ["current"])
-        self.assertEqual(plan["versions"][0]["docsUrl"], "/cs1302-tracer/")
+        self.assertEqual(plan["versions"][0]["docsUrl"], "/cs1302-tracer/docs/dev/")
         self.assertEqual(plan["versions"][0]["javadocUrl"], "/cs1302-tracer/api/next/index.html")
 
     def test_published_mode_requires_explicit_release_records(self) -> None:
@@ -249,7 +250,7 @@ class ReleaseSelectionTests(unittest.TestCase):
 
     def test_pending_source_rejects_current_and_committed_documentation_drift(self) -> None:
         """Require the pinned release docs, prepared snapshot, and current docs to agree."""
-        snapshot = self.site / "versioned_docs/version-2.0.0/index.md"
+        snapshot = self.site / "../../docs/releases/2.0.0/index.md"
         snapshot.write_text("# Invalid committed snapshot\n")
         commit = self.prepare_next_development()
         project = docs_release.Project(self.root)
@@ -265,7 +266,7 @@ class ReleaseSelectionTests(unittest.TestCase):
         """Reject even logically equivalent metadata edits after local release preparation."""
         commit = self.prepare_next_development()
         project = docs_release.Project(self.root)
-        for name in ("versions.json", "sidebars.js", "versioned_sidebars/version-2.0.0-sidebars.json"):
+        for name in ("versions.json", "navigation.json", "releases/2.0.0-navigation.json"):
             with self.subTest(name=name):
                 path = self.site / name
                 original = path.read_text()

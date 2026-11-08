@@ -20,12 +20,12 @@ class ReleaseCliTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         copy_scripts(self.root)
-        self.site = self.root / "website"
-        self.site.mkdir()
+        self.site = self.root / "src/site"
+        self.site.mkdir(parents=True)
         (self.root / "docs").mkdir()
         (self.root / "docs/index.md").write_text("# Current\n")
         (self.root / "pom.xml").write_text("<project><version>1.0.0</version></project>")
-        (self.site / "sidebars.js").write_text("module.exports = {};")
+        (self.site / "navigation.json").write_text("{}")
         subprocess.run(["git", "init", "-q", str(self.root)], check=True)
         self.env = tool_environment(self.root)
         executable(
@@ -34,9 +34,9 @@ class ReleaseCliTests(unittest.TestCase):
 import json, shutil, sys
 from pathlib import Path
 version = sys.argv[-1]
-shutil.copytree('../docs', 'versioned_docs/version-' + version)
-Path('versioned_sidebars').mkdir(exist_ok=True)
-Path('versioned_sidebars/version-' + version + '-sidebars.json').write_text('{}')
+shutil.copytree('../docs', '../../docs/releases/' + version)
+Path('releases').mkdir(exist_ok=True)
+Path('releases/version-' + version + '-navigation.json').write_text('{}')
 p = Path('versions.json')
 versions = json.loads(p.read_text()) if p.exists() else []
 p.write_text(json.dumps([version, *versions]))
@@ -49,7 +49,7 @@ p.write_text(json.dumps([version, *versions]))
             (self.root / "pom.xml").write_text(f"<project><version>{version}</version></project>")
             result = invoke(self.root, "docs_release.py", "prepare", env=self.env)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual((self.site / f"versioned_docs/version-{version}/index.md").read_text(), "# Current\n")
+            self.assertEqual((self.site / f"../../docs/releases/{version}/index.md").read_text(), "# Current\n")
             if version == "1.0.0":
                 for arguments in (
                     ["add", "."],
@@ -74,7 +74,7 @@ p.write_text(json.dumps([version, *versions]))
         records.write_text('[{"tag_name":"v1.0.0"}]')
         result = invoke(self.root, "docs_release.py", "published", str(records))
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads((self.site / "published-versions.json").read_text()), ["1.0.0"])
+        self.assertEqual(json.loads((self.root / "target/docsite/published-versions.json").read_text()), ["1.0.0"])
         self.assertIn("Snapshot already exists", invoke(self.root, "docs_release.py", "prepare", env=self.env).stderr)
 
     def test_explicit_pending_target_preserves_snapshot_pom_and_checks_agreement(self) -> None:
@@ -95,7 +95,7 @@ p.write_text(json.dumps([version, *versions]))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Release snapshot differs", result.stderr)
         (self.root / "docs/index.md").write_text("# Current\n")
-        (self.site / "sidebars.js").write_text('module.exports = {docs: ["index"]};')
+        (self.site / "navigation.json").write_text('{"docs": ["index"]}')
         result = invoke(self.root, "docs_release.py", "check", "--pending", "1.0.0", env=self.env)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Release sidebar differs", result.stderr)

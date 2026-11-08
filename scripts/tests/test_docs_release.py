@@ -16,12 +16,12 @@ class ReleaseTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.site = self.root / "website"
-        self.site.mkdir()
+        self.site = self.root / "src/site"
+        self.site.mkdir(parents=True)
         (self.root / "docs").mkdir()
         (self.root / "docs/index.md").write_text("# Current\n")
         (self.root / "pom.xml").write_text("<project><version>2.0.0</version></project>")
-        (self.site / "sidebars.js").write_text('module.exports = {docs: ["index"]};')
+        (self.site / "navigation.json").write_text('{"docs": ["index"]}')
         self.project = release.Project(self.root)
         self.snapshot("2.0.0")
         self.snapshot("1.0.0")
@@ -29,12 +29,12 @@ class ReleaseTests(unittest.TestCase):
 
     def snapshot(self, version: str) -> None:
         """Create a documentation snapshot."""
-        directory = self.site / f"versioned_docs/version-{version}"
+        directory = self.site / f"../../docs/releases/{version}"
         directory.mkdir(parents=True)
         (directory / "index.md").write_text("# Current\n")
-        sidebars = self.site / "versioned_sidebars"
+        sidebars = self.site / "releases"
         sidebars.mkdir(exist_ok=True)
-        (sidebars / f"version-{version}-sidebars.json").write_text('{"docs":["index"]}')
+        (sidebars / f"{version}-navigation.json").write_text('{"docs":["index"]}')
 
     def test_release_requires_matching_tag_and_snapshot(self) -> None:
         """Release requires matching tag and snapshot."""
@@ -47,7 +47,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_sidebar_changes_invalidate_tag(self) -> None:
         """Sidebar changes invalidate tag."""
-        (self.site / "sidebars.js").write_text('module.exports = {docs: ["other"]};')
+        (self.site / "navigation.json").write_text('{"docs": ["other"]}')
         with self.assertRaisesRegex(AssertionError, "sidebar differs"):
             self.project.check("v2.0.0")
 
@@ -105,7 +105,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_missing_archive_fails_validation(self) -> None:
         """Missing archive fails validation."""
-        (self.site / "versioned_docs/version-1.0.0/index.md").unlink()
+        (self.site / "../../docs/releases/1.0.0/index.md").unlink()
         with self.assertRaisesRegex(AssertionError, "Missing documentation"):
             self.project.check()
 

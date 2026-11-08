@@ -165,7 +165,7 @@ class JavadocCache:
             raise ValueError("Unknown Javadoc cache mode")
         self.root = root
         self.mode = mode
-        self.directory = root / "website/.cache/javadoc"
+        self.directory = root / ".cache/docsite/javadoc"
         self.context: str | None = None
         self.probed = False
 

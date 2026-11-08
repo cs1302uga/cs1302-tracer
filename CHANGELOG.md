@@ -35,9 +35,21 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Breaking changes
 
-No breaking changes.
+- **Documentation tooling:** replace the Docusaurus/npm site with Maven Site Plugin
+  3.22.0 and Supa Maven Skin 0.2.0. Build with `./mvnw -B -ntp -Pdocsite verify`
+  and preview with `scripts/serve_docs.py`. The internal `--guides all|active`,
+  frontend-only flags, `docs_timing.py npm-ci`, and archive-only publishing commands have been removed;
+  retained guides now build locally. Software Java API, tracer CLI and JSON/batch
+  protocols are unchanged.
 
 ### Non-breaking changes
+
+- **Documentation channels:** introduce `docs/latest/`, `docs/dev/` and
+  `docs/VERSION/`, with a root landing page, version-specific navigation/API links,
+  frozen source provenance and stale deployment rejection. Preserve old deep links,
+  heading fragments and downloadable JSON assets. Retire guide archive downloads
+  and frontend build dependencies while retaining release/Javadoc verification.
+
 
 - **Published guide retention:** pin the verified 4.2.1 guide archive so its
   existing routes remain available when 4.3.1 and 4.3.0 are the active guides.

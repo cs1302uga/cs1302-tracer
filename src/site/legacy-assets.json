@@ -1,0 +1,67 @@
+{
+  "assets/files/post-release-rebase-e51d9fb0a0d808fd14f28393ac9ff7c6.json": {
+    "size": 4171,
+    "sha256": "208a8844f8da955cd8a5dce0203f87c49db805e4e9f19a057fb8bc6853bd19c1",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/post-release-rebase.json"
+  },
+  "assets/files/probe-evidence-6364ee4a665da3ca6983d0efdf20feda.json": {
+    "size": 122168,
+    "sha256": "8ef0788b80f58a47b4fba6afee97ec08bf780081b7eba066b20ca530ac3dc54f",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/probe-evidence.json"
+  },
+  "assets/files/javadoc-impact-8b4021000e79f8a6885590a591780848.json": {
+    "size": 33209,
+    "sha256": "4b79384666d81221a4b0c7e151e07031fa44f702e904cfdc1f5156f98ea0c7ce",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/javadoc-impact.json"
+  },
+  "assets/files/priority-adjudications-b573d53b67054304b11464580eed1e71.json": {
+    "size": 11033,
+    "sha256": "6e0d181a67384248fe59cf3531aabd94e319969a869876b2df4c685f9e500016",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/priority-adjudications.json"
+  },
+  "assets/files/javadoc-validation-fdee906f60fc861270618a3a2a150eae.json": {
+    "size": 624,
+    "sha256": "7113e202926733d41ef61ebac0692087fb75e7ef4e95ce23fdc6988aca6fe38b",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/javadoc-validation.json"
+  },
+  "assets/files/findings-984b618f24c0c4bcf78bf9d8e8099fa5.json": {
+    "size": 1669721,
+    "sha256": "0f0c8d90e830726c2ea9eb7ecd91c4300a173b4063b691aa3b102779f5638c73",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/findings.json"
+  },
+  "assets/files/followup-reproduction-e610bc22175cc37d1ab41aa45355a6bc.json": {
+    "size": 47877,
+    "sha256": "a3bdf861508803b9b6e332e8b386ceb91e8d419f9fb580524cbcaf0636f4421e",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/followup-reproduction.json"
+  },
+  "assets/files/contract-probes-9d15ab60f03e5b0a430a639d4ad1784c.json": {
+    "size": 14700,
+    "sha256": "b8985f52a17910f9ff8d9c205919ea39c5ba4453e665f732cfa71329635dfe26",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/contract-probes.json"
+  },
+  "assets/files/remediation-validation-6cd3160d210dc24629071fc438dba333.json": {
+    "size": 8956,
+    "sha256": "93a7270f13b4ed996f92598c93b3b868728443f0e42ad9593b22843f770421ae",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/remediation-validation.json"
+  },
+  "assets/files/rebase-impact-995367ebe1618c898ab4d1d877a916d9.json": {
+    "size": 23115,
+    "sha256": "f3f37d3cec71b5ca9abd150af296d7f38f3a995fcda6853e416f83ebd8c5a04e",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/rebase-impact.json"
+  },
+  "assets/files/followup-validation-9182e3566e52fb2cc4574f107f51b0b4.json": {
+    "size": 92373,
+    "sha256": "0406d7cd3bee273c8ac5fd0ccbf8569c049ab0f44e2ca7da61087276ff9f3421",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/followup-validation.json"
+  },
+  "assets/files/remediation-ef2ffc1fdbe6441dfbb79d2d7899de11.json": {
+    "size": 89943,
+    "sha256": "6cee294cb1396c7dc6e7ac89c898d4403a46e7f25f5a4c1371345e2e97f295a2",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/remediation.json"
+  },
+  "assets/files/selection-4f76461b5b6bb6e6d3a495a2447e3323.json": {
+    "size": 868,
+    "sha256": "841bd4b59553f812c210b3f6a62d0a6321d3aeb0c5c8a4541c4ef8a319ae7b78",
+    "source": "docs/releases/4.3.0/reviews/diataxis-audit/selection.json"
+  }
+}

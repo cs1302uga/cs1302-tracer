@@ -95,91 +95,45 @@ behavior.
 | [`javadoc_cache.py`](javadoc_cache.py) | Internal historical-output cache with build-input fingerprints and complete-file integrity checks. Configure it through `docs_site.py`. |
 | [`javadoc_artifact.py`](javadoc_artifact.py) | Validate release Javadoc structure and manifest metadata with `check`, writing its checksum; `verify` also checks the adjacent checksum and attestation bundle against the trusted release identity. |
 | [`javadoc_publish.py`](javadoc_publish.py) | Preserve a complete verified remote Javadoc set before upload and verify actual remote files afterward; reject partial sets rather than replacing them. See the release runbook for CLI arguments and recovery. |
-| [`docs_timing.py`](docs_timing.py) | Record documentation stage durations and completion status. Its `npm-ci` action runs locked frontend installation and writes a separate timing report. |
-| [`check_site.py`](check_site.py) | Check rendered links, fragments, base paths, and version-matched Javadoc links in `website/build`. |
+| [`docs_timing.py`](docs_timing.py) | Record documentation stage durations and completion status. It is a library used by documentation orchestration. |
+| [`check_site.py`](check_site.py) | Check rendered links, fragments, base paths, and version-matched Javadoc links in `target/pages`. |
 | [`serve_docs.py`](serve_docs.py) | Serve an existing build with its project base path and intact Javadoc URLs. Defaults to `127.0.0.1:3000`; accepts `--host` and `--port`. |
 | [`docs_release.py`](docs_release.py) | Validate releases with `check`, create snapshots with `prepare --version X.Y.Z` while retaining the snapshot POM, and export the legacy `published` selection report. `check --pending X.Y.Z` checks snapshot agreement before the stable version transition; `check --tag vX.Y.Z` remains stable-only. |
 | [`release.py`](release.py) | Prepare signed Maven release history in an isolated clone; publish its exact commits through CI and verify assets/deployment. Provides `prepare`, `resume`, `publish`, saved-report `status`, and the workflow's `ci` branch check. |
 | [`release_validate.py`](release_validate.py) | Maven lifecycle hook that preserves stale Java coverage and runs the serial local release gates. The stable POM, strict Java coverage, and docsite profiles are required. |
 | [`release_evidence.py`](release_evidence.py) | Read-only evidence library for exact push-run matrix results, clean tagged JAR metadata, archive contents, and live documentation provenance. Used by `release.py publish`. |
-| [`rehearse_docs_release.py`](rehearse_docs_release.py) | Exercise release preparation, publishing selection, retained archives, retries, and missing tags using real builds in a disposable project. |
+| [`rehearse_docs_release.py`](rehearse_docs_release.py) | Exercise release preparation, publishing selection, retained guides, retries, and missing tags using real builds in a disposable project. |
 | [`check_external_links.py`](check_external_links.py) | Check external HTTP links and write `external-links-report.md`; remote availability is advisory rather than a required PR gate. |
 | [`tests/`](tests/) | Behavioral tests for all Python script interfaces, release workflows, generated documentation, local HTTP services, and external-tool failure handling. |
 
 ## Build and preview documentation
 
-Use a full JDK and local release tags. The Maven profile installs pinned
-**Node.js 24.22.0 LTS** with bundled **npm 11.19.1**, installs locked site dependencies,
-and runs executable docs, metadata, Javadoc, site generation, and rendered-link checks:
+Use a full JDK and local release tags. The Maven profile uses Maven Site Plugin
+3.22.0 and Supa Maven Skin 0.2.0, orchestrated by managed Python, to check prose,
+examples, release metadata, Javadoc and every locally rendered guide:
 
 ```sh
-git fetch --tags
 ./mvnw -B -ntp -Pdocsite verify
 ./scripts/uv run --locked python scripts/serve_docs.py --port 3100
 ```
 
-Open `http://127.0.0.1:3100/cs1302-tracer/`. Stop the server with Ctrl-C.
-Follow [documentation builds](../docs/contributing/documentation-builds.md) for live
-preview and published mode using the plugin-installed toolchain. See the
-[release runbook](../docs/contributing/releases.md#release-rehearsal) for rehearsal.
+`docs_site.py build|start|api|verify` owns `target/pages`, generated API output under
+`target/generated-api`, and staging/timings under `target/docsite`. `start` builds
+and serves static output, accepting `--host` and `--port`; the old bundler flags
+and `--guides all|active` are removed. `check-inputs` compares a retained deployment
+manifest against current source bytes, builder commit and fresh release records,
+failing on stale inputs immediately before deployment. All actions support explicit
+preview/published selection, pending-source, Javadoc source and cache options.
+See the [complete CLI/options and channel contract](../docs/contributing/documentation-builds.md)
+for defaults, environment variables, errors, retained provenance and cache behavior.
+The [release rehearsal](../docs/contributing/releases.md#release-rehearsal) uses real
+builds in a disposable tree and makes no external publications.
 
-`docs_site.py verify` runs the complete documentation checks after tracer packaging;
-`build` generates the site, `start` runs the development server, and `api` generates
-only Javadoc and the release manifest. `--mode` selects `preview` or `published`;
-`--releases PATH` supplies the JSON release records required in published mode.
-Retain complete asset descriptors for automatic Javadoc artifact selection,
-including names, sizes, download URLs, and SHA-256 digests.
-Defaults come from `DOCSITE_MODE` (otherwise `preview`) and `DOCSITE_RELEASES`
-(otherwise no records). The Maven profile passes these through environment variables.
-Explicit CLI options override the corresponding defaults.
-For an untagged release whose following development commit has already advanced
-the POM, preview can pin its stable ancestor with `--pending-commit FULL_SHA` or
-`DOCSITE_PENDING_COMMIT`; Maven forwards `-Ddocsite.pendingCommit=FULL_SHA`.
-The source commit and prepared/current docs must agree. This override is rejected
-in published mode, and it does not create or publish a release tag.
-CI bootstraps the pinned Node toolchain before release-context validation, including
-the `main` build between its next-development fast-forward and the explicit tag
-push. Its early `initialize` phase installs the toolchain; the later `verify`
-installs npm dependencies once. Local editing still uses `generate-resources`
-before starting the server. The pending stable commit must be the next-development
-commit's direct parent.
-
-The build owns `website/build`; output/site/configuration overrides are rejected.
-`start` accepts `--host`, `--port`/`-p`, and `--no-open`; `start` and `build` accept
-`--no-minify`. `verify` accepts no forwarded bundler flags. The `build:maven` npm
-script invokes the managed Python wrapper itself. Other npm scripts use `python3`
-from their inherited environment; invoke them through `./scripts/uv run --locked`.
-Generating a local site does not publish it.
-
-All actions accept `--javadoc-source auto|source`, defaulting to
-`DOCSITE_JAVADOC_SOURCE` or `auto`. An explicit option takes precedence; Maven
-forwards `-Ddocsite.javadocSource=auto|source`. Preview uses tagged source without
-release-artifact downloads. Published `auto` prefers the selected release's verified
-Javadoc JAR, checksum, and attestation bundle. A marker-free legacy release that
-advertises no artifact can fall back to source; missing required artifacts
-or incomplete/invalid advertised sets fail. `source` explicitly bypasses release
-artifacts. Downloaded bundles live under `website/.cache/release-javadoc/` and are
-verified on every reuse, which can still require network access for trust data.
-See [published Javadoc artifacts](../docs/contributing/javadoc-artifacts.md#published-javadoc-artifacts)
-for provenance requirements and the `javadoc_artifact.py check`/`verify` commands.
-
-Source-built historical Javadoc uses the ignored `website/.cache/javadoc/`
-directory, which survives Maven `clean`. All actions accept `--javadoc-cache use|refresh|off`:
-`use` reuses valid entries or generates missing ones, `refresh` regenerates and
-replaces them, and `off` generates without cache access. The explicit option
-overrides `DOCSITE_JAVADOC_CACHE`; the default is `use`. Maven forwards
-`-Ddocsite.javadocCache=use|refresh|off` through that variable. These modes apply
-only to source builds; combine `--javadoc-source source` and `--javadoc-cache off`
-to bypass both artifact and generated-output reuse. Development and
-untagged pending Javadoc always regenerate. Cache use preserves tag/POM validation
-and the complete `verify` workflow's documentation and rendered-link checks.
-
-`website/build-timings.json` records Python stages and per-version cache outcomes;
-`website/npm-ci-timing.json` separately records the timed dependency installation.
-Check their invocation timestamps and preserve reports before comparing runs.
-They exclude outer Maven packaging, frontend bootstrap, and workflow transfers.
-See [cache and timing guidance](../docs/contributing/documentation-builds.md#documentation-build-cache-and-timing)
-for input validation, CI trust, failure handling, and controlled cold/warm comparisons.
+The locked Python development environment includes **mini-racer 0.14.1** (ISC)
+only to execute the shipped disclosure JavaScript against a small DOM/event test
+boundary. This preserves expand/collapse, print restoration and startup tests
+without Node/npm. It is not a production dependency and is not imported by site
+generation or deployment validation.
 
 ## Signed release workflow
 

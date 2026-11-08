@@ -2,11 +2,12 @@
 """Validate rendered same-site links and fragments under the GitHub Pages base path."""
 
 import json
+import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urljoin, urlsplit
 
-ROOT = Path(__file__).resolve().parents[1] / "website/build"
+ROOT = Path(__file__).resolve().parents[1] / "target/pages"
 
 
 class Page(HTMLParser):
@@ -17,6 +18,7 @@ class Page(HTMLParser):
         super().__init__()
         self.ids: set[str] = set()
         self.links: list[str] = []
+        self.duplicate_ids: set[str] = set()
         self.redirect = False
         self.feed(content)
 
@@ -26,7 +28,10 @@ class Page(HTMLParser):
         if tag == "meta" and (attributes.get("http-equiv") or "").lower() == "refresh":
             self.redirect = True
         if "id" in attributes:
-            self.ids.add(attributes["id"] or "")
+            identifier = attributes["id"] or ""
+            if identifier in self.ids:
+                self.duplicate_ids.add(identifier)
+            self.ids.add(identifier)
         if tag == "a" and attributes.get("href"):
             self.links.append(attributes["href"] or "")
         if tag in ("img", "script") and attributes.get("src"):
@@ -35,12 +40,39 @@ class Page(HTMLParser):
             self.links.append(attributes["href"] or "")
 
 
+def validate_sitemap(root: Path, origin: str, base: str, pages: dict[Path, Page]) -> list[str]:
+    """Require one deterministic sitemap entry per canonical guide/landing page."""
+    try:
+        tree = ET.parse(root / "sitemap.xml")
+    except (OSError, ET.ParseError) as error:
+        return [f"Invalid sitemap: {error}"]
+    listed = [element.text or "" for element in tree.findall("{*}url/{*}loc")]
+    expected = set()
+    for path, page in pages.items():
+        relative = path.relative_to(root).as_posix()
+        canonical = (
+            relative.startswith("docs/") and not relative.startswith("docs/latest/") and relative != "docs/index.html"
+        ) or relative in ("index.html", "all-versions/index.html")
+        if canonical and not page.redirect and path.name == "index.html":
+            expected.add(origin + base + relative.removesuffix("index.html"))
+    errors = []
+    if len(listed) != len(set(listed)):
+        errors.append("Duplicate sitemap URLs")
+    if set(listed) != expected:
+        errors.append(
+            f"Sitemap canonical URL mismatch: missing {sorted(expected - set(listed))}; "
+            f"unexpected {sorted(set(listed) - expected)}"
+        )
+    return errors
+
+
 def main() -> None:
     """Run the command-line workflow."""
     assert (ROOT / "index.html").is_file(), "Build the site first"
     pages = {path: Page(path.read_text()) for path in ROOT.rglob("*.html")}
     errors = []
     plan = json.loads((ROOT / "release-manifest.json").read_text())
+    errors.extend(validate_sitemap(ROOT, plan["origin"], plan["baseUrl"], pages))
     base = plan["origin"] + plan["baseUrl"]
     host = urlsplit(base).netloc
     entries = plan["versions"]
@@ -53,6 +85,8 @@ def main() -> None:
         relative = file.relative_to(ROOT).as_posix()
         route = relative[: -len("index.html")] if file.name == "index.html" else relative
         api_page = any(relative.startswith(v["javadocPath"] + "/") for v in entries)
+        if not api_page and page.duplicate_ids:
+            errors.append(f"{relative}: duplicate IDs: {sorted(page.duplicate_ids)}")
         if not api_page and not page.redirect:
             matches = [v for v in entries if (plan["baseUrl"] + route).startswith(v["docsUrl"])]
             entry = max(matches, key=lambda v: len(v["docsUrl"])) if matches else default

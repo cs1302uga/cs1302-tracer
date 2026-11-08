@@ -1,7 +1,7 @@
 // Native disclosures own their state; these controls only enhance each static inventory.
 let dispose = () => {};
 
-export function onRouteDidUpdate() {
+function enhanceDependencies() {
   // Docusaurus does not use this hook's return value as an effect cleanup.
   dispose();
   const cleanups = [];
@@ -50,3 +50,6 @@ export function onRouteDidUpdate() {
     cleanups.forEach(cleanup => cleanup());
   };
 }
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", enhanceDependencies);
+else enhanceDependencies();

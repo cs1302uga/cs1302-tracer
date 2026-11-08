@@ -46,6 +46,8 @@ class HttpToolsTests(unittest.TestCase):
                     root = Path(directory)
                     copy_scripts(root)
                     (root / "docs").mkdir()
+                    (root / "docs/releases").mkdir()
+                    (root / "docs/releases/old.md").write_text(f"[Ignore retained prose]({base}/missing)")
                     (root / "README.md").write_text(f"[OK]({base}/ok#first) [Again]({base}/ok#second)")
                     (root / "HACKING.md").write_text("")
                     result = invoke(root, "check_external_links.py")
@@ -79,7 +81,7 @@ class HttpToolsTests(unittest.TestCase):
             missing = invoke(root, "serve_docs.py", "--port", "0")
             self.assertEqual(missing.returncode, 2)
             self.assertIn("Build the documentation site first", missing.stderr)
-            build = root / "website/build"
+            build = root / "target/pages"
             (build / "api").mkdir(parents=True)
             (build / "index.html").write_text("site home")
             (build / "api/Example.html").write_text("exact API page")

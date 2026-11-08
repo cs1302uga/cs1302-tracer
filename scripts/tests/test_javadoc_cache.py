@@ -23,7 +23,7 @@ class JavadocCacheTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix="javadoc cache ")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
-        for name in ("website", "scripts", ".mvn/wrapper", "home/.m2", "maven/conf", "tools", "generated/assets"):
+        for name in ("src/site", "scripts", ".mvn/wrapper", "home/.m2", "maven/conf", "tools", "generated/assets"):
             (self.root / name).mkdir(parents=True)
         self.home = self.root / "home"
         self.tools = self.root / "tools"

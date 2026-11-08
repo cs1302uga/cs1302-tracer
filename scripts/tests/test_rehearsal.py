@@ -4,28 +4,43 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests.support import copy_scripts, executable, invoke, tool_environment
+from scripts import rehearse_docs_release
+
+from tests.support import FAKE_SITE, copy_scripts, executable, invoke, tool_environment
 
 
 class RehearsalTests(unittest.TestCase):
     """Verify release retention and failure checks across the whole rehearsal CLI."""
+
+    def test_import_does_not_run_the_rehearsal(self) -> None:
+        """Importing the workflow exposes its callable without building or changing files."""
+        self.assertTrue(rehearse_docs_release.ROOT.is_dir())
 
     def test_rehearsal_checks_release_sequence_and_missing_tag(self) -> None:
         """Rehearse unpublished snapshots, publication, retries, and removed provenance."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             copy_scripts(root)
-            for folder in ("docs", "src", ".mvn", "website/src"):
+            for folder in ("docs", "src/site/resources", "src/site/landing", ".mvn"):
                 (root / folder).mkdir(parents=True)
             (root / "docs/index.md").write_text("# Documentation\n")
-            (root / "pom.xml").write_text("<project><version>1.0.0</version></project>")
-            for name in ("package.json", "package-lock.json", "docusaurus.config.js"):
-                (root / "website" / name).write_text("{}")
-            (root / "website/sidebars.js").write_text("module.exports = {};")
+            (root / "pom.xml").write_text(
+                '<project xmlns="http://maven.apache.org/POM/4.0.0">'
+                "<version>1.0.0</version><properties><maven-site-plugin.version>3.22.0</maven-site-plugin.version>"
+                "</properties></project>"
+            )
+            (root / "src/site/navigation.json").write_text('{"docs":["index"]}')
+            (root / "src/site/site.xml").write_text("<site><body/></site>")
+            (root / "src/site/landing/index.md").write_text("# Home\n")
+            (root / "src/site/resources/dependencies.js").write_text("")
+            (root / "src/site/resources/dependencies.css").write_text("")
             executable(
                 root / "mvnw",
                 """
+import os,sys
 from pathlib import Path
+if 'site:site' in sys.argv:
+    exec(os.environ['DOCS_TEST_RENDERER'])
 output = Path('target/reports/apidocs')
 output.mkdir(parents=True, exist_ok=True)
 for name in ('index.html', 'search.html', 'element-list'):
@@ -33,40 +48,9 @@ for name in ('index.html', 'search.html', 'element-list'):
 """,
             )
             env = tool_environment(root)
-            executable(
-                root / "bin/npm",
-                """
-import json, shutil, subprocess, sys
-from pathlib import Path
-args = sys.argv[1:]
-if args[0] == 'ci':
-    sys.exit(0)
-if 'docs:version' in args:
-    version = args[-1]
-    shutil.copytree('../docs', 'versioned_docs/version-' + version)
-    Path('versioned_sidebars').mkdir(exist_ok=True)
-    Path('versioned_sidebars/version-' + version + '-sidebars.json').write_text('{}')
-    path = Path('versions.json')
-    previous = json.loads(path.read_text()) if path.exists() else []
-    path.write_text(json.dumps([version, *previous]))
-elif '--prefix' in args:
-    subprocess.run([sys.executable, 'scripts/docs_site.py', 'build', *args[args.index('--') + 1:]], check=True)
-else:
-    plan = json.loads(Path('release-manifest.json').read_text())
-    output = Path('build')
-    if output.exists():
-        shutil.rmtree(output)
-    output.mkdir()
-    shutil.copytree('generated-api/api', output / 'api')
-    for entry in plan['versions']:
-        dest = output / entry['docsPath'].strip('/')
-        dest.mkdir(parents=True, exist_ok=True)
-        (dest / 'index.html').write_text('<a href="' + entry['javadocUrl'] + '">API</a>')
-    (output / 'index.html').write_text('<meta http-equiv="refresh" content="0;url=/' + plan['latestVersion'] + '/">')
-""",
-            )
+            env["DOCS_TEST_RENDERER"] = FAKE_SITE
             result = invoke(root, "rehearse_docs_release.py", env=env)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Release rehearsal passed", result.stdout)
             self.assertIn("missing tag", result.stdout)
-            self.assertFalse((root / "website/build").exists(), "Rehearsal must not overwrite the source project")
+            self.assertFalse((root / "target/pages").exists(), "Rehearsal must not overwrite the source project")

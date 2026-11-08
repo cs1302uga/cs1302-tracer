@@ -25,8 +25,6 @@ def initialize(root: Path) -> None:
 
 def verify(root: Path, version: str) -> None:
     """Fail on the first failed gate, keeping guest execution and documentation serial."""
-    # Maven provisions this Node distribution before verify; use it for sidebar validation too.
-    os.environ["PATH"] = str(root / "target/frontend/node") + os.pathsep + os.environ.get("PATH", "")
     Project(root).check(tag="v" + version)
     environment = dict(
         os.environ,

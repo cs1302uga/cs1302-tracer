@@ -375,7 +375,7 @@ sys.exit(1 if (root / 'attestation-fails').exists() else 0)
             self.assertEqual(artifact.restore(self.root, self.entry(), records, destination), "release-asset-cache")
             self.assertEqual(network.call_count, 3)
             shutil.rmtree(destination)
-            cache = self.root / "website/.cache/release-javadoc" / artifact.digest(self.jar)
+            cache = self.root / ".cache/docsite/release-javadoc" / artifact.digest(self.jar)
             (cache / self.jar.name).write_bytes(b"corrupt")
             self.assertEqual(artifact.restore(self.root, self.entry(), records, destination), "release-asset")
             self.assertEqual(network.call_count, 6)
@@ -403,7 +403,7 @@ sys.exit(1 if (root / 'attestation-fails').exists() else 0)
         """Repair equal-size corruption, redirected files, and non-directory bundle entries."""
         records = self.records()
         destination = self.root / "out/api"
-        cache = self.root / "website/.cache/release-javadoc" / artifact.digest(self.jar)
+        cache = self.root / ".cache/docsite/release-javadoc" / artifact.digest(self.jar)
         with patch("urllib.request.urlopen", side_effect=self.download) as network:
             self.assertEqual(artifact.restore(self.root, self.entry(), records, destination), "release-asset")
             for corruption in ("same-size", "file-symlink", "directory-file", "directory-symlink"):
@@ -434,7 +434,7 @@ sys.exit(1 if (root / 'attestation-fails').exists() else 0)
     def test_unavailable_cache_uses_verified_download_without_redirected_writes(self) -> None:
         """An obstructed or redirected cache must not block verified documentation output."""
         records = self.records()
-        website = self.root / "website"
+        website = self.root / ".cache"
         outside = self.root / "outside"
         outside.mkdir()
         for obstruction in ("file", "symlink"):
@@ -460,7 +460,7 @@ sys.exit(1 if (root / 'attestation-fails').exists() else 0)
         """Recheck private copies and keep shared-cache changes away from extracted content."""
         records = self.records()
         destination = self.root / "out/api"
-        cache = self.root / "website/.cache/release-javadoc" / artifact.digest(self.jar)
+        cache = self.root / ".cache/docsite/release-javadoc" / artifact.digest(self.jar)
         copy_tree = shutil.copytree
         with patch("urllib.request.urlopen", side_effect=self.download) as network:
             artifact.restore(self.root, self.entry(), records, destination)
@@ -500,7 +500,7 @@ sys.exit(1 if (root / 'attestation-fails').exists() else 0)
             return original_rename(path, target)
 
         records = self.records()
-        cache = self.root / "website/.cache/release-javadoc" / artifact.digest(self.jar)
+        cache = self.root / ".cache/docsite/release-javadoc" / artifact.digest(self.jar)
         destination = self.root / "out/api"
         for previous in (False, True):
             if previous:

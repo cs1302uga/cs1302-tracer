@@ -15,8 +15,6 @@ concurrency:
 
 env:
   UVW_GIT_COMMIT: never
-  # Compile the active window and compose older guides from the reviewed, verified archive catalog.
-  DOCSITE_GUIDE_MODE: active
 
 jobs:
   build:
@@ -51,7 +49,7 @@ jobs:
         continue-on-error: true
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: website/.cache/javadoc
+          path: .cache/docsite/javadoc
           key: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-lookup
           restore-keys: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
       - name: Select published stable documentation
@@ -61,12 +59,11 @@ jobs:
         run: |
           gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s '.' > "$RUNNER_TEMP/releases.json"
       # Authenticate published API artifacts; older releases retain exact tagged-source generation.
-      - name: Build and verify published documentation with the pinned frontend toolchain
+      - name: Build and verify published documentation with the Maven Site renderer
         run: >-
           ./mvnw -B -ntp -Pdocsite -DskipTests
           -Ddocsite.mode=published
           -Ddocsite.javadocSource=auto
-          "-Ddocsite.guides=$DOCSITE_GUIDE_MODE"
           "-Ddocsite.releases=$RUNNER_TEMP/releases.json" verify
       # Manual main deployments may populate the cache after full validation.
       # Immutable transport keys follow validated manifests, not checkout SHAs.
@@ -75,7 +72,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         env:
           CACHE_PREFIX: javadoc-v1-${{ runner.os }}-${{ runner.arch }}-
-          MANIFEST_DIGEST: ${{ hashFiles('website/.cache/javadoc/*/manifest.json') }}
+          MANIFEST_DIGEST: ${{ hashFiles('.cache/docsite/javadoc/*/manifest.json') }}
         run: |
           if [[ -n "$MANIFEST_DIGEST" ]]; then
             printf 'key=%s%s\n' "$CACHE_PREFIX" "$MANIFEST_DIGEST" >> "$GITHUB_OUTPUT"
@@ -88,20 +85,25 @@ jobs:
         continue-on-error: true
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: website/.cache/javadoc
+          path: .cache/docsite/javadoc
           key: ${{ steps.javadoc-cache-key.outputs.key }}
+      - name: Retain deployment source manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: documentation-source-manifest
+          path: target/pages/release-manifest.json
+          retention-days: 7
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: website/build
+          path: target/pages
       - name: Save documentation timings
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: documentation-deployment-timings
           path: |
-            website/build-timings.json
-            website/npm-ci-timing.json
+            target/docsite/build-timings.json
           if-no-files-found: ignore
           retention-days: 7
 
@@ -110,12 +112,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
+      actions: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Re-read current main and published releases immediately before deploying the artifact.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: documentation-source-manifest
+          path: target/pages
+      - name: Reject stale deployment sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --jq '.[]' | jq -s '.' > "$RUNNER_TEMP/releases.json"
+          test "$(git rev-parse HEAD)" = "$(git ls-remote origin refs/heads/main | cut -f1)"
+          ./scripts/uv run --locked python scripts/docs_site.py check-inputs --mode published --releases "$RUNNER_TEMP/releases.json"
       - name: Deploy GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

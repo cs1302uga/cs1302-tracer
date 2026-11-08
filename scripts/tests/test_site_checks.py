@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.check_site import Page, validate_sitemap
+
 from tests.support import copy_scripts, invoke
 
 
@@ -17,7 +19,7 @@ class SiteChecksTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
         copy_scripts(self.root)
-        self.build = self.root / "website/build"
+        self.build = self.root / "target/pages"
         self.build.mkdir(parents=True)
         self.plan: dict[str, object] = {
             "origin": "https://example.test",
@@ -39,6 +41,7 @@ class SiteChecksTests(unittest.TestCase):
             ],
         }
         (self.build / "release-manifest.json").write_text(json.dumps(self.plan))
+        (self.build / "sitemap.xml").write_text('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"/>')
         for version in ("next", "1.0.0"):
             api = self.build / "api" / version
             api.mkdir(parents=True)
@@ -65,6 +68,56 @@ class SiteChecksTests(unittest.TestCase):
         result = invoke(self.root, "check_site.py")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Validated links and fragments", result.stdout)
+
+    def test_sitemap_canonical_scope_duplicates_missing_and_malformed_files(self) -> None:
+        """Keep aliases, API output and redirects outside the canonical guide sitemap."""
+        paths = (
+            "index.html",
+            "all-versions/index.html",
+            "docs/dev/index.html",
+            "docs/1.0.0/task/index.html",
+            "docs/latest/task/index.html",
+            "docs/index.html",
+            "api/next/index.html",
+            "next/index.html",
+            "docs/dev/raw.html",
+        )
+        pages = {self.build / path: Page("<h1>Page</h1>") for path in paths}
+        pages[self.build / "docs/index.html"] = Page('<meta http-equiv="refresh" content="0;url=latest/">')
+        urls = [
+            "https://example.test/project/" + value for value in ("", "all-versions/", "docs/dev/", "docs/1.0.0/task/")
+        ]
+        sitemap = self.build / "sitemap.xml"
+
+        def write(values: list[str]) -> None:
+            sitemap.write_text(
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                + "".join("<url><loc>" + value + "</loc></url>" for value in values)
+                + "</urlset>"
+            )
+
+        write(urls)
+        self.assertEqual(validate_sitemap(self.build, "https://example.test", "/project/", pages), [])
+        write([*urls, urls[0]])
+        self.assertIn(
+            "Duplicate sitemap URLs", validate_sitemap(self.build, "https://example.test", "/project/", pages)
+        )
+        write([*urls[:-1], "https://example.test/project/docs/latest/task/"])
+        self.assertIn(
+            "canonical URL mismatch", validate_sitemap(self.build, "https://example.test", "/project/", pages)[0]
+        )
+        sitemap.write_text("malformed")
+        self.assertIn("Invalid sitemap", validate_sitemap(self.build, "https://example.test", "/project/", pages)[0])
+        sitemap.unlink()
+        self.assertIn("Invalid sitemap", validate_sitemap(self.build, "https://example.test", "/project/", pages)[0])
+
+    def test_duplicate_guide_ids_fail_rendered_validation(self) -> None:
+        """Legacy alias injection must never create ambiguous heading fragments."""
+        path = self.build / "next/index.html"
+        path.write_text(path.read_text() + '<h2 id="local">Duplicate</h2>')
+        result = invoke(self.root, "check_site.py")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("duplicate IDs", result.stderr)
 
     def test_reports_all_broken_destinations(self) -> None:
         """Report missing API assets, wrong-version links, escapes, and fragments together."""

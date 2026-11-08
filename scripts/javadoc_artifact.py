@@ -284,9 +284,9 @@ def restore(root: Path, entry: ReleaseEntry, releases: list[ReleaseRecord], dest
             or not re.fullmatch(r"sha256:[0-9a-f]{64}", asset.get("digest", ""))
         ):
             raise ValueError("Invalid release Javadoc asset descriptor")
-    cache: Path | None = root / "website/.cache/release-javadoc"
+    cache: Path | None = root / ".cache/docsite/release-javadoc"
     try:
-        for directory in (root / "website", cache.parent, cache):
+        for directory in (root / ".cache", cache.parent, cache):
             directory.mkdir(exist_ok=True)
             if not stat.S_ISDIR(directory.lstat().st_mode):
                 raise OSError("Redirected cache directory")

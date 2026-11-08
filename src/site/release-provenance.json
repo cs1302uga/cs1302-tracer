@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "releases": {
+    "4.3.1": {
+      "releaseCommit": "9125142b95053f20016d13702dfb9855abe49406",
+      "sourceDigest": "e0f14c47d180f1ee19cd26d0f5d543451257a7fc8a37e4898c3dc2fb7a2034e3",
+      "documentationCommit": "9b94c1b7dc7fe3473883b02b9df3dcbc81923b67"
+    },
+    "4.3.0": {
+      "releaseCommit": "c1421f6503f100094be9fe2c1fad752f00a768eb",
+      "sourceDigest": "916f1d55c853cc6c9e713c29224102ff1650f0dd07972c21f6cc329f2f6f409d",
+      "documentationCommit": "9b94c1b7dc7fe3473883b02b9df3dcbc81923b67"
+    },
+    "4.2.1": {
+      "releaseCommit": "c4bb0f0181657cf2cf8f43bee5a32bdc0844200c",
+      "sourceDigest": "85f3a7735e1a67c9a8c4953a219cdba5e4ff9800974ad59d5cb3a76a01596f17",
+      "documentationCommit": "091fd96944095f1653db2e886a7bb3ed971d67df"
+    },
+    "4.2.0": {
+      "releaseCommit": "8ca280dce0bfab6113fdfe2e7953d09452bb0108",
+      "sourceDigest": "798995536b46843f9939b8453c429446b3076d4eb4e1f27bcaba95f51fd1c816",
+      "documentationCommit": "42cf6d3be26fe9e86cd263e92e59ba3bb958d13d"
+    },
+    "4.1.0": {
+      "releaseCommit": "9119b20d592016c60d0ff87467b8100d6f8fa662",
+      "sourceDigest": "153ccc18604a8d78aed52ac4a75c96fc49f9eb1a4e4cfe90f9155566ca752fcf",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "4.0.0": {
+      "releaseCommit": "586522a00e347ca44a333f0470a1e4f127e9a4cc",
+      "sourceDigest": "64669972157248e6f3188e23aac28a19de0282b7e11028be2035c766b7afaa71",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "3.2.5": {
+      "releaseCommit": "d559faaeda3e28f1a33e46140b2727d57f2dc844",
+      "sourceDigest": "62cf46a39ae4db07d118a594a6b8d291b08814973aa6cca5a5597edfe4fdd9a8",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "3.2.4": {
+      "releaseCommit": "ecf851ccf9d22892db4aea2b5ad9c7fb2d09445f",
+      "sourceDigest": "bb41a13f0cd1436ef0306ae464dd7fe6a479ddb4109380bba6e681bda0b13840",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "3.2.3": {
+      "releaseCommit": "a2954bb21d430f77f97bc3efb3d48f32c338a993",
+      "sourceDigest": "091b2304a34f44bc333543f5b1c21c5d6126952f0fe49de2a07de56f8d4b99cf",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "3.2.2": {
+      "releaseCommit": "fd2eb80af42909e9ea01a4d53f75da1924be556f",
+      "sourceDigest": "7429a3ad3b0c55f98cef327be80968f69a634563c642cd4073679fc0488940a7",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    },
+    "3.2.1": {
+      "releaseCommit": "2526d5422ede24d9c2d0a902734a09b241133301",
+      "sourceDigest": "463c3f8d66c34f8496e3ade3a73c1d2ba5ed7f4af63d378c8019dc8cc7b6b60c",
+      "documentationCommit": "e6b1d44ba9e8112af0fe1c99d99e6d7a1ba05038"
+    }
+  }
+}
