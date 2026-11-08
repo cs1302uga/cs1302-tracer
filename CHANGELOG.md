@@ -21,8 +21,9 @@ The historical audit through 4.1.0 found a non-shallow checkout, all 44 publishe
 software-release tags matching origin, and no missing published software-release tag.
 The 4.2.0 and 4.2.1 entries were reconciled separately against their actual tags
 and release metadata.
-Separate `docs-*` prereleases publish
-documentation artifacts and are not software-version entries. There are no published records for the skipped
+Separate `docs-*` prereleases formerly published documentation artifacts and were
+removed after the Maven-site cutover on 2026-11-08; their Git tags remain. They are
+not software-version entries. There are no published records for the skipped
 version numbers (for example 2.2.0, 2.12.1, and 3.2.0).
 
 Maintain curated summaries here as changes land. Add final commit links after
@@ -49,6 +50,10 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
   frozen source provenance and stale deployment rejection. Preserve old deep links,
   heading fragments and downloadable JSON assets. Retire guide archive downloads
   and frontend build dependencies while retaining release/Javadoc verification.
+
+- **Publication cleanup:** remove the three obsolete Documentation archives release
+  entries and their 27 assets after verifying the live Maven site. Preserve all
+  software releases, release assets, and documentation tags; retain private backups.
 
 
 - **Published guide retention:** pin the verified 4.2.1 guide archive so its

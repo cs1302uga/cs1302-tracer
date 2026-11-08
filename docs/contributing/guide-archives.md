@@ -10,8 +10,8 @@ does not become current simply because its rendering changes.
 
 The former Docusaurus ZIP applications, archive catalog, active/all compilation
 modes and archive-only publisher are retired. Builds no longer download or compose
-guide archives. Existing historical publications are external rollback evidence,
-not required build inputs. Optional Javadoc caching remains independent.
+guide archives. Private backups of the historical publications retain rollback
+evidence and are not required build inputs. Optional Javadoc caching remains independent.
 
 `src/site/versions.json` owns the retained version list. Each guide has a matching
 `src/site/releases/VERSION-navigation.json`. `src/site/release-provenance.json`
@@ -40,12 +40,13 @@ reclassified release records fail publication instead of silently dropping guide
 ## Retired publication URLs and future release pins
 
 The old `docs-*` release pages and guide ZIP download URLs are retired publication
-interfaces. External deletion remains pending the verified Maven-site cutover;
-private rollback backups are separate from the live site. Software release URLs
-are unchanged. During rendering, `src/site/retired-publications.json` maps only
+interfaces. The three documentation archive release entries and their 27 assets
+were removed on 2026-11-08 after verifying the Maven-site cutover. Private rollback
+backups are separate from the live site. Software releases and their assets are
+unchanged. During rendering, `src/site/retired-publications.json` maps only
 the three reviewed documentation-release page URLs to their retained Git tag
 trees. The tags remain available, and frozen Markdown keeps its original bytes.
-Old guide ZIP download URLs are unsupported after external cleanup.
+Old guide ZIP download URLs are no longer supported.
 
 New software releases do not automatically edit the provenance catalog. After
 publication, add the new version to `src/site/release-provenance.json` in a reviewed
