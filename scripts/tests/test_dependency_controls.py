@@ -65,7 +65,9 @@ class DependencyControlsTests(unittest.TestCase):
         self.assertIn(".dependency-details::details-content", css)
         self.assertIn("content-visibility: visible", css)
         self.assertIn(".dependency-summary:focus-visible", css)
-        self.assertIn(".documentation-version-picker", css)
+        self.assertNotIn(".documentation-version-picker", css)
+        self.assertNotIn(".documentation-channels", css)
+        self.assertIn(".documentation-channel {", css)
 
 
 if __name__ == "__main__":
