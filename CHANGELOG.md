@@ -45,8 +45,12 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Non-breaking changes
 
+- **Documentation navigation:** remove consumer channel-navigation and version-picker
+  overrides so Supa supplies palette-aware, responsive, keyboard-accessible styles.
+  No Java API, CLI, or output changes.
+
 - **Documentation skin:** use Supa's latest published 0.2.1 snapshot, pinned to
-  `0.2.1-20261106.124007-1` for reproducible builds. Resolve it through Sonatype
+  `0.2.1-20261108.125920-2` for reproducible builds. Resolve it through Sonatype
   Central's snapshot repository and report the descriptor's coordinates in the
   deployment manifest.
 
@@ -69,6 +73,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Commits
 
+- [`1f992a8`](https://github.com/cs1302uga/cs1302-tracer/commit/1f992a855b411b24dfc8d3c485c8cf13ddc52f1b) Use the latest published Supa skin snapshot.
 - [`f17cdea`](https://github.com/cs1302uga/cs1302-tracer/commit/f17cdeaa083e6dc45cd2ee0a4f69c6dd488505ca) Record verified documentation cutover and archive cleanup.
 - [`fe99531`](https://github.com/cs1302uga/cs1302-tracer/commit/fe9953190dfab95f9938717ec1c278cd9cb3e8bb) Link documentation migration commits in the changelog.
 - [`fa269bd`](https://github.com/cs1302uga/cs1302-tracer/commit/fa269bd9f075dd1cbc376eb7f52c04cde1007a8f) Migrate documentation to Maven Site and Supa skin.
