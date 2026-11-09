@@ -51,6 +51,7 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
   or later. Existing Java API, CLI arguments, and JSON/batch formats are unchanged.
   New releases publish both signed artifact families in a frozen Central bundle;
   older releases retain their original library-only publication contract.
+  [Implementation commit](https://github.com/cs1302uga/cs1302-tracer/commit/ed3cce927d7be5352b7580a51cc292a743eaa1e2).
 
 - **Documentation navigation:** remove consumer channel-navigation and version-picker
   overrides so Supa supplies palette-aware, responsive, keyboard-accessible styles.
