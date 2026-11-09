@@ -129,7 +129,7 @@ else:
         self.assertEqual(central.contents(self.path, self.version, self.commit, self.pom), self.files)
         with self.assertRaisesRegex(ValueError, "tagged POM"):
             central.contents(self.path, self.version, self.commit, b"different")
-        for original, replacement in ((b"io.github.cs1302uga", b"wrong"), (b"schema>1", b"schema>2")):
+        for original, replacement in ((b"io.github.cs1302uga", b"wrong"), (b"schema>1", b"schema>99")):
             changed = self.pom.replace(original, replacement)
             (self.root / "pom.xml").write_bytes(changed)
             self.fixture.git("add", "pom.xml")
@@ -144,6 +144,100 @@ else:
                 with self.assertRaisesRegex(ValueError, "coordinates"):
                     central.contents(self.path, self.version, self.commit, changed)
         self.assertFalse(central.required(self.root, self.fixture.git("rev-list", "--max-parents=0", "HEAD")))
+
+    def test_launcher_release_bundle(self) -> None:
+        """Freeze both artifact families, resume frozen bytes, and reject launcher substitutions."""
+        self.pom = self.pom.replace(b"schema>1", b"schema>2")
+        template = b"<project><version>@project.version@</version></project>"
+        (self.root / "pom.xml").write_bytes(self.pom)
+        (self.root / "maven-plugin").mkdir()
+        (self.root / "maven-plugin/pom.xml").write_bytes(template)
+        self.fixture.git("add", ".")
+        self.fixture.git("commit", "-qm", "Launcher contract")
+        self.commit = self.fixture.git("rev-parse", "HEAD")
+        self.fixture.commit = self.commit
+        self.fixture.archive()
+        library = io.BytesIO()
+        with zipfile.ZipFile(library, "w") as jar:
+            jar.writestr(
+                "cs1302/tracer/version.properties",
+                f"version={self.version}\ngit.commit={self.commit}\ngit.dirty=false\n",
+            )
+        plugin = io.BytesIO()
+        descriptor = (
+            "<plugin><groupId>io.github.cs1302uga</groupId>"
+            "<artifactId>cs1302-tracer-maven-plugin</artifactId>"
+            f"<version>{self.version}</version></plugin>"
+        )
+        with zipfile.ZipFile(plugin, "w") as jar:
+            jar.writestr("META-INF/maven/plugin.xml", descriptor)
+        prefix = (
+            f"io/github/cs1302uga/cs1302-tracer-maven-plugin/{self.version}/cs1302-tracer-maven-plugin-{self.version}"
+        )
+        for name, data in (
+            (self.prefix + ".pom", self.pom),
+            (self.prefix + ".jar", library.getvalue()),
+            (self.prefix + "-javadoc.jar", self.fixture.jar.read_bytes()),
+            (prefix + ".pom", template.replace(b"@project.version@", self.version.encode())),
+            (prefix + ".jar", plugin.getvalue()),
+            (prefix + "-sources.jar", b"sources"),
+            (prefix + "-javadoc.jar", b"javadoc"),
+        ):
+            self.files[name] = data
+            self.files[name + ".asc"] = b"-----BEGIN PGP SIGNATURE-----\nfixture"
+            for algorithm in ("md5", "sha1", "sha256", "sha512"):
+                self.files[name + "." + algorithm] = hashlib.new(algorithm, data).hexdigest().encode()
+        self.bundle()
+        self.assertTrue(central.required(self.root, self.commit))
+        self.assertEqual(central.launcher_pom(self.root, self.commit, self.pom), template)
+        self.assertEqual(central.contents(self.path, self.version, self.commit, self.pom, template), self.files)
+        with self.assertRaisesRegex(ValueError, "tagged template"):
+            central.contents(self.path, self.version, self.commit, self.pom, b"wrong")
+        original = self.files[prefix + ".jar"]
+        altered = io.BytesIO()
+        with zipfile.ZipFile(altered, "w") as jar:
+            jar.writestr("META-INF/maven/plugin.xml", descriptor.replace(self.version, "0.0.0"))
+        self.files[prefix + ".jar"] = altered.getvalue()
+        self.bundle()
+        with self.assertRaisesRegex(ValueError, "descriptor coordinates"):
+            central.contents(self.path, self.version, self.commit, self.pom, template)
+        self.files[prefix + ".jar"] = original
+        # One upload-free bundle per artifact; shared directory entries are harmless.
+        plugin_bundle = self.root / "target/maven-plugin/target/central-publishing" / central.BUNDLE
+        plugin_bundle.parent.mkdir(parents=True)
+        for path, launcher in ((self.target / "central-publishing" / central.BUNDLE, False), (plugin_bundle, True)):
+            with zipfile.ZipFile(path, "w") as jar:
+                jar.writestr("io/", b"")
+                for name, data in self.files.items():
+                    if ("cs1302-tracer-maven-plugin/" in name) == launcher:
+                        jar.writestr(name, data)
+        central.freeze(self.root, self.version, self.commit, "example/repo")
+        self.assertEqual(central.contents(self.path, self.version, self.commit, self.pom, template), self.files)
+        executable(self.root / "mvnw", f"print('code-tracer {self.version} (fixture)')")
+        with patch.object(
+            central.urllib.request,
+            "urlopen",
+            side_effect=lambda url, **kwargs: io.BytesIO(self.files[str(url).removeprefix(central.REPOSITORY)]),
+        ):
+            self.assertTrue(central.verify(self.root, self.path, self.version, self.commit))
+        executable(self.root / "mvnw", "print('wrong version')")
+        with self.assertRaisesRegex(ValueError, "unexpected version"):
+            central.smoke_launcher(self.root, self.version)
+        # A retry restores the frozen combined bundle even when build outputs disappear.
+        plugin_bundle.unlink()
+        central.freeze(self.root, self.version, self.commit, "example/repo")
+        with zipfile.ZipFile(plugin_bundle, "w") as jar:
+            jar.writestr(self.prefix + ".pom", self.pom)
+        with self.assertRaisesRegex(ValueError, "Duplicate"):
+            central.combine(self.root, self.target / "duplicate.zip")
+
+    def test_launcher_schema_requires_inventory(self) -> None:
+        """A schema-two release cannot silently publish only the old artifact family."""
+        changed = self.pom.replace(b"schema>1", b"schema>2")
+        self.files[self.prefix + ".pom"] = changed
+        self.bundle()
+        with self.assertRaisesRegex(ValueError, "tagged schema"):
+            central.contents(self.path, self.version, self.commit, changed)
 
     def test_corrupt_bundle(self) -> None:
         """Fail before upload for invalid signature/checksum, oversized files, or library metadata."""
@@ -162,7 +256,7 @@ else:
             central.contents(self.path, self.version, self.commit, self.pom)
         self.files["unexpected"] = b"bad"
         self.bundle()
-        with self.assertRaisesRegex(ValueError, "four signed"):
+        with self.assertRaisesRegex(ValueError, "signed Maven artifacts"):
             central.contents(self.path, self.version, self.commit, self.pom)
         self.files = original.copy()
         self.bundle()

@@ -6,6 +6,9 @@
  * tracing use {@link cs1302.tracer.api.Tracer} for one request or {@link cs1302.tracer.api.BatchTracer} for
  * NDJSON streams, with detached results and explicitly owned worker lifetimes.</p>
  *
+ * <p>The separate Maven launcher artifact invokes this entry point in its own child JVM.
+ * Maven goal implementation and process cleanup live in that plugin artifact.</p>
+ *
  * <p>This launcher is part of the supported Java interface. Classes under {@code cs1302.tracer.internal}
  * implement parsing, debugging, and serialization and carry no supported compatibility promise.</p>
  *

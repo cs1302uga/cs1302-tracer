@@ -56,6 +56,7 @@ their declared dependencies.
 | `rehearse_docs_release.py` | Exercises preparation, publishing, guide retention, retries, and missing tags using real builds in a disposable project. |
 | `release.py` | Owns isolated signed preparation, resumable publication through exact CI revisions, saved reports, and release-branch validation. |
 | `release_validate.py` | Runs the serial local release gate around Maven's strict Java and documentation profiles; retains stale coverage as audit evidence. |
+| `central_publish.py` | Validates schema-specific signed inventories, freezes combined library/launcher bundles, resumes publication, and checks public bytes plus POM-free launcher execution. |
 | `release_evidence.py` | Verifies exact push-run matrix results and published JAR/archive/documentation provenance without publishing or waiting. |
 | `tests/` | Behavioral tests for release selection and preparation, build CLI, executable documentation, rendered links, HTTP checks, preview serving, and rehearsal. |
 
@@ -98,6 +99,12 @@ Maven profile uses the pinned Maven Site renderer and runs the complete document
 The release runbook also defines the required signing trust, semantic version
 classification, isolated prepare/publish phases, and recovery rules. Preserve its
 distinction between a saved report and freshly verified local/remote evidence.
+For Central bundle changes, follow the [publication runbook](../docs/contributing/releases.md#maven-central-publication).
+Use the tagged capability schema to select the exact inventory and launcher POM
+template. Exercise both historical and current schemas, corrupted artifacts, and
+recovery from frozen bytes. A locally signed upload-free rehearsal validates
+packaging; public artifact resolution remains a separate publication check.
+
 Keep release evidence checks fail-closed: missing or skipped CI jobs, unexpected
 refs, mismatched artifact metadata, and unpublished documentation do not establish
 publication. Pending source overrides are preview-only and must retain exact

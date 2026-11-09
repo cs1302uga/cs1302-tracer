@@ -314,6 +314,9 @@ def pages(root: Path, tree: dict[str, Any], metadata: dict[str, Any], overrides:
         "The [installation guide](../guides/installation.md#third-party-code-in-release-assets)"
         " identifies which release\n"
         "assets contain the Runtime dependencies and how to print their license notices.\n\n"
+        "This is the tracer library graph. The separate Maven launcher reuses its runtime graph; "
+        "its provided APIs and test dependencies are listed in the "
+        "[launcher build guide](../contributing/development.md#maven-cli-launcher).\n\n"
         "Jump to: "
         + " · ".join(jumps)
         + "\n\n"

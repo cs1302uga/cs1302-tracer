@@ -20,6 +20,40 @@ download or build the tracer. After obtaining the JAR, complete
 Use the documentation version matching your downloaded release; `/next/` describes
 development builds, whose artifacts may differ from older releases.
 
+## Run with Maven
+
+The Maven launcher is new development functionality. It is not included in the
+published 4.3.1 release. After a release containing the launcher is published,
+replace `VERSION` below with that stable version; do not use `4.3.1`.
+
+With **Maven 3.10.0 or later** and a full stable JDK 21 or later, run this command
+from any directory. It requires no `pom.xml`, source checkout, or separate JAR download:
+
+```sh
+mvn -q io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run -Dtracer.args="--help"
+```
+
+Maven downloads the plugin and its matching tracer dependencies from Central into
+its local repository on first use. Normal Maven settings, mirrors, proxies, and
+repository credentials apply. Pin a version in scripts so that later releases do
+not silently change results. `mvn --version` identifies the JDK that launches the
+tracer; the CLI's existing JDK checks still apply.
+
+From a directory containing `Main.java`, generate modern JSON:
+
+```sh
+mvn -q io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run -Dtracer.args="trace --input Main.java --all-breakpoints --format modern" > trace.json
+```
+
+These single-line commands work in Bash, PowerShell, and Command Prompt with
+ordinary filenames. Paths containing spaces require quoting inside `tracer.args`;
+see the [Maven launcher reference](../reference/cli.md#maven-launcher). Check Maven's
+exit status before reading the output file. Maven can write its own diagnostics to
+stdout on failure, even with `-q`.
+
+For local development builds, follow the
+[launcher build instructions](../contributing/development.md#maven-cli-launcher).
+
 ## Inspect your current Java selection
 
 Open the terminal you will use for tracing. A nonempty `JAVA_HOME` selects the

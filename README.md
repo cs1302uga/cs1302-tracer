@@ -39,6 +39,9 @@ Hosted student submissions require whole-job isolation as described in the
 [runner contract](docs/RUNNER_CONTRACT.md). Ordinary tracing has finite default
 budgets; omitted limits in envelope and batch jobs are unlimited.
 
+The upcoming Maven launcher runs the CLI without a caller POM; see
+[availability and commands](docs/guides/installation.md#run-with-maven).
+
 ## Build and run
 
 Build from source to develop or modify the tracer. CI tests JDK 21 and 25; guest

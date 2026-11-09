@@ -931,6 +931,7 @@ else:
         authoring = self.root / "docs/contributing/documentation-authoring.md"
         authoring.parent.mkdir(exist_ok=True)
         authoring.write_text("# Authoring\n\n## Maintain license and dependency pages\n")
+        (authoring.parent / "development.md").write_text("# Development\n\n## Maven CLI launcher\n")
         result = invoke(self.root, "dependency_docs.py", "update", env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         result = invoke(self.root, "check_docs.py", "--update-cli", env=self.env)

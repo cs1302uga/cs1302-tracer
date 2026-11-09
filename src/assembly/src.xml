@@ -13,6 +13,9 @@
         <include>LICENSE*</include>
         <include>NOTICE*</include>
         <include>pom.xml</include>
+        <include>maven-plugin/pom.xml</include>
+        <include>maven-plugin/README.md</include>
+        <include>maven-plugin/src/**</include>
         <include>mvnw.cmd</include>
         <include>.mvn/jvm.config</include>
         <include>.mvn/maven.config</include>

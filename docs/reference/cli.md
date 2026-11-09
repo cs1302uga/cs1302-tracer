@@ -573,3 +573,56 @@ Guest annotation processing is disabled with `-proc:none`; supply required
 generated declarations as source. Dependencies acquire no source-line breakpoints.
 See [Java dependency semantics](java-api.md#binary-dependencies) for ownership,
 resource/service lookup, loader qualifications, and binary-resource budget scope.
+
+## Maven launcher
+
+The separate `io.github.cs1302uga:cs1302-tracer-maven-plugin` artifact exposes a
+`run` goal with no project requirement. See [installation](../guides/installation.md#run-with-maven)
+for availability, prerequisites, and the version-pinned invocation. This goal uses
+the same CLI commands, defaults, validation, and serialized formats as the standalone JAR.
+
+| Maven property | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `tracer.args` | No | `--help` | CLI command and arguments, parsed using the rules below. |
+
+Maven options such as `-q` and `-Dmaven.repo.local=PATH` belong outside `tracer.args`.
+The tracer subcommand and its options belong inside it. There is no separate tracer
+version override: the plugin depends on the tracer with the same release version.
+An unrelated POM in the working directory does not contribute dependencies to the
+tracer's classpath or cause Maven lifecycle phases to execute.
+
+After the user's shell processes its own quoting, whitespace separates arguments.
+Single or double quotes group text; the opposite quote is literal inside a quoted
+value. Quoted empty strings remain empty arguments. Adjacent quoted and unquoted
+text forms one argument. Backslashes remain literal, including Windows paths.
+Unclosed quotes fail the Maven goal before Java starts. The plugin does not invoke
+a shell or expand wildcards, environment variables, or command substitutions.
+
+For Bash, quote the entire Maven property with single quotes and
+use double quotes around a source path containing spaces:
+
+```sh
+mvn -q io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run '-Dtracer.args=trace --input "source files/Main.java" --format modern'
+```
+
+For PowerShell and Command Prompt, use double quotes around the property and single quotes around
+the source path:
+
+```bat
+mvn -q io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run "-Dtracer.args=trace --input 'source files/Main.java' --format modern"
+```
+
+The goal starts Java in a separate process using Maven's running JDK and inherits
+the working directory and stdin/stdout/stderr. Source paths remain relative to that
+directory. Source-on-stdin, guest input options, and `batch-trace` NDJSON streaming
+work as for the standalone launcher. Maven interruption and normal JVM shutdown
+trigger cleanup of the owned CLI process and its currently observed descendants.
+Forced termination that prevents JVM shutdown hooks from running cannot provide
+that cleanup guarantee.
+
+A CLI exit of zero succeeds; a nonzero exit fails the Maven goal and reports the
+CLI's numeric status. Maven chooses its own process exit code, so scripts must not
+expect exact numeric CLI exit-code preservation. `-q` suppresses ordinary Maven
+logging but does not make failure output a JSON-only channel. Check success before
+parsing redirected output. For batch jobs, also inspect each response's result
+status; successful stream processing does not guarantee successful traced jobs.

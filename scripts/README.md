@@ -30,6 +30,14 @@ macOS/Linux, they exercise PowerShell and skip the eleven **Command Prompt** tes
 only native Windows runs validate the batch launcher. Windows CI additionally
 extracts the packaged ZIP and runs real traces with both launchers on JDK 21/25.
 
+The Maven plugin's Java integration tests run in the root `package` phase, using
+an isolated Maven repository and caller directories without POMs. After packaging,
+run `./mvnw -B -ntp invoker:run` to repeat them. On Windows, run that step before
+`Invoke-Pester -Path scripts/tests/WindowsMavenLauncher.Tests.ps1 -CI` to test
+PowerShell and Command Prompt argument forwarding with real Maven and Java.
+The [launcher build guide](../docs/contributing/development.md#maven-cli-launcher)
+describes version ownership and coverage.
+
 ## Maven repository setup
 
 `./scripts/uv run --locked python scripts/configure_maven.py` merges the shared

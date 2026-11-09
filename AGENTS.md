@@ -1,7 +1,8 @@
 # cs1302-tracer
 
 Compiles Java programs, traces their execution through JDI, and emits Python Tutor
-or modern JSON. It supports direct CLI use and batch jobs with reusable guest JVMs.
+or modern JSON. It supports direct CLI and Maven launcher use, plus batch jobs
+with reusable guest JVMs.
 
 ## Preserve the contracts
 
@@ -24,6 +25,10 @@ or modern JSON. It supports direct CLI use and batch jobs with reusable guest JV
 - **Output or protocol changes:** read [JSON output](docs/reference/output.md),
   [batch protocol](docs/reference/batch.md), and, for limits or partial results,
   [bounded tracing](docs/BOUNDED_TRACING.md).
+- **Maven CLI launcher, its dependencies, or packaging:** read
+  [the launcher build guide](docs/contributing/development.md#maven-cli-launcher)
+  and [launcher README](maven-plugin/README.md). Edit `maven-plugin/` sources;
+  the root version filters its POM template into the generated build directory.
 - **Python or shell tooling:** read [scripts/AGENTS.md](scripts/AGENTS.md), including
   when invoking scripts from the repository root. Use the local `scripts/uv` and
   `scripts/uvx` wrappers as described there.
@@ -47,6 +52,10 @@ and CI exercises Java 21 and 25. Commands below run from the repository root.
 Start with focused tests of observable behavior. For a focused Java test run, use
 `./mvnw -B -ntp -Djacoco.skip=true -Dtest=TestClass test`; partial runs cannot establish
 whole-project coverage. Use `./mvnw -B -ntp package` for the normal build gates.
+The `package` phase also verifies the Maven launcher; root `test` does not.
+For launcher changes, require its unit and POM-free integration tests, production
+line/branch coverage, and packaged dependency-version checks. Preserve serial
+execution and the Windows native-shell checks; report which platforms actually ran.
 
 For capture, serialization, or example-source changes, package the JAR, then run:
 
@@ -146,7 +155,9 @@ release branch, preserve their identities while fast-forwarding `main`, then pus
 only the verified release tag. An instruction to prepare and publish authorizes
 both phases; otherwise stop at the requested phase. Preserve published tags and
 inspect saved state before recovery. Report publication complete only after the
-release assets and live versioned documentation are verified. Keep operational
+release assets and live versioned documentation are verified. Central publication must
+honor the tagged schema: preserve historical library-only bundles and require both
+artifact families for launcher-enabled releases. Keep operational
 commands, failure handling, and signing setup in the runbook.
 
 ### Maintain the release changelog

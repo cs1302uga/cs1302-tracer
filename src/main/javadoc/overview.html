@@ -38,6 +38,10 @@ A guest exception or null array result uses the ordinary fallback for the inspec
 These collection calls pause reader observation; input they consume can be absent from the logical input cursor.
 Field-only and multithread capture inspect raw storage without these collection calls.</p>
 
+<p>The separate Maven launcher plugin resolves this library and starts
+{@link cs1302.tracer.App} in a child JVM. It supports CLI use without a caller POM;
+its process management is outside the tracing Java API.</p>
+
 <h2>Requirements and resource ownership</h2>
 <p>Use a full JDK 21 or later and the tracer's runtime dependencies. The regular library JAR
 requires those dependencies on the application class path. Submitted language features depend on the

@@ -10,6 +10,10 @@ The **Maven** wrapper supplies Maven. Run these commands from the repository roo
 ./scripts/uv run python examples/verify.py
 ```
 
+The `package` phase also builds the Maven CLI launcher and checks its unit and
+POM-free integration tests with 100% production line/branch coverage. See the
+[launcher build](docs/contributing/development.md#maven-cli-launcher).
+
 The normal build runs **Checkstyle** and tests, and enforces 100% line/branch coverage
 for the configured model and serializer packages. The optional
 `./mvnw -Ppre-commit-coverage clean test` profile requires 100% line/branch coverage

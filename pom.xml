@@ -91,6 +91,7 @@
     <maven-dependency-plugin.version>3.11.0</maven-dependency-plugin.version>
     <properties-maven-plugin.version>1.3.1</properties-maven-plugin.version>
     <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+    <maven-invoker-plugin.version>3.10.1</maven-invoker-plugin.version>
     <maven-install-plugin.version>3.2.0</maven-install-plugin.version>
     <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
     <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
@@ -110,6 +111,7 @@
     <wrapper.maven.version>3.10.0</wrapper.maven.version>
     <wrapper.maven.sha256sum>1f6d9909266510f039f59aa0e13dcd2c66da85f043e56276e41f2918f8bddaff</wrapper.maven.sha256sum>
 
+    <skipTests>false</skipTests>
     <docsite.mode>preview</docsite.mode>
     <docsite.releases />
     <docsite.pendingCommit />
@@ -121,7 +123,7 @@
     <!-- Published releases declaring this schema must provide authenticated Javadoc artifacts. -->
     <release.javadoc.schema>1</release.javadoc.schema>
     <!-- Tagged releases with this marker also require verified Central publication. -->
-    <release.central.schema>1</release.central.schema>
+    <release.central.schema>2</release.central.schema>
     <!-- Central bundles exclude assemblies without changing GitHub distribution files. -->
     <assembly.attach>true</assembly.attach>
 
@@ -568,6 +570,11 @@
             </ruleSet>
           </configuration>
         </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-invoker-plugin</artifactId>
+          <version>${maven-invoker-plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
@@ -943,6 +950,31 @@ git.dirty=${git.dirty}
           <failOnViolation>true</failOnViolation>
           <configLocation>${project.basedir}/src/main/resources/cs1302_checks_extended.xml</configLocation>
         </configuration>
+      </plugin>
+      <!-- Build and test the project-free launcher after the tracer JAR exists. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-invoker-plugin</artifactId>
+        <configuration>
+          <projectsDirectory>${project.basedir}/maven-plugin</projectsDirectory>
+          <pomIncludes><pomInclude>pom.xml</pomInclude></pomIncludes>
+          <cloneProjectsTo>${project.build.directory}/maven-plugin</cloneProjectsTo>
+          <localRepositoryPath>${project.build.directory}/launcher-repository</localRepositoryPath>
+          <goals><goal>verify</goal></goals>
+          <properties>
+            <skipTests>${skipTests}</skipTests>
+            <tracer.root>${project.basedir}</tracer.root>
+          </properties>
+          <failIfNoProjects>true</failIfNoProjects>
+          <streamLogs>true</streamLogs>
+        </configuration>
+        <executions>
+          <execution>
+            <id>verify-maven-launcher</id>
+            <phase>package</phase>
+            <goals><goal>install</goal><goal>run</goal></goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

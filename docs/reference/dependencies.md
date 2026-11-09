@@ -11,6 +11,8 @@ hide_table_of_contents: true
 The [installation guide](../guides/installation.md#third-party-code-in-release-assets) identifies which release
 assets contain the Runtime dependencies and how to print their license notices.
 
+This is the tracer library graph. The separate Maven launcher reuses its runtime graph; its provided APIs and test dependencies are listed in the [launcher build guide](../contributing/development.md#maven-cli-launcher).
+
 Jump to: [Runtime (14)](#runtime-dependencies) · [Test (19)](#test-dependencies) · [Dependency tree](#resolved-dependency-tree) · [About this inventory](#about-this-inventory)
 
 <section class="dependency-inventory" aria-labelledby="runtime-dependencies">

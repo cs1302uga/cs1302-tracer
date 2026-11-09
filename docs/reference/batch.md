@@ -15,6 +15,16 @@ java -jar target/code-tracer.jar batch-trace \
   --workers 2 --max-in-flight 16 --max-jobs-per-worker 100 < jobs.ndjson
 ```
 
+The [Maven launcher](cli.md#maven-launcher) supports the same stdin/stdout protocol:
+
+```sh
+mvn -q io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run -Dtracer.args="batch-trace --workers 1" < jobs.ndjson > results.ndjson
+```
+
+Choose a published launcher version as described in
+[installation](../guides/installation.md#run-with-maven). Check Maven's exit status
+before consuming the output, then inspect every job's result status.
+
 Example request (one physical line):
 
 ```json

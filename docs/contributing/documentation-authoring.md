@@ -55,6 +55,10 @@ Command Prompt snippets in Windows CI with JDK 21 and 25. The suite is
 Keep those markers and their validation in agreement when changing the recipes.
 This Windows coverage applies to the JDK recovery snippets; other native Windows
 tutorial and recipe commands still need separate review and validation when changed.
+The Maven launcher has separate Java integration tests and
+`WindowsMavenLauncher.Tests.ps1` for its native Windows shell commands. Its quoting
+and stream contract lives in the CLI reference; `check_docs.py` does not execute
+unpublished `VERSION` placeholders.
 
 Keep tutorial and recipe marker names stable when editing examples. The reading
 check compares marked JSON excerpts with actual locals and fields, follows the

@@ -45,6 +45,13 @@ and move Unreleased into a release entry. Do not infer publication from pom.xml.
 
 ### Non-breaking changes
 
+- **Maven CLI launch:** add `io.github.cs1302uga:cs1302-tracer-maven-plugin:VERSION:run`
+  for running CLI commands without creating a POM. Maven resolves the matching
+  tracer and launches it in a child JVM. Requires Maven 3.10.0 and a full JDK 21
+  or later. Existing Java API, CLI arguments, and JSON/batch formats are unchanged.
+  New releases publish both signed artifact families in a frozen Central bundle;
+  older releases retain their original library-only publication contract.
+
 - **Documentation navigation:** remove consumer channel-navigation and version-picker
   overrides so Supa supplies palette-aware, responsive, keyboard-accessible styles.
   No Java API, CLI, or output changes.

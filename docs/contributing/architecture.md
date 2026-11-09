@@ -100,6 +100,12 @@ unparsed until each caller's established validation point: before source access
 for CLI commands, and after compilation for Java and NDJSON jobs. Guest ownership,
 session accounting, cancellation, and rendering stay with their existing owners.
 
+The separate `cs1302-tracer-maven-plugin` artifact owns the POM-free Maven `run`
+goal, argument tokenization, and CLI process cleanup. It launches the supported
+`cs1302.tracer.App` entry point in a child JVM with its own resolved runtime
+dependencies. Maven project dependencies do not become tracer dependencies.
+The existing CLI and tracing subsystems retain compilation, guest, and output ownership.
+
 ## Package responsibilities
 
 | Package | Responsibility |

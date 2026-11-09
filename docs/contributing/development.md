@@ -520,3 +520,47 @@ remove it once the resolved plugin graph no longer introduces the legacy reposit
 
 Checkstyle excludes the Maven Release Plugin's generated `release.properties`
 state file from resource checks; authored Java and properties files remain checked.
+
+## Maven CLI launcher
+
+The root `package` phase builds and verifies `maven-plugin/` through Maven Invoker
+3.10.1 after producing the tracer JAR. Invoker installs the current tracer into
+`target/launcher-repository`, copies the launcher sources into `target/maven-plugin`,
+and replaces only the `@project.version@` token in its POM. The root POM remains
+the release version authority. Do not edit a generated POM or independently bump
+the launcher template. The library coordinates and ordinary JAR packaging remain
+independent of the Maven plugin artifact.
+
+The launcher has its own pinned build plugins, Maven API provided dependencies,
+JUnit/Gson test dependencies, Checkstyle, and 100% production line/branch coverage.
+Its only runtime dependency is the matching tracer and that tracer's runtime graph.
+The plugin imports the tracer POM's dependency management so its transitive version
+overrides also apply when Maven resolves the launcher.
+Maven supplies the provided APIs; they are not placed in the CLI child classpath.
+The main dependency reference describes the tracer library graph. Launcher build
+and provided dependency versions are declared in `maven-plugin/pom.xml`.
+
+Root `-DskipTests` skips launcher tests too. The Java CI matrix runs them as part of
+strict `package`; Windows CI repeats `invoker:run` after packaging. Release
+preparation reaches the same package gate before signing version-transition
+commits. Guest-executing tests remain serial. Focused root Java `test` commands do
+not build or verify the launcher.
+
+After packaging, repeat launcher tests with `./mvnw -B -ntp invoker:run`.
+Inspect `target/maven-plugin/target/site/jacoco/index.html`, Surefire/Failsafe
+reports, and `target/maven-plugin/build.log`. Local installation commands are in
+[the launcher README](https://github.com/cs1302uga/cs1302-tracer/blob/main/maven-plugin/README.md).
+
+The launcher's additional direct dependencies are:
+
+| Dependency | Version | Scope | Declared license |
+| --- | --- | --- | --- |
+| `org.apache.maven:maven-plugin-api` | 3.10.0 | Provided by Maven | Apache-2.0 |
+| `org.apache.maven:maven-artifact` | 3.10.0 | Provided by Maven | Apache-2.0 |
+| `org.apache.maven.plugin-tools:maven-plugin-annotations` | 3.16.0 | Provided; build metadata | Apache-2.0 |
+| `org.junit.jupiter:junit-jupiter` | 6.1.3 | Test | EPL-2.0 |
+| `com.google.code.gson:gson` | 2.14.0 | Test | Apache-2.0 |
+
+This table covers additional direct declarations, not their transitive test/build
+graphs. None adds a new library to the shipped tracer runtime. Consult the
+launcher POM and Maven dependency resolution when upgrading these dependencies.

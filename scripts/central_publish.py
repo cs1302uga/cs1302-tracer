@@ -7,6 +7,7 @@ import io
 import json
 import os
 import subprocess
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -32,23 +33,26 @@ def required(root: Path, commit: str) -> bool:
     marker = ET.fromstring(pom).find("./{*}properties/{*}release.central.schema")
     if marker is None:
         return False
-    if marker.text != "1":
+    if marker.text not in ("1", "2"):
         raise ValueError("Unsupported Central publication schema")
     return True
 
 
-def contents(path: Path, version: str, commit: str, pom: bytes) -> dict[str, bytes]:
+def contents(path: Path, version: str, commit: str, pom: bytes, plugin_pom: bytes | None = None) -> dict[str, bytes]:
     """Validate the exact bundle inventory, checksums, coordinates, and tagged library identity."""
     identity(version, commit)
     prefix = f"io/github/cs1302uga/cs1302-tracer/{version}/cs1302-tracer-{version}"
     artifacts = [prefix + suffix for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")]
+    if plugin_pom is not None:
+        plugin_prefix = f"io/github/cs1302uga/cs1302-tracer-maven-plugin/{version}/cs1302-tracer-maven-plugin-{version}"
+        artifacts += [plugin_prefix + suffix for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")]
     expected = {name + suffix for name in artifacts for suffix in ("", ".asc", ".md5", ".sha1", ".sha256", ".sha512")}
     if path.stat().st_size > MAX_SIZE:
         raise ValueError("Central bundle exceeds size limit")
     with zipfile.ZipFile(path) as archive:
         entries = [entry for entry in archive.infolist() if not entry.is_dir()]
         if {entry.filename for entry in entries} != expected or len(entries) != len(expected):
-            raise ValueError("Central bundle must contain only the four signed Maven artifacts and checksums")
+            raise ValueError("Central bundle must contain only the expected signed Maven artifacts and checksums")
         if sum(entry.file_size for entry in entries) > MAX_SIZE:
             raise ValueError("Central bundle exceeds expansion limit")
         files = {entry.filename: archive.read(entry) for entry in entries}
@@ -61,6 +65,20 @@ def contents(path: Path, version: str, commit: str, pom: bytes) -> dict[str, byt
         version,
     ]:
         raise ValueError("Central coordinates differ from the stable release")
+    schema = tree.findtext("./{*}properties/{*}release.central.schema")
+    if (schema == "2") != (plugin_pom is not None):
+        raise ValueError("Central launcher inventory does not match the tagged schema")
+    if plugin_pom is not None:
+        if files[plugin_prefix + ".pom"] != plugin_pom.replace(b"@project.version@", version.encode()):
+            raise ValueError("Central launcher POM differs from the tagged template")
+        with zipfile.ZipFile(io.BytesIO(files[plugin_prefix + ".jar"])) as jar:
+            descriptor = ET.fromstring(jar.read("META-INF/maven/plugin.xml"))
+        if [descriptor.findtext(field) for field in ("groupId", "artifactId", "version")] != [
+            "io.github.cs1302uga",
+            "cs1302-tracer-maven-plugin",
+            version,
+        ]:
+            raise ValueError("Central launcher descriptor coordinates differ")
     for name in artifacts:
         if not files[name + ".asc"].startswith(b"-----BEGIN PGP SIGNATURE-----"):
             raise ValueError("Missing armored PGP signature")
@@ -76,6 +94,32 @@ def contents(path: Path, version: str, commit: str, pom: bytes) -> dict[str, byt
     ):
         raise ValueError("Central library must identify the clean tagged commit")
     return files
+
+
+def launcher_pom(root: Path, commit: str, pom: bytes) -> bytes | None:
+    """Read the launcher template only for releases that declare the two-artifact contract."""
+    if ET.fromstring(pom).findtext("./{*}properties/{*}release.central.schema") == "2":
+        return subprocess.check_output(["git", "show", commit + ":maven-plugin/pom.xml"], cwd=root)
+    return None
+
+
+def combine(root: Path, destination: Path) -> None:
+    """Combine the two upload-free bundles, rejecting overlapping archive names."""
+    paths = [
+        root / "target/central-publishing" / BUNDLE,
+        root / "target/maven-plugin/target/central-publishing" / BUNDLE,
+    ]
+    names: set[str] = set()
+    with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as output:
+        for path in paths:
+            with zipfile.ZipFile(path) as source:
+                for entry in source.infolist():
+                    if entry.is_dir():
+                        continue
+                    if entry.filename in names:
+                        raise ValueError("Duplicate Central bundle entry")
+                    names.add(entry.filename)
+                    output.writestr(entry.filename, source.read(entry))
 
 
 def freeze(root: Path, version: str, commit: str, repository: str) -> None:
@@ -105,6 +149,8 @@ def freeze(root: Path, version: str, commit: str, repository: str) -> None:
         root, "release", "view", tag, "--repo", target, "--json", "assets", "--jq", ".assets[].name"
     ).splitlines()
     path = root / "target" / BUNDLE
+    pom = subprocess.check_output(["git", "show", commit + ":pom.xml"], cwd=root)
+    template = launcher_pom(root, commit, pom)
     if BUNDLE in assets:
         github(
             root,
@@ -119,15 +165,17 @@ def freeze(root: Path, version: str, commit: str, repository: str) -> None:
             str(path.parent),
             "--clobber",
         )
+    elif template is not None:
+        combine(root, path)
     else:
         path.write_bytes((root / "target/central-publishing" / BUNDLE).read_bytes())
-    pom = subprocess.check_output(["git", "show", commit + ":pom.xml"], cwd=root)
-    files = contents(path, version, commit, pom)
+    files = contents(path, version, commit, pom, template)
     for name, data in files.items():
         (path.parent / name.rsplit("/", 1)[1]).write_bytes(data)
-    for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar"):
-        artifact = path.parent / f"cs1302-tracer-{version}{suffix}"
-        subprocess.run(["gpg", "--batch", "--verify", str(artifact) + ".asc", str(artifact)], check=True)
+    for name in files:
+        if name.endswith(".asc"):
+            signature = path.parent / name.rsplit("/", 1)[1]
+            subprocess.run(["gpg", "--batch", "--verify", str(signature), str(signature)[:-4]], check=True)
     validate_archive(path.parent / f"cs1302-tracer-{version}-javadoc.jar", version, commit)
     if BUNDLE not in assets:
         github(root, "release", "upload", tag, str(path), "--repo", target)
@@ -136,7 +184,8 @@ def freeze(root: Path, version: str, commit: str, repository: str) -> None:
 def verify(root: Path, path: Path, version: str, commit: str) -> bool:
     """Compare public Central bytes to the retained bundle, returning false only for propagation delay."""
     pom = subprocess.check_output(["git", "show", commit + ":pom.xml"], cwd=root)
-    files = contents(path, version, commit, pom)
+    template = launcher_pom(root, commit, pom)
+    files = contents(path, version, commit, pom, template)
     for suffix in (".jar", "-javadoc.jar"):
         name = f"cs1302-tracer-{version}{suffix}"
         if (path.parent / name).read_bytes() != files[f"io/github/cs1302uga/cs1302-tracer/{version}/{name}"]:
@@ -152,7 +201,30 @@ def verify(root: Path, path: Path, version: str, commit: str) -> bool:
             raise
         if actual != expected:
             raise ValueError(f"Published Central bytes differ: {name}")
+    if template is not None:
+        smoke_launcher(root, version)
     return True
+
+
+def smoke_launcher(root: Path, version: str) -> None:
+    """Resolve and execute the public launcher in a fresh repository without a caller POM."""
+    with tempfile.TemporaryDirectory(prefix="central-launcher-") as directory:
+        output = subprocess.check_output(
+            [
+                str(root / "mvnw"),
+                "-q",
+                "-ntp",
+                "-Dstyle.color=never",
+                "-Dmaven.repo.local=" + str(Path(directory) / "repository"),
+                f"io.github.cs1302uga:cs1302-tracer-maven-plugin:{version}:run",
+                "-Dtracer.args=--version",
+            ],
+            cwd=directory,
+            text=True,
+            timeout=180,
+        )
+    if not output.startswith(f"code-tracer {version} "):
+        raise ValueError("Published Maven launcher returned unexpected version output")
 
 
 def request(endpoint: str, data: bytes, content_type: str = "application/octet-stream") -> bytes:

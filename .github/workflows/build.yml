@@ -294,6 +294,9 @@ jobs:
           call mvnw.cmd -B -ntp --version
           if errorlevel 1 exit /b 1
           call mvnw.cmd -B -ntp -DskipTests -Djacoco.skip=true package
+      - name: Test Maven launcher without a caller POM
+        shell: cmd
+        run: call mvnw.cmd -B -ntp invoker:run
       - name: Analyze Windows launchers and test documented JDK selection
         shell: pwsh
         run: |
@@ -303,7 +306,7 @@ jobs:
           Import-Module PSScriptAnalyzer -RequiredVersion 1.25.0
           $diagnostics = @(Invoke-ScriptAnalyzer src/main/scripts/code-tracer.ps1)
           if ($diagnostics.Count) { $diagnostics | Format-Table; throw 'PowerShell analysis failed' }
-          Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1, scripts/tests/WindowsDocumentation.Tests.ps1 -CI
+          Invoke-Pester -Path scripts/tests/WindowsLauncher.Tests.ps1, scripts/tests/WindowsDocumentation.Tests.ps1, scripts/tests/WindowsMavenLauncher.Tests.ps1 -CI
       - name: Verify Windows launcher distribution
         shell: pwsh
         run: |
@@ -420,6 +423,13 @@ jobs:
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
         run: ./mvnw -B -ntp -Prelease-javadoc,release-central clean deploy -DskipTests
+      - name: Build signed Maven launcher bundle
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: >-
+          ./mvnw -B -ntp -f target/maven-plugin/pom.xml
+          -Dmaven.repo.local="$PWD/target/launcher-repository"
+          -Dtracer.root="$PWD" -Prelease-central -DskipTests deploy
       - name: Freeze Central bundle and restore shared artifacts
         env:
           GH_TOKEN: ${{ github.token }}

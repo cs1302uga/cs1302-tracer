@@ -317,12 +317,18 @@ releases retain their original GitHub-only evidence contract. Changing the old
 `cs1302uga` group ID is a breaking Maven consumer migration. The maintainer
 explicitly approved release 4.3.1 as an exception to the normal major-release
 policy; this exception does not change the policy for subsequent releases.
-Prepare 4.3.1 with `--change-kind patch` to encode the approved version increment,
-while retaining the breaking migration notice in its changelog. The next
-development version is `4.3.2-SNAPSHOT`. Java package names,
+That historical release used `--change-kind patch` for the approved increment,
+retained its breaking migration notice, and transitioned to `4.3.2-SNAPSHOT`. Java package names,
 CLI arguments, and JSON formats are unchanged. Snapshots are not published by this
 workflow. The existing GitHub Packages distribution settings are independent of
 GitHub Releases and are not used by the Central bundle publisher.
+
+New releases use `release.central.schema=2`, which additionally requires
+`io.github.cs1302uga:cs1302-tracer-maven-plugin` at exactly the tracer version.
+The launcher is compatible new functionality and requires at least a minor
+increment when selecting the next software release. The root POM controls both
+versions; release transition commits still change only that POM. Schema-one
+releases retain the four-artifact contract, and published bundles remain immutable.
 
 Configure these repository or accessible organization Actions secrets before
 publishing: `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_TOKEN`,
@@ -342,10 +348,22 @@ bundle rehearsal, from a stable checkout with a configured signing key:
 
 ```sh
 ./mvnw -B -ntp -Prelease-javadoc,release-central deploy
+./mvnw -B -ntp -f target/maven-plugin/pom.xml \
+  -Dmaven.repo.local="$PWD/target/launcher-repository" -Dtracer.root="$PWD" \
+  -Prelease-central -DskipTests deploy
 ```
 
-Inspect `target/central-publishing/central-bundle.zip`. This command does not
-publish it. Portal validation can be rehearsed by manually uploading that bundle
+Inspect `target/central-publishing/central-bundle.zip` and
+`target/maven-plugin/target/central-publishing/central-bundle.zip`. These commands
+do not publish them. Each contains its artifact's POM, binary, sources, and Javadoc
+with signatures and checksums. `central_publish.py freeze` combines them for schema
+two before validation and retention. It checks the launcher's POM against the tagged
+template with the root version substituted, and checks the packaged plugin descriptor.
+It verifies signatures for both families and rejects missing or extra entries.
+After all public Central bytes match, verification resolves and runs the launcher
+in a fresh temporary Maven repository from a directory without a POM, requiring
+the released version in its output.
+Retries restore the frozen combined bundle without needing either build directory. Portal validation can be rehearsed by manually uploading that bundle
 with automatic publication disabled; do not publish an artificial rehearsal
 version. Follow [Sonatype's Maven documentation](https://central.sonatype.org/publish/publish-portal-maven/)
 and [Portal API documentation](https://central.sonatype.org/publish/publish-portal-api/).
