@@ -14,6 +14,8 @@ checks, and 100% production line/branch coverage. It includes calls from directo
 without POMs and with an unrelated POM. The integration tests use the isolated
 repository and instrument the actual Maven process for coverage. Root `-DskipTests`
 skips both launcher test suites; required Java CI and release validation run them.
+Interruption tests also check that the CLI child exits and releases redirected
+output files before launcher cleanup returns, including on Windows.
 To repeat only launcher validation after packaging the tracer:
 
 ```sh

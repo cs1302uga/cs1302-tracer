@@ -70,6 +70,8 @@ class RunMojoTest {
             owner.join(10000);
             assertFalse(owner.isAlive());
             assertInstanceOf(MojoExecutionException.class, failure.get());
+            Files.delete(directory.resolve("stdout"));
+            Files.delete(directory.resolve("stderr"));
             assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
                 while (ProcessHandle.of(child).map(ProcessHandle::isAlive).orElse(false)) {
                     Thread.sleep(20);

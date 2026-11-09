@@ -81,7 +81,8 @@ public final class RunMojo extends AbstractMojo {
     } // run
 
     /**
-     * Stops owned descendants before their parent can orphan them.
+     * Stops owned descendants before their parent can orphan them, then waits for the
+     * child to exit so its inherited file handles are released before returning.
      *
      * @param child CLI process
      */
@@ -89,6 +90,7 @@ public final class RunMojo extends AbstractMojo {
         List<ProcessHandle> descendants = child.descendants().toList();
         descendants.reversed().forEach(ProcessHandle::destroyForcibly);
         child.destroyForcibly();
+        child.onExit().join();
     } // terminate
 
     /**
